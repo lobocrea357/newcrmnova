@@ -96,8 +96,8 @@ services:
       dockerfile: Dockerfile
       args:
         # Build args para Next.js
-        NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     container_name: crm-dashboard
     restart: unless-stopped
     ports:
@@ -108,8 +108,8 @@ services:
       - PORT=3000
       
       # Supabase (también en runtime por si acaso)
-      - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     networks:
       - crm_network
     healthcheck:
