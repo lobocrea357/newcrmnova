@@ -1,7 +1,7 @@
 services:
   # Servicio WAHA (WhatsApp HTTP API)
   waha:
-    image: devlikeapro/waha:latest
+    image: devlikeapro/waha-plus:latest
     container_name: waha
     restart: unless-stopped
     ports:
@@ -13,6 +13,9 @@ services:
       - WAHA_DASHBOARD_PASSWORD=${WAHA_DASHBOARD_PASSWORD}
       - WHATSAPP_SWAGGER_USERNAME=${WHATSAPP_SWAGGER_USERNAME}
       - WHATSAPP_SWAGGER_PASSWORD=${WHATSAPP_SWAGGER_PASSWORD}
+      
+      # WAHA Plus
+      - WAHA_PLUS_VERSION=${WAHA_PLUS_VERSION}
       
       # Dashboard y Swagger
       - WAHA_DASHBOARD_ENABLED=${WAHA_DASHBOARD_ENABLED}
