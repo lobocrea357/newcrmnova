@@ -1,0 +1,132 @@
+services:
+  # Servicio WAHA (WhatsApp HTTP API)
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: waha
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Seguridad
+      - WAHA_API_KEY=${WAHA_API_KEY}
+      - WAHA_DASHBOARD_USERNAME=${WAHA_DASHBOARD_USERNAME}
+      - WAHA_DASHBOARD_PASSWORD=${WAHA_DASHBOARD_PASSWORD}
+      - WHATSAPP_SWAGGER_USERNAME=${WHATSAPP_SWAGGER_USERNAME}
+      - WHATSAPP_SWAGGER_PASSWORD=${WHATSAPP_SWAGGER_PASSWORD}
+      
+      # Dashboard y Swagger
+      - WAHA_DASHBOARD_ENABLED=${WAHA_DASHBOARD_ENABLED}
+      - WHATSAPP_SWAGGER_ENABLED=${WHATSAPP_SWAGGER_ENABLED}
+      
+      # Engine
+      - WHATSAPP_DEFAULT_ENGINE=${WHATSAPP_DEFAULT_ENGINE}
+      
+      # URLs
+      - WAHA_BASE_URL=${WAHA_BASE_URL}
+      
+      # Logging
+      - WAHA_LOG_FORMAT=${WAHA_LOG_FORMAT}
+      - WAHA_LOG_LEVEL=${WAHA_LOG_LEVEL}
+      - WAHA_PRINT_QR=${WAHA_PRINT_QR}
+      
+      # Media Storage
+      - WAHA_MEDIA_STORAGE=${WAHA_MEDIA_STORAGE}
+      - WHATSAPP_FILES_LIFETIME=${WHATSAPP_FILES_LIFETIME}
+      - WHATSAPP_FILES_FOLDER=${WHATSAPP_FILES_FOLDER}
+      
+      # Webhooks - Apunta al servicio express
+      - WHATSAPP_HOOK_URL=http://express:4000/webhooks/waha
+      - WHATSAPP_HOOK_EVENTS=${WHATSAPP_HOOK_EVENTS}
+    volumes:
+      - waha_data:/app/.waha
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/.media
+    networks:
+      - crm_network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "--header=X-Api-Key:${WAHA_API_KEY}", "http://localhost:3000/api/server/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Servicio Express (API del CRM)
+  express:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crm-express
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      # Puerto
+      - PORT=4000
+      
+      # WAHA
+      - WAHA_API_KEY=${WAHA_API_KEY}
+      - WAHA_BASE_URL=http://waha:3000
+      
+      # Supabase
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_STORAGE_BUCKET=${SUPABASE_STORAGE_BUCKET}
+      
+      # OpenAI
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      
+      # Node
+      - NODE_ENV=production
+    depends_on:
+      waha:
+        condition: service_healthy
+    networks:
+      - crm_network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Servicio Dashboard (Next.js)
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+      args:
+        # Build args para Next.js
+        NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+    container_name: crm-dashboard
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      # Next.js
+      - NODE_ENV=production
+      - PORT=3000
+      
+      # Supabase (también en runtime por si acaso)
+      - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+    networks:
+      - crm_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  crm_network:
+    driver: bridge
+
+volumes:
+  waha_data:
+    driver: local
+  waha_sessions:
+    driver: local
+  waha_media:
+    driver: local

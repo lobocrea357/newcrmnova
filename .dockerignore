@@ -1,0 +1,48 @@
+# Node modules
+node_modules
+npm-debug.log
+
+# Environment files
+.env.local
+.env.*.local
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation
+README.md
+GUIA-RAPIDA.md
+*.md
+
+# WAHA data
+.waha
+sessions
+
+# Logs
+logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# SQL files
+*.sql
+
+# Test files
+test
+tests
+*.test.js
+*.spec.js
