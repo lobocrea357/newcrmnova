@@ -63,12 +63,25 @@ export class WebhookService {
    */
   async saveWebhookEvent(event) {
     try {
+      // Obtener el bot_id desde la sesión
+      const { data: bot } = await supabase
+        .from('bots')
+        .select('id')
+        .eq('session_name', event.session)
+        .single();
+
+      if (!bot) {
+        console.warn(`⚠️ Bot no encontrado para sesión: ${event.session}`);
+        return;
+      }
+
       const { error } = await supabase
         .from('webhook_events')
         .insert([{
+          bot_id: bot.id,
           event_type: event.event,
-          session_name: event.session,
-          payload: event.payload,
+          event_data: event.payload || event,
+          processed: false,
           created_at: new Date().toISOString()
         }]);
 
@@ -275,25 +288,58 @@ export class WebhookService {
   }
 
   /**
-   * Procesa multimedia (LÓGICA MEJORADA)
+   * Procesa multimedia (LÓGICA MEJORADA Y CORREGIDA)
    */
   async processMedia(botId, messageId, payload) {
     try {
-      // Extraer mediaUrl del formato correcto de WAHA
-      const mediaUrl = payload.mediaUrl || payload.media?.url;
-      const mimetype = payload.mimetype || payload.media?.mimetype;
-      const messageType = payload.type || (payload._data?.message?.imageMessage ? 'image' : 
-                                           payload._data?.message?.videoMessage ? 'video' :
-                                           payload._data?.message?.audioMessage ? 'audio' : 'unknown');
+      // Extraer mediaUrl de múltiples posibles ubicaciones
+      let mediaUrl = null;
+      let mimetype = null;
+      let messageType = payload.type || 'unknown';
+
+      // Intentar extraer de diferentes formatos de WAHA
+      if (payload.mediaUrl) {
+        mediaUrl = payload.mediaUrl;
+        mimetype = payload.mimetype;
+      } else if (payload.media?.url) {
+        mediaUrl = payload.media.url;
+        mimetype = payload.media.mimetype;
+      } else if (payload._data?.mediaUrl) {
+        mediaUrl = payload._data.mediaUrl;
+        mimetype = payload._data.mimetype;
+      }
+
+      // Detectar tipo de mensaje desde _data si no viene en payload.type
+      if (payload._data?.message) {
+        const msg = payload._data.message;
+        if (msg.imageMessage) {
+          messageType = 'image';
+          mimetype = mimetype || msg.imageMessage.mimetype || 'image/jpeg';
+        } else if (msg.videoMessage) {
+          messageType = 'video';
+          mimetype = mimetype || msg.videoMessage.mimetype || 'video/mp4';
+        } else if (msg.audioMessage || msg.pttMessage) {
+          messageType = 'audio';
+          mimetype = mimetype || msg.audioMessage?.mimetype || msg.pttMessage?.mimetype || 'audio/ogg';
+        } else if (msg.documentMessage || msg.documentWithCaptionMessage) {
+          messageType = 'document';
+          mimetype = mimetype || msg.documentMessage?.mimetype || 'application/pdf';
+        } else if (msg.stickerMessage) {
+          messageType = 'sticker';
+          mimetype = mimetype || 'image/webp';
+        }
+      }
 
       console.log(`\n📎 ========== PROCESANDO MULTIMEDIA ==========`);
       console.log(`Tipo: ${messageType}`);
       console.log(`Media URL: ${mediaUrl}`);
       console.log(`Mimetype: ${mimetype}`);
+      console.log(`Payload keys: ${Object.keys(payload).join(', ')}`);
       console.log(`==========================================\n`);
 
       if (!mediaUrl) {
-        console.log(`⚠️ No hay mediaUrl, omitiendo procesamiento`);
+        console.log(`⚠️ No hay mediaUrl en ningún formato conocido`);
+        console.log(`Payload completo:`, JSON.stringify(payload, null, 2));
         return;
       }
 
@@ -323,9 +369,10 @@ export class WebhookService {
         transcriptionService.processAudioMessage(
           mediaData.publicUrl,
           messageId,
+          botId,
           wahaApiKey
         ).catch(err => {
-          console.error('Error en transcripción (no bloqueante):', err);
+          console.error('Error en transcripción (no bloqueante):', err.message);
         });
       }
 

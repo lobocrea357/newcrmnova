@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // output: 'standalone', // Deshabilitado porque usamos npm start
+  /* config options here */
+  reactCompiler: true,
 };
 
 export default nextConfig;

@@ -1,7 +1,10 @@
 services:
-  # Servicio WAHA (WhatsApp HTTP API)
+  # ============================================
+  # WAHA PLUS - WhatsApp HTTP API
+  # Permite crear workers y bots de WhatsApp
+  # ============================================
   waha:
-    image: devlikeapro/waha-plus:noweb
+    image: devlikeapro/waha-plus:latest
     container_name: waha
     restart: unless-stopped
     ports:
@@ -9,37 +12,37 @@ services:
     environment:
       # Seguridad
       - WAHA_API_KEY=${WAHA_API_KEY}
-      - WAHA_DASHBOARD_USERNAME=${WAHA_DASHBOARD_USERNAME}
+      - WAHA_DASHBOARD_USERNAME=${WAHA_DASHBOARD_USERNAME:-admin}
       - WAHA_DASHBOARD_PASSWORD=${WAHA_DASHBOARD_PASSWORD}
-      - WHATSAPP_SWAGGER_USERNAME=${WHATSAPP_SWAGGER_USERNAME}
+      - WHATSAPP_SWAGGER_USERNAME=${WHATSAPP_SWAGGER_USERNAME:-admin}
       - WHATSAPP_SWAGGER_PASSWORD=${WHATSAPP_SWAGGER_PASSWORD}
       
       # WAHA Plus
-      - WAHA_PLUS_VERSION=${WAHA_PLUS_VERSION}
+      - WAHA_PLUS_VERSION=${WAHA_PLUS_VERSION:-latest}
       
       # Dashboard y Swagger
-      - WAHA_DASHBOARD_ENABLED=${WAHA_DASHBOARD_ENABLED}
-      - WHATSAPP_SWAGGER_ENABLED=${WHATSAPP_SWAGGER_ENABLED}
+      - WAHA_DASHBOARD_ENABLED=${WAHA_DASHBOARD_ENABLED:-true}
+      - WHATSAPP_SWAGGER_ENABLED=${WHATSAPP_SWAGGER_ENABLED:-true}
       
-      # Engine
-      - WHATSAPP_DEFAULT_ENGINE=${WHATSAPP_DEFAULT_ENGINE}
+      # Engine (NOWEB para mejor rendimiento)
+      - WHATSAPP_DEFAULT_ENGINE=${WHATSAPP_DEFAULT_ENGINE:-NOWEB}
       
       # URLs
       - WAHA_BASE_URL=${WAHA_BASE_URL}
       
       # Logging
-      - WAHA_LOG_FORMAT=${WAHA_LOG_FORMAT}
-      - WAHA_LOG_LEVEL=${WAHA_LOG_LEVEL}
-      - WAHA_PRINT_QR=${WAHA_PRINT_QR}
+      - WAHA_LOG_FORMAT=${WAHA_LOG_FORMAT:-PRETTY}
+      - WAHA_LOG_LEVEL=${WAHA_LOG_LEVEL:-info}
+      - WAHA_PRINT_QR=${WAHA_PRINT_QR:-false}
       
       # Media Storage
-      - WAHA_MEDIA_STORAGE=${WAHA_MEDIA_STORAGE}
-      - WHATSAPP_FILES_LIFETIME=${WHATSAPP_FILES_LIFETIME}
-      - WHATSAPP_FILES_FOLDER=${WHATSAPP_FILES_FOLDER}
+      - WAHA_MEDIA_STORAGE=${WAHA_MEDIA_STORAGE:-LOCAL}
+      - WHATSAPP_FILES_LIFETIME=${WHATSAPP_FILES_LIFETIME:-0}
+      - WHATSAPP_FILES_FOLDER=${WHATSAPP_FILES_FOLDER:-/app/.media}
       
       # Webhooks - Apunta al servicio express
       - WHATSAPP_HOOK_URL=http://express:4000/webhooks/waha
-      - WHATSAPP_HOOK_EVENTS=${WHATSAPP_HOOK_EVENTS}
+      - WHATSAPP_HOOK_EVENTS=${WHATSAPP_HOOK_EVENTS:-session.status,message,message.ack,message.reaction}
     volumes:
       - waha_data:/app/.waha
       - waha_sessions:/app/.sessions
@@ -53,7 +56,10 @@ services:
       retries: 3
       start_period: 40s
 
-  # Servicio Express (API del CRM)
+  # ============================================
+  # EXPRESS API - Backend del CRM
+  # Utiliza endpoints de WAHA para alimentar la BD
+  # ============================================
   express:
     build:
       context: .
@@ -66,16 +72,16 @@ services:
       # Puerto
       - PORT=4000
       
-      # WAHA
+      # WAHA - Conexión interna entre contenedores
       - WAHA_API_KEY=${WAHA_API_KEY}
       - WAHA_BASE_URL=http://waha:3000
       
-      # Supabase
+      # Supabase - Almacenamiento de toda la base de datos
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-      - SUPABASE_STORAGE_BUCKET=${SUPABASE_STORAGE_BUCKET}
+      - SUPABASE_STORAGE_BUCKET=${SUPABASE_STORAGE_BUCKET:-whatsapp}
       
-      # OpenAI
+      # OpenAI (opcional - para transcripción de audios)
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       
       # Node
@@ -92,13 +98,16 @@ services:
       retries: 3
       start_period: 20s
 
-  # Servicio Dashboard (Next.js)
+  # ============================================
+  # DASHBOARD - Frontend Next.js
+  # Consume toda la base de datos de Supabase
+  # ============================================
   dashboard:
     build:
       context: ./dashboard
       dockerfile: Dockerfile
       args:
-        # Build args para Next.js
+        # Build args para Next.js (necesarios en build time)
         NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     container_name: crm-dashboard
@@ -110,7 +119,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       
-      # Supabase (también en runtime por si acaso)
+      # Supabase - Acceso directo a la base de datos
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     networks:

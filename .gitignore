@@ -2,9 +2,32 @@
 node_modules/
 package-lock.json
 
-# Environment variables
+# ============================================
+# VARIABLES DE ENTORNO Y CREDENCIALES
+# ============================================
+.env
+.env.*
 .env.local
-.env.*.local
+.env.development
+.env.production
+.env.test
+*.env
+.env.backup
+
+# Credenciales sensibles
+CREDENCIALES_DOCKER.md
+credentials.json
+secrets.json
+*.pem
+*.key
+*.cert
+*.crt
+id_rsa*
+*.ppk
+
+# Archivos de configuración con datos sensibles
+config.local.js
+config.production.js
 
 # Logs
 logs
@@ -94,20 +117,64 @@ dist
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
 
-# WAHA data
+# ============================================
+# WAHA DATA Y SESIONES
+# ============================================
 .waha/
+.sessions/
 sessions/
+.media/
+*.session
+*.session.json
 
-# Docker volumes
+# ============================================
+# DOCKER
+# ============================================
 docker-compose.override.yml
+docker-compose.*.yml
+!docker-compose.yml
+!docker-compose.example.yml
 
+# Volúmenes y datos de Docker
+volumes/
+data/
+
+# ============================================
+# BACKUPS Y TEMPORALES
+# ============================================
+*.backup
+*.bak
+*.tmp
+*.temp
+backup/
+backups/
+temp/
+
+# ============================================
+# DOCUMENTACIÓN CON DATOS SENSIBLES
+# ============================================
+*CREDENCIALES*
+*PASSWORDS*
+*SECRETS*
+notas-privadas.md
+passwords.txt
+COMANDOS_VPS.md
+
+# ============================================
 # OS
+# ============================================
 .DS_Store
 Thumbs.db
+desktop.ini
 
+# ============================================
 # IDE
+# ============================================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.project
+.classpath
+.settings/

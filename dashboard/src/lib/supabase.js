@@ -35,12 +35,23 @@ export async function getAllWorkers() {
         .select('*', { count: 'exact', head: true })
         .eq('worker_id', worker.id)
       
+      const { count: chatCount } = await supabase
+        .from('chats')
+        .select('*', { count: 'exact', head: true })
+        .in('bot_id', await supabase
+          .from('bots')
+          .select('id')
+          .eq('worker_id', worker.id)
+          .then(({ data }) => data?.map(b => b.id) || [])
+        )
+      
       return {
         worker_id: worker.id,
         worker_name: worker.name,
         worker_email: worker.email,
         worker_status: worker.status,
-        total_bots: botCount || 0
+        total_bots: botCount || 0,
+        total_chats: chatCount || 0
       }
     })
   )
@@ -62,13 +73,10 @@ export async function getAllBots() {
   
   console.log('✅ Sesión verificada:', session.user.email)
   
+  // Primero obtener los bots
   const { data: bots, error } = await supabase
     .from('bots')
-    .select(`
-      *,
-      worker:workers(id, name, email),
-      chats:chats(count)
-    `)
+    .select('*')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -76,12 +84,38 @@ export async function getAllBots() {
     return []
   }
   
-  console.log('📊 Bots obtenidos desde Supabase:', bots?.length || 0)
+  console.log('📊 Bots obtenidos desde Supabase:', bots?.length || 0, bots)
   
-  return (bots || []).map(bot => ({
-    ...bot,
-    conversation_count: bot.chats?.[0]?.count || 0
-  }))
+  // Obtener información adicional para cada bot
+  const botsWithDetails = await Promise.all(
+    (bots || []).map(async (bot) => {
+      // Obtener worker
+      let worker = null
+      if (bot.worker_id) {
+        const { data: workerData } = await supabase
+          .from('workers')
+          .select('id, name, email')
+          .eq('id', bot.worker_id)
+          .single()
+        worker = workerData
+      }
+      
+      // Contar chats
+      const { count } = await supabase
+        .from('chats')
+        .select('*', { count: 'exact', head: true })
+        .eq('bot_id', bot.id)
+      
+      return {
+        ...bot,
+        worker,
+        conversation_count: count || 0
+      }
+    })
+  )
+  
+  console.log('📊 Bots con detalles:', botsWithDetails)
+  return botsWithDetails
 }
 
 /**

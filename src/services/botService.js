@@ -23,7 +23,6 @@ export class BotService {
         .from('bots')
         .insert([
           {
-            name: sessionName,
             session_name: sessionName,
             phone_number: phoneNumber || 'pending',
             status: 'disconnected',
