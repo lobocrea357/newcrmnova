@@ -1,7 +1,7 @@
 services:
   # Servicio WAHA (WhatsApp HTTP API)
   waha:
-    image: devlikeapro/waha-plus:latest
+    image: devlikeapro/waha-plus:noweb
     container_name: waha
     restart: unless-stopped
     ports:
