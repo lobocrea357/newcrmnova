@@ -1,15 +1,21 @@
 'use client'
 
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import ChatView from '@/components/ChatView'
 
 export default function ChatPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const chatId = params.chatId
 
   const handleClose = () => {
-    router.push('/dashboard')
+    const botId = searchParams.get('botId')
+    if (botId) {
+      router.push(`/dashboard?botId=${botId}&chatId=${chatId}`)
+    } else {
+      router.push('/dashboard')
+    }
   }
 
   return (

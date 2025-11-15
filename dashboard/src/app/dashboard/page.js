@@ -1,19 +1,20 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase, getAllWorkers, getAllBots, getConversationsByBot } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Bot,
   MessageSquare,
   LogOut,
   RefreshCw,
   Users,
-  ChevronDown,
-  ChevronRight,
   Search,
   Filter,
   Phone,
   Circle,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -22,13 +23,18 @@ export default function DashboardPage() {
   const [conversations, setConversations] = useState({});
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
-  const [expandedBots, setExpandedBots] = useState({});
+  const [selectedBotId, setSelectedBotId] = useState(null);
   const [loadingConversations, setLoadingConversations] = useState({});
   const [searchFilter, setSearchFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // 'all', 'active', 'inactive'
   const [leaderFilter, setLeaderFilter] = useState("all"); // 'all', 'moises', 'jesus', 'endry'
-  const [sedeFilter, setSedeFilter] = useState("all"); // 'all', 'nova', 'apolo'
+  const [leadFilter, setLeadFilter] = useState("all"); // 'all', 'colombia', 'venezuela'
+  const [sedeFilter, setSedeFilter] = useState("all"); // 'all', 'nova', 'apolo', 'flash'
+  const [showFilters, setShowFilters] = useState(true);
+  const [isCompactView, setIsCompactView] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const lastChatId = searchParams.get('chatId');
 
   useEffect(() => {
     checkUser();
@@ -47,6 +53,16 @@ export default function DashboardPage() {
     setUser(user);
     fetchData();
   };
+
+  useEffect(() => {
+    const botIdFromUrl = searchParams.get('botId');
+    if (!botIdFromUrl) return;
+
+    if (!bots || bots.length === 0) return;
+
+    setSelectedBotId(botIdFromUrl);
+    fetchConversations(botIdFromUrl);
+  }, [searchParams, bots]);
 
   const fetchData = async () => {
     try {
@@ -88,25 +104,98 @@ export default function DashboardPage() {
     }
   };
 
-  const toggleBot = async (botId) => {
-    const isExpanding = !expandedBots[botId];
-    setExpandedBots((prev) => ({
-      ...prev,
-      [botId]: isExpanding,
-    }));
+  const handleBotSelect = async (botId) => {
+    setSelectedBotId(botId);
+    await fetchConversations(botId);
 
-    if (isExpanding) {
-      await fetchConversations(botId);
+    // Actualizar la URL para mantener el contexto del bot seleccionado
+    const params = new URLSearchParams();
+    params.set('botId', botId);
+    router.push(`/dashboard?${params.toString()}`);
+  };
+
+  const KNOWN_SEDES = ["nova", "apolo", "flash"];
+  const KNOWN_LEADS = ["colombia", "venezuela"];
+  const KNOWN_LEADERS = ["moises", "jesus", "endry"];
+
+  const capitalizeWord = (str) => {
+    if (!str) return "";
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
+
+  const parseBotSessionName = (sessionName) => {
+    if (!sessionName) {
+      return {
+        displayName: "Sin nombre",
+        sedeKey: null,
+        sedeLabel: null,
+        leadKey: null,
+        leadLabel: null,
+        leaderKey: null,
+        leaderLabel: null,
+      };
     }
+
+    const tokens = String(sessionName)
+      .split("_")
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    const nameTokens = [];
+    let sedeKey = null;
+    let leadKey = null;
+    let leaderKey = null;
+
+    tokens.forEach((token) => {
+      const lower = token.toLowerCase();
+      if (!sedeKey && KNOWN_SEDES.includes(lower)) {
+        sedeKey = lower;
+        return;
+      }
+      if (!leadKey && KNOWN_LEADS.includes(lower)) {
+        leadKey = lower;
+        return;
+      }
+      if (!leaderKey && KNOWN_LEADERS.includes(lower)) {
+        leaderKey = lower;
+        return;
+      }
+      nameTokens.push(token);
+    });
+
+    const displayName =
+      nameTokens.length > 0
+        ? nameTokens
+            .map((t) =>
+              t
+                .split("-")
+                .map((part) => capitalizeWord(part))
+                .join(" ")
+            )
+            .join(" ")
+        : String(sessionName);
+
+    return {
+      displayName,
+      sedeKey,
+      sedeLabel: sedeKey ? capitalizeWord(sedeKey) : null,
+      leadKey,
+      leadLabel: leadKey ? capitalizeWord(leadKey) : null,
+      leaderKey,
+      leaderLabel: leaderKey ? capitalizeWord(leaderKey) : null,
+    };
   };
 
   // Función para filtrar bots según todos los criterios
   const filterBots = (botsList) => {
     return botsList.filter((bot) => {
+      const meta = parseBotSessionName(bot.session_name);
+
       // Filtro de búsqueda global
       if (searchFilter) {
         const searchLower = searchFilter.toLowerCase();
         const matchesSearch =
+          meta.displayName.toLowerCase().includes(searchLower) ||
           bot.session_name?.toLowerCase().includes(searchLower) ||
           bot.phone_number?.toLowerCase().includes(searchLower) ||
           bot.id?.toString().includes(searchLower);
@@ -121,17 +210,19 @@ export default function DashboardPage() {
         if (bot.status === "working" || bot.status === "active") return false;
       }
 
-      // Filtro de líder (buscar en session_name)
-      if (leaderFilter !== "all") {
-        const sessionNameLower = bot.session_name?.toLowerCase() || "";
-        if (!sessionNameLower.includes(leaderFilter.toLowerCase()))
-          return false;
+      // Filtro de líder
+      if (leaderFilter !== "all" && meta.leaderKey !== leaderFilter) {
+        return false;
       }
 
-      // Filtro de sede (buscar en session_name)
-      if (sedeFilter !== "all") {
-        const sessionNameLower = bot.session_name?.toLowerCase() || "";
-        if (!sessionNameLower.includes(sedeFilter.toLowerCase())) return false;
+      // Filtro de lead
+      if (leadFilter !== "all" && meta.leadKey !== leadFilter) {
+        return false;
+      }
+
+      // Filtro de sede
+      if (sedeFilter !== "all" && meta.sedeKey !== sedeFilter) {
+        return false;
       }
 
       return true;
@@ -186,8 +277,17 @@ export default function DashboardPage() {
     if (searchFilter) count++;
     if (statusFilter !== "all") count++;
     if (leaderFilter !== "all") count++;
+    if (leadFilter !== "all") count++;
     if (sedeFilter !== "all") count++;
     return count;
+  };
+
+  const clearFilters = () => {
+    setSearchFilter("");
+    setStatusFilter("all");
+    setLeaderFilter("all");
+    setLeadFilter("all");
+    setSedeFilter("all");
   };
 
   const handleLogout = async () => {
@@ -195,9 +295,17 @@ export default function DashboardPage() {
     router.push("/login");
   };
 
-  const handleConversationClick = (chatId) => {
-    router.push(`/dashboard/chat/${chatId}`);
+  const handleConversationClick = (botId, chatId) => {
+    router.push(`/dashboard/chat/${chatId}?botId=${botId}`);
   };
+
+  const selectedBot = selectedBotId
+    ? bots.find((bot) => String(bot.id) === String(selectedBotId))
+    : null;
+
+  const selectedBotConversations = selectedBotId
+    ? conversations[selectedBotId] || []
+    : [];
 
   if (loading) {
     return (
@@ -215,12 +323,34 @@ export default function DashboardPage() {
     0
   );
 
+  const filterPills = [];
+  if (searchFilter) {
+    filterPills.push({ label: `Búsqueda: "${searchFilter}"` });
+  }
+  if (statusFilter !== "all") {
+    filterPills.push({
+      label:
+        statusFilter === "active"
+          ? "Estado: Activos"
+          : "Estado: Inactivos",
+    });
+  }
+  if (leaderFilter !== "all") {
+    filterPills.push({ label: `Líder: ${capitalizeWord(leaderFilter)}` });
+  }
+  if (leadFilter !== "all") {
+    filterPills.push({ label: `Lead: ${capitalizeWord(leadFilter)}` });
+  }
+  if (sedeFilter !== "all") {
+    filterPills.push({ label: `Sede: ${capitalizeWord(sedeFilter)}` });
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
                 Dashboard CRM WhatsApp
@@ -229,17 +359,17 @@ export default function DashboardPage() {
                 Bienvenido, {user?.email}
               </p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-stretch sm:justify-end items-stretch sm:items-center">
               <button
                 onClick={fetchData}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 <RefreshCw className="h-4 w-4" />
                 Actualizar
               </button>
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
                 <LogOut className="h-4 w-4" />
                 Cerrar Sesión
@@ -251,100 +381,172 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-purple-500 rounded-md p-3">
-                <Users className="h-6 w-6 text-white" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Workers
-                  </dt>
-                  <dd className="text-3xl font-semibold text-gray-900">
-                    {workers.length}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-indigo-500 rounded-md p-3">
-                <Bot className="h-6 w-6 text-white" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Total Bots
-                  </dt>
-                  <dd className="text-3xl font-semibold text-gray-900">
-                    {bots.length}
-                  </dd>
-                  {activeFiltersCount() > 0 && (
-                    <dd className="text-xs text-indigo-600 mt-1">
-                      {getAllFilteredBots().length} mostrados
-                    </dd>
-                  )}
-                </dl>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-green-500 rounded-md p-3">
-                <MessageSquare className="h-6 w-6 text-white" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Conversaciones
-                  </dt>
-                  <dd className="text-3xl font-semibold text-gray-900">
-                    {totalConversations}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-blue-500 rounded-md p-3">
-                <Bot className="h-6 w-6 text-white" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Bots Activos
-                  </dt>
-                  <dd className="text-3xl font-semibold text-gray-900">
-                    {
-                      bots.filter(
-                        (bot) =>
-                          bot.status === "working" || bot.status === "active"
-                      ).length
-                    }
-                  </dd>
-                </dl>
-              </div>
-            </div>
+        {/* Toggle vista compacta/detallada */}
+        <div className="flex justify-end mb-4">
+          <div className="inline-flex items-center text-xs bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setIsCompactView(false)}
+              className={`px-3 py-1.5 border-r border-gray-200 ${
+                !isCompactView ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              Vista completa
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsCompactView(true)}
+              className={`px-3 py-1.5 ${
+                isCompactView ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              Vista compacta
+            </button>
           </div>
         </div>
 
+        {/* Stats */}
+        {!isCompactView && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-purple-500 rounded-md p-3">
+                  <Users className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Workers
+                    </dt>
+                    <dd className="text-3xl font-semibold text-gray-900">
+                      {workers.length}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-indigo-500 rounded-md p-3">
+                  <Bot className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Total Bots
+                    </dt>
+                    <dd className="text-3xl font-semibold text-gray-900">
+                      {bots.length}
+                    </dd>
+                    {activeFiltersCount() > 0 && (
+                      <dd className="text-xs text-indigo-600 mt-1">
+                        {getAllFilteredBots().length} mostrados
+                      </dd>
+                    )}
+                  </dl>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-green-500 rounded-md p-3">
+                  <MessageSquare className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Conversaciones
+                    </dt>
+                    <dd className="text-3xl font-semibold text-gray-900">
+                      {totalConversations}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                  <Bot className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Bots Activos
+                    </dt>
+                    <dd className="text-3xl font-semibold text-gray-900">
+                      {
+                        bots.filter(
+                          (bot) =>
+                            bot.status === "working" || bot.status === "active"
+                        ).length
+                      }
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Filtros */}
         <div className="bg-white shadow rounded-lg mb-6">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Filter className="h-5 w-5 text-gray-600" />
               <h2 className="text-xl font-semibold text-gray-900">Filtros</h2>
+              {activeFiltersCount() > 0 && (
+                <span className="hidden md:inline text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
+                  {activeFiltersCount()} filtro{activeFiltersCount() > 1 ? 's' : ''} activo{activeFiltersCount() > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {activeFiltersCount() > 0 && !showFilters && (
+                <div className="flex items-center gap-2 text-[11px] sm:text-xs text-gray-600">
+                  <span className="truncate max-w-[140px] sm:max-w-xs">
+                    {getAllFilteredBots().length} de {bots.length} asesores
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 text-[11px] sm:text-xs"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Limpiar
+                  </button>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowFilters((prev) => !prev)}
+                className="inline-flex items-center gap-1 text-xs font-medium text-gray-600"
+              >
+                {showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
+                {showFilters ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
             </div>
           </div>
-          <div className="px-6 py-4">
+          {filterPills.length > 0 && (
+            <div className="px-6 py-2 border-b border-gray-100 flex flex-wrap gap-2 text-[11px] text-gray-600">
+              {filterPills.map((pill, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-50 border border-gray-200"
+                >
+                  {pill.label}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className={`px-6 py-4 ${showFilters ? 'block' : 'hidden'}`}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Filtro de búsqueda global */}
               <div>
@@ -396,6 +598,21 @@ export default function DashboardPage() {
                 </select>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Lead
+                </label>
+                <select
+                  value={leadFilter}
+                  onChange={(e) => setLeadFilter(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="all">Todos</option>
+                  <option value="colombia">Colombia</option>
+                  <option value="venezuela">Venezuela</option>
+                </select>
+              </div>
+
               {/* Filtro de sede */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -409,6 +626,7 @@ export default function DashboardPage() {
                   <option value="all">Todas</option>
                   <option value="nova">Nova</option>
                   <option value="apolo">Apolo</option>
+                  <option value="flash">Flash</option>
                 </select>
               </div>
             </div>
@@ -425,12 +643,7 @@ export default function DashboardPage() {
                       } activo${activeFiltersCount() > 1 ? "s" : ""})`}
                   </span>
                   <button
-                    onClick={() => {
-                      setSearchFilter("");
-                      setStatusFilter("all");
-                      setLeaderFilter("all");
-                      setSedeFilter("all");
-                    }}
+                    onClick={clearFilters}
                     className="px-4 py-2 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg font-medium transition-colors"
                   >
                     Limpiar filtros
@@ -441,211 +654,268 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Lista de Asesores (Bots) */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Lista de Asesores
-              </h2>
+        {/* Layout principal: lista de asesores a la izquierda y conversaciones a la derecha */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Panel izquierdo: lista de asesores (bots) */}
+          <section className="bg-white shadow rounded-lg flex flex-col lg:col-span-1">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Asesores
+                </h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  Selecciona un asesor para ver sus conversaciones.
+                </p>
+              </div>
               {getAllFilteredBots().length > 0 && (
-                <span className="text-sm text-gray-500">
-                  {getAllFilteredBots().length} asesore
-                  {getAllFilteredBots().length !== 1 ? "s" : ""}
+                <span className="text-xs text-gray-500">
+                  {getAllFilteredBots().length} de {bots.length} visibles
                 </span>
               )}
             </div>
-          </div>
-          <div className="divide-y divide-gray-200">
+
             {getAllFilteredBots().length === 0 ? (
-              <div className="px-6 py-12 text-center">
-                <Bot className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">
+              <div className="flex-1 px-6 py-12 text-center flex flex-col items-center justify-center">
+                <Bot className="mx-auto h-10 w-10 text-gray-300" />
+                <h3 className="mt-3 text-sm font-medium text-gray-900">
                   No se encontraron asesores
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  No hay bots que coincidan con los filtros aplicados.
+                  Ajusta los filtros para ver otros resultados.
                 </p>
-                {activeFiltersCount() > 0 && (
-                  <button
-                    onClick={() => {
-                      setSearchFilter("");
-                      setStatusFilter("all");
-                      setLeaderFilter("all");
-                      setSedeFilter("all");
-                    }}
-                    className="mt-4 px-4 py-2 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg font-medium transition-colors"
-                  >
-                    Limpiar filtros
-                  </button>
-                )}
               </div>
             ) : (
-              getAllFilteredBots().map((bot) => {
-                const isBotExpanded = expandedBots[bot.id];
-                const botConversations = conversations[bot.id] || [];
-                const botIsActive = isBotActive(bot.status);
-                const formattedStatus = formatBotStatus(bot.status);
+              <div className="flex-1 max-h-[60vh] lg:max-h-[600px] overflow-y-auto divide-y divide-gray-100">
+                {getAllFilteredBots().map((bot) => {
+                  const botIsActive = isBotActive(bot.status);
+                  const formattedStatus = formatBotStatus(bot.status);
+                  const isSelected = String(bot.id) === String(selectedBotId);
+                  const meta = parseBotSessionName(bot.session_name);
 
-                return (
-                  <div
-                    key={bot.id}
-                    className="border-b border-gray-100 last:border-b-0"
-                  >
-                    {/* Bot Header */}
-                    <div
-                      onClick={() => toggleBot(bot.id)}
-                      className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                  return (
+                    <button
+                      key={bot.id}
+                      type="button"
+                      onClick={() => handleBotSelect(bot.id)}
+                      className={`w-full text-left px-4 py-3 flex items-center justify-between gap-3 transition-colors border-l-4 ${
+                        isSelected
+                          ? 'bg-indigo-50 border-indigo-500'
+                          : 'border-transparent hover:bg-gray-50'
+                      }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center flex-1 min-w-0">
-                          <div className="flex-shrink-0 mr-3">
-                            {isBotExpanded ? (
-                              <ChevronDown className="h-5 w-5 text-gray-400" />
-                            ) : (
-                              <ChevronRight className="h-5 w-5 text-gray-400" />
-                            )}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="relative flex-shrink-0">
+                          <div
+                            className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                              botIsActive ? 'bg-green-100' : 'bg-gray-200'
+                            }`}
+                          >
+                            <Bot
+                              className={`h-5 w-5 ${
+                                botIsActive ? 'text-green-600' : 'text-gray-600'
+                              }`}
+                            />
                           </div>
-
-                          {/* Estado indicator dot */}
-                          <div className="flex-shrink-0 mr-3">
-                            <div className="relative">
-                              <div
-                                className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                                  botIsActive ? "bg-green-100" : "bg-gray-200"
-                                }`}
-                              >
-                                <Bot
-                                  className={`h-5 w-5 ${
-                                    botIsActive
-                                      ? "text-green-600"
-                                      : "text-gray-600"
-                                  }`}
-                                />
-                              </div>
-                              {botIsActive && (
-                                <Circle
-                                  className="absolute -top-0.5 -right-0.5 h-3 w-3 text-green-500 fill-current"
-                                  strokeWidth={3}
-                                />
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-base font-semibold text-gray-900 truncate">
-                                {bot.session_name}
-                              </h3>
-                            </div>
-                            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                                  botIsActive
-                                    ? "bg-green-100 text-green-700 border border-green-200"
-                                    : "bg-gray-100 text-gray-700 border border-gray-200"
-                                }`}
-                              >
-                                {formattedStatus}
-                              </span>
-                              {bot.phone_number && (
-                                <span className="inline-flex items-center gap-1 text-xs text-gray-600">
-                                  <Phone className="h-3 w-3" />
-                                  {bot.phone_number}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex-shrink-0 ml-4">
-                          <div className="text-right">
-                            <div className="text-xl font-bold text-gray-900">
-                              {bot.conversation_count || 0}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              Conversaciones
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Bot's Conversations */}
-                    {isBotExpanded && (
-                      <div className="bg-gray-50 border-t border-gray-200">
-                        <div className="px-6 py-3 bg-gray-100 border-b border-gray-200">
-                          <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-                            Conversaciones ({botConversations.length})
-                          </h4>
-                        </div>
-                        <div className="max-h-96 overflow-y-auto">
-                          {loadingConversations[bot.id] ? (
-                            <div className="px-6 py-8 text-sm text-gray-500 flex items-center justify-center gap-2">
-                              <RefreshCw className="h-4 w-4 animate-spin" />
-                              Cargando conversaciones...
-                            </div>
-                          ) : botConversations.length === 0 ? (
-                            <div className="px-6 py-8 text-sm text-gray-500 text-center">
-                              No hay conversaciones para este asesor
-                            </div>
-                          ) : (
-                            botConversations.map((conv) => (
-                              <div
-                                key={conv.id}
-                                onClick={() => handleConversationClick(conv.id)}
-                                className="px-6 py-3 hover:bg-white cursor-pointer transition-colors border-b border-gray-200 last:border-b-0"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center flex-1 min-w-0">
-                                    <div className="flex-shrink-0 mr-3">
-                                      <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                                        <MessageSquare className="h-4 w-4 text-indigo-600" />
-                                      </div>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium text-gray-900 truncate">
-                                        {conv.contact_name || "Sin nombre"}
-                                      </p>
-                                      <div className="flex items-center gap-2 mt-0.5">
-                                        <Phone className="h-3 w-3 text-gray-400" />
-                                        <p className="text-xs text-gray-500">
-                                          {conv.contact_phone}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="flex-shrink-0 ml-4 text-right">
-                                    <div className="text-sm font-semibold text-gray-900">
-                                      {conv.message_count || 0}
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                      mensaje
-                                      {conv.message_count !== 1 ? "s" : ""}
-                                    </div>
-                                    {conv.last_message_time && (
-                                      <div className="text-xs text-gray-400 mt-1">
-                                        {new Date(
-                                          conv.last_message_time
-                                        ).toLocaleDateString("es-ES", {
-                                          day: "2-digit",
-                                          month: "short",
-                                          year: "numeric",
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            ))
+                          {botIsActive && (
+                            <Circle
+                              className="absolute -top-0.5 -right-0.5 h-3 w-3 text-green-500 fill-current"
+                              strokeWidth={3}
+                            />
                           )}
                         </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {meta.displayName}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-gray-500">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full border ${
+                                botIsActive
+                                  ? 'bg-green-50 text-green-700 border-green-200'
+                                  : 'bg-gray-50 text-gray-600 border-gray-200'
+                              }`}
+                            >
+                              {formattedStatus}
+                            </span>
+                            {meta.sedeLabel && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                {meta.sedeLabel}
+                              </span>
+                            )}
+                            {meta.leadLabel && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+                                {meta.leadLabel}
+                              </span>
+                            )}
+                            {meta.leaderLabel && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-50 text-slate-700 border border-slate-200">
+                                {meta.leaderLabel}
+                              </span>
+                            )}
+                            {bot.phone_number && (
+                              <span className="inline-flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                <span className="truncate max-w-[120px]">
+                                  {bot.phone_number}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })
+                      <div className="flex flex-col items-end flex-shrink-0">
+                        <span className="text-sm font-semibold text-gray-900">
+                          {bot.conversation_count || 0}
+                        </span>
+                        <span className="text-xs text-gray-500">Conversaciones</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             )}
-          </div>
+          </section>
+
+          {/* Panel derecho: conversaciones del bot seleccionado */}
+          <section className="bg-white shadow rounded-lg flex flex-col lg:col-span-2">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              {selectedBot ? (
+                (() => {
+                  const meta = parseBotSessionName(selectedBot.session_name);
+                  return (
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">
+                        Conversaciones de {meta.displayName}
+                      </h2>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {selectedBot.conversation_count || 0} conversaciones totales.
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px] text-gray-600">
+                        {meta.sedeLabel && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                            Sede: {meta.sedeLabel}
+                          </span>
+                        )}
+                        {meta.leadLabel && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+                            Lead: {meta.leadLabel}
+                          </span>
+                        )}
+                        {meta.leaderLabel && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-50 text-slate-700 border border-slate-200">
+                            Líder: {meta.leaderLabel}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Conversaciones
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Selecciona un asesor en la lista para ver sus conversaciones.
+                  </p>
+                </div>
+              )}
+
+              {selectedBot && (
+                <div className="flex flex-col items-end text-xs text-gray-500">
+                  <span>
+                    Estado: {formatBotStatus(selectedBot.status)}
+                  </span>
+                  {selectedBot.phone_number && (
+                    <span className="flex items-center gap-1 mt-1">
+                      <Phone className="h-3 w-3" />
+                      {selectedBot.phone_number}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1">
+              {!selectedBot ? (
+                <div className="h-full flex items-center justify-center text-center px-6 py-12">
+                  <div>
+                    <MessageSquare className="mx-auto h-10 w-10 text-gray-300" />
+                    <h3 className="mt-3 text-sm font-medium text-gray-900">
+                      No hay asesor seleccionado
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500 max-w-md">
+                      Usa la lista de la izquierda para elegir un asesor y ver el detalle de sus conversaciones.
+                    </p>
+                  </div>
+                </div>
+              ) : loadingConversations[selectedBotId] ? (
+                <div className="h-full flex items-center justify-center text-sm text-gray-500 gap-2">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Cargando conversaciones...
+                </div>
+              ) : selectedBotConversations.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-center px-6 py-12">
+                  <div>
+                    <MessageSquare className="mx-auto h-10 w-10 text-gray-300" />
+                    <h3 className="mt-3 text-sm font-medium text-gray-900">
+                      No hay conversaciones para este asesor
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500 max-w-md">
+                      Las conversaciones aparecerán aquí cuando el bot reciba mensajes de clientes.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="max-h-[60vh] lg:max-h-[600px] overflow-y-auto divide-y divide-gray-200">
+                  {selectedBotConversations.map((conv) => (
+                    <div
+                      key={conv.id}
+                      onClick={() => handleConversationClick(selectedBot.id, conv.id)}
+                      className={`px-6 py-4 cursor-pointer transition-colors flex items-center justify-between gap-4 ${
+                        lastChatId === String(conv.id)
+                          ? 'bg-indigo-50 hover:bg-indigo-100'
+                          : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center min-w-0 flex-1 gap-4">
+                        <div className="flex-shrink-0">
+                          <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                            <MessageSquare className="h-5 w-5 text-indigo-600" />
+                          </div>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {conv.contact_name || 'Sin nombre'}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
+                            <Phone className="h-3 w-3" />
+                            <span className="truncate max-w-[160px]">
+                              {conv.contact_phone || conv.remote_jid}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end flex-shrink-0 text-xs text-gray-500">
+                        <span className="text-sm font-semibold text-gray-900">
+                          {conv.message_count || 0} mensajes
+                        </span>
+                        {conv.last_message_time && (
+                          <span className="mt-1">
+                            {new Date(conv.last_message_time).toLocaleDateString('es-ES', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
         </div>
       </main>
     </div>
