@@ -30,11 +30,11 @@ export default function DashboardPage() {
   const [leaderFilter, setLeaderFilter] = useState("all"); // 'all', 'moises', 'jesus', 'endry'
   const [leadFilter, setLeadFilter] = useState("all"); // 'all', 'colombia', 'venezuela'
   const [sedeFilter, setSedeFilter] = useState("all"); // 'all', 'nova', 'apolo', 'flash'
-  const [showFilters, setShowFilters] = useState(true);
-  const [isCompactView, setIsCompactView] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [compactMode, setCompactMode] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const lastChatId = searchParams.get('chatId');
+  const [lastChatId, setLastChatId] = useState(null);
 
   useEffect(() => {
     checkUser();
@@ -63,6 +63,36 @@ export default function DashboardPage() {
     setSelectedBotId(botIdFromUrl);
     fetchConversations(botIdFromUrl);
   }, [searchParams, bots]);
+
+  // Mantener y restaurar la última conversación visitada usando localStorage
+  useEffect(() => {
+    const chatIdFromUrl = searchParams.get('chatId');
+
+    if (chatIdFromUrl) {
+      setLastChatId(chatIdFromUrl);
+
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem('dashboard:lastChatId', String(chatIdFromUrl));
+        } catch (error) {
+          console.error('Error guardando lastChatId en localStorage:', error);
+        }
+      }
+
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const storedChatId = window.localStorage.getItem('dashboard:lastChatId');
+        if (storedChatId) {
+          setLastChatId(storedChatId);
+        }
+      } catch (error) {
+        console.error('Error leyendo lastChatId desde localStorage:', error);
+      }
+    }
+  }, [searchParams]);
 
   const fetchData = async () => {
     try {
@@ -290,12 +320,103 @@ export default function DashboardPage() {
     setSedeFilter("all");
   };
 
+  const getActiveFilterPills = () => {
+    const pills = [];
+
+    if (searchFilter) {
+      const trimmed =
+        searchFilter.length > 20
+          ? `${searchFilter.slice(0, 20)}…`
+          : searchFilter;
+      pills.push({ key: "search", label: `Búsqueda: "${trimmed}"` });
+    }
+
+    if (statusFilter !== "all") {
+      let label = "Todos";
+      if (statusFilter === "active") label = "Activos";
+      if (statusFilter === "inactive") label = "Inactivos";
+      pills.push({ key: "status", label: `Estado: ${label}` });
+    }
+
+    if (leaderFilter !== "all") {
+      pills.push({
+        key: "leader",
+        label: `Líder: ${capitalizeWord(leaderFilter)}`,
+      });
+    }
+
+    if (leadFilter !== "all") {
+      pills.push({
+        key: "lead",
+        label: `Lead: ${capitalizeWord(leadFilter)}`,
+      });
+    }
+
+    if (sedeFilter !== "all") {
+      pills.push({
+        key: "sede",
+        label: `Sede: ${capitalizeWord(sedeFilter)}`,
+      });
+    }
+
+    return pills;
+  };
+
+  const getFilterPillClasses = (key) => {
+    switch (key) {
+      case "status":
+        return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+      case "leader":
+        return "bg-sky-50 text-sky-700 border border-sky-200";
+      case "lead":
+        return "bg-amber-50 text-amber-700 border border-amber-200";
+      case "sede":
+        return "bg-indigo-50 text-indigo-700 border border-indigo-200";
+      case "search":
+      default:
+        return "bg-gray-50 text-gray-700 border border-gray-200";
+    }
+  };
+
+  const handleRemoveFilter = (key) => {
+    switch (key) {
+      case "search":
+        setSearchFilter("");
+        break;
+      case "status":
+        setStatusFilter("all");
+        break;
+      case "leader":
+        setLeaderFilter("all");
+        break;
+      case "lead":
+        setLeadFilter("all");
+        break;
+      case "sede":
+        setSedeFilter("all");
+        break;
+      default:
+        break;
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
   };
 
   const handleConversationClick = (botId, chatId) => {
+    const chatIdStr = String(chatId);
+    setLastChatId(chatIdStr);
+
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('dashboard:lastChatId', chatIdStr);
+      } catch (error) {
+        console.error('Error guardando lastChatId en localStorage desde handleConversationClick:', error);
+      }
+    }
+
     router.push(`/dashboard/chat/${chatId}?botId=${botId}`);
   };
 
@@ -323,27 +444,7 @@ export default function DashboardPage() {
     0
   );
 
-  const filterPills = [];
-  if (searchFilter) {
-    filterPills.push({ label: `Búsqueda: "${searchFilter}"` });
-  }
-  if (statusFilter !== "all") {
-    filterPills.push({
-      label:
-        statusFilter === "active"
-          ? "Estado: Activos"
-          : "Estado: Inactivos",
-    });
-  }
-  if (leaderFilter !== "all") {
-    filterPills.push({ label: `Líder: ${capitalizeWord(leaderFilter)}` });
-  }
-  if (leadFilter !== "all") {
-    filterPills.push({ label: `Lead: ${capitalizeWord(leadFilter)}` });
-  }
-  if (sedeFilter !== "all") {
-    filterPills.push({ label: `Sede: ${capitalizeWord(sedeFilter)}` });
-  }
+  const activeFilterPills = getActiveFilterPills();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -381,115 +482,101 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Toggle vista compacta/detallada */}
         <div className="flex justify-end mb-4">
-          <div className="inline-flex items-center text-xs bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setIsCompactView(false)}
-              className={`px-3 py-1.5 border-r border-gray-200 ${
-                !isCompactView ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              Vista completa
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsCompactView(true)}
-              className={`px-3 py-1.5 ${
-                isCompactView ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              Vista compacta
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setCompactMode((prev) => !prev)}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-white text-xs text-gray-700 hover:bg-gray-50"
+          >
+            Modo: {compactMode ? 'Compacto' : 'Detallado'}
+          </button>
         </div>
 
         {/* Stats */}
-        {!isCompactView && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 bg-purple-500 rounded-md p-3">
-                  <Users className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Workers
-                    </dt>
-                    <dd className="text-3xl font-semibold text-gray-900">
-                      {workers.length}
-                    </dd>
-                  </dl>
-                </div>
+        {!compactMode && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0 bg-purple-500 rounded-md p-3">
+                <Users className="h-6 w-6 text-white" />
               </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 bg-indigo-500 rounded-md p-3">
-                  <Bot className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Total Bots
-                    </dt>
-                    <dd className="text-3xl font-semibold text-gray-900">
-                      {bots.length}
-                    </dd>
-                    {activeFiltersCount() > 0 && (
-                      <dd className="text-xs text-indigo-600 mt-1">
-                        {getAllFilteredBots().length} mostrados
-                      </dd>
-                    )}
-                  </dl>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 bg-green-500 rounded-md p-3">
-                  <MessageSquare className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Conversaciones
-                    </dt>
-                    <dd className="text-3xl font-semibold text-gray-900">
-                      {totalConversations}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 bg-blue-500 rounded-md p-3">
-                  <Bot className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Bots Activos
-                    </dt>
-                    <dd className="text-3xl font-semibold text-gray-900">
-                      {
-                        bots.filter(
-                          (bot) =>
-                            bot.status === "working" || bot.status === "active"
-                        ).length
-                      }
-                    </dd>
-                  </dl>
-                </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">
+                    Workers
+                  </dt>
+                  <dd className="text-3xl font-semibold text-gray-900">
+                    {workers.length}
+                  </dd>
+                </dl>
               </div>
             </div>
           </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0 bg-indigo-500 rounded-md p-3">
+                <Bot className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">
+                    Total Bots
+                  </dt>
+                  <dd className="text-3xl font-semibold text-gray-900">
+                    {bots.length}
+                  </dd>
+                  {activeFiltersCount() > 0 && (
+                    <dd className="text-xs text-indigo-600 mt-1">
+                      {getAllFilteredBots().length} mostrados
+                    </dd>
+                  )}
+                </dl>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0 bg-green-500 rounded-md p-3">
+                <MessageSquare className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">
+                    Conversaciones
+                  </dt>
+                  <dd className="text-3xl font-semibold text-gray-900">
+                    {totalConversations}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                <Bot className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">
+                    Bots Activos
+                  </dt>
+                  <dd className="text-3xl font-semibold text-gray-900">
+                    {
+                      bots.filter(
+                        (bot) =>
+                          bot.status === "working" || bot.status === "active"
+                      ).length
+                    }
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
         )}
 
         {/* Filtros */}
@@ -534,15 +621,18 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
-          {filterPills.length > 0 && (
+          {activeFilterPills.length > 0 && (
             <div className="px-6 py-2 border-b border-gray-100 flex flex-wrap gap-2 text-[11px] text-gray-600">
-              {filterPills.map((pill, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-50 border border-gray-200"
+              {activeFilterPills.map((pill) => (
+                <button
+                  key={pill.key}
+                  type="button"
+                  onClick={() => handleRemoveFilter(pill.key)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] ${getFilterPillClasses(pill.key)}`}
                 >
-                  {pill.label}
-                </span>
+                  <span>{pill.label}</span>
+                  <span className="text-xs">×</span>
+                </button>
               ))}
             </div>
           )}
@@ -560,7 +650,7 @@ export default function DashboardPage() {
                     value={searchFilter}
                     onChange={(e) => setSearchFilter(e.target.value)}
                     placeholder="Buscar por nombre, teléfono..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full pl-10 pr-4 py-2 bg-white text-gray-700 placeholder-gray-400 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   />
                 </div>
               </div>
@@ -573,7 +663,7 @@ export default function DashboardPage() {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
                   <option value="all">Todos</option>
                   <option value="active">Activos</option>
@@ -589,7 +679,7 @@ export default function DashboardPage() {
                 <select
                   value={leaderFilter}
                   onChange={(e) => setLeaderFilter(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
                   <option value="all">Todos</option>
                   <option value="moises">Moisés</option>
@@ -605,7 +695,7 @@ export default function DashboardPage() {
                 <select
                   value={leadFilter}
                   onChange={(e) => setLeadFilter(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
                   <option value="all">Todos</option>
                   <option value="colombia">Colombia</option>
@@ -621,7 +711,7 @@ export default function DashboardPage() {
                 <select
                   value={sedeFilter}
                   onChange={(e) => setSedeFilter(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
                   <option value="all">Todas</option>
                   <option value="nova">Nova</option>
@@ -731,24 +821,24 @@ export default function DashboardPage() {
                             <span
                               className={`inline-flex items-center px-2 py-0.5 rounded-full border ${
                                 botIsActive
-                                  ? 'bg-green-50 text-green-700 border-green-200'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                   : 'bg-gray-50 text-gray-600 border-gray-200'
                               }`}
                             >
                               {formattedStatus}
                             </span>
                             {meta.sedeLabel && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
                                 {meta.sedeLabel}
                               </span>
                             )}
                             {meta.leadLabel && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                                 {meta.leadLabel}
                               </span>
                             )}
                             {meta.leaderLabel && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-50 text-slate-700 border border-slate-200">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
                                 {meta.leaderLabel}
                               </span>
                             )}
@@ -792,17 +882,17 @@ export default function DashboardPage() {
                       </p>
                       <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px] text-gray-600">
                         {meta.sedeLabel && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
                             Sede: {meta.sedeLabel}
                           </span>
                         )}
                         {meta.leadLabel && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                             Lead: {meta.leadLabel}
                           </span>
                         )}
                         {meta.leaderLabel && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-50 text-slate-700 border border-slate-200">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
                             Líder: {meta.leaderLabel}
                           </span>
                         )}
