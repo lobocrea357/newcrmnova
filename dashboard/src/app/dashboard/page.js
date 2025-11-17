@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { supabase, getAllWorkers, getAllBots, getConversationsByBot } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -17,7 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-export default function DashboardPage() {
+function DashboardContent() {
   const [workers, setWorkers] = useState([]);
   const [bots, setBots] = useState([]);
   const [conversations, setConversations] = useState({});
@@ -1009,5 +1009,20 @@ export default function DashboardPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <RefreshCw className="h-12 w-12 text-indigo-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Cargando dashboard...</p>
+        </div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }
