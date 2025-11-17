@@ -63,17 +63,16 @@ export class WebhookService {
    */
   async saveWebhookEvent(event) {
     try {
-      // Obtener el bot_id desde la sesión
-      const { data: bot } = await supabase
-        .from('bots')
-        .select('id')
-        .eq('session_name', event.session)
-        .single();
-
-      if (!bot) {
-        console.warn(`⚠️ Bot no encontrado para sesión: ${event.session}`);
-        return;
+      // Extraer número de teléfono si está disponible
+      let phoneNumber = 'pending';
+      if (event.me?.id) {
+        phoneNumber = event.me.id.split('@')[0];
+      } else if (event.me?.user) {
+        phoneNumber = event.me.user;
       }
+
+      // Obtener o crear el bot primero
+      const bot = await botService.getOrCreateBot(event.session, phoneNumber);
 
       const { error } = await supabase
         .from('webhook_events')
@@ -102,6 +101,18 @@ export class WebhookService {
       const status = payload.status;
 
       console.log(`📊 Estado de sesión: ${session} -> ${status}`);
+
+      // Extraer número de teléfono si está disponible
+      let phoneNumber = 'pending';
+      if (event.me?.id) {
+        phoneNumber = event.me.id.split('@')[0];
+      } else if (event.me?.user) {
+        phoneNumber = event.me.user;
+      }
+
+      // Obtener o crear el bot primero
+      const bot = await botService.getOrCreateBot(session, phoneNumber);
+      console.log(`✅ Bot obtenido/creado: ${bot.session_name} (ID: ${bot.id})`);
 
       // Actualizar estado del bot
       await botService.updateBotStatus(session, status);
