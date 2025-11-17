@@ -7,31 +7,30 @@ export class BotService {
    */
   async getOrCreateBot(sessionName, phoneNumber = null) {
     try {
-      // Buscar bot existente (sin .single() para evitar error si no existe)
-      const { data: existingBots, error: searchError } = await supabase
+      // Buscar bot existente
+      const { data: existingBot, error: searchError } = await supabase
         .from('bots')
         .select('*')
-        .eq('session_name', sessionName);
+        .eq('session_name', sessionName)
+        .single();
 
-      if (searchError) throw searchError;
-
-      // Si existe, retornar el primero
-      if (existingBots && existingBots.length > 0) {
-        console.log(`🔍 Bot existente encontrado: ${sessionName}`);
-        return existingBots[0];
+      if (existingBot) {
+        return existingBot;
       }
 
+      // Generar un nombre para el bot basado en sessionName si no se proporciona
+      const botName = sessionName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
       // Crear nuevo bot
-      console.log(`➕ Creando nuevo bot: ${sessionName}`);
       const { data: newBot, error: createError } = await supabase
         .from('bots')
         .insert([
           {
+            name: botName, // Añadido el campo name que es NOT NULL
             session_name: sessionName,
             phone_number: phoneNumber || 'pending',
             status: 'disconnected',
-            engine: 'NOWEB',
-            name: sessionName
+            engine: 'NOWEB'
           }
         ])
         .select()
@@ -39,7 +38,6 @@ export class BotService {
 
       if (createError) throw createError;
 
-      console.log(`✅ Bot creado exitosamente: ${sessionName} (ID: ${newBot.id})`);
       return newBot;
     } catch (error) {
       console.error('Error en getOrCreateBot:', error);
@@ -60,18 +58,11 @@ export class BotService {
           metadata
         })
         .eq('session_name', sessionName)
-        .select();
+        .select()
+        .single();
 
       if (error) throw error;
-      
-      // Verificar si se actualizó algún registro
-      if (!data || data.length === 0) {
-        console.warn(`⚠️ No se encontró bot para actualizar: ${sessionName}`);
-        return null;
-      }
-
-      console.log(`📝 Estado actualizado: ${sessionName} -> ${status}`);
-      return data[0];
+      return data;
     } catch (error) {
       console.error('Error en updateBotStatus:', error);
       throw error;
