@@ -32,6 +32,7 @@ function DashboardContent() {
   const [sedeFilter, setSedeFilter] = useState("all"); // 'all', 'nova', 'apolo', 'flash'
   const [showFilters, setShowFilters] = useState(false);
   const [compactMode, setCompactMode] = useState(false);
+  const [syncingBot, setSyncingBot] = useState(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [lastChatId, setLastChatId] = useState(null);
@@ -93,6 +94,73 @@ function DashboardContent() {
       }
     }
   }, [searchParams]);
+
+  const syncBotData = async (sessionName) => {
+    try {
+      setSyncingBot(sessionName);
+      
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const response = await fetch(`${apiUrl}/api/sync/${sessionName}/all`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        const contactsUpdated = result.data.contacts.updated;
+        const chatsUpdated = result.data.chats.updated;
+        const botUpdated = result.data.bot?.updated;
+        
+        alert(
+          `✅ SINCRONIZACIÓN COMPLETADA\n\n` +
+          `📊 Resultados:\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `• Contactos actualizados: ${contactsUpdated}\n` +
+          `• Chats actualizados: ${chatsUpdated}\n` +
+          `• Bot actualizado: ${botUpdated ? 'Sí ✓' : 'No (ya tenía datos)'}\n\n` +
+          `Los datos se reflejarán al recargar la página.`
+        );
+        
+        // Recargar datos para reflejar los cambios
+        await fetchData();
+        
+        // Si hay un bot seleccionado, recargar sus conversaciones
+        if (selectedBotId) {
+          fetchConversations(selectedBotId);
+        }
+      } else {
+        // Mostrar error detallado
+        const errorMsg = result.error || 'Error desconocido';
+        
+        // Detectar si es error de sesión no encontrada
+        if (errorMsg.includes('NO existe') || errorMsg.includes('does not exist')) {
+          alert(
+            `⚠️ BOT NO CONECTADO EN WAHA\n\n` +
+            `El bot "${sessionName}" no está activo en WAHA.\n\n` +
+            `Para sincronizar datos necesitas:\n` +
+            `  1. Conectar el bot en WAHA (escanear QR)\n` +
+            `  2. Esperar que el estado sea "WORKING"\n` +
+            `  3. Intentar la sincronización nuevamente\n\n` +
+            `❌ Detalles: ${errorMsg}`
+          );
+        } else {
+          alert(`❌ Error en la sincronización:\n\n${errorMsg}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error sincronizando bot:', error);
+      alert(
+        `❌ ERROR DE CONEXIÓN\n\n` +
+        `No se pudo conectar con el servidor.\n\n` +
+        `Detalles: ${error.message || 'Error desconocido'}`
+      );
+    } finally {
+      setSyncingBot(null);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -912,16 +980,38 @@ function DashboardContent() {
               )}
 
               {selectedBot && (
-                <div className="flex flex-col items-end text-xs text-gray-500">
-                  <span>
-                    Estado: {formatBotStatus(selectedBot.status)}
-                  </span>
-                  {selectedBot.phone_number && (
-                    <span className="flex items-center gap-1 mt-1">
-                      <Phone className="h-3 w-3" />
-                      {selectedBot.phone_number}
+                <div className="flex flex-col items-end gap-3">
+                  <div className="flex flex-col items-end text-xs text-gray-500">
+                    <span>
+                      Estado: {formatBotStatus(selectedBot.status)}
                     </span>
-                  )}
+                    {selectedBot.phone_number && (
+                      <span className="flex items-center gap-1 mt-1">
+                        <Phone className="h-3 w-3" />
+                        {selectedBot.phone_number}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => syncBotData(selectedBot.session_name)}
+                    disabled={syncingBot === selectedBot.session_name}
+                    className={`
+                      inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg
+                      transition-all duration-200 shadow-sm
+                      ${syncingBot === selectedBot.session_name
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 hover:shadow-md active:scale-95'
+                      }
+                    `}
+                    title="Sincronizar datos del bot desde WAHA"
+                  >
+                    <RefreshCw 
+                      className={`h-4 w-4 ${
+                        syncingBot === selectedBot.session_name ? 'animate-spin' : ''
+                      }`}
+                    />
+                    {syncingBot === selectedBot.session_name ? 'Sincronizando...' : 'Sincronizar Bot'}
+                  </button>
                 </div>
               )}
             </div>
