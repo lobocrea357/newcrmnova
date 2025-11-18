@@ -18,11 +18,15 @@ export class BotService {
         return existingBot;
       }
 
+      // Generar un nombre para el bot basado en sessionName si no se proporciona
+      const botName = sessionName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
       // Crear nuevo bot
       const { data: newBot, error: createError } = await supabase
         .from('bots')
         .insert([
           {
+            name: botName, // Añadido el campo name que es NOT NULL
             session_name: sessionName,
             phone_number: phoneNumber || 'pending',
             status: 'disconnected',

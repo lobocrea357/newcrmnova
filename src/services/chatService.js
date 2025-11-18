@@ -22,14 +22,18 @@ export class ChatService {
       const chatInsertData = {
         bot_id: botId,
         contact_number: chatId.split('@')[0],
-        contact_name: chatData.name || null,
-        unread_count: chatData.unread_count || 0
+        contact_name: chatData.name || chatId.split('@')[0], // Fallback al número
+        contact_id: contactId, // Siempre incluir contact_id
+        chat_id: chatId, // Siempre incluir chat_id (el ID completo con @c.us)
+        unread_count: chatData.unread_count || 0,
+        is_group: chatData.is_group !== undefined ? chatData.is_group : false
       };
 
       // Agregar campos opcionales si existen en el schema
-      if (chatData.chat_id) chatInsertData.chat_id = chatId;
-      if (chatData.contact_id) chatInsertData.contact_id = contactId;
-      if (chatData.is_group !== undefined) chatInsertData.is_group = chatData.is_group;
+      if (chatData.name) chatInsertData.name = chatData.name; // Campo 'name' separado
+      if (chatData.last_message) chatInsertData.last_message = chatData.last_message;
+      if (chatData.last_message_at) chatInsertData.last_message_at = chatData.last_message_at;
+      if (chatData.last_message_time) chatInsertData.last_message_time = chatData.last_message_time;
       if (chatData.archived !== undefined) chatInsertData.archived = chatData.archived;
       if (chatData.pinned !== undefined) chatInsertData.pinned = chatData.pinned;
       if (chatData.muted !== undefined) chatInsertData.muted = chatData.muted;
@@ -55,11 +59,19 @@ export class ChatService {
    */
   async updateLastMessage(botId, chatId, timestamp, messageText = null) {
     try {
-      const updateData = {};
+      const updateData = {
+        updated_at: new Date().toISOString()
+      };
       
-      // Usar el campo que existe en el schema actual
-      if (timestamp) updateData.last_message_at = timestamp;
-      if (messageText) updateData.last_message = messageText;
+      // Actualizar ambos campos de timestamp
+      if (timestamp) {
+        updateData.last_message_at = timestamp;
+        updateData.last_message_time = timestamp; // Ambos campos con el mismo timestamp
+      }
+      
+      if (messageText) {
+        updateData.last_message = messageText;
+      }
 
       const { data, error } = await supabase
         .from('chats')

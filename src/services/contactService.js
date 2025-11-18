@@ -6,13 +6,18 @@ export class ContactService {
    */
   async getOrCreateContact(botId, phoneNumber, contactData = {}) {
     try {
-      // Buscar contacto existente
+      // Buscar contacto existente (usar maybeSingle para evitar errores cuando no existe)
       const { data: existingContact, error: searchError } = await supabase
         .from('contacts')
         .select('*')
         .eq('bot_id', botId)
         .eq('phone_number', phoneNumber)
-        .single();
+        .maybeSingle();
+
+      if (searchError) {
+        console.error('Error buscando contacto:', searchError);
+        throw searchError;
+      }
 
       if (existingContact) {
         // Actualizar datos si hay cambios

@@ -1,0 +1,414 @@
+ ==========================================
+crm-express    | 
+crm-express    | 🔍 Número del bot: pending
+crm-express    | 
+crm-express    | 📨 ========== PROCESANDO MENSAJE ==========
+crm-express    | Evento: message.any
+crm-express    | ID: false_120363373342172425@newsletter_AC08486D37A5097DDBDA2826EFDA8316
+crm-express    | From: 120363373342172425@newsletter
+crm-express    | To: undefined
+crm-express    | FromMe: false
+crm-express    | Type: undefined
+crm-express    | HasMedia: false
+crm-express    | Body: Ayudeme a reporta y bloquear a este número +63 975...
+crm-express    | 
+crm-express    | 🔍 ========== DEBUG: PAYLOAD COMPLETO ==========
+crm-express    | {
+crm-express    |   "id": "false_120363373342172425@newsletter_AC08486D37A5097DDBDA2826EFDA8316",
+crm-express    |   "timestamp": 1763404872,
+crm-express    |   "from": "120363373342172425@newsletter",
+crm-express    |   "fromMe": false,
+crm-express    |   "source": "app",
+crm-express    |   "body": "Ayudeme a reporta y bloquear a este número +63 975 197 5675 que se hace pasar por mujer",
+crm-express    |   "hasMedia": false,
+crm-express    |   "media": null,
+crm-express    |   "ack": 2,
+crm-express    |   "ackName": "DEVICE",
+crm-express    |   "location": null,
+crm-express    |   "vCards": null,
+crm-express    |   "replyTo": null,
+crm-express    |   "_data": {
+crm-express    |     "key": {
+crm-express    |       "remoteJid": "120363373342172425@newsletter",
+crm-express    |       "fromMe": false,
+crm-express    |       "id": "AC08486D37A5097DDBDA2826EFDA8316",
+crm-express    |       "participant": "",
+crm-express    |       "addressingMode": "pn",
+crm-express    |       "server_id": "513"
+crm-express    |     },
+crm-express    |     "messageTimestamp": 1763404872,
+crm-express    |     "broadcast": false,
+crm-express    |     "message": {
+crm-express    |       "conversation": "Ayudeme a reporta y bloquear a este número +63 975 197 5675 que se hace pasar por mujer"
+crm-express    |     },
+crm-express    |     "status": 3
+crm-express    |   }
+crm-express    | }
+crm-express    | 
+crm-express    | 🔍 ========== DEBUG: EVENT COMPLETO ==========
+crm-express    | {
+crm-express    |   "id": "evt_01ka9hy4c2jvmw3s70je398f4s",
+crm-express    |   "timestamp": 1763404878211,
+crm-express    |   "event": "message.any",
+crm-express    |   "session": "jose_nova_venezuela_josni",
+crm-express    |   "metadata": {},
+crm-express    |   "me": {
+crm-express    |     "id": "584244252248@c.us",
+crm-express    |     "pushName": "José Román 🍃🐲",
+crm-express    |     "lid": "106111747264556@lid"
+crm-express    |   },
+crm-express    |   "payload": {
+crm-express    |     "id": "false_120363373342172425@newsletter_AC08486D37A5097DDBDA2826EFDA8316",
+crm-express    |     "timestamp": 1763404872,
+crm-express    |     "from": "120363373342172425@newsletter",
+crm-express    |     "fromMe": false,
+crm-express    |     "source": "app",
+crm-express    |     "body": "Ayudeme a reporta y bloquear a este número +63 975 197 5675 que se hace pasar por mujer",        
+crm-express    |     "hasMedia": false,
+crm-express    |     "media": null,
+crm-express    |     "ack": 2,
+crm-express    |     "ackName": "DEVICE",
+crm-express    |     "location": null,
+crm-express    |     "vCards": null,
+crm-express    |     "replyTo": null,
+crm-express    |     "_data": {
+crm-express    |       "key": {
+crm-express    |         "remoteJid": "120363373342172425@newsletter",
+crm-express    |         "fromMe": false,
+crm-express    |         "id": "AC08486D37A5097DDBDA2826EFDA8316",
+crm-express    |         "participant": "",
+crm-express    |         "addressingMode": "pn",
+crm-express    |         "server_id": "513"
+crm-express    |       },
+crm-express    |       "messageTimestamp": 1763404872,
+crm-express    |       "broadcast": false,
+crm-express    |       "message": {
+crm-express    |         "conversation": "Ayudeme a reporta y bloquear a este número +63 975 197 5675 que se hace pasar por mujer"
+crm-express    |       },
+crm-express    |       "status": 3
+crm-express    |     }
+crm-express    |   },
+crm-express    |   "engine": "NOWEB",
+crm-express    |   "environment": {
+crm-express    |     "version": "2025.11.2",
+crm-express    |     "engine": "NOWEB",
+crm-express    |     "tier": "PLUS",
+crm-express    |     "browser": null
+crm-express    |   }
+crm-express    | }
+crm-express    | ==========================================
+crm-express    | 
+crm-express    | 🔍 Número del bot: pending
+crm-express    | ✅ Bot obtenido: jose_nova_venezuela_josni (ID: d116f9f9-9afa-4841-853a-f12785cad683)
+crm-express    | 🔍 Número del contacto: 120363373342172425
+crm-express    | 
+crm-express    | 🔍 ========== DEBUG: DATOS DE CONTACTO ==========
+crm-express    | payload.pushName: undefined
+crm-express    | payload.verifiedBizName: undefined
+crm-express    | payload._data?.notifyName: undefined
+crm-express    | payload._data?.pushName: undefined
+crm-express    | payload._data?.verifiedName: undefined
+crm-express    | payload.from: 120363373342172425@newsletter
+crm-express    | payload.author: undefined
+crm-express    | payload.sender: undefined
+crm-express    | 
+crm-express    | 🔍 payload._data keys: [ 'key', 'messageTimestamp', 'broadcast', 'message', 'status' ]
+crm-express    | 🔍 payload._data.key: {
+crm-express    |   "remoteJid": "120363373342172425@newsletter",
+crm-express    |   "fromMe": false,
+crm-express    |   "id": "AC08486D37A5097DDBDA2826EFDA8316",
+crm-express    |   "participant": "",
+crm-express    |   "addressingMode": "pn",
+crm-express    |   "server_id": "513"
+crm-express    | }
+crm-express    | ==========================================
+crm-express    | 
+crm-express    | ✅ Nombre extraído del contacto: NULL
+crm-express    | ✅ Bot obtenido: jose_nova_venezuela_josni (ID: d116f9f9-9afa-4841-853a-f12785cad683)
+crm-express    | 🔍 Número del contacto: 120363373342172425
+crm-express    | 
+crm-express    | 🔍 ========== DEBUG: DATOS DE CONTACTO ==========
+crm-express    | payload.pushName: undefined
+crm-express    | payload.verifiedBizName: undefined
+crm-express    | payload._data?.notifyName: undefined
+crm-express    | payload._data?.pushName: undefined
+crm-express    | payload._data?.verifiedName: undefined
+crm-express    | payload.from: 120363373342172425@newsletter
+crm-express    | payload.author: undefined
+crm-express    | payload.sender: undefined
+crm-express    | 
+crm-express    | 🔍 payload._data keys: [ 'key', 'messageTimestamp', 'broadcast', 'message', 'status' ]
+crm-express    | 🔍 payload._data.key: {
+crm-express    |   "remoteJid": "120363373342172425@newsletter",
+crm-express    |   "fromMe": false,
+crm-express    |   "id": "AC08486D37A5097DDBDA2826EFDA8316",
+crm-express    |   "participant": "",
+crm-express    |   "addressingMode": "pn",
+crm-express    |   "server_id": "513"
+crm-express    | }
+crm-express    | ==========================================
+crm-express    | 
+crm-express    | ✅ Nombre extraído del contacto: NULL
+crm-express    | ✅ Contacto obtenido: 120363373342172425 (ID: b0c91649-ab54-46eb-9c52-311683652495)
+crm-express    | 🔍 Chat ID: 120363373342172425@newsletter
+crm-express    | 
+crm-express    | 🔍 ========== DEBUG: DATOS DE CHAT ==========
+crm-express    | payload.from: 120363373342172425@newsletter
+crm-express    | payload.chatId: undefined
+crm-express    | payload.id?.remote: undefined
+crm-express    | payload._data?.id?.remote: undefined
+crm-express    | payload._data?.id?._serialized: undefined
+crm-express    | 
+crm-express    | 🔍 Verificando nombres disponibles:
+crm-express    | payload._data?.notifyName: undefined
+crm-express    | payload.pushName: undefined
+crm-express    | payload._data?.pushName: undefined
+crm-express    | payload.body (primeros 30 chars): Ayudeme a reporta y bloquear a
+crm-express    | ==========================================
+crm-express    | 
+crm-express    | ✅ Nombre extraído del chat: 120363373342172425
+crm-express    | ✅ Es grupo: false
+crm-express    | Error en getOrCreateContact: {
+crm-express    |   code: '23505',
+crm-express    |   details: 'Key (bot_id, phone_number)=(d116f9f9-9afa-4841-853a-f12785cad683, 120363373342172425) already exists.',
+crm-express    |   hint: null,
+crm-express    |   message: 'duplicate key value violates unique constraint "contacts_bot_id_phone_number_unique"'
+crm-express    | }
+crm-express    | Error en getOrCreateContact: {
+crm-express    |   code: '23505',
+crm-express    |   details: 'Key (bot_id, phone_number)=(d116f9f9-9afa-4841-853a-f12785cad683, 120363373342172425) already exists.',
+crm-express    |   hint: null,
+crm-express    |   message: 'duplicate key value violates unique constraint "contacts_bot_id_phone_number_unique"'
+crm-express    | }
+crm-express    | ❌ Error en handleMessage: {
+crm-express    |   code: '23505',
+crm-express    |   details: 'Key (bot_id, phone_number)=(d116f9f9-9afa-4841-853a-f12785cad683, 120363373342172425) already exists.',
+crm-express    |   hint: null,
+crm-express    |   message: 'duplicate key value violates unique constraint "contacts_bot_id_phone_number_unique"'
+crm-express    | }
+crm-express    | ❌ Error procesando webhook: {
+crm-express    |   code: '23505',
+crm-express    |   details: 'Key (bot_id, phone_number)=(d116f9f9-9afa-4841-853a-f12785cad683, 120363373342172425) already exists.',
+crm-express    |   hint: null,
+crm-express    |   message: 'duplicate key value violates unique constraint "contacts_bot_id_phone_number_unique"'
+crm-express    | }
+waha           | {"level":30,"time":1763404888220,"pid":7,"hostname":"90a0dee49bdd","reqId":237,"session":"jose_nova_venezuela_josni","name":"WebhookSender","id":"01KA9HY4C4QHH06B85QHPYEGP4","event.id":"evt_01ka9hy4c2jvmw3s70je398f4s","url":"http://express:4000/webhooks/waha","msg":"POST request was sent with status code: 200"}
+crm-express    |   code: '23505',
+crm-express    |   details: 'Key (bot_id, phone_number)=(d116f9f9-9afa-4841-853a-f12785cad683, 120363373342172425) already exists.',
+crm-express    |   hint: null,
+crm-express    |   message: 'duplicate key value violates unique constraint "contacts_bot_id_phone_number_unique"'
+crm-express    | }
+crm-express    | POST /webhooks/waha 500 2268.623 ms - 114
+crm-express    | ✅ Chat obtenido: null (ID: 6593d587-e45d-4406-8ac4-c3b526c8777f)
+crm-express    | 💾 Guardando mensaje...
+crm-express    | ✅ Mensaje guardado en BD
+crm-express    | ✅ Mensaje guardado: 8c7f215c-eb45-4015-b6d5-7f6ab8839739
+crm-express    | 
+crm-express    | ✅ ========== MENSAJE PROCESADO EXITOSAMENTE ==========
+crm-express    | 
+crm-express    | POST /webhooks/waha 200 3113.236 ms - 60
+crm-express    | GET /health 200 9.658 ms - 106
+crm-express    | Webhook recibido: {
+crm-express    |   "id": "evt_01ka9hy4c2jvmw3s70je398f4s",
+crm-express    |   "timestamp": 1763404878211,
+crm-express    |   "event": "message.any",
+crm-express    |   "session": "jose_nova_venezuela_josni",
+crm-express    |   "metadata": {},
+crm-express    |   "me": {
+crm-express    |     "id": "584244252248@c.us",
+crm-express    |     "pushName": "José Román 🍃🐲",
+crm-express    |     "lid": "106111747264556@lid"
+crm-express    |   },
+crm-express    |   "payload": {
+crm-express    |     "id": "false_120363373342172425@newsletter_AC08486D37A5097DDBDA2826EFDA8316",
+crm-express    |     "timestamp": 1763404872,
+crm-express    |     "from": "120363373342172425@newsletter",
+crm-express    |     "fromMe": false,
+crm-express    |     "source": "app",
+crm-express    |     "body": "Ayudeme a reporta y bloquear a este número +63 975 197 5675 que se hace pasar por mujer",        
+crm-express    |     "hasMedia": false,
+crm-express    |     "media": null,
+crm-express    |     "ack": 2,
+crm-express    |     "ackName": "DEVICE",
+crm-express    |     "location": null,
+crm-express    |     "vCards": null,
+crm-express    |     "replyTo": null,
+crm-express    |     "_data": {
+crm-express    |       "key": {
+crm-express    |         "remoteJid": "120363373342172425@newsletter",
+crm-express    |         "fromMe": false,
+crm-express    |         "id": "AC08486D37A5097DDBDA2826EFDA8316",
+crm-express    |         "participant": "",
+crm-express    |         "addressingMode": "pn",
+crm-express    |         "server_id": "513"
+crm-express    |       },
+crm-express    |       "messageTimestamp": 1763404872,
+crm-express    |       "broadcast": false,
+crm-express    |       "message": {
+crm-express    |         "conversation": "Ayudeme a reporta y bloquear a este número +63 975 197 5675 que se hace pasar por mujer"
+crm-express    |       },
+crm-express    |       "status": 3
+crm-express    |     }
+crm-express    |   },
+crm-express    |   "engine": "NOWEB",
+crm-express    |   "environment": {
+crm-express    |     "version": "2025.11.2",
+crm-express    |     "engine": "NOWEB",
+crm-express    |     "tier": "PLUS",
+crm-express    |     "browser": null
+crm-express    |   }
+crm-express    | }
+crm-express    | 
+crm-express    | 🔔 Webhook recibido [message.any]: {
+crm-express    |   session: 'jose_nova_venezuela_josni',
+crm-express    |   event: 'message.any',
+crm-express    |   timestamp: '2025-11-17T18:41:22.562Z'
+crm-express    | }
+crm-express    | 
+crm-express    | 📨 ========== PROCESANDO MENSAJE ==========
+crm-express    | Evento: message.any
+crm-express    | ID: false_120363373342172425@newsletter_AC08486D37A5097DDBDA2826EFDA8316
+crm-express    | From: 120363373342172425@newsletter
+crm-express    | To: undefined
+crm-express    | FromMe: false
+crm-express    | Type: undefined
+crm-express    | HasMedia: false
+crm-express    | Body: Ayudeme a reporta y bloquear a este número +63 975...
+crm-express    | 
+crm-express    | 🔍 ========== DEBUG: PAYLOAD COMPLETO ==========
+crm-express    | {
+crm-express    |   "id": "false_120363373342172425@newsletter_AC08486D37A5097DDBDA2826EFDA8316",
+crm-express    |   "timestamp": 1763404872,
+crm-express    |   "from": "120363373342172425@newsletter",
+crm-express    |   "fromMe": false,
+crm-express    |   "source": "app",
+crm-express    |   "body": "Ayudeme a reporta y bloquear a este número +63 975 197 5675 que se hace pasar por mujer",
+crm-express    |   "hasMedia": false,
+crm-express    |   "media": null,
+crm-express    |   "ack": 2,
+crm-express    |   "ackName": "DEVICE",
+crm-express    |   "location": null,
+crm-express    |   "vCards": null,
+crm-express    |   "replyTo": null,
+crm-express    |   "_data": {
+crm-express    |     "key": {
+crm-express    |       "remoteJid": "120363373342172425@newsletter",
+crm-express    |       "fromMe": false,
+crm-express    |       "id": "AC08486D37A5097DDBDA2826EFDA8316",
+crm-express    |       "participant": "",
+crm-express    |       "addressingMode": "pn",
+crm-express    |       "server_id": "513"
+crm-express    |     },
+crm-express    |     "messageTimestamp": 1763404872,
+crm-express    |     "broadcast": false,
+crm-express    |     "message": {
+crm-express    |       "conversation": "Ayudeme a reporta y bloquear a este número +63 975 197 5675 que se hace pasar por mujer"
+crm-express    |     },
+crm-express    |     "status": 3
+crm-express    |   }
+crm-express    | }
+crm-express    | 
+crm-express    | 🔍 ========== DEBUG: EVENT COMPLETO ==========
+crm-express    | {
+crm-express    |   "id": "evt_01ka9hy4c2jvmw3s70je398f4s",
+crm-express    |   "timestamp": 1763404878211,
+crm-express    |   "event": "message.any",
+crm-express    |   "session": "jose_nova_venezuela_josni",
+crm-express    |   "metadata": {},
+crm-express    |   "me": {
+crm-express    |     "id": "584244252248@c.us",
+crm-express    |     "pushName": "José Román 🍃🐲",
+crm-express    |     "lid": "106111747264556@lid"
+crm-express    |   },
+crm-express    |   "payload": {
+crm-express    |     "id": "false_120363373342172425@newsletter_AC08486D37A5097DDBDA2826EFDA8316",
+crm-express    |     "timestamp": 1763404872,
+crm-express    |     "from": "120363373342172425@newsletter",
+crm-express    |     "fromMe": false,
+crm-express    |     "source": "app",
+crm-express    |     "body": "Ayudeme a reporta y bloquear a este número +63 975 197 5675 que se hace pasar por mujer",        
+crm-express    |     "hasMedia": false,
+crm-express    |     "media": null,
+crm-express    |     "ack": 2,
+crm-express    |     "ackName": "DEVICE",
+crm-express    |     "location": null,
+crm-express    |     "vCards": null,
+crm-express    |     "replyTo": null,
+crm-express    |     "_data": {
+crm-express    |       "key": {
+crm-express    |         "remoteJid": "120363373342172425@newsletter",
+crm-express    |         "fromMe": false,
+crm-express    |         "id": "AC08486D37A5097DDBDA2826EFDA8316",
+crm-express    |         "participant": "",
+crm-express    |         "addressingMode": "pn",
+crm-express    |         "server_id": "513"
+crm-express    |       },
+crm-express    |       "messageTimestamp": 1763404872,
+crm-express    |       "broadcast": false,
+crm-express    |       "message": {
+crm-express    |         "conversation": "Ayudeme a reporta y bloquear a este número +63 975 197 5675 que se hace pasar por mujer"
+crm-express    |       },
+crm-express    |       "status": 3
+crm-express    |     }
+crm-express    |   },
+crm-express    |   "engine": "NOWEB",
+crm-express    |   "environment": {
+crm-express    |     "version": "2025.11.2",
+crm-express    |     "engine": "NOWEB",
+crm-express    |     "tier": "PLUS",
+crm-express    |     "browser": null
+crm-express    |   }
+crm-express    | }
+crm-express    | ==========================================
+crm-express    | 
+crm-express    | 🔍 Número del bot: pending
+crm-express    | ✅ Bot obtenido: jose_nova_venezuela_josni (ID: d116f9f9-9afa-4841-853a-f12785cad683)
+crm-express    | 🔍 Número del contacto: 120363373342172425
+crm-express    | 
+crm-express    | 🔍 ========== DEBUG: DATOS DE CONTACTO ==========
+crm-express    | payload.pushName: undefined
+crm-express    | payload.verifiedBizName: undefined
+crm-express    | payload._data?.notifyName: undefined
+crm-express    | payload._data?.pushName: undefined
+crm-express    | payload._data?.verifiedName: undefined
+crm-express    | payload.from: 120363373342172425@newsletter
+crm-express    | payload.author: undefined
+crm-express    | payload.sender: undefined
+crm-express    | 
+crm-express    | 🔍 payload._data keys: [ 'key', 'messageTimestamp', 'broadcast', 'message', 'status' ]
+crm-express    | 🔍 payload._data.key: {
+crm-express    |   "remoteJid": "120363373342172425@newsletter",
+crm-express    |   "fromMe": false,
+crm-express    |   "id": "AC08486D37A5097DDBDA2826EFDA8316",
+crm-express    |   "participant": "",
+crm-express    |   "addressingMode": "pn",
+crm-express    |   "server_id": "513"
+crm-express    | }
+crm-express    | ==========================================
+crm-express    | 
+crm-express    | ✅ Nombre extraído del contacto: NULL
+crm-express    | ✅ Contacto obtenido: 120363373342172425 (ID: b0c91649-ab54-46eb-9c52-311683652495)
+crm-express    | 🔍 Chat ID: 120363373342172425@newsletter
+crm-express    | 
+crm-express    | 🔍 ========== DEBUG: DATOS DE CHAT ==========
+crm-express    | payload.from: 120363373342172425@newsletter
+crm-express    | payload.chatId: undefined
+crm-express    | payload.id?.remote: undefined
+crm-express    | payload._data?.id?.remote: undefined
+crm-express    | payload._data?.id?._serialized: undefined
+crm-express    | 
+crm-express    | 🔍 Verificando nombres disponibles:
+crm-express    | payload._data?.notifyName: undefined
+crm-express    | payload.pushName: undefined
+crm-express    | payload._data?.pushName: undefined
+crm-express    | payload.body (primeros 30 chars): Ayudeme a reporta y bloquear a
+crm-express    | ==========================================
+crm-express    | 
+crm-express    | ✅ Nombre extraído del chat: 120363373342172425
+crm-express    | ✅ Es grupo: false
+crm-express    | ✅ Chat obtenido: null (ID: 6593d587-e45d-4406-8ac4-c3b526c8777f)
+crm-express    | 💾 Guardando mensaje...
+crm-express    | ✅ Mensaje guardado en BD
+crm-express    | ✅ Mensaje guardado: c9922d4b-e892-48af-a124-a3f5061c71ea
+crm-express    | 
+crm-express    | ✅ ========== MENSAJE PROCESADO EXITOSAMENTE ==========

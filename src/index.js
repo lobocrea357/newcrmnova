@@ -13,6 +13,11 @@ import chatsRoutes from './routes/chats.js';
 import dashboardRoutes from './routes/dashboard.js';
 import mediaRoutes from './routes/media.js';
 import workersRoutes from './routes/workers.js';
+import syncRoutes from './routes/sync.js';
+import autoSyncRoutes from './routes/autoSync.js';
+
+// Importar servicio de auto-sincronización
+import autoSyncService from './services/autoSyncService.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -35,6 +40,8 @@ app.use('/api/chats', chatsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/workers', workersRoutes);
+app.use('/api/sync', syncRoutes);
+app.use('/api/auto-sync', autoSyncRoutes);
 
 // Ruta de health check
 app.get('/health', (req, res) => {
@@ -59,7 +66,9 @@ app.get('/', (req, res) => {
       chats: '/api/chats',
       dashboard: '/api/dashboard',
       media: '/api/media',
-      workers: '/api/workers'
+      workers: '/api/workers',
+      sync: '/api/sync',
+      autoSync: '/api/auto-sync'
     }
   });
 });
@@ -82,6 +91,9 @@ app.listen(PORT, () => {
   console.log(`   - WAHA URL: ${process.env.WAHA_BASE_URL || 'http://localhost:3000'}`);
   console.log(`   - Supabase URL: ${process.env.SUPABASE_URL}`);
   console.log(`\n✅ Listo para recibir webhooks de WAHA\n`);
+  
+  // Iniciar servicio de auto-sincronización
+  autoSyncService.start();
 });
 
 export default app;
