@@ -6,15 +6,28 @@ import MessageBubble from './MessageBubble'
 
 export default function ChatView({ chatId, onClose }) {
   const [conversation, setConversation] = useState(null)
+  const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const [oldestTimestamp, setOldestTimestamp] = useState(null)
   const messagesEndRef = useRef(null)
+  const messagesContainerRef = useRef(null)
+  const previousScrollHeightRef = useRef(0)
+  const isInitialLoadRef = useRef(true)
 
-  // Definir loadConversation primero
+  // Cargar conversación inicial (últimos 50 mensajes)
   const loadConversation = async () => {
     setLoading(true)
     try {
-      const data = await getConversationWithMessages(chatId)
-      setConversation(data)
+      const result = await getConversationWithMessages(chatId, 50)
+      if (result) {
+        console.log('📊 Mensajes cargados:', result.messages.length, 'hasMore:', result.hasMore)
+        setConversation(result.conversation)
+        setMessages(result.messages)
+        setHasMore(result.hasMore)
+        setOldestTimestamp(result.oldestTimestamp)
+      }
     } catch (error) {
       console.error('Error al cargar conversación:', error)
     } finally {
@@ -22,17 +35,46 @@ export default function ChatView({ chatId, onClose }) {
     }
   }
 
-  const handleMessageChange = async (payload) => {
-    const { eventType } = payload
+  // Cargar más mensajes antiguos
+  const loadMoreMessages = async () => {
+    if (loadingMore || !hasMore || !oldestTimestamp) return
 
-    if (eventType === 'INSERT') {
-      console.log('✨ Nuevo mensaje detectado, recargando...')
-      await loadConversation()
+    setLoadingMore(true)
+    try {
+      // Guardar altura actual del scroll antes de cargar
+      if (messagesContainerRef.current) {
+        previousScrollHeightRef.current = messagesContainerRef.current.scrollHeight
+      }
+
+      const result = await getConversationWithMessages(chatId, 50, oldestTimestamp)
+      if (result && result.messages.length > 0) {
+        // Agregar mensajes antiguos al inicio
+        setMessages(prev => [...result.messages, ...prev])
+        setHasMore(result.hasMore)
+        setOldestTimestamp(result.oldestTimestamp)
+      }
+    } catch (error) {
+      console.error('Error al cargar más mensajes:', error)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  const handleMessageChange = async (payload) => {
+    const { eventType, new: newMessage } = payload
+
+    if (eventType === 'INSERT' && newMessage) {
+      console.log('✨ Nuevo mensaje detectado, agregando al final')
+      // Agregar nuevo mensaje al final sin recargar todo
+      setMessages(prev => {
+        console.log('📝 Mensajes antes:', prev.length, '→ después:', prev.length + 1)
+        return [...prev, newMessage]
+      })
     } else if (eventType === 'UPDATE') {
-      console.log('🔄 Mensaje actualizado, recargando...')
+      console.log('🔄 Mensaje actualizado, recargando conversación completa...')
       await loadConversation()
     } else if (eventType === 'DELETE') {
-      console.log('🗑️ Mensaje eliminado')
+      console.log('🗑️ Mensaje eliminado, recargando conversación completa...')
       await loadConversation()
     }
   }
@@ -71,12 +113,40 @@ export default function ChatView({ chatId, onClose }) {
     }
   }, [chatId])
 
-  useEffect(() => {
-    // Scroll al final cuando se cargan los mensajes
-    if (conversation?.messages) {
-      scrollToBottom()
+  // Manejar scroll: detectar cuando llega arriba para cargar más
+  const handleScroll = () => {
+    if (!messagesContainerRef.current || loadingMore || !hasMore) return
+
+    const { scrollTop } = messagesContainerRef.current
+    
+    // Si está cerca del top (50px), cargar más mensajes
+    if (scrollTop < 50) {
+      loadMoreMessages()
     }
-  }, [conversation])
+  }
+
+  // Mantener posición del scroll después de cargar mensajes antiguos
+  useEffect(() => {
+    if (!loadingMore && messagesContainerRef.current && previousScrollHeightRef.current > 0) {
+      const newScrollHeight = messagesContainerRef.current.scrollHeight
+      const scrollDiff = newScrollHeight - previousScrollHeightRef.current
+      messagesContainerRef.current.scrollTop = scrollDiff
+      previousScrollHeightRef.current = 0
+    }
+  }, [loadingMore, messages])
+
+  // Scroll al final solo en la carga inicial
+  useEffect(() => {
+    if (messages.length > 0 && isInitialLoadRef.current) {
+      // Usar setTimeout para asegurar que el DOM esté completamente renderizado
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+        }
+        isInitialLoadRef.current = false
+      }, 100)
+    }
+  }, [messages])
 
   if (loading) {
     return (
@@ -136,22 +206,48 @@ export default function ChatView({ chatId, onClose }) {
         </div>
         <div className="flex items-center gap-4">
           <div className="text-sm text-white bg-white/20 px-3 py-1 rounded-full">
-            {conversation.messages?.length || 0} mensajes
+            {messages.length} mensajes {hasMore && '(+más)'}
           </div>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto bg-gray-50 px-6 py-4">
-        {conversation.messages && conversation.messages.length > 0 ? (
+      <div 
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto bg-gray-50 px-6 py-4"
+      >
+        {/* Indicador de carga superior */}
+        {loadingMore && (
+          <div className="flex justify-center py-4">
+            <div className="flex items-center gap-2 text-sm text-gray-600 bg-white px-4 py-2 rounded-full shadow-sm">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+              <span>Cargando mensajes anteriores...</span>
+            </div>
+          </div>
+        )}
+        
+        {/* Indicador de que no hay más mensajes */}
+        {!hasMore && messages.length > 0 && (
+          <div className="flex justify-center py-4">
+            <div className="text-xs text-gray-500 bg-white px-4 py-2 rounded-full shadow-sm">
+              📜 Inicio de la conversación
+            </div>
+          </div>
+        )}
+
+        {messages && messages.length > 0 ? (
           <div className="max-w-4xl mx-auto">
-            {conversation.messages.map((message, index) => (
-              <MessageBubble
-                key={message.id || index}
-                message={message}
-                contactName={contactName}
-              />
-            ))}
+            {(() => {
+              console.log('🎨 Renderizando', messages.length, 'mensajes')
+              return messages.map((message, index) => (
+                <MessageBubble
+                  key={message.id || index}
+                  message={message}
+                  contactName={contactName}
+                />
+              ))
+            })()}
             <div ref={messagesEndRef} />
           </div>
         ) : (
@@ -173,7 +269,7 @@ export default function ChatView({ chatId, onClose }) {
             <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
             </svg>
-            <span>Bot: <span className="font-medium text-gray-900">{conversation.bot?.session_name || 'N/A'}</span></span>
+            <span>Bot: <span className="font-medium text-gray-900">{conversation?.bot?.session_name || 'N/A'}</span></span>
           </div>
           {conversation.last_message_time && (
             <div className="flex items-center gap-2">

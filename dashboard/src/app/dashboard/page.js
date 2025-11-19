@@ -15,12 +15,15 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 function DashboardContent() {
   const [workers, setWorkers] = useState([]);
   const [bots, setBots] = useState([]);
   const [conversations, setConversations] = useState({});
+  const [conversationsPagination, setConversationsPagination] = useState({});
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [selectedBotId, setSelectedBotId] = useState(null);
@@ -62,7 +65,20 @@ function DashboardContent() {
     if (!bots || bots.length === 0) return;
 
     setSelectedBotId(botIdFromUrl);
-    fetchConversations(botIdFromUrl);
+    
+    // Intentar restaurar la página guardada para este bot
+    if (typeof window !== 'undefined') {
+      try {
+        const savedPage = window.localStorage.getItem(`dashboard:bot:${botIdFromUrl}:page`);
+        const page = savedPage ? parseInt(savedPage, 10) : 1;
+        fetchConversations(botIdFromUrl, page);
+      } catch (error) {
+        console.error('Error restaurando página guardada:', error);
+        fetchConversations(botIdFromUrl);
+      }
+    } else {
+      fetchConversations(botIdFromUrl);
+    }
   }, [searchParams, bots]);
 
   // Mantener y restaurar la última conversación visitada usando localStorage
@@ -188,13 +204,20 @@ function DashboardContent() {
     }
   };
 
-  const fetchConversations = async (botId) => {
-    if (conversations[botId]) return; // Ya cargadas
-
+  const fetchConversations = async (botId, page = 1) => {
     try {
       setLoadingConversations((prev) => ({ ...prev, [botId]: true }));
-      const convData = await getConversationsByBot(botId);
-      setConversations((prev) => ({ ...prev, [botId]: convData }));
+      const result = await getConversationsByBot(botId, page, 10);
+      
+      setConversations((prev) => ({ ...prev, [botId]: result.data }));
+      setConversationsPagination((prev) => ({
+        ...prev,
+        [botId]: {
+          currentPage: result.currentPage,
+          totalPages: result.totalPages,
+          total: result.total
+        }
+      }));
     } catch (error) {
       console.error("Error fetching conversations:", error);
     } finally {
@@ -480,12 +503,25 @@ function DashboardContent() {
     if (typeof window !== 'undefined') {
       try {
         window.localStorage.setItem('dashboard:lastChatId', chatIdStr);
+        
+        // Guardar la página actual del paginador para este bot
+        const currentPagination = conversationsPagination[botId];
+        if (currentPagination && currentPagination.currentPage) {
+          window.localStorage.setItem(
+            `dashboard:bot:${botId}:page`, 
+            String(currentPagination.currentPage)
+          );
+        }
       } catch (error) {
-        console.error('Error guardando lastChatId en localStorage desde handleConversationClick:', error);
+        console.error('Error guardando en localStorage desde handleConversationClick:', error);
       }
     }
 
     router.push(`/dashboard/chat/${chatId}?botId=${botId}`);
+  };
+
+  const handlePageChange = async (botId, newPage) => {
+    await fetchConversations(botId, newPage);
   };
 
   const selectedBot = selectedBotId
@@ -495,6 +531,10 @@ function DashboardContent() {
   const selectedBotConversations = selectedBotId
     ? conversations[selectedBotId] || []
     : [];
+
+  const selectedBotPagination = selectedBotId
+    ? conversationsPagination[selectedBotId] || { currentPage: 1, totalPages: 0, total: 0 }
+    : { currentPage: 1, totalPages: 0, total: 0 };
 
   if (loading) {
     return (
@@ -633,12 +673,7 @@ function DashboardContent() {
                     Bots Activos
                   </dt>
                   <dd className="text-3xl font-semibold text-gray-900">
-                    {
-                      bots.filter(
-                        (bot) =>
-                          bot.status === "working" || bot.status === "active"
-                      ).length
-                    }
+                    {bots.filter((bot) => isBotActive(bot.status)).length}
                   </dd>
                 </dl>
               </div>
@@ -946,7 +981,11 @@ function DashboardContent() {
                         Conversaciones de {meta.displayName}
                       </h2>
                       <p className="text-xs text-gray-500 mt-1">
-                        {selectedBot.conversation_count || 0} conversaciones totales.
+                        {selectedBotPagination.total > 0 
+                          ? `${selectedBotPagination.total} conversaciones totales` 
+                          : `${selectedBot.conversation_count || 0} conversaciones totales`}
+                        {selectedBotPagination.totalPages > 1 && 
+                          ` • Mostrando página ${selectedBotPagination.currentPage} de ${selectedBotPagination.totalPages}`}
                       </p>
                       <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px] text-gray-600">
                         {meta.sedeLabel && (
@@ -1047,52 +1086,94 @@ function DashboardContent() {
                   </div>
                 </div>
               ) : (
-                <div className="max-h-[60vh] lg:max-h-[600px] overflow-y-auto divide-y divide-gray-200">
-                  {selectedBotConversations.map((conv) => (
-                    <div
-                      key={conv.id}
-                      onClick={() => handleConversationClick(selectedBot.id, conv.id)}
-                      className={`px-6 py-4 cursor-pointer transition-colors flex items-center justify-between gap-4 ${
-                        lastChatId === String(conv.id)
-                          ? 'bg-indigo-50 hover:bg-indigo-100'
-                          : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-center min-w-0 flex-1 gap-4">
-                        <div className="flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                            <MessageSquare className="h-5 w-5 text-indigo-600" />
+                <>
+                  <div className="max-h-[60vh] lg:max-h-[500px] overflow-y-auto divide-y divide-gray-200">
+                    {selectedBotConversations.map((conv) => (
+                      <div
+                        key={conv.id}
+                        onClick={() => handleConversationClick(selectedBot.id, conv.id)}
+                        className={`px-6 py-4 cursor-pointer transition-colors flex items-center justify-between gap-4 ${
+                          lastChatId === String(conv.id)
+                            ? 'bg-indigo-50 hover:bg-indigo-100'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center min-w-0 flex-1 gap-4">
+                          <div className="flex-shrink-0">
+                            <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                              <MessageSquare className="h-5 w-5 text-indigo-600" />
+                            </div>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {conv.contact_name || 'Sin nombre'}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
+                              <Phone className="h-3 w-3" />
+                              <span className="truncate max-w-[160px]">
+                                {conv.contact_phone || conv.remote_jid}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {conv.contact_name || 'Sin nombre'}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
-                            <Phone className="h-3 w-3" />
-                            <span className="truncate max-w-[160px]">
-                              {conv.contact_phone || conv.remote_jid}
+                        <div className="flex flex-col items-end flex-shrink-0 text-xs text-gray-500">
+                          <span className="text-sm font-semibold text-gray-900">
+                            {conv.message_count || 0} mensajes
+                          </span>
+                          {conv.last_message_time && (
+                            <span className="mt-1">
+                              {new Date(conv.last_message_time).toLocaleDateString('es-ES', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
                             </span>
-                          </div>
+                          )}
                         </div>
                       </div>
-                      <div className="flex flex-col items-end flex-shrink-0 text-xs text-gray-500">
-                        <span className="text-sm font-semibold text-gray-900">
-                          {conv.message_count || 0} mensajes
+                    ))}
+                  </div>
+                  
+                  {/* Controles de paginación */}
+                  {selectedBotPagination.totalPages > 1 && (
+                    <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <span>
+                          Página {selectedBotPagination.currentPage} de {selectedBotPagination.totalPages}
                         </span>
-                        {conv.last_message_time && (
-                          <span className="mt-1">
-                            {new Date(conv.last_message_time).toLocaleDateString('es-ES', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric',
-                            })}
-                          </span>
-                        )}
+                        <span className="text-xs text-gray-500">
+                          ({selectedBotPagination.total} conversaciones totales)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handlePageChange(selectedBotId, selectedBotPagination.currentPage - 1)}
+                          disabled={selectedBotPagination.currentPage === 1 || loadingConversations[selectedBotId]}
+                          className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            selectedBotPagination.currentPage === 1 || loadingConversations[selectedBotId]
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                          }`}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Anterior
+                        </button>
+                        <button
+                          onClick={() => handlePageChange(selectedBotId, selectedBotPagination.currentPage + 1)}
+                          disabled={selectedBotPagination.currentPage === selectedBotPagination.totalPages || loadingConversations[selectedBotId]}
+                          className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            selectedBotPagination.currentPage === selectedBotPagination.totalPages || loadingConversations[selectedBotId]
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                          }`}
+                        >
+                          Siguiente
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </div>
           </section>
