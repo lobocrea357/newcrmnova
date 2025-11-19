@@ -85,27 +85,28 @@ router.post('/:sessionName/all', async (req, res) => {
 });
 
 /**
- * POST /sync/:sessionName/contacts-without-names
- * Sincroniza SOLO los contactos que no tienen nombre
+ * POST /sync/:sessionName/enrich-contacts
+ * Enriquece TODOS los contactos con datos NULL (nombre, foto)
  */
-router.post('/:sessionName/contacts-without-names', async (req, res) => {
+router.post('/:sessionName/enrich-contacts', async (req, res) => {
   try {
     const { sessionName } = req.params;
     
-    console.log(`\n👤 Solicitud de sincronización de contactos sin nombre: ${sessionName}`);
+    console.log(`\n🔍 Solicitud de enriquecimiento de contactos: ${sessionName}`);
     
-    // Importar autoSyncService
-    const { default: autoSyncService } = await import('../services/autoSyncService.js');
+    // Importar contactEnrichmentService
+    const { default: contactEnrichmentService } = await import('../services/contactEnrichmentService.js');
     
-    // Ejecutar sincronización
-    await autoSyncService.syncContactsWithoutNames();
+    // Ejecutar enriquecimiento
+    const result = await contactEnrichmentService.enrichAllContactsWithNullData();
     
     res.status(200).json({
       success: true,
-      message: 'Sincronización de contactos sin nombre completada'
+      message: 'Enriquecimiento de contactos completado',
+      data: result
     });
   } catch (error) {
-    console.error('❌ Error en sincronización de contactos sin nombre:', error);
+    console.error('❌ Error en enriquecimiento de contactos:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -125,7 +126,7 @@ router.get('/status', (req, res) => {
       contacts: 'POST /sync/:sessionName/contacts',
       chats: 'POST /sync/:sessionName/chats',
       all: 'POST /sync/:sessionName/all',
-      contactsWithoutNames: 'POST /sync/:sessionName/contacts-without-names'
+      enrichContacts: 'POST /sync/:sessionName/enrich-contacts'
     }
   });
 });

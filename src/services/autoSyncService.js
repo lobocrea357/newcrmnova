@@ -55,7 +55,7 @@ export class AutoSyncService {
 
     // Primera sincronización inmediata
     setTimeout(() => this.executeSyncCycle(), 5000); // Esperar 5 segundos al inicio
-    setTimeout(() => this.syncContactsWithoutNames(), 10000); // Contactos sin nombre a los 10 segundos
+    setTimeout(() => this.enrichContactsWithNullData(), 10000); // Enriquecer contactos a los 10 segundos
 
     // Programar sincronizaciones periódicas
     this.intervalId = setInterval(
@@ -63,9 +63,9 @@ export class AutoSyncService {
       this.intervalMinutes * 60 * 1000
     );
 
-    // Sincronización de contactos sin nombre cada 5 minutos
+    // Enriquecimiento de contactos con datos NULL cada 5 minutos
     this.contactSyncIntervalId = setInterval(
-      () => this.syncContactsWithoutNames(),
+      () => this.enrichContactsWithNullData(),
       this.contactSyncMinutes * 60 * 1000
     );
   }
@@ -254,82 +254,22 @@ export class AutoSyncService {
   }
 
   /**
-   * Sincroniza SOLO contactos que no tienen nombre
+   * Enriquece contactos con datos NULL (nombre, foto de perfil)
    */
-  async syncContactsWithoutNames() {
+  async enrichContactsWithNullData() {
     try {
-      console.log(`\n👤 Sincronizando contactos sin nombre...`);
+      // Importar el servicio de enriquecimiento
+      const { default: contactEnrichmentService } = await import('./contactEnrichmentService.js');
       
-      // Obtener todos los bots activos
-      const { data: bots, error } = await supabase
-        .from('bots')
-        .select('id, session_name, status')
-        .eq('status', 'working');
-
-      if (error || !bots || bots.length === 0) {
-        console.log('   ℹ️  No hay bots activos');
-        return;
-      }
-
-      let totalUpdated = 0;
-
-      for (const bot of bots) {
-        try {
-          // Obtener contactos sin nombre de este bot
-          const { data: contactsWithoutNames } = await supabase
-            .from('contacts')
-            .select('*')
-            .eq('bot_id', bot.id)
-            .is('name', null);
-
-          if (!contactsWithoutNames || contactsWithoutNames.length === 0) {
-            continue;
-          }
-
-          console.log(`   📱 ${bot.session_name}: ${contactsWithoutNames.length} contactos sin nombre`);
-
-          // Importar WahaContactService dinámicamente para evitar ciclos
-          const { default: WahaContactService } = await import('./wahaContactService.js');
-
-          // Actualizar cada contacto
-          for (const contact of contactsWithoutNames) {
-            try {
-              const contactId = `${contact.phone_number}@c.us`;
-              const wahaData = await WahaContactService.getFullContactData(bot.session_name, contactId);
-
-              if (wahaData.name || wahaData.push_name) {
-                await supabase
-                  .from('contacts')
-                  .update({
-                    name: wahaData.name,
-                    push_name: wahaData.push_name,
-                    profile_picture_url: wahaData.profile_picture_url || contact.profile_picture_url,
-                    is_business: wahaData.is_business ?? contact.is_business,
-                    is_enterprise: wahaData.is_enterprise ?? contact.is_enterprise,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('id', contact.id);
-
-                totalUpdated++;
-                console.log(`      ✅ ${contact.phone_number} → ${wahaData.name}`);
-              }
-
-              // Pausa para no saturar la API
-              await new Promise(resolve => setTimeout(resolve, 100));
-            } catch (error) {
-              console.error(`      ❌ Error con ${contact.phone_number}:`, error.message);
-            }
-          }
-        } catch (error) {
-          console.error(`   ❌ Error procesando bot ${bot.session_name}:`, error.message);
-        }
-      }
-
-      console.log(`   ✅ Total actualizado: ${totalUpdated} contactos\n`);
+      // Ejecutar enriquecimiento
+      const result = await contactEnrichmentService.enrichAllContactsWithNullData();
+      
       this.lastContactSyncTime = new Date();
+      
+      return result;
 
     } catch (error) {
-      console.error('❌ Error sincronizando contactos sin nombre:', error.message);
+      console.error('❌ Error enriqueciendo contactos:', error.message);
     }
   }
 
