@@ -143,12 +143,34 @@ export async function getBotsByWorker(workerId) {
 }
 
 /**
- * Obtiene las conversaciones de un bot específico
+ * Obtiene las conversaciones de un bot específico con paginación
+ * @param {string} botId - ID del bot
+ * @param {number} page - Número de página (empezando en 1)
+ * @param {number} pageSize - Cantidad de conversaciones por página (default: 10)
+ * @returns {Promise<{data: Array, total: number, totalPages: number, currentPage: number}>}
  */
-export async function getConversationsByBot(botId) {
-  console.log('🔍 Obteniendo conversaciones para bot:', botId)
+export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
+  console.log('🔍 Obteniendo conversaciones para bot:', botId, 'página:', page)
   
-  // Primero intentar con last_message_time, si falla usar created_at
+  // Primero obtener el total de conversaciones
+  const { count: totalCount, error: countError } = await supabase
+    .from('chats')
+    .select('*', { count: 'exact', head: true })
+    .eq('bot_id', botId)
+
+  if (countError) {
+    console.error('❌ Error al contar conversaciones:', countError)
+    return { data: [], total: 0, totalPages: 0, currentPage: page }
+  }
+
+  const total = totalCount || 0
+  const totalPages = Math.ceil(total / pageSize)
+
+  // Calcular el rango para la paginación
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+
+  // Obtener las conversaciones paginadas
   let query = supabase
     .from('chats')
     .select(`
@@ -156,20 +178,21 @@ export async function getConversationsByBot(botId) {
       contact:contacts(id, name, phone_number)
     `)
     .eq('bot_id', botId)
+    .order('created_at', { ascending: false })
+    .range(from, to)
 
-  // Intentar ordenar por last_message_time, si falla usar created_at
-  const { data, error } = await query.order('created_at', { ascending: false })
+  const { data, error } = await query
 
   if (error) {
     console.error('❌ Error al obtener conversaciones:', error)
-    return []
+    return { data: [], total: 0, totalPages: 0, currentPage: page }
   }
 
-  console.log('✅ Conversaciones obtenidas:', data?.length || 0, data)
+  console.log('✅ Conversaciones obtenidas:', data?.length || 0, 'de', total, 'totales')
 
   if (!data || data.length === 0) {
-    console.log('⚠️ No se encontraron conversaciones para este bot')
-    return []
+    console.log('⚠️ No se encontraron conversaciones para esta página')
+    return { data: [], total, totalPages, currentPage: page }
   }
 
   // Obtener conteo de mensajes para cada chat
@@ -190,14 +213,23 @@ export async function getConversationsByBot(botId) {
   )
 
   console.log('📊 Conversaciones con conteos:', chatsWithCounts)
-  return chatsWithCounts
+  return {
+    data: chatsWithCounts,
+    total,
+    totalPages,
+    currentPage: page
+  }
 }
 
 /**
- * Obtiene una conversación con todos sus mensajes (incluyendo multimedia)
+ * Obtiene una conversación con sus mensajes paginados (estilo WhatsApp)
+ * @param {string} chatId - ID del chat
+ * @param {number} limit - Cantidad de mensajes a cargar (default: 50)
+ * @param {string} beforeTimestamp - Timestamp para cargar mensajes anteriores (opcional)
+ * @returns {Promise<{conversation: Object, messages: Array, hasMore: boolean, oldestTimestamp: string}>}
  */
-export async function getConversationWithMessages(chatId) {
-  console.log('🔍 Obteniendo conversación:', chatId)
+export async function getConversationWithMessages(chatId, limit = 50, beforeTimestamp = null) {
+  console.log('🔍 Obteniendo conversación:', chatId, 'limit:', limit, 'before:', beforeTimestamp)
   
   const { data, error } = await supabase
     .from('chats')
@@ -214,26 +246,52 @@ export async function getConversationWithMessages(chatId) {
     return null
   }
 
-  // Obtener mensajes con archivos multimedia
-  const { data: messages, error: messagesError } = await supabase
+  // Construir query para mensajes
+  let messagesQuery = supabase
     .from('messages')
     .select(`
       *,
       media_files:media_files(*)
     `)
     .eq('chat_id', chatId)
-    .order('timestamp', { ascending: true })
+    .order('timestamp', { ascending: false }) // Descendente para obtener los más recientes primero
+    .limit(limit + 1) // +1 para saber si hay más mensajes
+
+  // Si hay beforeTimestamp, cargar mensajes anteriores a ese timestamp
+  if (beforeTimestamp) {
+    messagesQuery = messagesQuery.lt('timestamp', beforeTimestamp)
+  }
+
+  const { data: messages, error: messagesError } = await messagesQuery
 
   if (messagesError) {
     console.error('❌ Error al obtener mensajes:', messagesError)
-    data.messages = []
-  } else {
-    data.messages = messages || []
+    return {
+      conversation: data,
+      messages: [],
+      hasMore: false,
+      oldestTimestamp: null
+    }
   }
 
-  console.log('✅ Conversación obtenida:', data.messages.length, 'mensajes')
+  // Verificar si hay más mensajes
+  const hasMore = messages && messages.length > limit
+  const messagesToReturn = hasMore ? messages.slice(0, limit) : messages || []
   
-  return data
+  // Invertir el orden para mostrar del más antiguo al más reciente
+  const sortedMessages = messagesToReturn.reverse()
+  
+  // Obtener el timestamp del mensaje más antiguo
+  const oldestTimestamp = sortedMessages.length > 0 ? sortedMessages[0].timestamp : null
+
+  console.log('✅ Mensajes obtenidos:', sortedMessages.length, 'hasMore:', hasMore)
+  
+  return {
+    conversation: data,
+    messages: sortedMessages,
+    hasMore,
+    oldestTimestamp
+  }
 }
 
 /**
