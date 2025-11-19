@@ -15,6 +15,7 @@ import mediaRoutes from './routes/media.js';
 import workersRoutes from './routes/workers.js';
 import syncRoutes from './routes/sync.js';
 import autoSyncRoutes from './routes/autoSync.js';
+import fullSyncRoutes from './routes/fullSync.js';
 
 // Importar servicio de auto-sincronización
 import autoSyncService from './services/autoSyncService.js';
@@ -42,6 +43,7 @@ app.use('/api/media', mediaRoutes);
 app.use('/api/workers', workersRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/auto-sync', autoSyncRoutes);
+app.use('/api/full-sync', fullSyncRoutes);
 
 // Ruta de health check
 app.get('/health', (req, res) => {
@@ -68,7 +70,8 @@ app.get('/', (req, res) => {
       media: '/api/media',
       workers: '/api/workers',
       sync: '/api/sync',
-      autoSync: '/api/auto-sync'
+      autoSync: '/api/auto-sync',
+      fullSync: '/api/full-sync'
     }
   });
 });

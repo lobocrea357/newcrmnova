@@ -106,6 +106,33 @@ export class ContactService {
       throw error;
     }
   }
+
+  /**
+   * Obtiene contactos con datos incompletos (sin nombre o foto)
+   */
+  async getContactsWithMissingData(botId) {
+    try {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('bot_id', botId)
+        .or('name.is.null,profile_picture_url.is.null')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error en getContactsWithMissingData:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Verifica si un contacto necesita actualización de datos
+   */
+  needsDataUpdate(contact) {
+    return !contact.name || !contact.profile_picture_url || !contact.push_name;
+  }
 }
 
 export default new ContactService();

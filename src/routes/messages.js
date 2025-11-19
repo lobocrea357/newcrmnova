@@ -24,15 +24,39 @@ router.get('/bot/:botId', async (req, res) => {
 
 /**
  * GET /messages/chat/:chatId
- * Obtiene mensajes de un chat
+ * Obtiene mensajes de un chat con archivos multimedia incluidos
  */
 router.get('/chat/:chatId', async (req, res) => {
   try {
     const { chatId } = req.params;
-    const { limit = 100, offset = 0 } = req.query;
+    const { limit = 100, offset = 0, includeMedia = 'true' } = req.query;
 
+    // Obtener mensajes
     const messages = await messageService.getMessagesByChat(chatId, parseInt(limit), parseInt(offset));
-    res.json({ success: true, data: messages });
+
+    // Si se solicita incluir media, obtener archivos multimedia
+    if (includeMedia === 'true') {
+      const messagesWithMedia = await Promise.all(
+        messages.map(async (msg) => {
+          if (msg.has_media) {
+            const { data: mediaFiles } = await supabase
+              .from('media_files')
+              .select('*')
+              .eq('message_id', msg.id);
+            
+            return {
+              ...msg,
+              media_files: mediaFiles || []
+            };
+          }
+          return msg;
+        })
+      );
+      
+      res.json({ success: true, data: messagesWithMedia });
+    } else {
+      res.json({ success: true, data: messages });
+    }
   } catch (error) {
     console.error('Error obteniendo mensajes del chat:', error);
     res.status(500).json({ success: false, error: error.message });

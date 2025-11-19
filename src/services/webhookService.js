@@ -16,18 +16,24 @@ const transcriptionService = new TranscriptionService();
 
 export class WebhookService {
   /**
-   * Procesa un webhook de WAHA
+   * Procesa un webhook de WAHA con reintentos
    */
-  async processWebhook(event) {
+  async processWebhook(event, retryCount = 0) {
+    const maxRetries = 3;
+    
     try {
       console.log(`\n🔔 Webhook recibido [${event.event}]:`, {
         session: event.session,
         event: event.event,
-        timestamp: new Date().toISOString()
+        messageId: event.payload?.id,
+        timestamp: new Date().toISOString(),
+        retry: retryCount > 0 ? `${retryCount}/${maxRetries}` : 'first attempt'
       });
 
-      // Guardar evento en la base de datos
-      await this.saveWebhookEvent(event);
+      // Guardar evento en la base de datos (no bloqueante)
+      this.saveWebhookEvent(event).catch(err => {
+        console.error('⚠️ Error guardando webhook event (no crítico):', err.message);
+      });
 
       // Procesar según el tipo de evento
       switch (event.event) {
@@ -35,7 +41,7 @@ export class WebhookService {
           await this.handleSessionStatus(event);
           break;
         
-        //case 'message':
+        case 'message':
         case 'message.any':
           await this.handleMessage(event);
           break;
@@ -52,9 +58,21 @@ export class WebhookService {
           console.log(`⚠️ Evento no manejado: ${event.event}`);
       }
 
+      console.log(`✅ Webhook procesado exitosamente`);
       return { success: true };
+
     } catch (error) {
-      console.error('❌ Error procesando webhook:', error);
+      console.error(`❌ Error procesando webhook (intento ${retryCount + 1}/${maxRetries + 1}):`, error.message);
+      
+      // Reintentar si no hemos alcanzado el máximo
+      if (retryCount < maxRetries) {
+        console.log(`🔄 Reintentando en 2 segundos...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return this.processWebhook(event, retryCount + 1);
+      }
+      
+      // Si ya agotamos los reintentos, guardar en una tabla de errores
+      await this.saveFailedWebhook(event, error);
       throw error;
     }
   }
@@ -223,7 +241,7 @@ export class WebhookService {
   }
 
   /**
-   * Obtiene o crea el contacto
+   * Obtiene o crea el contacto (SIEMPRE verifica datos faltantes)
    */
   async getOrCreateContact(botId, payload, session) {
     try {
@@ -238,30 +256,17 @@ export class WebhookService {
         throw new Error('No se pudo extraer número de contacto');
       }
 
-    /*   console.log(`🔍 Número del contacto: ${contactNumber}`);
-
-      // 🔍 DEBUG: Explorar todas las posibles ubicaciones de datos del contacto
-      console.log(`\n🔍 ========== DEBUG: DATOS DE CONTACTO ==========`);
-      console.log(`payload.pushName: ${payload.pushName}`);
-      console.log(`payload.verifiedBizName: ${payload.verifiedBizName}`);
-      console.log(`payload._data?.notifyName: ${payload._data?.notifyName}`);
-      console.log(`payload._data?.pushName: ${payload._data?.pushName}`);
-      console.log(`payload._data?.verifiedName: ${payload._data?.verifiedName}`);
-      console.log(`payload.from: ${payload.from}`);
-      console.log(`payload.author: ${payload.author}`);
-      console.log(`payload.sender: ${payload.sender}`);
-      
-      // Verificar si hay datos de contacto en _data
-      if (payload._data) {
-        console.log(`\n🔍 payload._data keys:`, Object.keys(payload._data));
-        if (payload._data.key) {
-          console.log(`🔍 payload._data.key:`, JSON.stringify(payload._data.key, null, 2));
-        }
-      }
-      console.log(`==========================================\n`); */
-
-      // Extraer nombre del contacto desde payload (probablemente será NULL)
       console.log(`   📞 Contacto: ${contactNumber}`);
+
+      // Verificar si el contacto ya existe
+      const { data: existingContact } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('bot_id', botId)
+        .eq('phone_number', contactNumber)
+        .maybeSingle();
+
+      // Extraer nombre del contacto desde payload
       const contactName = payload._data?.notifyName || 
                          payload.pushName || 
                          payload.verifiedBizName || 
@@ -269,10 +274,16 @@ export class WebhookService {
                          payload._data?.verifiedName ||
                          null;
 
-   /*    console.log(`✅ Nombre extraído del payload: ${contactName || 'NULL'}`);
+      // Si el contacto existe Y tiene datos completos, retornarlo
+      if (existingContact && 
+          existingContact.name && 
+          existingContact.profile_picture_url) {
+        console.log(`   ✅ Contacto con datos completos: ${existingContact.name}`);
+        return existingContact;
+      }
 
-      // 🚀 NUEVO: Consultar API de WAHA para obtener datos completos del contacto
-      console.log(`\n🌐 Consultando API de WAHA para obtener datos completos...`); */
+      // Si no existe o le faltan datos, consultar WAHA
+      console.log(`   🔍 Consultando datos desde WAHA...`);
       const wahaContactData = await WahaContactService.getFullContactData(session, contactId);
 
       // Combinar datos del payload y de WAHA (priorizar WAHA)
@@ -527,6 +538,43 @@ export class WebhookService {
       }
     } catch (error) {
       console.error('Error en handleMessageReaction:', error);
+    }
+  }
+
+  /**
+   * Guarda webhooks que fallaron después de todos los reintentos
+   */
+  async saveFailedWebhook(event, error) {
+    try {
+      console.log(`💾 Guardando webhook fallido para revisión posterior...`);
+      
+      const { data: bot } = await supabase
+        .from('bots')
+        .select('id')
+        .eq('session_name', event.session)
+        .single();
+
+      if (bot) {
+        await supabase
+          .from('webhook_events')
+          .insert([{
+            bot_id: bot.id,
+            event_type: `FAILED_${event.event}`,
+            event_data: {
+              ...event,
+              error: {
+                message: error.message,
+                stack: error.stack,
+                timestamp: new Date().toISOString()
+              }
+            },
+            processed: false
+          }]);
+        
+        console.log(`✅ Webhook fallido guardado para revisión`);
+      }
+    } catch (saveError) {
+      console.error('❌ Error guardando webhook fallido:', saveError.message);
     }
   }
 }

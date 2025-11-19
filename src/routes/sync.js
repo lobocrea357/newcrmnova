@@ -85,6 +85,35 @@ router.post('/:sessionName/all', async (req, res) => {
 });
 
 /**
+ * POST /sync/:sessionName/contacts-without-names
+ * Sincroniza SOLO los contactos que no tienen nombre
+ */
+router.post('/:sessionName/contacts-without-names', async (req, res) => {
+  try {
+    const { sessionName } = req.params;
+    
+    console.log(`\n👤 Solicitud de sincronización de contactos sin nombre: ${sessionName}`);
+    
+    // Importar autoSyncService
+    const { default: autoSyncService } = await import('../services/autoSyncService.js');
+    
+    // Ejecutar sincronización
+    await autoSyncService.syncContactsWithoutNames();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Sincronización de contactos sin nombre completada'
+    });
+  } catch (error) {
+    console.error('❌ Error en sincronización de contactos sin nombre:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * GET /sync/status
  * Verifica el estado del servicio de sincronización
  */
@@ -95,7 +124,8 @@ router.get('/status', (req, res) => {
     endpoints: {
       contacts: 'POST /sync/:sessionName/contacts',
       chats: 'POST /sync/:sessionName/chats',
-      all: 'POST /sync/:sessionName/all'
+      all: 'POST /sync/:sessionName/all',
+      contactsWithoutNames: 'POST /sync/:sessionName/contacts-without-names'
     }
   });
 });

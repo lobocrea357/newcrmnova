@@ -20,13 +20,16 @@ export class AutoSyncService {
   constructor() {
     this.isRunning = false;
     this.intervalId = null;
+    this.contactSyncIntervalId = null;
     this.lastSyncTime = null;
+    this.lastContactSyncTime = null;
     this.syncInProgress = false;
     
     // Configuración desde .env
     this.enabled = process.env.AUTO_SYNC_ENABLED !== 'false'; // Default: true
     this.intervalMinutes = parseInt(process.env.AUTO_SYNC_INTERVAL_MINUTES) || 30; // Default: 30 min
     this.fullSync = process.env.AUTO_SYNC_FULL_SYNC === 'true'; // Default: false
+    this.contactSyncMinutes = 5; // Sincronizar contactos sin nombre cada 5 minutos
   }
 
   /**
@@ -44,18 +47,26 @@ export class AutoSyncService {
     }
 
     console.log(`\n🔄 Auto-Sincronización INICIADA`);
-    console.log(`   ⏱️  Intervalo: cada ${this.intervalMinutes} minutos`);
+    console.log(`   ⏱️  Intervalo general: cada ${this.intervalMinutes} minutos`);
+    console.log(`   👤 Contactos sin nombre: cada ${this.contactSyncMinutes} minutos`);
     console.log(`   🔍 Modo: ${this.fullSync ? 'COMPLETA (bots + contactos + chats)' : 'BÁSICA (solo bots)'}`);
 
     this.isRunning = true;
 
     // Primera sincronización inmediata
     setTimeout(() => this.executeSyncCycle(), 5000); // Esperar 5 segundos al inicio
+    setTimeout(() => this.syncContactsWithoutNames(), 10000); // Contactos sin nombre a los 10 segundos
 
     // Programar sincronizaciones periódicas
     this.intervalId = setInterval(
       () => this.executeSyncCycle(),
       this.intervalMinutes * 60 * 1000
+    );
+
+    // Sincronización de contactos sin nombre cada 5 minutos
+    this.contactSyncIntervalId = setInterval(
+      () => this.syncContactsWithoutNames(),
+      this.contactSyncMinutes * 60 * 1000
     );
   }
 
@@ -70,6 +81,11 @@ export class AutoSyncService {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
+    }
+
+    if (this.contactSyncIntervalId) {
+      clearInterval(this.contactSyncIntervalId);
+      this.contactSyncIntervalId = null;
     }
 
     this.isRunning = false;
@@ -235,6 +251,86 @@ export class AutoSyncService {
         ? Math.round((this.intervalMinutes * 60 * 1000 - (Date.now() - this.lastSyncTime.getTime())) / 1000)
         : null
     };
+  }
+
+  /**
+   * Sincroniza SOLO contactos que no tienen nombre
+   */
+  async syncContactsWithoutNames() {
+    try {
+      console.log(`\n👤 Sincronizando contactos sin nombre...`);
+      
+      // Obtener todos los bots activos
+      const { data: bots, error } = await supabase
+        .from('bots')
+        .select('id, session_name, status')
+        .eq('status', 'working');
+
+      if (error || !bots || bots.length === 0) {
+        console.log('   ℹ️  No hay bots activos');
+        return;
+      }
+
+      let totalUpdated = 0;
+
+      for (const bot of bots) {
+        try {
+          // Obtener contactos sin nombre de este bot
+          const { data: contactsWithoutNames } = await supabase
+            .from('contacts')
+            .select('*')
+            .eq('bot_id', bot.id)
+            .is('name', null);
+
+          if (!contactsWithoutNames || contactsWithoutNames.length === 0) {
+            continue;
+          }
+
+          console.log(`   📱 ${bot.session_name}: ${contactsWithoutNames.length} contactos sin nombre`);
+
+          // Importar WahaContactService dinámicamente para evitar ciclos
+          const { default: WahaContactService } = await import('./wahaContactService.js');
+
+          // Actualizar cada contacto
+          for (const contact of contactsWithoutNames) {
+            try {
+              const contactId = `${contact.phone_number}@c.us`;
+              const wahaData = await WahaContactService.getFullContactData(bot.session_name, contactId);
+
+              if (wahaData.name || wahaData.push_name) {
+                await supabase
+                  .from('contacts')
+                  .update({
+                    name: wahaData.name,
+                    push_name: wahaData.push_name,
+                    profile_picture_url: wahaData.profile_picture_url || contact.profile_picture_url,
+                    is_business: wahaData.is_business ?? contact.is_business,
+                    is_enterprise: wahaData.is_enterprise ?? contact.is_enterprise,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', contact.id);
+
+                totalUpdated++;
+                console.log(`      ✅ ${contact.phone_number} → ${wahaData.name}`);
+              }
+
+              // Pausa para no saturar la API
+              await new Promise(resolve => setTimeout(resolve, 100));
+            } catch (error) {
+              console.error(`      ❌ Error con ${contact.phone_number}:`, error.message);
+            }
+          }
+        } catch (error) {
+          console.error(`   ❌ Error procesando bot ${bot.session_name}:`, error.message);
+        }
+      }
+
+      console.log(`   ✅ Total actualizado: ${totalUpdated} contactos\n`);
+      this.lastContactSyncTime = new Date();
+
+    } catch (error) {
+      console.error('❌ Error sincronizando contactos sin nombre:', error.message);
+    }
   }
 
   /**
