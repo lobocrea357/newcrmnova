@@ -14,7 +14,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
  */
 export async function getAllWorkers() {
   console.log('🔍 Obteniendo workers...')
-  
+
   const { data: workers, error } = await supabase
     .from('workers')
     .select('*')
@@ -24,9 +24,9 @@ export async function getAllWorkers() {
     console.error('❌ Error al obtener workers:', error)
     return []
   }
-  
+
   console.log('👷 Workers obtenidos:', workers?.length || 0, workers)
-  
+
   // Obtener estadísticas para cada worker
   const workersWithStats = await Promise.all(
     (workers || []).map(async (worker) => {
@@ -34,7 +34,7 @@ export async function getAllWorkers() {
         .from('bots')
         .select('*', { count: 'exact', head: true })
         .eq('worker_id', worker.id)
-      
+
       const { count: chatCount } = await supabase
         .from('chats')
         .select('*', { count: 'exact', head: true })
@@ -44,7 +44,7 @@ export async function getAllWorkers() {
           .eq('worker_id', worker.id)
           .then(({ data }) => data?.map(b => b.id) || [])
         )
-      
+
       return {
         worker_id: worker.id,
         worker_name: worker.name,
@@ -55,7 +55,7 @@ export async function getAllWorkers() {
       }
     })
   )
-  
+
   console.log('📊 Workers con estadísticas:', workersWithStats)
   return workersWithStats
 }
@@ -65,14 +65,14 @@ export async function getAllWorkers() {
  */
 export async function getAllBots() {
   const { data: { session } } = await supabase.auth.getSession()
-  
+
   if (!session) {
     console.error('❌ No hay sesión activa')
     throw new Error('No hay sesión activa')
   }
-  
+
   console.log('✅ Sesión verificada:', session.user.email)
-  
+
   // Primero obtener los bots
   const { data: bots, error } = await supabase
     .from('bots')
@@ -83,9 +83,9 @@ export async function getAllBots() {
     console.error('❌ Error al obtener bots:', error)
     return []
   }
-  
+
   console.log('📊 Bots obtenidos desde Supabase:', bots?.length || 0, bots)
-  
+
   // Obtener información adicional para cada bot
   const botsWithDetails = await Promise.all(
     (bots || []).map(async (bot) => {
@@ -99,13 +99,13 @@ export async function getAllBots() {
           .single()
         worker = workerData
       }
-      
+
       // Contar chats
       const { count } = await supabase
         .from('chats')
         .select('*', { count: 'exact', head: true })
         .eq('bot_id', bot.id)
-      
+
       return {
         ...bot,
         worker,
@@ -113,7 +113,7 @@ export async function getAllBots() {
       }
     })
   )
-  
+
   console.log('📊 Bots con detalles:', botsWithDetails)
   return botsWithDetails
 }
@@ -151,7 +151,7 @@ export async function getBotsByWorker(workerId) {
  */
 export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
   console.log('🔍 Obteniendo conversaciones para bot:', botId, 'página:', page)
-  
+
   // Primero obtener el total de conversaciones
   const { count: totalCount, error: countError } = await supabase
     .from('chats')
@@ -166,11 +166,10 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
   const total = totalCount || 0
   const totalPages = Math.ceil(total / pageSize)
 
-  // Calcular el rango para la paginación
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
-  // Obtener las conversaciones paginadas
+  // Obtener las conversaciones paginadas, priorizando last_message_time si existe
   let query = supabase
     .from('chats')
     .select(`
@@ -178,10 +177,28 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
       contact:contacts(id, name, phone_number)
     `)
     .eq('bot_id', botId)
-    .order('created_at', { ascending: false })
+    .order('last_message_time', { ascending: false, nullsFirst: false })
     .range(from, to)
 
-  const { data, error } = await query
+  // Si la ordenación falla (column not found), fallback a created_at
+  let { data, error } = await query
+
+  if (error) {
+    console.warn('⚠️ last_message_time no disponible, usando created_at', error.message)
+    const fallbackQuery = supabase
+      .from('chats')
+      .select(`
+        *,
+        contact:contacts(id, name, phone_number)
+      `)
+      .eq('bot_id', botId)
+      .order('created_at', { ascending: false })
+      .range(from, to)
+
+    const fallbackResult = await fallbackQuery
+    data = fallbackResult.data
+    error = fallbackResult.error
+  }
 
   if (error) {
     console.error('❌ Error al obtener conversaciones:', error)
@@ -230,7 +247,7 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
  */
 export async function getConversationWithMessages(chatId, limit = 50, beforeTimestamp = null) {
   console.log('🔍 Obteniendo conversación:', chatId, 'limit:', limit, 'before:', beforeTimestamp)
-  
+
   const { data, error } = await supabase
     .from('chats')
     .select(`

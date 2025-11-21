@@ -17,6 +17,9 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  ArrowUp,
+  ArrowDown,
+  Brain,
 } from "lucide-react";
 
 function DashboardContent() {
@@ -114,7 +117,7 @@ function DashboardContent() {
   const syncBotData = async (sessionName) => {
     try {
       setSyncingBot(sessionName);
-      
+
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       const response = await fetch(`${apiUrl}/api/sync/${sessionName}/all`, {
         method: 'POST',
@@ -129,7 +132,7 @@ function DashboardContent() {
         const contactsUpdated = result.data.contacts.updated;
         const chatsUpdated = result.data.chats.updated;
         const botUpdated = result.data.bot?.updated;
-        
+
         alert(
           `✅ SINCRONIZACIÓN COMPLETADA\n\n` +
           `📊 Resultados:\n` +
@@ -139,10 +142,10 @@ function DashboardContent() {
           `• Bot actualizado: ${botUpdated ? 'Sí ✓' : 'No (ya tenía datos)'}\n\n` +
           `Los datos se reflejarán al recargar la página.`
         );
-        
+
         // Recargar datos para reflejar los cambios
         await fetchData();
-        
+
         // Si hay un bot seleccionado, recargar sus conversaciones
         if (selectedBotId) {
           fetchConversations(selectedBotId);
@@ -150,7 +153,7 @@ function DashboardContent() {
       } else {
         // Mostrar error detallado
         const errorMsg = result.error || 'Error desconocido';
-        
+
         // Detectar si es error de sesión no encontrada
         if (errorMsg.includes('NO existe') || errorMsg.includes('does not exist')) {
           alert(
@@ -287,13 +290,13 @@ function DashboardContent() {
     const displayName =
       nameTokens.length > 0
         ? nameTokens
-            .map((t) =>
-              t
-                .split("-")
-                .map((part) => capitalizeWord(part))
-                .join(" ")
-            )
-            .join(" ")
+          .map((t) =>
+            t
+              .split("-")
+              .map((part) => capitalizeWord(part))
+              .join(" ")
+          )
+          .join(" ")
         : String(sessionName);
 
     return {
@@ -570,6 +573,13 @@ function DashboardContent() {
             </div>
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-stretch sm:justify-end items-stretch sm:items-center">
               <button
+                onClick={() => router.push('/dashboard/ai-insights')}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <Brain className="h-4 w-4" />
+                AI Insights
+              </button>
+              <button
                 onClick={fetchData}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               >
@@ -602,70 +612,63 @@ function DashboardContent() {
 
         {/* Stats */}
         {!compactMode && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-purple-500 rounded-md p-3">
-                <Users className="h-6 w-6 text-white" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Workers
-                  </dt>
-                  <dd className="text-3xl font-semibold text-gray-900">
-                    {workers.length}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-indigo-500 rounded-md p-3">
-                <Bot className="h-6 w-6 text-white" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Total Bots
-                  </dt>
-                  <dd className="text-3xl font-semibold text-gray-900">
-                    {bots.length}
-                  </dd>
-                  {activeFiltersCount() > 0 && (
-                    <dd className="text-xs text-indigo-600 mt-1">
-                      {getAllFilteredBots().length} mostrados
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-purple-500 rounded-md p-3">
+                  <Users className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Workers
+                    </dt>
+                    <dd className="text-3xl font-semibold text-gray-900">
+                      {workers.length}
                     </dd>
-                  )}
-                </dl>
+                  </dl>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-green-500 rounded-md p-3">
-                <MessageSquare className="h-6 w-6 text-white" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Conversaciones
-                  </dt>
-                  <dd className="text-3xl font-semibold text-gray-900">
-                    {totalConversations}
-                  </dd>
-                </dl>
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-indigo-500 rounded-md p-3">
+                  <Bot className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Total Bots
+                    </dt>
+                    <dd className="text-3xl font-semibold text-gray-900">
+                      {bots.length}
+                    </dd>
+                    {activeFiltersCount() > 0 && (
+                      <dd className="text-xs text-indigo-600 mt-1">
+                        {getAllFilteredBots().length} mostrados
+                      </dd>
+                    )}
+                  </dl>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-blue-500 rounded-md p-3">
-                <Bot className="h-6 w-6 text-white" />
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-green-500 rounded-md p-3">
+                  <MessageSquare className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Conversaciones
+                    </dt>
+                    <dd className="text-3xl font-semibold text-gray-900">
+                      {totalConversations}
+                    </dd>
+                  </dl>
+                </div>
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
@@ -678,8 +681,30 @@ function DashboardContent() {
                 </dl>
               </div>
             </div>
+
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                  <Bot className="h-6 w-6 text-white" />
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">
+                      Bots Activos
+                    </dt>
+                    <dd className="text-3xl font-semibold text-gray-900">
+                      {
+                        bots.filter(
+                          (bot) =>
+                            bot.status === "working" || bot.status === "active"
+                        ).length
+                      }
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
         )}
 
         {/* Filtros */}
@@ -831,8 +856,7 @@ function DashboardContent() {
                   <span className="text-sm text-gray-600">
                     {getAllFilteredBots().length} de {bots.length} asesores
                     {activeFiltersCount() > 0 &&
-                      ` (${activeFiltersCount()} filtro${
-                        activeFiltersCount() > 1 ? "s" : ""
+                      ` (${activeFiltersCount()} filtro${activeFiltersCount() > 1 ? "s" : ""
                       } activo${activeFiltersCount() > 1 ? "s" : ""})`}
                   </span>
                   <button
@@ -890,23 +914,20 @@ function DashboardContent() {
                       key={bot.id}
                       type="button"
                       onClick={() => handleBotSelect(bot.id)}
-                      className={`w-full text-left px-4 py-3 flex items-center justify-between gap-3 transition-colors border-l-4 ${
-                        isSelected
-                          ? 'bg-indigo-50 border-indigo-500'
-                          : 'border-transparent hover:bg-gray-50'
-                      }`}
+                      className={`w-full text-left px-4 py-3 flex items-center justify-between gap-3 transition-colors border-l-4 ${isSelected
+                        ? 'bg-indigo-50 border-indigo-500'
+                        : 'border-transparent hover:bg-gray-50'
+                        }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="relative flex-shrink-0">
                           <div
-                            className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                              botIsActive ? 'bg-green-100' : 'bg-gray-200'
-                            }`}
+                            className={`h-10 w-10 rounded-full flex items-center justify-center ${botIsActive ? 'bg-green-100' : 'bg-gray-200'
+                              }`}
                           >
                             <Bot
-                              className={`h-5 w-5 ${
-                                botIsActive ? 'text-green-600' : 'text-gray-600'
-                              }`}
+                              className={`h-5 w-5 ${botIsActive ? 'text-green-600' : 'text-gray-600'
+                                }`}
                             />
                           </div>
                           {botIsActive && (
@@ -922,11 +943,10 @@ function DashboardContent() {
                           </p>
                           <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-gray-500">
                             <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full border ${
-                                botIsActive
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                  : 'bg-gray-50 text-gray-600 border-gray-200'
-                              }`}
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full border ${botIsActive
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-gray-50 text-gray-600 border-gray-200'
+                                }`}
                             >
                               {formattedStatus}
                             </span>
@@ -1044,10 +1064,9 @@ function DashboardContent() {
                     `}
                     title="Sincronizar datos del bot desde WAHA"
                   >
-                    <RefreshCw 
-                      className={`h-4 w-4 ${
-                        syncingBot === selectedBot.session_name ? 'animate-spin' : ''
-                      }`}
+                    <RefreshCw
+                      className={`h-4 w-4 ${syncingBot === selectedBot.session_name ? 'animate-spin' : ''
+                        }`}
                     />
                     {syncingBot === selectedBot.session_name ? 'Sincronizando...' : 'Sincronizar Bot'}
                   </button>
@@ -1087,7 +1106,7 @@ function DashboardContent() {
                 </div>
               ) : (
                 <>
-                  <div className="max-h-[60vh] lg:max-h-[500px] overflow-y-auto divide-y divide-gray-200">
+                  <div className="max-h-[60vh] lg:max-h-[600px] overflow-y-auto divide-y divide-gray-200">
                     {selectedBotConversations.map((conv) => (
                       <div
                         key={conv.id}
@@ -1117,6 +1136,23 @@ function DashboardContent() {
                           </div>
                         </div>
                         <div className="flex flex-col items-end flex-shrink-0 text-xs text-gray-500">
+                          {/* Indicador IA */}
+                          {conv.ai_analysis && (
+                            <div className="mb-1" title={conv.ai_analysis.sale_completed ? 'Venta Probable' : 'Venta Improbable'}>
+                              {conv.ai_analysis.sale_completed ? (
+                                <div className="flex items-center gap-1 text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">
+                                  <ArrowUp className="h-3 w-3" />
+                                  <span className="font-bold text-xs">Venta</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1 text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
+                                  <ArrowDown className="h-3 w-3" />
+                                  <span className="font-bold text-xs">No Venta</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           <span className="text-sm font-semibold text-gray-900">
                             {conv.message_count || 0} mensajes
                           </span>
@@ -1133,7 +1169,7 @@ function DashboardContent() {
                       </div>
                     ))}
                   </div>
-                  
+
                   {/* Controles de paginación */}
                   {selectedBotPagination.totalPages > 1 && (
                     <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
