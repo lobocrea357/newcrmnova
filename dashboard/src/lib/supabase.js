@@ -144,6 +144,7 @@ export async function getBotsByWorker(workerId) {
 
 /**
  * Obtiene las conversaciones de un bot específico con paginación
+ * MEJORADO: Maneja correctamente chats sin contact_id
  * @param {string} botId - ID del bot
  * @param {number} page - Número de página (empezando en 1)
  * @param {number} pageSize - Cantidad de conversaciones por página (default: 10)
@@ -174,7 +175,7 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
     .from('chats')
     .select(`
       *,
-      contact:contacts(id, name, phone_number)
+      contact:contacts(id, name, phone_number, push_name)
     `)
     .eq('bot_id', botId)
     .order('last_message_time', { ascending: false, nullsFirst: false })
@@ -189,7 +190,7 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
       .from('chats')
       .select(`
         *,
-        contact:contacts(id, name, phone_number)
+        contact:contacts(id, name, phone_number, push_name)
       `)
       .eq('bot_id', botId)
       .order('created_at', { ascending: false })
@@ -220,16 +221,70 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
         .select('*', { count: 'exact', head: true })
         .eq('chat_id', chat.id)
 
+      // MEJORADO: Lógica inteligente para nombres con múltiples fallbacks
+      let displayName = 'Sin nombre'
+      let displayPhone = ''
+
+      // Prioridad 1: Nombre del contacto relacionado
+      if (chat.contact?.name) {
+        displayName = chat.contact.name
+        displayPhone = chat.contact.phone_number || ''
+      }
+      // Prioridad 2: Push name del contacto
+      else if (chat.contact?.push_name) {
+        displayName = chat.contact.push_name
+        displayPhone = chat.contact.phone_number || ''
+      }
+      // Prioridad 3: Nombre del chat
+      else if (chat.name) {
+        displayName = chat.name
+        displayPhone = chat.contact?.phone_number || chat.contact_number || ''
+      }
+      // Prioridad 4: Número de teléfono del contacto
+      else if (chat.contact?.phone_number) {
+        displayName = chat.contact.phone_number
+        displayPhone = chat.contact.phone_number
+      }
+      // Prioridad 5: contact_number del chat
+      else if (chat.contact_number) {
+        displayName = chat.contact_number
+        displayPhone = chat.contact_number
+      }
+      // Prioridad 6: Extraer de chat_id (formato: 123456789@c.us)
+      else if (chat.chat_id) {
+        const phoneFromChatId = chat.chat_id.split('@')[0]
+        displayName = phoneFromChatId
+        displayPhone = phoneFromChatId
+      }
+
+      // Logging para debugging
+      if (displayName === 'Sin nombre' && count > 0) {
+        console.warn(`⚠️ Chat ${chat.id} tiene ${count} mensajes pero no se pudo determinar nombre`, {
+          contact_id: chat.contact_id,
+          contact_name: chat.contact?.name,
+          chat_name: chat.name,
+          contact_number: chat.contact_number,
+          chat_id: chat.chat_id
+        })
+      }
+
       return {
         ...chat,
         message_count: count || 0,
-        contact_name: chat.contact?.name || chat.name || 'Sin nombre',
-        contact_phone: chat.contact?.phone_number || chat.chat_id
+        contact_name: displayName,
+        contact_phone: displayPhone
       }
     })
   )
 
-  console.log('📊 Conversaciones con conteos:', chatsWithCounts)
+  console.log('📊 Conversaciones con conteos:', chatsWithCounts.length)
+
+  // Log de chats sin nombre para debugging
+  const chatsWithoutName = chatsWithCounts.filter(c => c.contact_name === 'Sin nombre')
+  if (chatsWithoutName.length > 0) {
+    console.warn(`⚠️ ${chatsWithoutName.length} chats sin nombre en esta página`)
+  }
+
   return {
     data: chatsWithCounts,
     total,
@@ -240,13 +295,26 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
 
 /**
  * Obtiene una conversación con sus mensajes paginados (estilo WhatsApp)
+ * MEJORADO: Agrega logging detallado y retorna total de mensajes
  * @param {string} chatId - ID del chat
  * @param {number} limit - Cantidad de mensajes a cargar (default: 50)
  * @param {string} beforeTimestamp - Timestamp para cargar mensajes anteriores (opcional)
- * @returns {Promise<{conversation: Object, messages: Array, hasMore: boolean, oldestTimestamp: string}>}
+ * @returns {Promise<{conversation: Object, messages: Array, hasMore: boolean, oldestTimestamp: string, totalMessages: number}>}
  */
 export async function getConversationWithMessages(chatId, limit = 50, beforeTimestamp = null) {
   console.log('🔍 Obteniendo conversación:', chatId, 'limit:', limit, 'before:', beforeTimestamp)
+
+  // NUEVO: Primero contar total de mensajes en este chat
+  const { count: totalMessages, error: countError } = await supabase
+    .from('messages')
+    .select('*', { count: 'exact', head: true })
+    .eq('chat_id', chatId)
+
+  if (countError) {
+    console.error('❌ Error al contar mensajes:', countError)
+  } else {
+    console.log(`📊 Total de mensajes en este chat: ${totalMessages || 0}`)
+  }
 
   const { data, error } = await supabase
     .from('chats')
@@ -263,6 +331,12 @@ export async function getConversationWithMessages(chatId, limit = 50, beforeTime
     return null
   }
 
+  // NUEVO: Advertir si hay muchos mensajes
+  if (totalMessages > limit && !beforeTimestamp) {
+    console.warn(`⚠️ Este chat tiene ${totalMessages} mensajes, pero solo se cargarán ${limit} inicialmente`)
+    console.log(`💡 El usuario puede hacer scroll hacia arriba para cargar más mensajes`)
+  }
+
   // Construir query para mensajes
   let messagesQuery = supabase
     .from('messages')
@@ -271,12 +345,12 @@ export async function getConversationWithMessages(chatId, limit = 50, beforeTime
       media_files:media_files(*)
     `)
     .eq('chat_id', chatId)
-    .order('timestamp', { ascending: false }) // Descendente para obtener los más recientes primero
-    .limit(limit + 1) // +1 para saber si hay más mensajes
+    .order('timestamp', { ascending: false })
+    .limit(limit + 1)
 
-  // Si hay beforeTimestamp, cargar mensajes anteriores a ese timestamp
   if (beforeTimestamp) {
     messagesQuery = messagesQuery.lt('timestamp', beforeTimestamp)
+    console.log(`📅 Cargando mensajes anteriores a: ${beforeTimestamp}`)
   }
 
   const { data: messages, error: messagesError } = await messagesQuery
@@ -287,27 +361,31 @@ export async function getConversationWithMessages(chatId, limit = 50, beforeTime
       conversation: data,
       messages: [],
       hasMore: false,
-      oldestTimestamp: null
+      oldestTimestamp: null,
+      totalMessages: totalMessages || 0
     }
   }
 
-  // Verificar si hay más mensajes
   const hasMore = messages && messages.length > limit
   const messagesToReturn = hasMore ? messages.slice(0, limit) : messages || []
-  
-  // Invertir el orden para mostrar del más antiguo al más reciente
   const sortedMessages = messagesToReturn.reverse()
-  
-  // Obtener el timestamp del mensaje más antiguo
   const oldestTimestamp = sortedMessages.length > 0 ? sortedMessages[0].timestamp : null
 
-  console.log('✅ Mensajes obtenidos:', sortedMessages.length, 'hasMore:', hasMore)
-  
+  // NUEVO: Logging detallado
+  const incomingCount = sortedMessages.filter(m => !m.from_me).length
+  const outgoingCount = sortedMessages.filter(m => m.from_me).length
+
+  console.log(`✅ Mensajes obtenidos: ${sortedMessages.length} total`)
+  console.log(`   📨 ${incomingCount} entrantes (cliente → bot)`)
+  console.log(`   📤 ${outgoingCount} salientes (bot → cliente)`)
+  console.log(`   📊 Hay más mensajes: ${hasMore ? 'Sí' : 'No'}`)
+
   return {
     conversation: data,
     messages: sortedMessages,
     hasMore,
-    oldestTimestamp
+    oldestTimestamp,
+    totalMessages: totalMessages || 0
   }
 }
 

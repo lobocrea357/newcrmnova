@@ -11,6 +11,7 @@ export default function ChatView({ chatId, onClose }) {
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
   const [oldestTimestamp, setOldestTimestamp] = useState(null)
+  const [totalMessages, setTotalMessages] = useState(0) // NUEVO: Total de mensajes en el chat
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const previousScrollHeightRef = useRef(0)
@@ -22,11 +23,12 @@ export default function ChatView({ chatId, onClose }) {
     try {
       const result = await getConversationWithMessages(chatId, 50)
       if (result) {
-        console.log('📊 Mensajes cargados:', result.messages.length, 'hasMore:', result.hasMore)
+        console.log('📊 Mensajes cargados:', result.messages.length, 'de', result.totalMessages, 'total')
         setConversation(result.conversation)
         setMessages(result.messages)
         setHasMore(result.hasMore)
         setOldestTimestamp(result.oldestTimestamp)
+        setTotalMessages(result.totalMessages || 0) // NUEVO: Guardar total
       }
     } catch (error) {
       console.error('Error al cargar conversación:', error)
@@ -85,10 +87,10 @@ export default function ChatView({ chatId, onClose }) {
 
   useEffect(() => {
     loadConversation()
-    
+
     // Suscribirse a cambios en mensajes de este chat
     console.log('🔔 Suscribiéndose a mensajes del chat:', chatId)
-    
+
     const channel = supabase
       .channel(`chat-${chatId}`)
       .on(
@@ -118,7 +120,7 @@ export default function ChatView({ chatId, onClose }) {
     if (!messagesContainerRef.current || loadingMore || !hasMore) return
 
     const { scrollTop } = messagesContainerRef.current
-    
+
     // Si está cerca del top (50px), cargar más mensajes
     if (scrollTop < 50) {
       loadMoreMessages()
@@ -206,13 +208,13 @@ export default function ChatView({ chatId, onClose }) {
         </div>
         <div className="flex items-center gap-4">
           <div className="text-sm text-white bg-white/20 px-3 py-1 rounded-full">
-            {messages.length} mensajes {hasMore && '(+más)'}
+            {messages.length} {totalMessages > 0 && `de ${totalMessages}`} mensajes {hasMore && '(+más)'}
           </div>
         </div>
       </div>
 
       {/* Messages */}
-      <div 
+      <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto bg-gray-50 px-6 py-4"
@@ -226,7 +228,7 @@ export default function ChatView({ chatId, onClose }) {
             </div>
           </div>
         )}
-        
+
         {/* Indicador de que no hay más mensajes */}
         {!hasMore && messages.length > 0 && (
           <div className="flex justify-center py-4">
@@ -276,12 +278,12 @@ export default function ChatView({ chatId, onClose }) {
               <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span>Último mensaje: {new Date(conversation.last_message_time).toLocaleString('es-ES', { 
-                day: '2-digit', 
-                month: 'short', 
+              <span>Último mensaje: {new Date(conversation.last_message_time).toLocaleString('es-ES', {
+                day: '2-digit',
+                month: 'short',
                 year: 'numeric',
-                hour: '2-digit', 
-                minute: '2-digit' 
+                hour: '2-digit',
+                minute: '2-digit'
               })}</span>
             </div>
           )}
