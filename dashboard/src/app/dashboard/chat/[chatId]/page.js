@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { getConversationWithMessages } from '@/lib/supabase'
 import ChatView from '@/components/ChatView'
 import ContactAvatar from '@/components/ContactAvatar'
 import HighlightText from '@/components/HighlightText'
 import { globalSearchChats } from '@/lib/supabase'
 import { Search, X, RefreshCw, Phone, Bot, CheckCheck } from 'lucide-react'
+import ChatAnalysis from '@/components/ChatAnalysis'
 
 export default function ChatPage() {
   const params = useParams()
@@ -37,6 +39,17 @@ export default function ChatPage() {
       }
     }
   }, [fromSearch])
+  const [messages, setMessages] = useState([])
+
+  useEffect(() => {
+    const loadMessages = async () => {
+      const conversation = await getConversationWithMessages(chatId)
+      if (conversation && conversation.messages) {
+        setMessages(conversation.messages)
+      }
+    }
+    loadMessages()
+  }, [chatId])
 
   const handleClose = () => {
     const botId = searchParams.get('botId')
@@ -103,13 +116,13 @@ export default function ChatPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="max-w-full mx-auto" style={{ maxWidth: showSearchSidebar ? '95%' : '1280px' }}>
-        <div className="bg-white rounded-lg shadow-xl overflow-hidden flex" style={{ height: 'calc(100vh - 2rem)' }}>
+      <div className="max-w-[1800px] mx-auto h-[calc(100vh-2rem)]">
+        <div className="flex gap-4 h-full">
           {/* Sidebar de búsqueda global (solo si viene desde búsqueda) */}
           {showSearchSidebar && (
-            <div className="w-80 border-r border-gray-200 flex flex-col bg-gray-50">
+            <div className="w-80 bg-white rounded-lg shadow-xl flex-shrink-0 flex flex-col overflow-hidden">
               {/* Header del sidebar */}
-              <div className="px-4 py-4 border-b border-gray-200 bg-white">
+              <div className="px-4 py-4 border-b border-gray-200 bg-gray-50">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Resultados de Búsqueda</h3>
                 
                 {/* Buscador */}
@@ -120,7 +133,7 @@ export default function ChatPage() {
                     value={globalSearchQuery}
                     onChange={(e) => handleGlobalSearch(e.target.value)}
                     placeholder="Buscar conversación..."
-                    className="w-full pl-9 pr-9 py-2 bg-gray-50 text-sm text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full pl-9 pr-9 py-2 bg-white text-sm text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                   {globalSearchQuery && (
                     <button
@@ -227,9 +240,17 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Vista del chat */}
-          <div className="flex-1">
-            <ChatView chatId={chatId} onClose={handleClose} />
+          {/* Contenedor principal con Chat y Análisis */}
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Chat Area */}
+            <div className="lg:col-span-2 bg-white rounded-lg shadow-xl overflow-hidden">
+              <ChatView chatId={chatId} onClose={handleClose} />
+            </div>
+
+            {/* Analysis Area */}
+            <div className="lg:col-span-1 bg-white rounded-lg shadow-xl overflow-hidden">
+              <ChatAnalysis messages={messages} />
+            </div>
           </div>
         </div>
       </div>

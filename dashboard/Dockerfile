@@ -1,12 +1,24 @@
 # Etapa 1: Instalación de dependencias
 FROM node:20-alpine AS deps
+ENV NPM_CONFIG_REGISTRY="https://registry.npmjs.org/" \
+    NPM_CONFIG_FETCH_RETRIES=5 \
+    NPM_CONFIG_FETCH_RETRY_FACTOR=10 \
+    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=20000 \
+    NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=120000 \
+    NPM_CONFIG_FETCH_TIMEOUT=120000
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Etapa 2: Construcción de la aplicación
 FROM node:20-alpine AS builder
+ENV NPM_CONFIG_REGISTRY="https://registry.npmjs.org/" \
+    NPM_CONFIG_FETCH_RETRIES=5 \
+    NPM_CONFIG_FETCH_RETRY_FACTOR=10 \
+    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=20000 \
+    NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=120000 \
+    NPM_CONFIG_FETCH_TIMEOUT=120000
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
@@ -16,10 +28,12 @@ COPY . .
 # Estas se pasarán como build args desde docker-compose
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG OPENAI_API_KEY
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV OPENAI_API_KEY=$OPENAI_API_KEY
 
 RUN npm run build
 

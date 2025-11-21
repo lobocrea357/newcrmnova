@@ -5,7 +5,7 @@
 # ============================================
 
 # WAHA Dashboard
-waha.novapolointranet.xyz {
+waha.lobocrea.pro {
     reverse_proxy localhost:3000
     
     # Headers para WebSocket (necesario para QR en tiempo real)
@@ -23,7 +23,7 @@ waha.novapolointranet.xyz {
 }
 
 # Express API
-api.novapolointranet.xyz {
+api.nlobocrea.pro {
     reverse_proxy localhost:4000
     
     # Headers para API
@@ -41,7 +41,7 @@ api.novapolointranet.xyz {
 }
 
 # Dashboard CRM
-crm.novapolointranet.xyz {
+crm.lobocrea.pro {
     reverse_proxy localhost:3001
     
     # Headers para Next.js
@@ -59,11 +59,3 @@ crm.novapolointranet.xyz {
     }
 }
 
-# Redirigir dominio principal al CRM
-novapolointranet.xyz {
-    redir https://crm.novapolointranet.xyz{uri} permanent
-}
-
-www.novapolointranet.xyz {
-    redir https://crm.novapolointranet.xyz{uri} permanent
-}
