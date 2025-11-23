@@ -1,7 +1,9 @@
 'use client'
 import { useState, useEffect, Suspense } from 'react'
-import { supabase, getAllWorkers, getAllBots, getConversationsByBot } from '@/lib/supabase'
+import { supabase, getAllWorkers, getAllBots, getConversationsByBot, globalSearchChats } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
+import ContactAvatar from '@/components/ContactAvatar'
+import HighlightText from '@/components/HighlightText'
 import {
   Bot,
   MessageSquare,
@@ -17,6 +19,9 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  X,
+  Check,
+  CheckCheck,
   ArrowUp,
   ArrowDown,
   Brain,
@@ -42,6 +47,12 @@ function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [lastChatId, setLastChatId] = useState(null);
+  
+  // Estados para búsqueda global
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [globalSearchResults, setGlobalSearchResults] = useState([]);
+  const [isGlobalSearchActive, setIsGlobalSearchActive] = useState(false);
+  const [loadingGlobalSearch, setLoadingGlobalSearch] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -113,6 +124,28 @@ function DashboardContent() {
       }
     }
   }, [searchParams]);
+
+  // Restaurar búsqueda global al regresar desde un chat
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedQuery = window.localStorage.getItem('dashboard:globalSearchQuery');
+        const savedResults = window.localStorage.getItem('dashboard:globalSearchResults');
+        
+        if (savedQuery && savedResults) {
+          setGlobalSearchQuery(savedQuery);
+          setGlobalSearchResults(JSON.parse(savedResults));
+          setIsGlobalSearchActive(true);
+          
+          // Limpiar el localStorage después de restaurar
+          window.localStorage.removeItem('dashboard:globalSearchQuery');
+          window.localStorage.removeItem('dashboard:globalSearchResults');
+        }
+      } catch (error) {
+        console.error('Error restaurando búsqueda global:', error);
+      }
+    }
+  }, []);
 
   const syncBotData = async (sessionName) => {
     try {
@@ -521,6 +554,57 @@ function DashboardContent() {
     }
 
     router.push(`/dashboard/chat/${chatId}?botId=${botId}`);
+  };
+
+  // Función para ejecutar búsqueda global
+  const handleGlobalSearch = async (query) => {
+    setGlobalSearchQuery(query);
+    
+    if (!query || query.trim() === '') {
+      setIsGlobalSearchActive(false);
+      setGlobalSearchResults([]);
+      return;
+    }
+
+    setLoadingGlobalSearch(true);
+    setIsGlobalSearchActive(true);
+    
+    try {
+      const results = await globalSearchChats(query);
+      setGlobalSearchResults(results);
+    } catch (error) {
+      console.error('Error en búsqueda global:', error);
+      setGlobalSearchResults([]);
+    } finally {
+      setLoadingGlobalSearch(false);
+    }
+  };
+
+  // Función para limpiar búsqueda global
+  const handleClearGlobalSearch = () => {
+    setGlobalSearchQuery('');
+    setGlobalSearchResults([]);
+    setIsGlobalSearchActive(false);
+  };
+
+  // Función para manejar click en resultado de búsqueda global
+  const handleGlobalSearchResultClick = (chat) => {
+    const chatIdStr = String(chat.id);
+    const botIdStr = String(chat.bot_id);
+    
+    // Guardar el estado de búsqueda en localStorage para restaurarlo después
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('dashboard:globalSearchQuery', globalSearchQuery);
+        window.localStorage.setItem('dashboard:globalSearchResults', JSON.stringify(globalSearchResults));
+        window.localStorage.setItem('dashboard:lastChatId', chatIdStr);
+      } catch (error) {
+        console.error('Error guardando búsqueda global:', error);
+      }
+    }
+
+    // Navegar al chat con parámetro de búsqueda
+    router.push(`/dashboard/chat/${chatIdStr}?botId=${botIdStr}&fromSearch=true`);
   };
 
   const handlePageChange = async (botId, newPage) => {
@@ -1074,8 +1158,134 @@ function DashboardContent() {
               )}
             </div>
 
+            {/* Buscador Global */}
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={globalSearchQuery}
+                  onChange={(e) => handleGlobalSearch(e.target.value)}
+                  placeholder="Buscar por nombre, teléfono o palabra clave..."
+                  className="w-full pl-10 pr-10 py-3 bg-white text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                />
+                {globalSearchQuery && (
+                  <button
+                    onClick={handleClearGlobalSearch}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                )}
+              </div>
+              {loadingGlobalSearch && (
+                <div className="flex items-center gap-2 mt-2 text-sm text-blue-600">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span>Buscando...</span>
+                </div>
+              )}
+              {isGlobalSearchActive && !loadingGlobalSearch && (
+                <div className="mt-2 text-sm text-gray-600">
+                  {globalSearchResults.length} resultado{globalSearchResults.length !== 1 ? 's' : ''} encontrado{globalSearchResults.length !== 1 ? 's' : ''}
+                </div>
+              )}
+            </div>
+
             <div className="flex-1">
-              {!selectedBot ? (
+              {isGlobalSearchActive ? (
+                /* Mostrar resultados de búsqueda global */
+                loadingGlobalSearch ? (
+                  <div className="h-full flex items-center justify-center text-sm text-gray-500 gap-2">
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Buscando conversaciones...
+                  </div>
+                ) : globalSearchResults.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-center px-6 py-12">
+                    <div>
+                      <Search className="mx-auto h-10 w-10 text-gray-300" />
+                      <h3 className="mt-3 text-sm font-medium text-gray-900">
+                        No se encontraron resultados
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500 max-w-md">
+                        No hay conversaciones que coincidan con "{globalSearchQuery}"
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="max-h-[60vh] lg:max-h-[500px] overflow-y-auto divide-y divide-gray-200">
+                    {globalSearchResults.map((chat) => (
+                      <div
+                        key={chat.id}
+                        onClick={() => handleGlobalSearchResultClick(chat)}
+                        className={`px-6 py-4 cursor-pointer transition-colors flex items-center justify-between gap-4 ${
+                          lastChatId === String(chat.id)
+                            ? 'bg-indigo-50 hover:bg-indigo-100'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center min-w-0 flex-1 gap-4">
+                          <ContactAvatar 
+                            profilePictureUrl={chat.contact_profile_picture_url}
+                            contactName={chat.contact_name || 'Sin nombre'}
+                            size="md"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">
+                              <HighlightText 
+                                text={chat.contact_name || 'Sin nombre'} 
+                                searchQuery={globalSearchQuery}
+                                className="text-gray-900"
+                              />
+                            </p>
+                            
+                            {/* Preview del mensaje si hay coincidencia en mensajes */}
+                            {chat.match_message ? (
+                              <div className="flex items-start gap-1 mt-0.5 text-xs text-gray-600">
+                                <CheckCheck className="h-3 w-3 mt-0.5 text-gray-400 flex-shrink-0" />
+                                <span className="truncate">
+                                  <HighlightText 
+                                    text={chat.match_message} 
+                                    searchQuery={globalSearchQuery}
+                                    className="text-gray-600"
+                                  />
+                                </span>
+                              </div>
+                            ) : (
+                              /* Si no hay mensaje, mostrar teléfono y bot */
+                              <div className="flex items-center gap-2 mt-0.5 text-xs">
+                                <Phone className="h-3 w-3 text-gray-500" />
+                                <span className="truncate max-w-[120px]">
+                                  <HighlightText 
+                                    text={chat.contact_phone} 
+                                    searchQuery={globalSearchQuery}
+                                    className="text-gray-500"
+                                  />
+                                </span>
+                                <span className="text-gray-400">•</span>
+                                <Bot className="h-3 w-3 text-gray-500" />
+                                <span className="truncate max-w-[120px] text-gray-500">
+                                  {chat.bot_name}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end flex-shrink-0 text-xs text-gray-500">
+                          {chat.last_message_time && (
+                            <span>
+                              {new Date(chat.last_message_time).toLocaleDateString('es-ES', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : !selectedBot ? (
                 <div className="h-full flex items-center justify-center text-center px-6 py-12">
                   <div>
                     <MessageSquare className="mx-auto h-10 w-10 text-gray-300" />
@@ -1118,11 +1328,11 @@ function DashboardContent() {
                         }`}
                       >
                         <div className="flex items-center min-w-0 flex-1 gap-4">
-                          <div className="flex-shrink-0">
-                            <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                              <MessageSquare className="h-5 w-5 text-indigo-600" />
-                            </div>
-                          </div>
+                          <ContactAvatar 
+                            profilePictureUrl={conv.contact_profile_picture_url}
+                            contactName={conv.contact_name || 'Sin nombre'}
+                            size="md"
+                          />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-gray-900 truncate">
                               {conv.contact_name || 'Sin nombre'}

@@ -99,13 +99,16 @@ export async function getAllBots() {
           .single()
         worker = workerData
       }
-
-      // Contar chats
+      
+      // Contar chats (excluyendo estados y canales)
       const { count } = await supabase
         .from('chats')
         .select('*', { count: 'exact', head: true })
         .eq('bot_id', bot.id)
-
+        .not('chat_id', 'ilike', '%status%')
+        .not('chat_id', 'ilike', '%@broadcast%')
+        .not('chat_id', 'ilike', '%@newsletter%')
+      
       return {
         ...bot,
         worker,
@@ -152,12 +155,15 @@ export async function getBotsByWorker(workerId) {
  */
 export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
   console.log('🔍 Obteniendo conversaciones para bot:', botId, 'página:', page)
-
-  // Primero obtener el total de conversaciones
+  
+  // Primero obtener el total de conversaciones (excluyendo estados y canales)
   const { count: totalCount, error: countError } = await supabase
     .from('chats')
     .select('*', { count: 'exact', head: true })
     .eq('bot_id', botId)
+    .not('chat_id', 'ilike', '%status%')
+    .not('chat_id', 'ilike', '%@broadcast%')
+    .not('chat_id', 'ilike', '%@newsletter%')
 
   if (countError) {
     console.error('❌ Error al contar conversaciones:', countError)
@@ -170,14 +176,18 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
+  // Obtener las conversaciones paginadas (excluyendo estados y canales)
   // Obtener las conversaciones paginadas, priorizando last_message_time si existe
   let query = supabase
     .from('chats')
     .select(`
       *,
-      contact:contacts(id, name, phone_number, push_name)
+      contact:contacts(id, name, phone_number, push_name, profile_picture_url)
     `)
     .eq('bot_id', botId)
+    .not('chat_id', 'ilike', '%status%')
+    .not('chat_id', 'ilike', '%@broadcast%')
+    .not('chat_id', 'ilike', '%@newsletter%')
     .order('last_message_time', { ascending: false, nullsFirst: false })
     .range(from, to)
 
@@ -190,7 +200,7 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
       .from('chats')
       .select(`
         *,
-        contact:contacts(id, name, phone_number, push_name)
+        contact:contacts(id, name, phone_number, push_name, profile_picture_url)
       `)
       .eq('bot_id', botId)
       .order('created_at', { ascending: false })
@@ -272,7 +282,8 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
         ...chat,
         message_count: count || 0,
         contact_name: displayName,
-        contact_phone: displayPhone
+        contact_phone: displayPhone,
+        contact_profile_picture_url: chat.contact?.profile_picture_url || null
       }
     })
   )
@@ -386,6 +397,167 @@ export async function getConversationWithMessages(chatId, limit = 50, beforeTime
     hasMore,
     oldestTimestamp,
     totalMessages: totalMessages || 0
+  }
+}
+
+/**
+ * Búsqueda global de chats/conversaciones
+ * Busca por nombre de contacto, número de teléfono o palabras clave en mensajes
+ * @param {string} searchQuery - Texto de búsqueda
+ * @param {number} limit - Límite de resultados (default: 50)
+ * @returns {Promise<Array>} Array de chats que coinciden con la búsqueda
+ */
+export async function globalSearchChats(searchQuery, limit = 50) {
+  if (!searchQuery || searchQuery.trim() === '') {
+    return []
+  }
+
+  const query = searchQuery.trim().toLowerCase()
+  console.log('🔍 Búsqueda global:', query)
+
+  try {
+    // Buscar en chats por nombre de contacto o número de teléfono
+    // Excluir estados y canales de WhatsApp
+    const { data: chatsData, error: chatsError } = await supabase
+      .from('chats')
+      .select(`
+        *,
+        bot:bots(id, session_name, phone_number, status),
+        contact:contacts(id, name, phone_number, profile_picture_url)
+      `)
+      .or(`contact_name.ilike.%${query}%,contact_number.ilike.%${query}%,name.ilike.%${query}%,chat_id.ilike.%${query}%`)
+      .not('chat_id', 'ilike', '%status%')
+      .not('chat_id', 'ilike', '%@broadcast%')
+      .not('chat_id', 'ilike', '%@newsletter%')
+      .limit(limit)
+
+    if (chatsError) {
+      console.error('❌ Error en búsqueda de chats:', chatsError)
+    }
+
+    // Buscar en contactos directamente
+    const { data: contactsData, error: contactsError } = await supabase
+      .from('contacts')
+      .select(`
+        id,
+        name,
+        phone_number,
+        profile_picture_url,
+        bot_id
+      `)
+      .or(`name.ilike.%${query}%,phone_number.ilike.%${query}%`)
+      .limit(limit)
+
+    if (contactsError) {
+      console.error('❌ Error en búsqueda de contactos:', contactsError)
+    }
+
+    // Si encontramos contactos, buscar sus chats
+    let chatsFromContacts = []
+    if (contactsData && contactsData.length > 0) {
+      const contactIds = contactsData.map(c => c.id)
+      const { data: relatedChats } = await supabase
+        .from('chats')
+        .select(`
+          *,
+          bot:bots(id, session_name, phone_number, status),
+          contact:contacts(id, name, phone_number, profile_picture_url)
+        `)
+        .in('contact_id', contactIds)
+
+      chatsFromContacts = relatedChats || []
+    }
+
+    // Buscar en mensajes por contenido (palabra clave)
+    const { data: messagesData, error: messagesError } = await supabase
+      .from('messages')
+      .select(`
+        chat_id,
+        body,
+        timestamp
+      `)
+      .ilike('body', `%${query}%`)
+      .order('timestamp', { ascending: false })
+      .limit(100)
+
+    if (messagesError) {
+      console.error('❌ Error en búsqueda de mensajes:', messagesError)
+    }
+
+    // Crear un mapa de chat_id -> último mensaje que coincide
+    const messageMatchMap = new Map()
+    if (messagesData && messagesData.length > 0) {
+      messagesData.forEach(message => {
+        if (!messageMatchMap.has(message.chat_id)) {
+          messageMatchMap.set(message.chat_id, {
+            body: message.body,
+            timestamp: message.timestamp
+          })
+        }
+      })
+    }
+
+    // Si encontramos mensajes, obtener sus chats únicos
+    let chatsFromMessages = []
+    if (messagesData && messagesData.length > 0) {
+      const uniqueChatIds = [...new Set(messagesData.map(m => m.chat_id))]
+      const { data: relatedChats } = await supabase
+        .from('chats')
+        .select(`
+          *,
+          bot:bots(id, session_name, phone_number, status),
+          contact:contacts(id, name, phone_number, profile_picture_url)
+        `)
+        .in('id', uniqueChatIds)
+        .not('chat_id', 'ilike', '%status%')
+        .not('chat_id', 'ilike', '%@broadcast%')
+        .not('chat_id', 'ilike', '%@newsletter%')
+
+      chatsFromMessages = relatedChats || []
+    }
+
+    // Combinar todos los resultados y eliminar duplicados
+    const allChats = [
+      ...(chatsData || []),
+      ...chatsFromContacts,
+      ...chatsFromMessages
+    ]
+
+    // Eliminar duplicados por ID y agregar información de coincidencia
+    const uniqueChatsMap = new Map()
+    allChats.forEach(chat => {
+      if (!uniqueChatsMap.has(chat.id)) {
+        // Verificar si hay coincidencia en mensaje
+        const messageMatch = messageMatchMap.get(chat.id)
+        
+        uniqueChatsMap.set(chat.id, {
+          ...chat,
+          contact_name: chat.contact?.name || chat.contact_name || chat.name || 'Sin nombre',
+          contact_phone: chat.contact?.phone_number || chat.contact_number || chat.chat_id,
+          contact_profile_picture_url: chat.contact?.profile_picture_url || null,
+          bot_name: chat.bot?.session_name || 'Bot desconocido',
+          // Agregar información de coincidencia en mensaje
+          match_message: messageMatch ? messageMatch.body : null,
+          match_timestamp: messageMatch ? messageMatch.timestamp : null
+        })
+      }
+    })
+
+    const results = Array.from(uniqueChatsMap.values())
+    console.log('✅ Resultados de búsqueda global:', results.length)
+
+    // Ordenar por última actividad
+    results.sort((a, b) => {
+      const dateA = new Date(a.last_message_time || a.updated_at || a.created_at)
+      const dateB = new Date(b.last_message_time || b.updated_at || b.created_at)
+      return dateB - dateA
+    })
+
+    return results
+
+  } catch (error) {
+    console.error('❌ Error en búsqueda global:', error)
+    return []
   }
 }
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { getConversationWithMessages, supabase } from '@/lib/supabase'
 import MessageBubble from './MessageBubble'
+import ContactAvatar from './ContactAvatar'
 
 export default function ChatView({ chatId, onClose }) {
   const [conversation, setConversation] = useState(null)
@@ -179,6 +180,7 @@ export default function ChatView({ chatId, onClose }) {
 
   const contactName = conversation.contact?.name || conversation.chat_id || 'Contacto'
   const contactPhone = conversation.contact?.phone_number || conversation.chat_id
+  const profilePictureUrl = conversation.contact?.profile_picture_url || null
 
   return (
     <div className="flex flex-col h-full">
@@ -195,10 +197,12 @@ export default function ChatView({ chatId, onClose }) {
             </svg>
           </button>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
+            <div className="border-2 border-white/30 rounded-full">
+              <ContactAvatar 
+                profilePictureUrl={profilePictureUrl}
+                contactName={contactName}
+                size="md"
+              />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white">{contactName}</h2>
