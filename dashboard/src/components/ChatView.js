@@ -246,34 +246,51 @@ export default function ChatView({ chatId, onClose }) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between shadow-md">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
-            title="Volver al dashboard"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="border-2 border-white/30 rounded-full">
-              <ContactAvatar 
-                profilePictureUrl={profilePictureUrl}
-                contactName={contactName}
-                size="md"
-              />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-white">{contactName}</h2>
-              <p className="text-sm text-blue-100">{contactPhone}</p>
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-3 sm:px-6 py-3 sm:py-4 shadow-md">
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
+          {/* Botón volver + Avatar + Info */}
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+            <button
+              onClick={onClose}
+              className="text-white hover:bg-white/20 rounded-full p-1.5 sm:p-2 transition-colors flex-shrink-0"
+              title="Volver al dashboard"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <div className="border-2 border-white/30 rounded-full flex-shrink-0">
+                <ContactAvatar 
+                  profilePictureUrl={profilePictureUrl}
+                  contactName={contactName}
+                  size="md"
+                />
+              </div>
+              
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base sm:text-lg font-semibold text-white truncate">
+                  {contactName}
+                </h2>
+                <p className="text-xs sm:text-sm text-blue-100 truncate">
+                  {contactPhone}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-white bg-white/20 px-3 py-1 rounded-full">
-            {messages.length} mensajes {hasMore && '(+más)'}
+          
+          {/* Badge de mensajes */}
+          <div className="flex items-center gap-1.5 sm:gap-2 bg-white/20 backdrop-blur-sm px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full border border-white/30 flex-shrink-0">
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+            <span className="text-xs sm:text-sm font-semibold text-white">
+              {messages.length}
+            </span>
+            {hasMore && (
+              <span className="text-[10px] sm:text-xs text-blue-200">+más</span>
+            )}
           </div>
         </div>
       </div>
@@ -353,28 +370,42 @@ export default function ChatView({ chatId, onClose }) {
       </div>
 
       {/* Footer info */}
-      <div className="bg-white border-t px-6 py-3 shadow-inner">
-        <div className="max-w-4xl mx-auto flex items-center justify-between text-sm text-gray-600">
-          <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-            </svg>
-            <span>Bot: <span className="font-medium text-gray-900">{conversation?.bot?.session_name || 'N/A'}</span></span>
-          </div>
-          {conversation.last_message_time && (
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>Último mensaje: {new Date(conversation.last_message_time).toLocaleString('es-ES', { 
-                day: '2-digit', 
-                month: 'short', 
-                year: 'numeric',
-                hour: '2-digit', 
-                minute: '2-digit' 
-              })}</span>
+      <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200 px-4 sm:px-6 py-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Bot info */}
+            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-200">
+              <div className="flex items-center justify-center w-6 h-6 bg-blue-100 rounded-full">
+                <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                </svg>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                <span className="text-xs text-gray-500 font-medium">Bot:</span>
+                <span className="text-sm font-semibold text-gray-900 truncate max-w-[200px]">
+                  {conversation?.bot?.session_name || 'N/A'}
+                </span>
+              </div>
             </div>
-          )}
+            
+            {/* Last message time */}
+            {conversation.last_message_time && (
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-200">
+                <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="truncate">
+                  {new Date(conversation.last_message_time).toLocaleString('es-ES', { 
+                    day: '2-digit', 
+                    month: 'short', 
+                    year: 'numeric',
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

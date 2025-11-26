@@ -117,10 +117,11 @@ export default function ChatPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-[1800px] mx-auto h-[calc(100vh-2rem)]">
-        <div className="flex gap-4 h-full">
+        {/* Contenedor con overflow-x para mobile */}
+        <div className="flex gap-4 h-full overflow-x-auto">
           {/* Sidebar de búsqueda global (solo si viene desde búsqueda) */}
           {showSearchSidebar && (
-            <div className="w-80 bg-white rounded-lg shadow-xl flex-shrink-0 flex flex-col overflow-hidden">
+            <div className="w-[280px] md:w-80 min-w-[280px] md:min-w-[320px] bg-white rounded-lg shadow-xl flex-shrink-0 flex flex-col overflow-hidden">
               {/* Header del sidebar */}
               <div className="px-4 py-4 border-b border-gray-200 bg-gray-50">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Resultados de Búsqueda</h3>
@@ -240,17 +241,14 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Contenedor principal con Chat y Análisis */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Chat Area */}
-            <div className="lg:col-span-2 bg-white rounded-lg shadow-xl overflow-hidden">
-              <ChatView chatId={chatId} onClose={handleClose} />
-            </div>
+          {/* Chat Area - Ancho optimizado para mobile, flex en desktop */}
+          <div className="w-[90vw] md:w-[85vw] lg:min-w-0 lg:flex-[3] bg-white rounded-lg shadow-xl overflow-hidden flex-shrink-0">
+            <ChatView chatId={chatId} onClose={handleClose} />
+          </div>
 
-            {/* Analysis Area */}
-            <div className="lg:col-span-1 bg-white rounded-lg shadow-xl overflow-hidden">
-              <ChatAnalysis messages={messages} />
-            </div>
+          {/* Analysis Area - Ancho optimizado para mobile, flex en desktop */}
+          <div className="w-[85vw] md:w-[75vw] lg:min-w-0 lg:flex-1 bg-white rounded-lg shadow-xl overflow-hidden flex-shrink-0">
+            <ChatAnalysis messages={messages} />
           </div>
         </div>
       </div>
