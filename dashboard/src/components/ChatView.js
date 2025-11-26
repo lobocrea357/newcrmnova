@@ -12,10 +12,13 @@ export default function ChatView({ chatId, onClose }) {
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
   const [oldestTimestamp, setOldestTimestamp] = useState(null)
+  const [showScrollButton, setShowScrollButton] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const previousScrollHeightRef = useRef(0)
   const isInitialLoadRef = useRef(true)
+  const lastMessageCountRef = useRef(0)
 
   // Cargar conversación inicial (últimos 50 mensajes)
   const loadConversation = async () => {
@@ -62,21 +65,42 @@ export default function ChatView({ chatId, onClose }) {
   }
 
   const handleMessageChange = async (payload) => {
-    const { eventType, new: newMessage } = payload
+    const { eventType, new: newMessage, old: oldMessage } = payload
 
     if (eventType === 'INSERT' && newMessage) {
       console.log('✨ Nuevo mensaje detectado, agregando al final')
-      // Agregar nuevo mensaje al final sin recargar todo
+      // Verificar que el mensaje no exista ya (evitar duplicados)
       setMessages(prev => {
+        const exists = prev.some(msg => msg.id === newMessage.id)
+        if (exists) {
+          console.log('⚠️ Mensaje ya existe, ignorando INSERT')
+          return prev
+        }
         console.log('📝 Mensajes antes:', prev.length, '→ después:', prev.length + 1)
         return [...prev, newMessage]
       })
-    } else if (eventType === 'UPDATE') {
-      console.log('🔄 Mensaje actualizado, recargando conversación completa...')
-      await loadConversation()
-    } else if (eventType === 'DELETE') {
-      console.log('🗑️ Mensaje eliminado, recargando conversación completa...')
-      await loadConversation()
+    } else if (eventType === 'UPDATE' && newMessage) {
+      console.log('🔄 Mensaje actualizado, actualizando en el estado sin recargar')
+      // Actualizar solo el mensaje específico sin recargar todo
+      setMessages(prev => {
+        const index = prev.findIndex(msg => msg.id === newMessage.id)
+        if (index === -1) {
+          console.log('⚠️ Mensaje actualizado no encontrado en el estado, ignorando')
+          return prev
+        }
+        const updated = [...prev]
+        updated[index] = newMessage
+        console.log('✅ Mensaje actualizado en posición:', index)
+        return updated
+      })
+    } else if (eventType === 'DELETE' && oldMessage) {
+      console.log('🗑️ Mensaje eliminado, removiendo del estado sin recargar')
+      // Eliminar solo el mensaje específico sin recargar todo
+      setMessages(prev => {
+        const filtered = prev.filter(msg => msg.id !== oldMessage.id)
+        console.log('📝 Mensajes antes:', prev.length, '→ después:', filtered.length)
+        return filtered
+      })
     }
   }
 
@@ -114,15 +138,25 @@ export default function ChatView({ chatId, onClose }) {
     }
   }, [chatId])
 
-  // Manejar scroll: detectar cuando llega arriba para cargar más
+  // Manejar scroll: detectar cuando llega arriba para cargar más y mostrar botón
   const handleScroll = () => {
-    if (!messagesContainerRef.current || loadingMore || !hasMore) return
+    if (!messagesContainerRef.current) return
 
-    const { scrollTop } = messagesContainerRef.current
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
     
     // Si está cerca del top (50px), cargar más mensajes
-    if (scrollTop < 50) {
+    if (scrollTop < 50 && !loadingMore && hasMore) {
       loadMoreMessages()
+    }
+
+    // Mostrar botón de scroll si no está cerca del final
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 200
+    setShowScrollButton(!isNearBottom)
+    
+    // Resetear contador de no leídos si está en el final
+    if (isNearBottom) {
+      setUnreadCount(0)
+      lastMessageCountRef.current = messages.length
     }
   }
 
@@ -136,18 +170,47 @@ export default function ChatView({ chatId, onClose }) {
     }
   }, [loadingMore, messages])
 
-  // Scroll al final solo en la carga inicial
+  // Scroll al final solo en la carga inicial o cuando llega un nuevo mensaje
   useEffect(() => {
-    if (messages.length > 0 && isInitialLoadRef.current) {
-      // Usar setTimeout para asegurar que el DOM esté completamente renderizado
+    if (messages.length === 0) return
+
+    // Scroll automático solo en carga inicial
+    if (isInitialLoadRef.current) {
       setTimeout(() => {
         if (messagesContainerRef.current) {
           messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+          lastMessageCountRef.current = messages.length
         }
         isInitialLoadRef.current = false
       }, 100)
+      return
     }
-  }, [messages])
+
+    // Para nuevos mensajes, hacer scroll solo si el usuario ya está cerca del final
+    // Esto permite que el usuario pueda leer mensajes antiguos sin interrupciones
+    if (messagesContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 200
+      
+      if (isNearBottom) {
+        // Usuario está cerca del final, hacer scroll automático
+        setTimeout(() => {
+          if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+          }
+        }, 50)
+        setUnreadCount(0)
+        lastMessageCountRef.current = messages.length
+      } else {
+        // Usuario está leyendo mensajes antiguos, incrementar contador
+        const newMessages = messages.length - lastMessageCountRef.current
+        if (newMessages > 0) {
+          setUnreadCount(prev => prev + newMessages)
+          lastMessageCountRef.current = messages.length
+        }
+      }
+    }
+  }, [messages.length])
 
   if (loading) {
     return (
@@ -219,7 +282,7 @@ export default function ChatView({ chatId, onClose }) {
       <div 
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto bg-gray-50 px-6 py-4"
+        className="flex-1 overflow-y-auto bg-gray-50 px-6 py-4 relative"
       >
         {/* Indicador de carga superior */}
         {loadingMore && (
@@ -263,6 +326,29 @@ export default function ChatView({ chatId, onClose }) {
               <p className="text-gray-500">No hay mensajes en esta conversación</p>
             </div>
           </div>
+        )}
+
+        {/* Botón flotante para scroll al final */}
+        {showScrollButton && (
+          <button
+            onClick={() => {
+              if (messagesContainerRef.current) {
+                messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+                setUnreadCount(0)
+                lastMessageCountRef.current = messages.length
+              }
+            }}
+            className="fixed bottom-24 right-8 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all duration-200 flex items-center gap-2 z-10"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+            {unreadCount > 0 && (
+              <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                {unreadCount}
+              </span>
+            )}
+          </button>
         )}
       </div>
 
