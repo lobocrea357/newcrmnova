@@ -17,6 +17,7 @@ export default function ChatView({ chatId, onClose }) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [messageText, setMessageText] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [totalMessages, setTotalMessages] = useState(0) // Total de mensajes en el chat (desde main)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const previousScrollHeightRef = useRef(0)
@@ -24,17 +25,19 @@ export default function ChatView({ chatId, onClose }) {
   const lastMessageCountRef = useRef(0)
   const inputRef = useRef(null)
 
-  // Cargar conversación inicial (últimos 50 mensajes)
+  // Cargar conversación completa (TODOS los mensajes)
   const loadConversation = async () => {
     setLoading(true)
     try {
-      const result = await getConversationWithMessages(chatId, 50)
+      const result = await getConversationWithMessages(chatId)
       if (result) {
-        console.log('📊 Mensajes cargados:', result.messages.length, 'hasMore:', result.hasMore)
+        console.log('📊 TODOS los mensajes cargados:', result.messages.length, 'total:', result.totalMessages)
+        console.log('📊 Estadísticas:', result.stats)
         setConversation(result.conversation)
         setMessages(result.messages)
-        setHasMore(result.hasMore)
-        setOldestTimestamp(result.oldestTimestamp)
+        setHasMore(false) // Ya no hay más mensajes porque cargamos todos
+        setOldestTimestamp(null) // No necesario
+        setTotalMessages(result.totalMessages || 0)
       }
     } catch (error) {
       console.error('Error al cargar conversación:', error)
@@ -43,29 +46,11 @@ export default function ChatView({ chatId, onClose }) {
     }
   }
 
-  // Cargar más mensajes antiguos
+  // Ya no necesitamos cargar más mensajes porque cargamos todos
   const loadMoreMessages = async () => {
-    if (loadingMore || !hasMore || !oldestTimestamp) return
-
-    setLoadingMore(true)
-    try {
-      // Guardar altura actual del scroll antes de cargar
-      if (messagesContainerRef.current) {
-        previousScrollHeightRef.current = messagesContainerRef.current.scrollHeight
-      }
-
-      const result = await getConversationWithMessages(chatId, 50, oldestTimestamp)
-      if (result && result.messages.length > 0) {
-        // Agregar mensajes antiguos al inicio
-        setMessages(prev => [...result.messages, ...prev])
-        setHasMore(result.hasMore)
-        setOldestTimestamp(result.oldestTimestamp)
-      }
-    } catch (error) {
-      console.error('Error al cargar más mensajes:', error)
-    } finally {
-      setLoadingMore(false)
-    }
+    // Función deshabilitada - ya cargamos todos los mensajes
+    console.log('ℹ️ Todos los mensajes ya están cargados')
+    return
   }
 
   const handleMessageChange = async (payload) => {
@@ -160,10 +145,10 @@ export default function ChatView({ chatId, onClose }) {
 
   useEffect(() => {
     loadConversation()
-    
+
     // Suscribirse a cambios en mensajes de este chat
     console.log('🔔 Suscribiéndose a mensajes del chat:', chatId)
-    
+
     const channel = supabase
       .channel(`chat-${chatId}`)
       .on(
@@ -188,13 +173,15 @@ export default function ChatView({ chatId, onClose }) {
     }
   }, [chatId])
 
-  // Manejar scroll: detectar cuando llega arriba para cargar más y mostrar botón
+  // Manejar scroll: detectar cuando el usuario se aleja del final y mostrar botón
+  // Nota: aunque actualmente se cargan todos los mensajes, mantenemos la lógica
+  // de botón flotante y contador de no leídos.
   const handleScroll = () => {
     if (!messagesContainerRef.current) return
 
     const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
     
-    // Si está cerca del top (50px), cargar más mensajes
+    // Si en algún momento se vuelve a activar paginación, esta lógica seguirá funcionando
     if (scrollTop < 50 && !loadingMore && hasMore) {
       loadMoreMessages()
     }
@@ -210,15 +197,11 @@ export default function ChatView({ chatId, onClose }) {
     }
   }
 
-  // Mantener posición del scroll después de cargar mensajes antiguos
+  // Mantener lógica simple para el efecto de "mantener posición" ya que ahora
+  // la conversación se carga completa de una vez.
   useEffect(() => {
-    if (!loadingMore && messagesContainerRef.current && previousScrollHeightRef.current > 0) {
-      const newScrollHeight = messagesContainerRef.current.scrollHeight
-      const scrollDiff = newScrollHeight - previousScrollHeightRef.current
-      messagesContainerRef.current.scrollTop = scrollDiff
-      previousScrollHeightRef.current = 0
-    }
-  }, [loadingMore, messages])
+    return
+  }, [messages])
 
   // Scroll al final solo en la carga inicial o cuando llega un nuevo mensaje
   useEffect(() => {
@@ -330,43 +313,56 @@ export default function ChatView({ chatId, onClose }) {
             </div>
           </div>
           
-          {/* Badge de mensajes */}
-          <div className="flex items-center gap-1.5 sm:gap-2 bg-white/20 backdrop-blur-sm px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full border border-white/30 flex-shrink-0">
-            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-            </svg>
-            <span className="text-xs sm:text-sm font-semibold text-white">
-              {messages.length}
-            </span>
-            {hasMore && (
-              <span className="text-[10px] sm:text-xs text-blue-200">+más</span>
+          {/* Badge de mensajes + estado de carga */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            {/* Badge de mensajes */}
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-white/20 backdrop-blur-sm px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full border border-white/30">
+              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+              <span className="text-xs sm:text-sm font-semibold text-white">
+                {messages.length}
+                {totalMessages ? ` / ${totalMessages}` : ''}
+              </span>
+              {/* Solo mostramos "+más" si seguimos usando hasMore */}
+              {hasMore && !totalMessages && (
+                <span className="text-[10px] sm:text-xs text-blue-200">+más</span>
+              )}
+            </div>
+
+            {/* Estado de carga: parcial/completo usando totalMessages del branch main */}
+            {totalMessages > 0 && totalMessages !== messages.length && (
+              <div className="text-[10px] sm:text-xs text-yellow-100 bg-yellow-600/60 px-2 py-0.5 rounded">
+                ⚠️ Parcial
+              </div>
+            )}
+            {totalMessages > 0 && totalMessages === messages.length && (
+              <div className="text-[10px] sm:text-xs text-emerald-100 bg-emerald-600/60 px-2 py-0.5 rounded">
+                ✅ Completo
+              </div>
             )}
           </div>
         </div>
       </div>
 
       {/* Messages */}
-      <div 
+      <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto bg-gray-50 px-6 py-4 relative"
       >
-        {/* Indicador de carga superior */}
-        {loadingMore && (
+        {/* Indicador de estado de carga */}
+        {messages.length > 0 && (
           <div className="flex justify-center py-4">
-            <div className="flex items-center gap-2 text-sm text-gray-600 bg-white px-4 py-2 rounded-full shadow-sm">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-              <span>Cargando mensajes anteriores...</span>
-            </div>
-          </div>
-        )}
-        
-        {/* Indicador de que no hay más mensajes */}
-        {!hasMore && messages.length > 0 && (
-          <div className="flex justify-center py-4">
-            <div className="text-xs text-gray-500 bg-white px-4 py-2 rounded-full shadow-sm">
-              📜 Inicio de la conversación
-            </div>
+            {totalMessages > 0 && totalMessages === messages.length ? (
+              <div className="text-xs text-green-600 bg-green-50 px-4 py-2 rounded-full shadow-sm border border-green-200">
+                ✅ Conversación completa ({messages.length} mensajes)
+              </div>
+            ) : (
+              <div className="text-xs text-blue-600 bg-blue-50 px-4 py-2 rounded-full shadow-sm border border-blue-200">
+                📥 Mostrando {messages.length} de {totalMessages || 0} mensajes
+              </div>
+            )}
           </div>
         )}
 
@@ -374,6 +370,18 @@ export default function ChatView({ chatId, onClose }) {
           <div className="max-w-4xl mx-auto">
             {(() => {
               console.log('🎨 Renderizando', messages.length, 'mensajes')
+              
+              // LOGGING DETALLADO PARA DEBUG
+              const entrantes = messages.filter(m => !m.from_me)
+              const salientes = messages.filter(m => m.from_me)
+              console.log(`📊 Mensajes a renderizar:`)
+              console.log(`   📨 ${entrantes.length} entrantes (from_me: false)`)
+              console.log(`   📤 ${salientes.length} salientes (from_me: true)`)
+              
+              messages.forEach((msg, idx) => {
+                console.log(`   ${idx + 1}. ${msg.from_me ? '📤 BOT' : '📨 CLIENTE'}: "${(msg.body || '').substring(0, 50)}..."`)
+              })
+              
               return messages.map((message, index) => (
                 <MessageBubble
                   key={message.id || index}

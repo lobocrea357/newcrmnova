@@ -14,7 +14,21 @@ export const wahaClient = axios.create({
   baseURL: WAHA_URL,
   headers: {
     'X-Api-Key': WAHA_API_KEY,
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'User-Agent': 'CRM-Nova-Bot/1.0',
+    'Accept': 'application/json',
+    'Connection': 'keep-alive'
+  },
+  timeout: 300000, // 5 minutos timeout para servidor remoto
+  maxRedirects: 10,
+  maxContentLength: 50 * 1024 * 1024, // 50MB max response
+  maxBodyLength: 50 * 1024 * 1024, // 50MB max request
+  validateStatus: status => status < 500,
+  decompress: true,
+  transitional: {
+    silentJSONParsing: false,
+    forcedJSONParsing: true,
+    clarifyTimeoutError: true
   }
 });
 

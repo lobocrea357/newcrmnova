@@ -7,12 +7,16 @@ export class MessageService {
   async saveMessage(botId, chatDbId, contactId, messageData) {
     try {
       // Preparar datos compatibles con el schema existente
+      // Asegurar que el contenido del mensaje se capture correctamente
+      const messageContent = messageData.body || messageData.text || messageData.caption || messageData.content || '';
+      
       const messageInsertData = {
         bot_id: botId,
         message_id: messageData.id,
         from_number: messageData.from?.split('@')[0] || '',
         to_number: messageData.to?.split('@')[0] || '',
-        content: messageData.body || messageData.caption || '',
+        content: messageContent,
+        body: messageContent, // Asegurar que body también tenga el contenido
         message_type: messageData.type || 'chat',
         status: messageData.ack ? `ack_${messageData.ack}` : 'sent',
         timestamp: messageData.timestamp ? new Date(messageData.timestamp * 1000).toISOString() : new Date().toISOString()
@@ -23,7 +27,7 @@ export class MessageService {
       if (chatDbId) messageInsertData.chat_id = chatDbId;
       if (contactId) messageInsertData.contact_id = contactId;
       if (messageData.fromMe !== undefined) messageInsertData.from_me = messageData.fromMe;
-      if (messageData.body) messageInsertData.body = messageData.body;
+      // body ya está asignado arriba con messageContent
       if (messageData.type) messageInsertData.type = messageData.type;
       if (messageData.ack !== undefined) messageInsertData.ack = messageData.ack;
       if (messageData.hasMedia !== undefined) messageInsertData.has_media = messageData.hasMedia;

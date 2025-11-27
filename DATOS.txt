@@ -1,0 +1,43 @@
+
+
+Jesus: rafaelvuelos.nova@gmail.com 
+ViajNov753.2525$
+-----------------------------
+Moises: Moisesnova923@gmail.com  
+NoViajesVa.5252$
+-----------------------------
+Endry: iajosni012@gmail.com    
+ViajNovaEs.2552$
+
+admin@novapolointranet.xyz
+2025.NoVapol0
+
+
+
+
+
+
+
+
+
+
+
+dashboard.novapolointranet.xyz {
+    # Dashboard (Frontend)
+    reverse_proxy localhost:3001
+
+    # API Express
+    handle /api* {
+        reverse_proxy localhost:4000
+    }
+
+    # Webhooks
+    handle /webhooks* {
+        reverse_proxy localhost:4000
+    }
+
+    # WAHA API
+    handle /waha* {
+        reverse_proxy localhost:3000
+    }
+}

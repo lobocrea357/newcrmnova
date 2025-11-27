@@ -26,15 +26,11 @@ export default function MessageBubble({ message, contactName }) {
   // Logging detallado para debug
   console.log('📱 MessageBubble:', { 
     id: message.id,
+    from_me: message.from_me,
     messageType, 
     hasMedia, 
-    mediaFile: mediaFile ? { 
-      file_url: mediaFile.file_url, 
-      mimetype: mediaFile.mimetype,
-      file_name: mediaFile.file_name 
-    } : null,
-    body: message.body,
-    metadata: message.metadata
+    body: message.body || message.content,
+    timestamp: message.timestamp
   })
 
   return (
@@ -155,9 +151,9 @@ export default function MessageBubble({ message, contactName }) {
               </a>
             </div>
           ) : (
-            // Mensaje de texto normal
+            // Mensaje de texto normal - SIEMPRE MOSTRAR ALGO
             <p className="text-sm whitespace-pre-wrap break-words">
-              {message.body || (hasMedia ? '(Multimedia sin descripción)' : '(Sin contenido)')}
+              {message.body || message.content || (hasMedia ? '(Multimedia sin descripción)' : '(Mensaje sin contenido)')}
             </p>
           )}
           
