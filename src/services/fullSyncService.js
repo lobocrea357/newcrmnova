@@ -135,14 +135,23 @@ export class FullSyncService {
       const contactNumber = chatId.split('@')[0];
       console.log(`\n📱 Sincronizando chat: ${contactNumber}`);
 
-      // Obtener mensajes desde WAHA
+      // Obtener mensajes desde WAHA con contenido completo (optimizado para remoto)
+      const isRemoteServer = process.env.WAHA_BASE_URL && !process.env.WAHA_BASE_URL.includes('localhost');
+      const messageLimit = Math.min(limit, isRemoteServer ? 200 : 100); // Límite optimizado para remoto
+      
       const messagesResponse = await wahaClient.get('/api/messages', {
         params: {
           session: sessionName,
           chatId: chatId,
-          limit: limit,
-          downloadMedia: false
-        }
+          limit: messageLimit,
+          downloadMedia: false,
+          includeBody: true,
+          includeText: true,
+          // Parámetros adicionales para servidor remoto
+          format: 'json',
+          includeQuoted: false // Reducir tamaño de respuesta
+        },
+        timeout: 180000 // 3 minutos para obtener mensajes de servidor remoto
       });
 
       const messages = messagesResponse.data || [];
@@ -152,6 +161,7 @@ export class FullSyncService {
         total: messages.length,
         saved: 0,
         skipped: 0,
+        fixed: 0,
         media: 0,
         errors: 0
       };
@@ -170,17 +180,63 @@ export class FullSyncService {
       // Procesar cada mensaje
       for (const msg of messages) {
         try {
-          // Verificar si existe
+          // Verificar si existe y obtener datos completos
           const { data: existing } = await supabase
             .from('messages')
-            .select('id')
+            .select('id, from_me, from_number, to_number, body, content')
             .eq('message_id', msg.id)
             .maybeSingle();
 
+          // Determinar from_me correcto basándose en números de teléfono
+          const correctFromMe = msg.from?.split('@')[0] === bot.phone_number;
+          
+          // Obtener contenido correcto del mensaje
+          const correctContent = msg.body || msg.text || msg.caption || msg.content || '';
+          
           if (existing) {
+            let needsUpdate = false;
+            let updateData = {};
+            
+            // Verificar si from_me está correcto
+            if (existing.from_me !== correctFromMe) {
+              console.log(`🔧 Corrigiendo from_me: ${msg.id} (${existing.from_me} → ${correctFromMe})`);
+              updateData.from_me = correctFromMe;
+              needsUpdate = true;
+            }
+            
+            // Verificar si el contenido está vacío o incorrecto
+            const currentContent = existing.body || existing.content || '';
+            if (!currentContent && correctContent) {
+              console.log(`📝 Agregando contenido faltante: ${msg.id} - "${correctContent.substring(0, 50)}..."`);
+              updateData.body = correctContent;
+              updateData.content = correctContent;
+              needsUpdate = true;
+            } else if (currentContent !== correctContent && correctContent) {
+              console.log(`📝 Actualizando contenido: ${msg.id}`);
+              updateData.body = correctContent;
+              updateData.content = correctContent;
+              needsUpdate = true;
+            }
+            
+            // Aplicar actualizaciones si es necesario
+            if (needsUpdate) {
+              await supabase
+                .from('messages')
+                .update(updateData)
+                .eq('id', existing.id);
+                
+              stats.fixed = (stats.fixed || 0) + 1;
+              console.log(`   ✅ Mensaje actualizado: ${Object.keys(updateData).join(', ')}`);
+            } else {
+              console.log(`Mensaje duplicado (sin cambios): ${correctFromMe}_${chatId}_${msg.id}`);
+            }
+            
             stats.skipped++;
             continue;
           }
+
+          // Asegurar que el mensaje tenga from_me correcto antes de guardarlo
+          msg.fromMe = correctFromMe;
 
           // Guardar mensaje
           const saved = await messageService.saveMessage(bot.id, chat.id, contact?.id, msg);
@@ -200,7 +256,12 @@ export class FullSyncService {
         }
       }
 
-      console.log(`   ✅ Guardados: ${stats.saved} | Omitidos: ${stats.skipped} | Media: ${stats.media}`);
+      console.log(`   ✅ Guardados: ${stats.saved} | Omitidos: ${stats.skipped} | Corregidos: ${stats.fixed} | Media: ${stats.media} | Errores: ${stats.errors}`);
+      
+      if (stats.fixed > 0) {
+        console.log(`   🔧 Se corrigieron ${stats.fixed} mensajes (from_me y/o contenido)`);
+      }
+      
       return stats;
 
     } catch (error) {
@@ -228,10 +289,21 @@ export class FullSyncService {
 
       if (!bot) throw new Error(`Bot no encontrado: ${sessionName}`);
 
-      // Obtener chats desde WAHA
-      console.log(`📊 Obteniendo chats desde WAHA...`);
+      // Obtener todos los chats del bot (optimizado para servidor remoto)
+      console.log('📊 Obteniendo chats desde WAHA remoto...');
+      
+      // Ajustar límite según si es servidor remoto
+      const isRemoteServer = process.env.WAHA_BASE_URL && !process.env.WAHA_BASE_URL.includes('localhost');
+      const chatLimit = isRemoteServer ? 500 : 100; // Más chats para servidor remoto optimizado
+      
       const chatsResponse = await wahaClient.get(`/api/${sessionName}/chats`, {
-        params: { limit: 1000 }
+        params: { 
+          limit: chatLimit,
+          // Parámetros adicionales para optimizar respuesta remota
+          includeLastMessage: false, // Reducir tamaño de respuesta
+          onlyWithMessages: true // Solo chats con mensajes
+        },
+        timeout: 120000 // 2 minutos para obtener chats de servidor remoto
       });
 
       const wahaChats = chatsResponse.data || [];
@@ -260,8 +332,10 @@ export class FullSyncService {
           globalStats.media += chatStats.media;
           globalStats.errors += chatStats.errors;
 
-          // Pausa entre chats
-          await new Promise(resolve => setTimeout(resolve, 200));
+          // Pausa entre chats (ajustada para servidor remoto)
+          const isRemoteServer = process.env.WAHA_BASE_URL && !process.env.WAHA_BASE_URL.includes('localhost');
+          const pauseTime = isRemoteServer ? 500 : 200; // Pausa más larga para servidor remoto
+          await new Promise(resolve => setTimeout(resolve, pauseTime));
 
         } catch (error) {
           console.error(`❌ Error procesando chat:`, error.message);

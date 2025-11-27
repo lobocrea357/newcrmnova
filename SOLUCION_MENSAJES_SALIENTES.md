@@ -1,177 +1,160 @@
-# 🔧 Solución: Mensajes Salientes No Se Guardaban
+# Solución: Mensajes Salientes Faltantes
 
-## 🔍 Problema Identificado
+## 🎯 Problema
 
-Los mensajes salientes (`fromMe: true`) no se estaban guardando en la base de datos.
+Los mensajes salientes (respuestas del bot) **NO se están guardando** en la base de datos porque WAHA no está enviando webhooks para mensajes con `fromMe = true`.
 
-### Diagnóstico Realizado
+## 🔧 Solución en 3 Pasos
 
-1. **Ejecutamos `debug-messages-fixed.sql`** y encontramos:
-   - ✅ Mensajes entrantes: 8 mensajes
-   - ❌ Mensajes salientes: 0 mensajes
+### Paso 1: Configurar Webhooks de WAHA
 
-2. **Revisamos los logs de Express** y encontramos:
+Ejecuta el script de configuración automática:
+
+```bash
+node src/scripts/configure-webhooks.js configure
+```
+
+**Comandos disponibles:**
+- `configure [session]` - Configura webhooks para una sesión específica (default: 'default')
+- `all` - Configura webhooks para TODAS las sesiones activas
+- `check [session]` - Verifica la configuración actual
+- `delete [session]` - Elimina webhooks de una sesión
+
+**Ejemplo para configurar todas las sesiones:**
+```bash
+node src/scripts/configure-webhooks.js all
+```
+
+**Lo que hace este script:**
+1. Verifica la configuración actual de webhooks
+2. Configura el evento `message.any` (captura mensajes entrantes Y salientes)
+3. Verifica que la configuración se aplicó correctamente
+
+### Paso 2: Sincronizar Mensajes Históricos
+
+Una vez configurados los webhooks, sincroniza los mensajes salientes que ya existen en WAHA pero no en la BD:
+
+```bash
+node sync-messages.js
+```
+
+**Lo que hace este script:**
+1. Obtiene todos los chats de la base de datos
+2. Para cada chat, consulta los mensajes en WAHA
+3. Filtra solo mensajes salientes (`fromMe = true`)
+4. Guarda en la BD los mensajes que no existen
+5. Muestra un resumen de mensajes sincronizados
+
+**Nota:** 
+- Este proceso puede tardar varios minutos dependiendo de la cantidad de chats
+- Es normal ver errores para chats que ya no existen en WAHA
+- El script omitirá automáticamente mensajes que ya están en la BD
+
+### Paso 3: Verificar Funcionamiento
+
+#### 3.1 Enviar Mensaje de Prueba
+
+1. Envía un mensaje desde el bot a cualquier contacto
+2. Verifica los logs del servidor Node.js:
    ```
-   📨 Procesando mensaje [message.any]: {
-     fromMe: true,  ← Evento recibido ✅
-     to: undefined  ← Campo 'to' undefined ❌
-   }
-   
-   Error: null value in column "phone_number" of relation "contacts" 
-   violates not-null constraint
+   🔔 Webhook recibido [message.any]:
+   FromMe: true
    ```
 
-## 🎯 Causa Raíz
+#### 3.2 Verificar en Base de Datos
 
-En `src/services/webhookService.js`, la lógica para extraer el número de contacto era:
-
-```javascript
-// ❌ CÓDIGO ANTERIOR (INCORRECTO)
-const contactNumber = payload.fromMe ? toNumber : fromNumber;
-```
-
-**Problema:** Para mensajes salientes, `payload.to` es `undefined`, entonces `toNumber` es `undefined`, y no se puede crear el contacto.
-
-## ✅ Solución Implementada
-
-Corregimos la lógica en `webhookService.js`:
-
-```javascript
-// ✅ CÓDIGO NUEVO (CORRECTO)
-// Para mensajes salientes (fromMe=true), el contacto es 'from'
-// Para mensajes entrantes (fromMe=false), el contacto también es 'from'
-const contactNumber = fromNumber;
-
-// Validar que tengamos un número de contacto
-if (!contactNumber) {
-  console.error('❌ No se pudo extraer número de contacto del mensaje');
-  throw new Error('No contact number found in message');
-}
-```
-
-**Explicación:**
-- En WhatsApp, `from` siempre es el número del contacto (la otra persona)
-- Para mensajes entrantes: `from` = contacto que envía
-- Para mensajes salientes: `from` = contacto que recibe
-- El campo `to` no siempre está presente en los webhooks de WAHA
-
-## 🔄 Cambios Realizados
-
-### 1. Configuración de Webhooks en WAHA
-```bash
-# Ejecutado: configure-waha-webhooks.ps1
-✅ Webhooks configurados con evento 'message.any'
-✅ Sesión reiniciada
-```
-
-### 2. Código Actualizado
-**Archivo:** `src/services/webhookService.js`
-- Líneas 156-180: Lógica de extracción de contacto corregida
-- Agregada validación de `contactNumber`
-- Simplificada lógica de `chatId`
-
-### 3. Servicio Reconstruido
-```bash
-docker-compose up -d --build express
-```
-
-## 🧪 Pruebas a Realizar
-
-### 1. Enviar Mensaje de Prueba
-- Envía un mensaje desde WhatsApp al bot
-- Responde desde WhatsApp
-
-### 2. Verificar en Logs
-```bash
-docker-compose logs -f express
-```
-
-Deberías ver:
-```
-📨 Procesando mensaje [message.any]: { fromMe: false, ... }
-✅ Mensaje guardado: ...
-
-📨 Procesando mensaje [message.any]: { fromMe: true, ... }
-✅ Mensaje guardado: ...
-```
-
-### 3. Verificar en Base de Datos
-Ejecuta `debug-messages-fixed.sql` en Supabase:
+Ejecuta esta consulta SQL en Supabase:
 
 ```sql
--- Contar mensajes por tipo
+-- Verificar mensajes salientes recientes
 SELECT 
-    from_me,
-    CASE WHEN from_me THEN 'Salientes' ELSE 'Entrantes' END as tipo,
-    COUNT(*) as total
+  from_me,
+  COUNT(*) as total
 FROM messages
+WHERE timestamp > NOW() - INTERVAL '1 hour'
 GROUP BY from_me;
 ```
 
 **Resultado esperado:**
-| from_me | tipo       | total |
-|---------|------------|-------|
-| false   | Entrantes  | X     |
-| true    | Salientes  | Y     | ← **NUEVO** ✅
+```
+| from_me | total |
+| ------- | ----- |
+| false   | X     |
+| true    | Y     | ← Debe aparecer!
+```
 
-### 4. Verificar en Dashboard
-Abre http://localhost:3001 y verifica:
-- Mensajes en **gris** = Entrantes
-- Mensajes en **verde** = Salientes ← **NUEVO** ✅
+#### 3.3 Verificar en Dashboard
+
+1. Abre el dashboard
+2. Selecciona un bot
+3. Abre un chat
+4. **Deberías ver mensajes azules a la derecha** (mensajes del bot)
 
 ## 📋 Checklist de Verificación
 
-- [x] Webhooks configurados con `message.any`
-- [x] Código corregido en `webhookService.js`
-- [x] Servicio Express reconstruido
-- [ ] Mensaje de prueba enviado
-- [ ] Logs verificados sin errores
-- [ ] Base de datos muestra mensajes salientes
-- [ ] Dashboard muestra mensajes salientes en verde
+- [ ] Servidor Node.js corriendo (`npm run dev`)
+- [ ] Webhooks configurados con `message.any`
+- [ ] Mensajes históricos sincronizados
+- [ ] Mensaje de prueba enviado y recibido en webhook
+- [ ] Mensaje de prueba aparece en BD con `from_me = true`
+- [ ] Dashboard muestra mensajes salientes correctamente
 
-## 🎉 Resultado Esperado
+## 🔍 Troubleshooting
 
-Después de estos cambios:
+### Problema: "Error: connect ECONNREFUSED"
 
-1. **Mensajes entrantes** (del contacto):
-   - ✅ Se guardan con `from_me = false`
-   - ✅ Aparecen en gris en el dashboard
+**Causa:** WAHA no está corriendo o la URL es incorrecta.
 
-2. **Mensajes salientes** (del bot):
-   - ✅ Se guardan con `from_me = true`
-   - ✅ Aparecen en verde en el dashboard
+**Solución:**
+1. Verifica que WAHA esté corriendo: `http://localhost:3000`
+2. Verifica la variable `WAHA_URL` en `.env`
 
-3. **Multimedia**:
-   - ✅ Imágenes, videos, audios se guardan en `media_files`
-   - ✅ Audios se transcriben automáticamente (si OpenAI está configurado)
+### Problema: "Error: 401 Unauthorized"
 
-## 🐛 Si Aún Hay Problemas
+**Causa:** API Key incorrecta o faltante.
 
-1. **Verifica que Express se reconstruyó:**
-   ```bash
-   docker-compose ps
-   # Debe mostrar "Up X minutes" para express
-   ```
+**Solución:**
+1. Verifica que `WAHA_API_KEY` esté en `.env`
+2. Verifica que el API Key sea correcto en WAHA
 
-2. **Verifica los logs en tiempo real:**
-   ```bash
-   docker-compose logs -f express | Select-String "📨"
-   ```
+### Problema: Webhooks configurados pero no llegan mensajes
 
-3. **Reinicia todos los servicios:**
-   ```bash
-   docker-compose restart
-   ```
+**Causa:** Servidor Node.js no está corriendo o URL incorrecta.
 
-4. **Ejecuta el script de prueba:**
-   ```bash
-   powershell -ExecutionPolicy Bypass -File test-system.ps1
-   ```
+**Solución:**
+1. Verifica que el servidor esté corriendo: `npm run dev`
+2. Verifica que `WEBHOOK_URL` en `.env` sea accesible desde WAHA
+3. Si WAHA está en Docker, usa `host.docker.internal:4000` en lugar de `localhost:4000`
 
-## 📞 Resumen
+### Problema: Mensajes históricos no se sincronizan
 
-**Problema:** Mensajes salientes no se guardaban por campo `to` undefined.
+**Causa:** Chat ID incorrecto o permisos insuficientes.
 
-**Solución:** Usar siempre `from` como número de contacto, ya que representa al contacto en ambos casos (entrantes y salientes).
+**Solución:**
+1. Verifica los logs del script para ver errores específicos
+2. Verifica que el bot tenga acceso a los chats en WAHA
 
-**Estado:** ✅ Corregido y listo para probar.
+## 📝 Variables de Entorno Requeridas
+
+Asegúrate de tener estas variables en tu `.env`:
+
+```env
+WAHA_URL=http://localhost:3000
+WAHA_API_KEY=tu_api_key_aqui
+WEBHOOK_URL=http://localhost:4000/webhooks/waha
+```
+
+## 🎉 Resultado Final
+
+Después de completar estos pasos:
+
+✅ **Mensajes nuevos**: Se guardarán automáticamente (entrantes Y salientes)  
+✅ **Mensajes históricos**: Estarán sincronizados en la BD  
+✅ **Dashboard**: Mostrará conversaciones completas con mensajes del bot  
+
+## 📞 Soporte
+
+Si encuentras problemas:
+1. Revisa los logs del servidor Node.js
+2. Ejecuta `node src/scripts/configure-webhooks.js check` para verificar configuración
+3. Revisa la sección de Troubleshooting arriba

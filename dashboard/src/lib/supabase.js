@@ -100,7 +100,7 @@ export async function getAllBots() {
         worker = workerData
       }
       
-      // Contar chats (excluyendo estados y canales)
+      // Contar chats y obtener fecha de última actividad
       const { count } = await supabase
         .from('chats')
         .select('*', { count: 'exact', head: true })
@@ -109,16 +109,49 @@ export async function getAllBots() {
         .not('chat_id', 'ilike', '%@broadcast%')
         .not('chat_id', 'ilike', '%@newsletter%')
       
+      // Obtener la fecha de la conversación más reciente
+      const { data: recentChat } = await supabase
+        .from('chats')
+        .select('last_message_time, updated_at, created_at')
+        .eq('bot_id', bot.id)
+        .not('chat_id', 'ilike', '%status%')
+        .not('chat_id', 'ilike', '%@broadcast%')
+        .not('chat_id', 'ilike', '%@newsletter%')
+        .order('last_message_time', { ascending: false, nullsLast: true })
+        .order('updated_at', { ascending: false, nullsLast: true })
+        .limit(1)
+        .single()
+
+      const validChatsCount = count || 0
+      const lastActivity = recentChat?.last_message_time || recentChat?.updated_at || recentChat?.created_at || bot.created_at
+      
       return {
         ...bot,
         worker,
-        conversation_count: count || 0
+        conversation_count: validChatsCount || 0,
+        last_activity: lastActivity,
+        last_activity_date: lastActivity ? new Date(lastActivity) : new Date(bot.created_at)
       }
     })
   )
 
-  console.log('📊 Bots con detalles:', botsWithDetails)
-  return botsWithDetails
+  // Ordenar por actividad reciente (más recientes primero)
+  const sortedBots = botsWithDetails.sort((a, b) => {
+    // Primero por estado (activos primero)
+    if (a.status === 'WORKING' && b.status !== 'WORKING') return -1
+    if (b.status === 'WORKING' && a.status !== 'WORKING') return 1
+    
+    // Luego por fecha de última actividad (más reciente primero)
+    return b.last_activity_date - a.last_activity_date
+  })
+
+  console.log('📊 Asesores ordenados por actividad (más recientes primero):')
+  sortedBots.forEach((bot, index) => {
+    const statusIcon = bot.status === 'WORKING' ? '✅' : bot.status === 'FAILED' ? '❌' : '⏸️'
+    console.log(`   ${index + 1}. ${statusIcon} ${bot.session_name}: ${bot.conversation_count} conv. - ${bot.last_activity_date.toLocaleString('es-ES')}`)
+  })
+  
+  return sortedBots
 }
 
 /**
@@ -147,7 +180,7 @@ export async function getBotsByWorker(workerId) {
 
 /**
  * Obtiene las conversaciones de un bot específico con paginación
- * MEJORADO: Maneja correctamente chats sin contact_id
+ * OPTIMIZADO: Mejor manejo de nombres y números de contacto
  * @param {string} botId - ID del bot
  * @param {number} page - Número de página (empezando en 1)
  * @param {number} pageSize - Cantidad de conversaciones por página (default: 10)
@@ -176,40 +209,32 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
-  // Obtener las conversaciones paginadas (excluyendo estados y canales)
-  // Obtener las conversaciones paginadas, priorizando last_message_time si existe
+  // Obtener las conversaciones con mejor ordenamiento
   let query = supabase
     .from('chats')
     .select(`
       *,
-      contact:contacts(id, name, phone_number, push_name, profile_picture_url)
+      contact:contacts(id, name, phone_number, profile_picture_url, push_name)
     `)
     .eq('bot_id', botId)
     .not('chat_id', 'ilike', '%status%')
     .not('chat_id', 'ilike', '%@broadcast%')
     .not('chat_id', 'ilike', '%@newsletter%')
-    .order('last_message_time', { ascending: false, nullsFirst: false })
-    .range(from, to)
 
-  // Si la ordenación falla (column not found), fallback a created_at
-  let { data, error } = await query
-
-  if (error) {
-    console.warn('⚠️ last_message_time no disponible, usando created_at', error.message)
-    const fallbackQuery = supabase
-      .from('chats')
-      .select(`
-        *,
-        contact:contacts(id, name, phone_number, push_name, profile_picture_url)
-      `)
-      .eq('bot_id', botId)
-      .order('created_at', { ascending: false })
-      .range(from, to)
-
-    const fallbackResult = await fallbackQuery
-    data = fallbackResult.data
-    error = fallbackResult.error
+  // Intentar ordenar por last_message_time, luego por updated_at, finalmente por created_at
+  try {
+    query = query.order('last_message_time', { ascending: false, nullsLast: true })
+  } catch {
+    try {
+      query = query.order('updated_at', { ascending: false })
+    } catch {
+      query = query.order('created_at', { ascending: false })
+    }
   }
+
+  query = query.range(from, to)
+
+  const { data, error } = await query
 
   if (error) {
     console.error('❌ Error al obtener conversaciones:', error)
@@ -223,58 +248,92 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
     return { data: [], total, totalPages, currentPage: page }
   }
 
-  // Obtener conteo de mensajes para cada chat
-  const chatsWithCounts = await Promise.all(
+  // Obtener conteo de mensajes y último mensaje para cada chat
+  const chatsWithDetails = await Promise.all(
     data.map(async (chat) => {
+      // Contar mensajes
       const { count } = await supabase
         .from('messages')
         .select('*', { count: 'exact', head: true })
         .eq('chat_id', chat.id)
 
-      // MEJORADO: Lógica inteligente para nombres con múltiples fallbacks
+      // Obtener último mensaje
+      const { data: lastMessage } = await supabase
+        .from('messages')
+        .select('body, timestamp, from_me')
+        .eq('chat_id', chat.id)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      // OPTIMIZADO: Lógica mejorada para determinar nombre y número
       let displayName = 'Sin nombre'
       let displayPhone = ''
+      let isValidContact = false
 
-      // Prioridad 1: Nombre del contacto relacionado
-      if (chat.contact?.name) {
-        displayName = chat.contact.name
-        displayPhone = chat.contact.phone_number || ''
+      // Prioridad 1: Contacto relacionado con nombre
+      if (chat.contact?.name && chat.contact.name.trim() !== '') {
+        displayName = chat.contact.name.trim()
+        displayPhone = chat.contact.phone_number || chat.contact_number || ''
+        isValidContact = true
       }
       // Prioridad 2: Push name del contacto
-      else if (chat.contact?.push_name) {
-        displayName = chat.contact.push_name
-        displayPhone = chat.contact.phone_number || ''
+      else if (chat.contact?.push_name && chat.contact.push_name.trim() !== '') {
+        displayName = chat.contact.push_name.trim()
+        displayPhone = chat.contact.phone_number || chat.contact_number || ''
+        isValidContact = true
       }
-      // Prioridad 3: Nombre del chat
-      else if (chat.name) {
-        displayName = chat.name
+      // Prioridad 3: Nombre del chat (campo name)
+      else if (chat.name && chat.name.trim() !== '') {
+        displayName = chat.name.trim()
         displayPhone = chat.contact?.phone_number || chat.contact_number || ''
+        isValidContact = true
       }
-      // Prioridad 4: Número de teléfono del contacto
+      // Prioridad 4: contact_name del chat
+      else if (chat.contact_name && chat.contact_name.trim() !== '') {
+        displayName = chat.contact_name.trim()
+        displayPhone = chat.contact_number || ''
+        isValidContact = true
+      }
+      // Prioridad 5: Número de teléfono del contacto
       else if (chat.contact?.phone_number) {
         displayName = chat.contact.phone_number
         displayPhone = chat.contact.phone_number
+        isValidContact = true
       }
-      // Prioridad 5: contact_number del chat
+      // Prioridad 6: contact_number del chat
       else if (chat.contact_number) {
         displayName = chat.contact_number
         displayPhone = chat.contact_number
+        isValidContact = true
       }
-      // Prioridad 6: Extraer de chat_id (formato: 123456789@c.us)
+      // Prioridad 7: Extraer de chat_id (formato: 123456789@c.us)
       else if (chat.chat_id) {
         const phoneFromChatId = chat.chat_id.split('@')[0]
-        displayName = phoneFromChatId
-        displayPhone = phoneFromChatId
+        if (phoneFromChatId && phoneFromChatId !== 'status') {
+          displayName = phoneFromChatId
+          displayPhone = phoneFromChatId
+          isValidContact = true
+        }
       }
 
-      // Logging para debugging
-      if (displayName === 'Sin nombre' && count > 0) {
-        console.warn(`⚠️ Chat ${chat.id} tiene ${count} mensajes pero no se pudo determinar nombre`, {
+      // Si tenemos un número válido pero no nombre, usar el número como nombre
+      if (!isValidContact && displayPhone) {
+        displayName = displayPhone
+        isValidContact = true
+      }
+
+      // Logging mejorado para debugging
+      if (!isValidContact && count > 0) {
+        console.warn(`⚠️ Chat ${chat.id} tiene ${count} mensajes pero no se pudo determinar contacto válido`, {
+          chat_id: chat.chat_id,
           contact_id: chat.contact_id,
           contact_name: chat.contact?.name,
+          contact_push_name: chat.contact?.push_name,
+          contact_phone: chat.contact?.phone_number,
           chat_name: chat.name,
-          contact_number: chat.contact_number,
-          chat_id: chat.chat_id
+          chat_contact_name: chat.contact_name,
+          chat_contact_number: chat.contact_number
         })
       }
 
@@ -283,39 +342,80 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
         message_count: count || 0,
         contact_name: displayName,
         contact_phone: displayPhone,
-        contact_profile_picture_url: chat.contact?.profile_picture_url || null
+        contact_profile_picture_url: chat.contact?.profile_picture_url || null,
+        last_message_preview: lastMessage?.body?.substring(0, 100) || chat.last_message?.substring(0, 100) || '',
+        last_message_timestamp: lastMessage?.timestamp || chat.last_message_time || chat.updated_at,
+        last_message_from_me: lastMessage?.from_me || false,
+        is_valid_contact: isValidContact
       }
     })
   )
 
-  console.log('📊 Conversaciones con conteos:', chatsWithCounts.length)
+  // MOSTRAR TODAS LAS CONVERSACIONES - SIN FILTROS (temporal para debug)
+  // Mostrar TODAS las conversaciones para diagnosticar el problema
+  const validChats = chatsWithDetails
+    // .filter(chat => chat.message_count > 0 || chat.is_valid_contact) // DESHABILITADO TEMPORALMENTE
+    .sort((a, b) => {
+      // Usar múltiples fallbacks para la fecha de ordenamiento
+      const dateA = new Date(a.last_message_timestamp || a.last_message_time || a.updated_at || a.created_at)
+      const dateB = new Date(b.last_message_timestamp || b.last_message_time || b.updated_at || b.created_at)
+      
+      // Ordenar de más reciente a más antiguo (dateB - dateA)
+      const result = dateB - dateA
+      
+      // Logging simplificado para evitar conflictos
+      // (Logging detallado movido al final)
+      
+      return result
+    })
 
-  // Log de chats sin nombre para debugging
-  const chatsWithoutName = chatsWithCounts.filter(c => c.contact_name === 'Sin nombre')
-  if (chatsWithoutName.length > 0) {
-    console.warn(`⚠️ ${chatsWithoutName.length} chats sin nombre en esta página`)
+  console.log('📊 DIAGNÓSTICO COMPLETO:')
+  console.log(`   🔍 Chats obtenidos inicialmente: ${chatsWithDetails.length}`)
+  console.log(`   ✅ Chats válidos después del filtro: ${validChats.length}`)
+  console.log(`   📨 Chats con mensajes: ${validChats.filter(c => c.message_count > 0).length}`)
+  console.log(`   👤 Chats con contacto válido: ${validChats.filter(c => c.is_valid_contact).length}`)
+  
+  // Si no hay chats válidos, mostrar por qué
+  if (validChats.length === 0 && chatsWithDetails.length > 0) {
+    console.log('⚠️ PROBLEMA: Hay chats pero ninguno pasa el filtro')
+    chatsWithDetails.slice(0, 3).forEach((chat, index) => {
+      console.log(`   ${index + 1}. Chat ${chat.chat_id}:`)
+      console.log(`      - Mensajes: ${chat.message_count}`)
+      console.log(`      - Contacto válido: ${chat.is_valid_contact}`)
+      console.log(`      - Nombre: ${chat.contact_name}`)
+    })
   }
+  
+  // Logging del orden final (primeras 5 conversaciones)
+  console.log('📅 Orden cronológico de conversaciones (más recientes primero):')
+  validChats.slice(0, 5).forEach((chat, index) => {
+    const chatDate = new Date(chat.last_message_timestamp || chat.last_message_time || chat.updated_at || chat.created_at)
+    console.log(`   ${index + 1}. ${chat.contact_name}: ${chatDate.toLocaleString('es-ES')} (${chat.message_count} mensajes)`)
+  })
+
+  // Recalcular totales basados en conversaciones válidas
+  const validTotal = validChats.length
+  const validTotalPages = Math.ceil(validTotal / pageSize)
 
   return {
-    data: chatsWithCounts,
-    total,
-    totalPages,
+    data: validChats,
+    total: validTotal,
+    totalPages: validTotalPages,
     currentPage: page
   }
 }
 
 /**
- * Obtiene una conversación con sus mensajes paginados (estilo WhatsApp)
- * MEJORADO: Agrega logging detallado y retorna total de mensajes
+ * Obtiene una conversación con sus mensajes (optimizado para evitar timeouts)
+ * OPTIMIZADO: Carga mensajes de forma eficiente evitando timeouts
  * @param {string} chatId - ID del chat
- * @param {number} limit - Cantidad de mensajes a cargar (default: 50)
- * @param {string} beforeTimestamp - Timestamp para cargar mensajes anteriores (opcional)
- * @returns {Promise<{conversation: Object, messages: Array, hasMore: boolean, oldestTimestamp: string, totalMessages: number}>}
+ * @param {number} batchSize - Tamaño de lote para cargar mensajes (default: 1000)
+ * @returns {Promise<{conversation: Object, messages: Array, totalMessages: number}>}
  */
-export async function getConversationWithMessages(chatId, limit = 50, beforeTimestamp = null) {
-  console.log('🔍 Obteniendo conversación:', chatId, 'limit:', limit, 'before:', beforeTimestamp)
+export async function getConversationWithMessages(chatId, batchSize = 10000) {
+  console.log('🔍 Obteniendo conversación optimizada:', chatId)
 
-  // NUEVO: Primero contar total de mensajes en este chat
+  // Primero contar total de mensajes en este chat
   const { count: totalMessages, error: countError } = await supabase
     .from('messages')
     .select('*', { count: 'exact', head: true })
@@ -327,7 +427,8 @@ export async function getConversationWithMessages(chatId, limit = 50, beforeTime
     console.log(`📊 Total de mensajes en este chat: ${totalMessages || 0}`)
   }
 
-  const { data, error } = await supabase
+  // Obtener información del chat
+  const { data: chatData, error: chatError } = await supabase
     .from('chats')
     .select(`
       *,
@@ -337,66 +438,140 @@ export async function getConversationWithMessages(chatId, limit = 50, beforeTime
     .eq('id', chatId)
     .single()
 
-  if (error) {
-    console.error('❌ Error al obtener conversación:', error)
+  if (chatError) {
+    console.error('❌ Error al obtener conversación:', chatError)
     return null
   }
 
-  // NUEVO: Advertir si hay muchos mensajes
-  if (totalMessages > limit && !beforeTimestamp) {
-    console.warn(`⚠️ Este chat tiene ${totalMessages} mensajes, pero solo se cargarán ${limit} inicialmente`)
-    console.log(`💡 El usuario puede hacer scroll hacia arriba para cargar más mensajes`)
+  // Determinar nombre del contacto para la conversación
+  let contactName = 'Sin nombre'
+  if (chatData.contact?.name) {
+    contactName = chatData.contact.name
+  } else if (chatData.contact?.push_name) {
+    contactName = chatData.contact.push_name
+  } else if (chatData.name) {
+    contactName = chatData.name
+  } else if (chatData.contact_name) {
+    contactName = chatData.contact_name
+  } else if (chatData.contact_number) {
+    contactName = chatData.contact_number
+  } else if (chatData.chat_id) {
+    contactName = chatData.chat_id.split('@')[0]
   }
 
-  // Construir query para mensajes
-  let messagesQuery = supabase
-    .from('messages')
-    .select(`
-      *,
-      media_files:media_files(*)
-    `)
-    .eq('chat_id', chatId)
-    .order('timestamp', { ascending: false })
-    .limit(limit + 1)
+  // Obtener mensajes de forma optimizada (sin media_files para evitar timeout)
+  console.log(`📥 Cargando ${totalMessages || 0} mensajes de forma optimizada...`)
+  
+  let allMessages = []
+  let hasError = false
+  
+  try {
+    // CONSULTA SIMPLIFICADA - Solo campos esenciales
+    const { data: messages, error: messagesError } = await supabase
+      .from('messages')
+      .select(`
+        id,
+        body,
+        content,
+        type,
+        from_me,
+        timestamp,
+        has_media,
+        media_url,
+        media_mimetype
+      `)
+      .eq('chat_id', chatId)
+      .order('timestamp', { ascending: true })
 
-  if (beforeTimestamp) {
-    messagesQuery = messagesQuery.lt('timestamp', beforeTimestamp)
-    console.log(`📅 Cargando mensajes anteriores a: ${beforeTimestamp}`)
+    if (messagesError) {
+      console.warn('⚠️ Error al obtener mensajes:', messagesError.message)
+      hasError = true
+    } else {
+      allMessages = messages || []
+      console.log(`✅ Consulta exitosa: ${allMessages.length} mensajes cargados`)
+      
+      // LOGGING DETALLADO DE LOS MENSAJES CARGADOS
+      const entrantes = allMessages.filter(m => !m.from_me)
+      const salientes = allMessages.filter(m => m.from_me)
+      console.log(`📊 Mensajes cargados desde BD:`)
+      console.log(`   📨 ${entrantes.length} entrantes (from_me: false)`)
+      console.log(`   📤 ${salientes.length} salientes (from_me: true)`)
+    }
+  } catch (error) {
+    console.warn('⚠️ Error en consulta:', error)
+    hasError = true
   }
 
-  const { data: messages, error: messagesError } = await messagesQuery
+  // Si hay error, intentar consulta más básica
+  if (hasError || allMessages.length === 0) {
+    console.log('🔄 Intentando consulta básica...')
+    try {
+      const { data: basicMessages, error: basicError } = await supabase
+        .from('messages')
+        .select('id, body, content, from_me, timestamp, type')
+        .eq('chat_id', chatId)
+        .order('timestamp', { ascending: true })
+        .limit(batchSize) // Usar el mismo límite
 
-  if (messagesError) {
-    console.error('❌ Error al obtener mensajes:', messagesError)
-    return {
-      conversation: data,
-      messages: [],
-      hasMore: false,
-      oldestTimestamp: null,
-      totalMessages: totalMessages || 0
+      if (basicError) {
+        console.error('❌ Error en consulta básica:', basicError.message)
+        allMessages = []
+      } else {
+        allMessages = basicMessages || []
+        console.log('✅ Consulta básica exitosa')
+      }
+    } catch (basicError) {
+      console.error('❌ Error crítico:', basicError)
+      allMessages = []
     }
   }
-
-  const hasMore = messages && messages.length > limit
-  const messagesToReturn = hasMore ? messages.slice(0, limit) : messages || []
-  const sortedMessages = messagesToReturn.reverse()
-  const oldestTimestamp = sortedMessages.length > 0 ? sortedMessages[0].timestamp : null
-
-  // NUEVO: Logging detallado
-  const incomingCount = sortedMessages.filter(m => !m.from_me).length
-  const outgoingCount = sortedMessages.filter(m => m.from_me).length
-
-  console.log(`✅ Mensajes obtenidos: ${sortedMessages.length} total`)
+  
+  // Estadísticas detalladas
+  const incomingCount = allMessages.filter(m => !m.from_me).length
+  const outgoingCount = allMessages.filter(m => m.from_me).length
+  const mediaCount = allMessages.filter(m => m.has_media || m.media_url).length
+  
+  console.log(`✅ Mensajes cargados: ${allMessages.length} de ${totalMessages || 0} total`)
   console.log(`   📨 ${incomingCount} entrantes (cliente → bot)`)
   console.log(`   📤 ${outgoingCount} salientes (bot → cliente)`)
-  console.log(`   📊 Hay más mensajes: ${hasMore ? 'Sí' : 'No'}`)
+  console.log(`   📎 ${mediaCount} con multimedia`)
+  console.log(`   👤 Contacto: ${contactName}`)
+
+  // Procesar mensajes para mejor visualización
+  const processedMessages = allMessages.map(msg => ({
+    ...msg,
+    // Asegurar que el body no sea null/undefined
+    body: msg.body || msg.content || '',
+    // Formatear timestamp
+    formatted_timestamp: new Date(msg.timestamp).toLocaleString('es-ES', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    }),
+    // Indicar si tiene multimedia
+    has_multimedia: !!(msg.has_media || msg.media_url),
+    // Tipo de mensaje más descriptivo
+    message_type_display: msg.from_me ? 'Enviado por Bot' : `Recibido de ${contactName}`
+  }))
 
   return {
-    conversation: data,
-    messages: sortedMessages,
-    hasMore,
-    oldestTimestamp,
-    totalMessages: totalMessages || 0
+    conversation: {
+      ...chatData,
+      contact_name: contactName
+    },
+    messages: processedMessages,
+    totalMessages: totalMessages || 0,
+    loadedMessages: allMessages.length,
+    isPartial: allMessages.length < (totalMessages || 0),
+    stats: {
+      incoming: incomingCount,
+      outgoing: outgoingCount,
+      media: mediaCount,
+      total: allMessages.length
+    }
   }
 }
 
@@ -627,4 +802,137 @@ export function downloadConversationAsMarkdown(conversation) {
   link.click()
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
+}
+
+/**
+ * Obtiene el número de ventas concretadas basado en análisis de IA
+ * @returns {Promise<number>} Número de ventas concretadas
+ */
+export async function getCompletedSalesCount() {
+  try {
+    console.log('📊 Obteniendo ventas concretadas...')
+    
+    // Buscar chats que tengan análisis de IA con venta concretada
+    const { data: chatsWithSales, error } = await supabase
+      .from('chats')
+      .select(`
+        id,
+        contact_name,
+        contact_number,
+        chat_id,
+        bot:bots(session_name),
+        last_message_time
+      `)
+      .not('ai_analysis', 'is', null)
+      .eq('ai_analysis->sale_completed', true)
+      .order('last_message_time', { ascending: false })
+
+    if (error) {
+      console.error('❌ Error obteniendo ventas concretadas:', error)
+      return 0
+    }
+
+    console.log(`✅ ${chatsWithSales?.length || 0} ventas concretadas encontradas`)
+    return chatsWithSales?.length || 0
+  } catch (error) {
+    console.error('❌ Error en getCompletedSalesCount:', error)
+    return 0
+  }
+}
+
+/**
+ * Obtiene la lista detallada de conversaciones con ventas concretadas
+ * @param {number} limit - Límite de resultados (default: 100)
+ * @returns {Promise<Array>} Array de conversaciones con ventas concretadas
+ */
+export async function getCompletedSalesConversations(limit = 100) {
+  try {
+    console.log('📊 Obteniendo conversaciones con ventas concretadas...')
+    
+    const { data: salesConversations, error } = await supabase
+      .from('chats')
+      .select(`
+        id,
+        contact_name,
+        contact_number,
+        chat_id,
+        last_message_time,
+        ai_analysis,
+        bot:bots(id, session_name, phone_number),
+        contact:contacts(name, phone_number, profile_picture_url)
+      `)
+      .not('ai_analysis', 'is', null)
+      .eq('ai_analysis->sale_completed', true)
+      .order('last_message_time', { ascending: false })
+      .limit(limit)
+
+    if (error) {
+      console.error('❌ Error obteniendo conversaciones con ventas:', error)
+      return []
+    }
+
+    // Procesar y enriquecer los datos
+    const processedConversations = (salesConversations || []).map(conv => {
+      // Determinar nombre del contacto con múltiples fallbacks
+      let displayName = 'Sin nombre'
+      if (conv.contact?.name) {
+        displayName = conv.contact.name
+      } else if (conv.contact_name) {
+        displayName = conv.contact_name
+      } else if (conv.contact?.phone_number) {
+        displayName = conv.contact.phone_number
+      } else if (conv.contact_number) {
+        displayName = conv.contact_number
+      } else if (conv.chat_id) {
+        displayName = conv.chat_id.split('@')[0]
+      }
+
+      // Determinar número de teléfono
+      let displayPhone = 'Sin número'
+      if (conv.contact?.phone_number) {
+        displayPhone = conv.contact.phone_number
+      } else if (conv.contact_number) {
+        displayPhone = conv.contact_number
+      } else if (conv.chat_id) {
+        displayPhone = conv.chat_id.split('@')[0]
+      }
+
+      // Determinar asesor (del nombre de sesión del bot)
+      let advisorName = 'Sin asesor'
+      if (conv.bot?.session_name) {
+        const sessionParts = conv.bot.session_name.split('_')
+        // Buscar nombres comunes en la sesión
+        const possibleNames = sessionParts.filter(part => 
+          !['nova', 'apolo', 'flash', 'colombia', 'venezuela', 'moises', 'jesus', 'endry'].includes(part.toLowerCase())
+        )
+        if (possibleNames.length > 0) {
+          advisorName = possibleNames[0].charAt(0).toUpperCase() + possibleNames[0].slice(1).toLowerCase()
+        } else {
+          advisorName = conv.bot.session_name
+        }
+      }
+
+      return {
+        ...conv,
+        displayName,
+        displayPhone,
+        advisorName,
+        formattedDate: conv.last_message_time 
+          ? new Date(conv.last_message_time).toLocaleString('es-ES', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : 'Sin fecha'
+      }
+    })
+
+    console.log(`✅ ${processedConversations.length} conversaciones con ventas procesadas`)
+    return processedConversations
+  } catch (error) {
+    console.error('❌ Error en getCompletedSalesConversations:', error)
+    return []
+  }
 }

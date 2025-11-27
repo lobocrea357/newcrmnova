@@ -16,6 +16,7 @@ import workersRoutes from './routes/workers.js';
 import syncRoutes from './routes/sync.js';
 import autoSyncRoutes from './routes/autoSync.js';
 import fullSyncRoutes from './routes/fullSync.js';
+import diagnosticsRoutes from './routes/diagnostics.js';
 
 // Importar servicio de auto-sincronización
 import autoSyncService from './services/autoSyncService.js';
@@ -44,6 +45,7 @@ app.use('/api/workers', workersRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/auto-sync', autoSyncRoutes);
 app.use('/api/full-sync', fullSyncRoutes);
+app.use('/api/diagnostics', diagnosticsRoutes);
 
 // Ruta de health check
 app.get('/health', (req, res) => {

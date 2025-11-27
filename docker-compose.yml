@@ -72,9 +72,9 @@ services:
       # Puerto
       - PORT=4000
       
-      # WAHA - Conexión interna entre contenedores
+      # WAHA - Conexión al servidor remoto
       - WAHA_API_KEY=${WAHA_API_KEY}
-      - WAHA_BASE_URL=http://waha:3000
+      - WAHA_BASE_URL=${WAHA_BASE_URL}
       
       # Supabase - Almacenamiento de toda la base de datos
       - SUPABASE_URL=${SUPABASE_URL}
@@ -86,9 +86,9 @@ services:
       
       # Node
       - NODE_ENV=production
-    depends_on:
-      waha:
-        condition: service_healthy
+    # depends_on: # Removido - usamos WAHA remoto
+    #   waha:
+    #     condition: service_healthy
     networks:
       - crm_network
     healthcheck:

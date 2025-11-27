@@ -18,18 +18,19 @@ export default function ChatView({ chatId, onClose }) {
   const previousScrollHeightRef = useRef(0)
   const isInitialLoadRef = useRef(true)
 
-  // Cargar conversación inicial (últimos 50 mensajes)
+  // Cargar conversación completa (TODOS los mensajes)
   const loadConversation = async () => {
     setLoading(true)
     try {
-      const result = await getConversationWithMessages(chatId, 50)
+      const result = await getConversationWithMessages(chatId)
       if (result) {
-        console.log('📊 Mensajes cargados:', result.messages.length, 'de', result.totalMessages, 'total')
+        console.log('📊 TODOS los mensajes cargados:', result.messages.length, 'total:', result.totalMessages)
+        console.log('📊 Estadísticas:', result.stats)
         setConversation(result.conversation)
         setMessages(result.messages)
-        setHasMore(result.hasMore)
-        setOldestTimestamp(result.oldestTimestamp)
-        setTotalMessages(result.totalMessages || 0) // NUEVO: Guardar total
+        setHasMore(false) // Ya no hay más mensajes porque cargamos todos
+        setOldestTimestamp(null) // No necesario
+        setTotalMessages(result.totalMessages || 0)
       }
     } catch (error) {
       console.error('Error al cargar conversación:', error)
@@ -38,29 +39,11 @@ export default function ChatView({ chatId, onClose }) {
     }
   }
 
-  // Cargar más mensajes antiguos
+  // Ya no necesitamos cargar más mensajes porque cargamos todos
   const loadMoreMessages = async () => {
-    if (loadingMore || !hasMore || !oldestTimestamp) return
-
-    setLoadingMore(true)
-    try {
-      // Guardar altura actual del scroll antes de cargar
-      if (messagesContainerRef.current) {
-        previousScrollHeightRef.current = messagesContainerRef.current.scrollHeight
-      }
-
-      const result = await getConversationWithMessages(chatId, 50, oldestTimestamp)
-      if (result && result.messages.length > 0) {
-        // Agregar mensajes antiguos al inicio
-        setMessages(prev => [...result.messages, ...prev])
-        setHasMore(result.hasMore)
-        setOldestTimestamp(result.oldestTimestamp)
-      }
-    } catch (error) {
-      console.error('Error al cargar más mensajes:', error)
-    } finally {
-      setLoadingMore(false)
-    }
+    // Función deshabilitada - ya cargamos todos los mensajes
+    console.log('ℹ️ Todos los mensajes ya están cargados')
+    return
   }
 
   const handleMessageChange = async (payload) => {
@@ -116,27 +99,17 @@ export default function ChatView({ chatId, onClose }) {
     }
   }, [chatId])
 
-  // Manejar scroll: detectar cuando llega arriba para cargar más
+  // Ya no necesitamos manejar scroll para cargar más mensajes
   const handleScroll = () => {
-    if (!messagesContainerRef.current || loadingMore || !hasMore) return
-
-    const { scrollTop } = messagesContainerRef.current
-
-    // Si está cerca del top (50px), cargar más mensajes
-    if (scrollTop < 50) {
-      loadMoreMessages()
-    }
+    // Función deshabilitada - todos los mensajes ya están cargados
+    return
   }
 
-  // Mantener posición del scroll después de cargar mensajes antiguos
+  // Ya no necesitamos mantener posición del scroll
   useEffect(() => {
-    if (!loadingMore && messagesContainerRef.current && previousScrollHeightRef.current > 0) {
-      const newScrollHeight = messagesContainerRef.current.scrollHeight
-      const scrollDiff = newScrollHeight - previousScrollHeightRef.current
-      messagesContainerRef.current.scrollTop = scrollDiff
-      previousScrollHeightRef.current = 0
-    }
-  }, [loadingMore, messages])
+    // Función simplificada - todos los mensajes se cargan de una vez
+    return
+  }, [messages])
 
   // Scroll al final solo en la carga inicial
   useEffect(() => {
@@ -212,8 +185,18 @@ export default function ChatView({ chatId, onClose }) {
         </div>
         <div className="flex items-center gap-4">
           <div className="text-sm text-white bg-white/20 px-3 py-1 rounded-full">
-            {messages.length} {totalMessages > 0 && `de ${totalMessages}`} mensajes {hasMore && '(+más)'}
+            {messages.length} de {totalMessages || 0} mensajes
           </div>
+          {totalMessages > 0 && totalMessages !== messages.length && (
+            <div className="text-xs text-yellow-200 bg-yellow-600/30 px-2 py-1 rounded">
+              ⚠️ Carga parcial: {messages.length}/{totalMessages}
+            </div>
+          )}
+          {totalMessages > 0 && totalMessages === messages.length && (
+            <div className="text-xs text-green-200 bg-green-600/30 px-2 py-1 rounded">
+              ✅ Completo
+            </div>
+          )}
         </div>
       </div>
 
@@ -223,22 +206,18 @@ export default function ChatView({ chatId, onClose }) {
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto bg-gray-50 px-6 py-4"
       >
-        {/* Indicador de carga superior */}
-        {loadingMore && (
+        {/* Indicador de estado de carga */}
+        {messages.length > 0 && (
           <div className="flex justify-center py-4">
-            <div className="flex items-center gap-2 text-sm text-gray-600 bg-white px-4 py-2 rounded-full shadow-sm">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-              <span>Cargando mensajes anteriores...</span>
-            </div>
-          </div>
-        )}
-
-        {/* Indicador de que no hay más mensajes */}
-        {!hasMore && messages.length > 0 && (
-          <div className="flex justify-center py-4">
-            <div className="text-xs text-gray-500 bg-white px-4 py-2 rounded-full shadow-sm">
-              📜 Inicio de la conversación
-            </div>
+            {totalMessages > 0 && totalMessages === messages.length ? (
+              <div className="text-xs text-green-600 bg-green-50 px-4 py-2 rounded-full shadow-sm border border-green-200">
+                ✅ Conversación completa ({messages.length} mensajes)
+              </div>
+            ) : (
+              <div className="text-xs text-blue-600 bg-blue-50 px-4 py-2 rounded-full shadow-sm border border-blue-200">
+                📥 Mostrando {messages.length} de {totalMessages || 0} mensajes
+              </div>
+            )}
           </div>
         )}
 
@@ -246,6 +225,18 @@ export default function ChatView({ chatId, onClose }) {
           <div className="max-w-4xl mx-auto">
             {(() => {
               console.log('🎨 Renderizando', messages.length, 'mensajes')
+              
+              // LOGGING DETALLADO PARA DEBUG
+              const entrantes = messages.filter(m => !m.from_me)
+              const salientes = messages.filter(m => m.from_me)
+              console.log(`📊 Mensajes a renderizar:`)
+              console.log(`   📨 ${entrantes.length} entrantes (from_me: false)`)
+              console.log(`   📤 ${salientes.length} salientes (from_me: true)`)
+              
+              messages.forEach((msg, idx) => {
+                console.log(`   ${idx + 1}. ${msg.from_me ? '📤 BOT' : '📨 CLIENTE'}: "${(msg.body || '').substring(0, 50)}..."`)
+              })
+              
               return messages.map((message, index) => (
                 <MessageBubble
                   key={message.id || index}
