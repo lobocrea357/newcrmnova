@@ -1,6 +1,14 @@
 'use client'
 import { useState, useEffect, Suspense } from 'react'
-import { supabase, getAllWorkers, getAllBots, getConversationsByBot, globalSearchChats } from '@/lib/supabase'
+import {
+  supabase,
+  getAllWorkers,
+  getAllBots,
+  getConversationsByBot,
+  globalSearchChats,
+  getCompletedSalesCount,
+  getCompletedSalesConversations
+} from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import ContactAvatar from '@/components/ContactAvatar'
 import HighlightText from '@/components/HighlightText'
@@ -25,6 +33,7 @@ import {
   ArrowUp,
   ArrowDown,
   Brain,
+  ArrowRight
 } from "lucide-react";
 
 function DashboardContent() {
@@ -44,6 +53,15 @@ function DashboardContent() {
   const [showFilters, setShowFilters] = useState(false);
   const [compactMode, setCompactMode] = useState(false);
   const [syncingBot, setSyncingBot] = useState(null);
+  const [salesCount, setSalesCount] = useState(0);
+  const [loadingSales, setLoadingSales] = useState(false);
+  const [salesConversations, setSalesConversations] = useState([]);
+  const [salesModalOpen, setSalesModalOpen] = useState(false);
+  const [salesModalLoading, setSalesModalLoading] = useState(false);
+  const [salesModalError, setSalesModalError] = useState(null);
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(null);
+  const [syncLogs, setSyncLogs] = useState([]);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [lastChatId, setLastChatId] = useState(null);
@@ -217,15 +235,17 @@ function DashboardContent() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setLoadingSales(true);
 
       const {
         data: { session },
       } = await supabase.auth.getSession();
       console.log("🔐 Sesión activa:", session?.user?.email);
 
-      const [workersData, botsData] = await Promise.all([
+      const [workersData, botsData, completedSales] = await Promise.all([
         getAllWorkers(),
         getAllBots(),
+        getCompletedSalesCount()
       ]);
 
       console.log("👷 Workers obtenidos:", workersData.length);
@@ -233,11 +253,103 @@ function DashboardContent() {
 
       setWorkers(workersData);
       setBots(botsData);
+      setSalesCount(completedSales || 0);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
+      setLoadingSales(false);
     }
+  };
+
+  const handleSalesClick = async () => {
+    try {
+      setSalesModalLoading(true);
+      setSalesModalError(null);
+      setSalesModalOpen(true);
+
+      const conversations = await getCompletedSalesConversations(200);
+      setSalesConversations(conversations);
+    } catch (error) {
+      console.error('Error obteniendo ventas:', error);
+      setSalesModalError('No se pudo cargar el detalle de ventas. Intenta nuevamente.');
+    } finally {
+      setSalesModalLoading(false);
+    }
+  };
+
+  const handleCloseSalesModal = () => {
+    setSalesModalOpen(false);
+    setSalesModalError(null);
+  };
+
+  const appendSyncLog = (message, type = 'info') => {
+    setSyncLogs((prev) => [
+      ...prev,
+      {
+        message,
+        type,
+        time: new Date().toLocaleTimeString('es-ES')
+      }
+    ]);
+  };
+
+  const handleFullSync = async () => {
+    if (syncingAll) return;
+
+    setSyncingAll(true);
+    setSyncLogs([]);
+    setSyncProgress({ percent: 5, status: 'Conectando con WAHA remoto...' });
+    appendSyncLog('🚀 Iniciando sincronización COMPLETA de TODOS los bots desde WAHA');
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000); // 30 minutos
+
+    try {
+      const response = await fetch(`${apiUrl}/api/full-sync/all-bots`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          limit: 1000,
+          includeMedia: true,
+          transcribeAudio: true,
+          fixFromMe: true
+        }),
+        signal: controller.signal
+      });
+
+      setSyncProgress({ percent: 50, status: 'Procesando respuesta del servidor...' });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      setSyncProgress({ percent: 100, status: 'Sincronización completada' });
+      appendSyncLog('✅ Sincronización completada correctamente');
+      appendSyncLog(`📊 Bots procesados: ${result?.data?.bots || 0}`);
+      appendSyncLog(`💬 Conversaciones sincronizadas: ${result?.data?.chats || 0}`);
+      appendSyncLog(`📩 Mensajes nuevos: ${result?.data?.messages || 0}`);
+
+      await fetchData();
+    } catch (error) {
+      const errorMessage =
+        error.name === 'AbortError'
+          ? 'Timeout: La sincronización tardó más de 30 minutos'
+          : error.message || 'Error desconocido';
+      appendSyncLog(`❌ Error: ${errorMessage}`, 'error');
+      setSyncProgress({ percent: 0, status: `Error: ${errorMessage}` });
+    } finally {
+      clearTimeout(timeoutId);
+      setSyncingAll(false);
+    }
+  };
+
+  const handleCloseSyncModal = () => {
+    if (syncingAll) return;
+    setSyncProgress(null);
+    setSyncLogs([]);
   };
 
   const fetchConversations = async (botId, page = 1) => {
@@ -643,6 +755,166 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Modal de Ventas */}
+      {salesModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">Ventas Concretadas</h3>
+                <p className="text-sm text-gray-500">Conversaciones con venta confirmada por IA</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseSalesModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between text-sm">
+              <span className="text-gray-600">
+                Total: <strong>{salesConversations.length}</strong> ventas registradas
+              </span>
+              <span className="text-gray-500 flex items-center gap-1">
+                <ArrowUp className="h-4 w-4 text-green-500" />
+                Actualizado en tiempo real con IA
+              </span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {salesModalLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 text-gray-500 gap-3">
+                  <RefreshCw className="h-6 w-6 animate-spin" />
+                  Cargando ventas...
+                </div>
+              ) : salesModalError ? (
+                <div className="px-6 py-8 text-center text-red-600">
+                  {salesModalError}
+                </div>
+              ) : salesConversations.length === 0 ? (
+                <div className="px-6 py-12 text-center text-gray-500">
+                  No se encontraron ventas concretadas todavía.
+                </div>
+              ) : (
+                <ul className="divide-y divide-gray-100">
+                  {salesConversations.map((sale) => (
+                    <li key={sale.id} className="px-6 py-4 flex items-center justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {sale.displayName} · {sale.displayPhone}
+                        </p>
+                        <p className="text-xs text-gray-500 flex items-center gap-3">
+                          <span>Asesor: {sale.advisorName}</span>
+                          <span className="text-gray-300">•</span>
+                          <span>{sale.formattedDate}</span>
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleCloseSalesModal();
+                            router.push(`/dashboard/chat/${sale.id}?botId=${sale.bot?.id || sale.bot_id}`);
+                          }}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-xs font-semibold hover:bg-green-100"
+                        >
+                          Ver conversación
+                          <ArrowRight className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                Mostrando las conversaciones donde la IA marcó <strong>sale_completed = true</strong>
+              </p>
+              <button
+                type="button"
+                onClick={handleCloseSalesModal}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Sincronización */}
+      {syncProgress && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">Sincronización Completa</h3>
+                <p className="text-sm text-gray-500">Conectando con Express y WAHA</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseSyncModal}
+                className={`text-gray-400 hover:text-gray-600 ${syncingAll ? 'pointer-events-none opacity-50' : ''}`}
+                disabled={syncingAll}
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4">
+              <p className="text-sm font-medium text-gray-700 mb-2">{syncProgress.status}</p>
+              <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-indigo-600 transition-all duration-300"
+                  style={{ width: `${Math.min(syncProgress.percent, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 pb-4">
+              <div className="bg-gray-50 rounded-lg border border-gray-100 p-4 text-sm max-h-64 overflow-y-auto">
+                {syncLogs.length === 0 ? (
+                  <p className="text-gray-500 text-center">Esperando actualizaciones...</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {syncLogs.map((log, index) => (
+                      <li key={`${log.time}-${index}`} className="flex items-start gap-2">
+                        <span className="text-[11px] text-gray-400">{log.time}</span>
+                        <span className={`text-sm ${log.type === 'error' ? 'text-red-600' : 'text-gray-700'}`}>
+                          {log.message}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                La sincronización puede tardar varios minutos dependiendo de la cantidad de bots.
+              </p>
+              <button
+                type="button"
+                onClick={handleCloseSyncModal}
+                disabled={syncingAll}
+                className={`px-4 py-2 rounded-lg border text-sm transition ${
+                  syncingAll
+                    ? 'border-gray-300 text-gray-400'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -656,6 +928,20 @@ function DashboardContent() {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-stretch sm:justify-end items-stretch sm:items-center">
+              <button
+                onClick={handleFullSync}
+                className={`w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-white transition-colors ${
+                  syncingAll ? 'bg-indigo-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
+                disabled={syncingAll}
+              >
+                {syncingAll ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                {syncingAll ? 'Sincronizando...' : 'Sincronizar Todos los Bots'}
+              </button>
               <button
                 onClick={() => router.push('/dashboard/ai-insights')}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
@@ -697,23 +983,34 @@ function DashboardContent() {
         {/* Stats */}
         {!compactMode && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow p-6">
+            <button
+              type="button"
+              onClick={handleSalesClick}
+              className="bg-white rounded-lg shadow p-6 text-left transition hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
               <div className="flex items-center">
-                <div className="flex-shrink-0 bg-purple-500 rounded-md p-3">
-                  <Users className="h-6 w-6 text-white" />
+                <div className="flex-shrink-0 bg-green-500 rounded-md p-3">
+                  <ArrowUp className="h-6 w-6 text-white" />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Workers
+                      Ventas Concretadas
                     </dt>
-                    <dd className="text-3xl font-semibold text-gray-900">
-                      {workers.length}
+                    <dd className="text-3xl font-semibold text-gray-900 flex items-center gap-2">
+                      {loadingSales ? (
+                        <RefreshCw className="h-5 w-5 text-green-500 animate-spin" />
+                      ) : (
+                        salesCount
+                      )}
+                    </dd>
+                    <dd className="text-xs text-green-600 mt-1">
+                      Click para ver detalles
                     </dd>
                   </dl>
                 </div>
               </div>
-            </div>
+            </button>
 
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center">
@@ -746,23 +1043,13 @@ function DashboardContent() {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Conversaciones
+                      Total Conversaciones
                     </dt>
                     <dd className="text-3xl font-semibold text-gray-900">
                       {totalConversations}
                     </dd>
                   </dl>
                 </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Bots Activos
-                  </dt>
-                  <dd className="text-3xl font-semibold text-gray-900">
-                    {bots.filter((bot) => isBotActive(bot.status)).length}
-                  </dd>
-                </dl>
               </div>
             </div>
 
