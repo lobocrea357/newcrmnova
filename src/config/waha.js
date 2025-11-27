@@ -23,18 +23,7 @@ export const wahaClient = axios.create({
   maxRedirects: 10,
   maxContentLength: 50 * 1024 * 1024, // 50MB max response
   maxBodyLength: 50 * 1024 * 1024, // 50MB max request
-  validateStatus: function (status) {
-    return status < 500; // Acepta respuestas < 500 como válidas
-  },
-  // Configuración para servidor remoto
-  httpsAgent: false, // Usar agente HTTP por defecto
-  httpAgent: false,
-  // Configuración de reintentos automáticos
-  retry: 3,
-  retryDelay: (retryCount) => {
-    return Math.min(1000 * Math.pow(2, retryCount), 30000); // Exponential backoff
-  },
-  // Headers adicionales para optimizar conexión remota
+  validateStatus: status => status < 500,
   decompress: true,
   transitional: {
     silentJSONParsing: false,
