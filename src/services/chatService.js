@@ -15,6 +15,25 @@ export class ChatService {
         .maybeSingle();
 
       if (existingChat) {
+        // Si el chat existe, NO actualizar el nombre para mantener consistencia
+        // Solo actualizar si el chat no tiene nombre y ahora sí viene uno
+        if (!existingChat.contact_name && chatData.name) {
+          const { data: updatedChat, error: updateError } = await supabase
+            .from('chats')
+            .update({
+              contact_name: chatData.name,
+              name: chatData.name
+            })
+            .eq('id', existingChat.id)
+            .select()
+            .single();
+
+          if (updateError) {
+            console.error('Error actualizando nombre del chat:', updateError);
+            return existingChat; // Retornar el chat sin actualizar si hay error
+          }
+          return updatedChat;
+        }
         return existingChat;
       }
 

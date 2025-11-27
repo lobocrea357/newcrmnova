@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { getConversationWithMessages, supabase } from '@/lib/supabase'
 import MessageBubble from './MessageBubble'
 import ContactAvatar from './ContactAvatar'
+import messageService from '@/services/messageService'
 
 export default function ChatView({ chatId, onClose }) {
   const [conversation, setConversation] = useState(null)
@@ -12,11 +13,17 @@ export default function ChatView({ chatId, onClose }) {
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
   const [oldestTimestamp, setOldestTimestamp] = useState(null)
-  const [totalMessages, setTotalMessages] = useState(0) // NUEVO: Total de mensajes en el chat
+  const [showScrollButton, setShowScrollButton] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [messageText, setMessageText] = useState('')
+  const [isSending, setIsSending] = useState(false)
+  const [totalMessages, setTotalMessages] = useState(0) // Total de mensajes en el chat (desde main)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const previousScrollHeightRef = useRef(0)
   const isInitialLoadRef = useRef(true)
+  const lastMessageCountRef = useRef(0)
+  const inputRef = useRef(null)
 
   // Cargar conversación completa (TODOS los mensajes)
   const loadConversation = async () => {
@@ -47,26 +54,93 @@ export default function ChatView({ chatId, onClose }) {
   }
 
   const handleMessageChange = async (payload) => {
-    const { eventType, new: newMessage } = payload
+    const { eventType, new: newMessage, old: oldMessage } = payload
 
     if (eventType === 'INSERT' && newMessage) {
       console.log('✨ Nuevo mensaje detectado, agregando al final')
-      // Agregar nuevo mensaje al final sin recargar todo
+      // Verificar que el mensaje no exista ya (evitar duplicados)
       setMessages(prev => {
+        const exists = prev.some(msg => msg.id === newMessage.id)
+        if (exists) {
+          console.log('⚠️ Mensaje ya existe, ignorando INSERT')
+          return prev
+        }
         console.log('📝 Mensajes antes:', prev.length, '→ después:', prev.length + 1)
         return [...prev, newMessage]
       })
-    } else if (eventType === 'UPDATE') {
-      console.log('🔄 Mensaje actualizado, recargando conversación completa...')
-      await loadConversation()
-    } else if (eventType === 'DELETE') {
-      console.log('🗑️ Mensaje eliminado, recargando conversación completa...')
-      await loadConversation()
+    } else if (eventType === 'UPDATE' && newMessage) {
+      console.log('🔄 Mensaje actualizado, actualizando en el estado sin recargar')
+      // Actualizar solo el mensaje específico sin recargar todo
+      setMessages(prev => {
+        const index = prev.findIndex(msg => msg.id === newMessage.id)
+        if (index === -1) {
+          console.log('⚠️ Mensaje actualizado no encontrado en el estado, ignorando')
+          return prev
+        }
+        const updated = [...prev]
+        updated[index] = newMessage
+        console.log('✅ Mensaje actualizado en posición:', index)
+        return updated
+      })
+    } else if (eventType === 'DELETE' && oldMessage) {
+      console.log('🗑️ Mensaje eliminado, removiendo del estado sin recargar')
+      // Eliminar solo el mensaje específico sin recargar todo
+      setMessages(prev => {
+        const filtered = prev.filter(msg => msg.id !== oldMessage.id)
+        console.log('📝 Mensajes antes:', prev.length, '→ después:', filtered.length)
+        return filtered
+      })
     }
   }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  // Enviar mensaje
+  const handleSendMessage = async (e) => {
+    e.preventDefault()
+    
+    if (!messageText.trim() || !conversation) return
+
+    const session = conversation.bot?.session_name
+    const chatIdWhatsApp = conversation.chat_id
+
+    if (!session || !chatIdWhatsApp) {
+      console.error('❌ Falta información del bot o chat')
+      return
+    }
+
+    setIsSending(true)
+    const textToSend = messageText.trim()
+    setMessageText('') // Limpiar input inmediatamente
+    // Resetear altura del textarea al tamaño base (útil en mobile cuando el mensaje fue muy largo)
+    if (inputRef.current) {
+      inputRef.current.style.height = '44px'
+    }
+
+    try {
+      console.log('📤 Enviando mensaje:', { session, chatIdWhatsApp, text: textToSend })
+      
+      await messageService.sendTextMessage(session, chatIdWhatsApp, textToSend)
+      
+      console.log('✅ Mensaje enviado correctamente')
+      
+      // El mensaje aparecerá automáticamente gracias a Supabase realtime
+      // cuando el webhook procese la respuesta
+      
+    } catch (error) {
+      console.error('❌ Error al enviar mensaje:', error)
+      // Restaurar el texto si hubo error
+      setMessageText(textToSend)
+      
+      // Mostrar notificación de error al usuario
+      alert('Error al enviar el mensaje. Por favor intenta de nuevo.')
+    } finally {
+      setIsSending(false)
+      // Enfocar el input nuevamente
+      inputRef.current?.focus()
+    }
   }
 
   useEffect(() => {
@@ -99,30 +173,77 @@ export default function ChatView({ chatId, onClose }) {
     }
   }, [chatId])
 
-  // Ya no necesitamos manejar scroll para cargar más mensajes
+  // Manejar scroll: detectar cuando el usuario se aleja del final y mostrar botón
+  // Nota: aunque actualmente se cargan todos los mensajes, mantenemos la lógica
+  // de botón flotante y contador de no leídos.
   const handleScroll = () => {
-    // Función deshabilitada - todos los mensajes ya están cargados
-    return
+    if (!messagesContainerRef.current) return
+
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
+    
+    // Si en algún momento se vuelve a activar paginación, esta lógica seguirá funcionando
+    if (scrollTop < 50 && !loadingMore && hasMore) {
+      loadMoreMessages()
+    }
+
+    // Mostrar botón de scroll si no está cerca del final
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 200
+    setShowScrollButton(!isNearBottom)
+    
+    // Resetear contador de no leídos si está en el final
+    if (isNearBottom) {
+      setUnreadCount(0)
+      lastMessageCountRef.current = messages.length
+    }
   }
 
-  // Ya no necesitamos mantener posición del scroll
+  // Mantener lógica simple para el efecto de "mantener posición" ya que ahora
+  // la conversación se carga completa de una vez.
   useEffect(() => {
-    // Función simplificada - todos los mensajes se cargan de una vez
     return
   }, [messages])
 
-  // Scroll al final solo en la carga inicial
+  // Scroll al final solo en la carga inicial o cuando llega un nuevo mensaje
   useEffect(() => {
-    if (messages.length > 0 && isInitialLoadRef.current) {
-      // Usar setTimeout para asegurar que el DOM esté completamente renderizado
+    if (messages.length === 0) return
+
+    // Scroll automático solo en carga inicial
+    if (isInitialLoadRef.current) {
       setTimeout(() => {
         if (messagesContainerRef.current) {
           messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+          lastMessageCountRef.current = messages.length
         }
         isInitialLoadRef.current = false
       }, 100)
+      return
     }
-  }, [messages])
+
+    // Para nuevos mensajes, hacer scroll solo si el usuario ya está cerca del final
+    // Esto permite que el usuario pueda leer mensajes antiguos sin interrupciones
+    if (messagesContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 200
+      
+      if (isNearBottom) {
+        // Usuario está cerca del final, hacer scroll automático
+        setTimeout(() => {
+          if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+          }
+        }, 50)
+        setUnreadCount(0)
+        lastMessageCountRef.current = messages.length
+      } else {
+        // Usuario está leyendo mensajes antiguos, incrementar contador
+        const newMessages = messages.length - lastMessageCountRef.current
+        if (newMessages > 0) {
+          setUnreadCount(prev => prev + newMessages)
+          lastMessageCountRef.current = messages.length
+        }
+      }
+    }
+  }, [messages.length])
 
   if (loading) {
     return (
@@ -156,47 +277,71 @@ export default function ChatView({ chatId, onClose }) {
   const profilePictureUrl = conversation.contact?.profile_picture_url || null
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="relative flex flex-col h-full">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex items-center justify-between shadow-md">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
-            title="Volver al dashboard"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="border-2 border-white/30 rounded-full">
-              <ContactAvatar 
-                profilePictureUrl={profilePictureUrl}
-                contactName={contactName}
-                size="md"
-              />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-white">{contactName}</h2>
-              <p className="text-sm text-blue-100">{contactPhone}</p>
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-3 sm:px-6 py-3 sm:py-4 shadow-md">
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
+          {/* Botón volver + Avatar + Info */}
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+            <button
+              onClick={onClose}
+              className="text-white hover:bg-white/20 rounded-full p-1.5 sm:p-2 transition-colors flex-shrink-0"
+              title="Volver al dashboard"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <div className="border-2 border-white/30 rounded-full flex-shrink-0">
+                <ContactAvatar 
+                  profilePictureUrl={profilePictureUrl}
+                  contactName={contactName}
+                  size="md"
+                />
+              </div>
+              
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base sm:text-lg font-semibold text-white truncate">
+                  {contactName}
+                </h2>
+                <p className="text-xs sm:text-sm text-blue-100 truncate">
+                  {contactPhone}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-white bg-white/20 px-3 py-1 rounded-full">
-            {messages.length} de {totalMessages || 0} mensajes
+          
+          {/* Badge de mensajes + estado de carga */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            {/* Badge de mensajes */}
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-white/20 backdrop-blur-sm px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full border border-white/30">
+              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+              <span className="text-xs sm:text-sm font-semibold text-white">
+                {messages.length}
+                {totalMessages ? ` / ${totalMessages}` : ''}
+              </span>
+              {/* Solo mostramos "+más" si seguimos usando hasMore */}
+              {hasMore && !totalMessages && (
+                <span className="text-[10px] sm:text-xs text-blue-200">+más</span>
+              )}
+            </div>
+
+            {/* Estado de carga: parcial/completo usando totalMessages del branch main */}
+            {totalMessages > 0 && totalMessages !== messages.length && (
+              <div className="text-[10px] sm:text-xs text-yellow-100 bg-yellow-600/60 px-2 py-0.5 rounded">
+                ⚠️ Parcial
+              </div>
+            )}
+            {totalMessages > 0 && totalMessages === messages.length && (
+              <div className="text-[10px] sm:text-xs text-emerald-100 bg-emerald-600/60 px-2 py-0.5 rounded">
+                ✅ Completo
+              </div>
+            )}
           </div>
-          {totalMessages > 0 && totalMessages !== messages.length && (
-            <div className="text-xs text-yellow-200 bg-yellow-600/30 px-2 py-1 rounded">
-              ⚠️ Carga parcial: {messages.length}/{totalMessages}
-            </div>
-          )}
-          {totalMessages > 0 && totalMessages === messages.length && (
-            <div className="text-xs text-green-200 bg-green-600/30 px-2 py-1 rounded">
-              ✅ Completo
-            </div>
-          )}
         </div>
       </div>
 
@@ -204,7 +349,7 @@ export default function ChatView({ chatId, onClose }) {
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto bg-gray-50 px-6 py-4"
+        className="flex-1 overflow-y-auto bg-gray-50 px-6 py-4 relative"
       >
         {/* Indicador de estado de carga */}
         {messages.length > 0 && (
@@ -259,30 +404,101 @@ export default function ChatView({ chatId, onClose }) {
         )}
       </div>
 
-      {/* Footer info */}
-      <div className="bg-white border-t px-6 py-3 shadow-inner">
-        <div className="max-w-4xl mx-auto flex items-center justify-between text-sm text-gray-600">
-          <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-            </svg>
-            <span>Bot: <span className="font-medium text-gray-900">{conversation?.bot?.session_name || 'N/A'}</span></span>
-          </div>
-          {conversation.last_message_time && (
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>Último mensaje: {new Date(conversation.last_message_time).toLocaleString('es-ES', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}</span>
-            </div>
+      {/* Botón flotante para scroll al final (dentro del panel de chat, pero fijo respecto al scroll) */}
+      {showScrollButton && (
+        <button
+          onClick={() => {
+            if (messagesContainerRef.current) {
+              messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+              setUnreadCount(0)
+              lastMessageCountRef.current = messages.length
+            }
+          }}
+          className="absolute right-4 md:right-6 bottom-28 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all duration-200 flex items-center gap-2 z-10"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+          </svg>
+          {unreadCount > 0 && (
+            <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+              {unreadCount}
+            </span>
           )}
+        </button>
+      )}
+
+      {/* Footer con input */}
+      <div className="bg-white border-t border-gray-200">
+        {/* Info del bot (más compacta) */}
+        <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+          <div className="max-w-4xl mx-auto flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2 text-gray-600">
+              <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+              </svg>
+              <span className="font-medium text-gray-900">{conversation?.bot?.session_name || 'N/A'}</span>
+            </div>
+            {conversation.last_message_time && (
+              <span className="text-gray-500">
+                {new Date(conversation.last_message_time).toLocaleString('es-ES', { 
+                  day: '2-digit', 
+                  month: 'short',
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })}
+              </span>
+            )}
+          </div>
         </div>
+
+        {/* Input de mensaje */}
+        <form onSubmit={handleSendMessage} className="px-4 py-3">
+          <div className="max-w-4xl mx-auto flex gap-2 items-end">
+            <div className="flex-1 relative">
+              <textarea
+                ref={inputRef}
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSendMessage(e)
+                  }
+                }}
+                placeholder="Escribe un mensaje..."
+                className="w-full px-4 py-3 pr-12 bg-white text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
+                rows={1}
+                style={{
+                  minHeight: '44px',
+                  maxHeight: '120px',
+                  height: 'auto'
+                }}
+                onInput={(e) => {
+                  e.target.style.height = 'auto'
+                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
+                }}
+              />
+              {isSending && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                </div>
+              )}
+            </div>
+            <button
+              type="submit"
+              disabled={!messageText.trim()}
+              className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg px-4 py-3 transition-colors flex items-center justify-center gap-2 font-medium text-sm"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+              <span className="hidden sm:inline">Enviar</span>
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-2 max-w-4xl mx-auto">
+            Presiona Enter para enviar, Shift+Enter para nueva línea
+          </p>
+        </form>
       </div>
     </div>
   )

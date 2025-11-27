@@ -173,8 +173,8 @@ export class WebhookService {
       const contact = await this.getOrCreateContact(bot.id, payload, session);
       console.log(`✅ Contacto obtenido: ${contact.phone_number} (ID: ${contact.id})`);
 
-      // PASO 3: Obtener o crear CHAT
-      const chat = await this.getOrCreateChat(bot.id, contact.id, payload);
+      // PASO 3: Obtener o crear CHAT (pasando el objeto contact completo)
+      const chat = await this.getOrCreateChat(bot.id, contact, payload);
       console.log(`✅ Chat obtenido: ${chat.chat_id} (ID: ${chat.id})`);
 
       // PASO 4: Guardar MENSAJE
@@ -307,7 +307,7 @@ export class WebhookService {
   /**
    * Obtiene o crea el chat
    */
-  async getOrCreateChat(botId, contactId, payload) {
+  async getOrCreateChat(botId, contact, payload) {
     try {
       // El chat ID es el 'from' (el número del contacto)
       const chatId = payload.from;
@@ -318,36 +318,20 @@ export class WebhookService {
 
       console.log(`🔍 Chat ID: ${chatId}`);
 
-     /*  // 🔍 DEBUG: Explorar todas las posibles ubicaciones de datos del chat
-      console.log(`\n🔍 ========== DEBUG: DATOS DE CHAT ==========`);
-      console.log(`payload.from: ${payload.from}`);
-      console.log(`payload.chatId: ${payload.chatId}`);
-      console.log(`payload.id?.remote: ${payload.id?.remote}`);
-      console.log(`payload._data?.id?.remote: ${payload._data?.id?.remote}`);
-      console.log(`payload._data?.id?._serialized: ${payload._data?.id?._serialized}`);
-      
-      // Verificar si hay información de chat/grupo
-      if (payload._data?.id) {
-        console.log(`\n🔍 payload._data.id:`, JSON.stringify(payload._data.id, null, 2));
-      }
-      
-      console.log(`\n🔍 Verificando nombres disponibles:`);
-      console.log(`payload._data?.notifyName: ${payload._data?.notifyName}`);
-      console.log(`payload.pushName: ${payload.pushName}`);
-      console.log(`payload._data?.pushName: ${payload._data?.pushName}`);
-      console.log(`payload.body (primeros 30 chars): ${payload.body?.substring(0, 30)}`);
-      console.log(`==========================================\n`); */
-
       const isGroup = chatId.includes('@g.us');
-      const chatName = payload._data?.notifyName || 
+      
+      // SOLUCIÓN: Usar el nombre del contacto de la BD en lugar del payload
+      // Esto evita que el nombre cambie según quién envía el mensaje
+      const chatName = contact.name || 
+                      contact.push_name || 
+                      payload._data?.notifyName || 
                       payload.pushName || 
                       payload._data?.pushName ||
                       chatId.split('@')[0];
 
-     /*  console.log(`✅ Nombre extraído del chat: ${chatName}`);
-      console.log(`✅ Es grupo: ${isGroup}`); */
+      console.log(`✅ Nombre del chat (desde contacto): ${chatName}`);
 
-      return await chatService.getOrCreateChat(botId, chatId, contactId, {
+      return await chatService.getOrCreateChat(botId, chatId, contact.id, {
         name: chatName,
         is_group: isGroup
       });
