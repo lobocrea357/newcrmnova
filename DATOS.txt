@@ -20,8 +20,6 @@ admin@novapolointranet.xyz
 
 
 
-
-
 dashboard.novapolointranet.xyz {
     # Dashboard (Frontend)
     reverse_proxy localhost:3001

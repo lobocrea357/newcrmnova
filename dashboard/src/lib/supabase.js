@@ -99,7 +99,7 @@ export async function getAllBots() {
           .single()
         worker = workerData
       }
-      
+
       // Contar chats y obtener fecha de última actividad
       const { count } = await supabase
         .from('chats')
@@ -108,7 +108,7 @@ export async function getAllBots() {
         .not('chat_id', 'ilike', '%status%')
         .not('chat_id', 'ilike', '%@broadcast%')
         .not('chat_id', 'ilike', '%@newsletter%')
-      
+
       // Obtener la fecha de la conversación más reciente
       const { data: recentChat } = await supabase
         .from('chats')
@@ -124,7 +124,7 @@ export async function getAllBots() {
 
       const validChatsCount = count || 0
       const lastActivity = recentChat?.last_message_time || recentChat?.updated_at || recentChat?.created_at || bot.created_at
-      
+
       return {
         ...bot,
         worker,
@@ -140,7 +140,7 @@ export async function getAllBots() {
     // Primero por estado (activos primero)
     if (a.status === 'WORKING' && b.status !== 'WORKING') return -1
     if (b.status === 'WORKING' && a.status !== 'WORKING') return 1
-    
+
     // Luego por fecha de última actividad (más reciente primero)
     return b.last_activity_date - a.last_activity_date
   })
@@ -150,7 +150,7 @@ export async function getAllBots() {
     const statusIcon = bot.status === 'WORKING' ? '✅' : bot.status === 'FAILED' ? '❌' : '⏸️'
     console.log(`   ${index + 1}. ${statusIcon} ${bot.session_name}: ${bot.conversation_count} conv. - ${bot.last_activity_date.toLocaleString('es-ES')}`)
   })
-  
+
   return sortedBots
 }
 
@@ -188,7 +188,7 @@ export async function getBotsByWorker(workerId) {
  */
 export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
   console.log('🔍 Obteniendo conversaciones para bot:', botId, 'página:', page)
-  
+
   // Primero obtener el total de conversaciones (excluyendo estados y canales)
   const { count: totalCount, error: countError } = await supabase
     .from('chats')
@@ -359,13 +359,13 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
       // Usar múltiples fallbacks para la fecha de ordenamiento
       const dateA = new Date(a.last_message_timestamp || a.last_message_time || a.updated_at || a.created_at)
       const dateB = new Date(b.last_message_timestamp || b.last_message_time || b.updated_at || b.created_at)
-      
+
       // Ordenar de más reciente a más antiguo (dateB - dateA)
       const result = dateB - dateA
-      
+
       // Logging simplificado para evitar conflictos
       // (Logging detallado movido al final)
-      
+
       return result
     })
 
@@ -374,7 +374,7 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
   console.log(`   ✅ Chats válidos después del filtro: ${validChats.length}`)
   console.log(`   📨 Chats con mensajes: ${validChats.filter(c => c.message_count > 0).length}`)
   console.log(`   👤 Chats con contacto válido: ${validChats.filter(c => c.is_valid_contact).length}`)
-  
+
   // Si no hay chats válidos, mostrar por qué
   if (validChats.length === 0 && chatsWithDetails.length > 0) {
     console.log('⚠️ PROBLEMA: Hay chats pero ninguno pasa el filtro')
@@ -385,7 +385,7 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
       console.log(`      - Nombre: ${chat.contact_name}`)
     })
   }
-  
+
   // Logging del orden final (primeras 5 conversaciones)
   console.log('📅 Orden cronológico de conversaciones (más recientes primero):')
   validChats.slice(0, 5).forEach((chat, index) => {
@@ -461,12 +461,12 @@ export async function getConversationWithMessages(chatId, batchSize = 10000) {
 
   // Obtener mensajes de forma optimizada (sin media_files para evitar timeout)
   console.log(`📥 Cargando ${totalMessages || 0} mensajes de forma optimizada...`)
-  
+
   let allMessages = []
   let hasError = false
-  
+
   try {
-    // CONSULTA SIMPLIFICADA - Solo campos esenciales
+    // CONSULTA SIMPLIFICADA - Solo campos esenciales + media_files
     const { data: messages, error: messagesError } = await supabase
       .from('messages')
       .select(`
@@ -478,7 +478,9 @@ export async function getConversationWithMessages(chatId, batchSize = 10000) {
         timestamp,
         has_media,
         media_url,
-        media_mimetype
+        media_mimetype,
+        metadata,
+        media_files(*)
       `)
       .eq('chat_id', chatId)
       .order('timestamp', { ascending: true })
@@ -489,7 +491,7 @@ export async function getConversationWithMessages(chatId, batchSize = 10000) {
     } else {
       allMessages = messages || []
       console.log(`✅ Consulta exitosa: ${allMessages.length} mensajes cargados`)
-      
+
       // LOGGING DETALLADO DE LOS MENSAJES CARGADOS
       const entrantes = allMessages.filter(m => !m.from_me)
       const salientes = allMessages.filter(m => m.from_me)
@@ -525,12 +527,12 @@ export async function getConversationWithMessages(chatId, batchSize = 10000) {
       allMessages = []
     }
   }
-  
+
   // Estadísticas detalladas
   const incomingCount = allMessages.filter(m => !m.from_me).length
   const outgoingCount = allMessages.filter(m => m.from_me).length
   const mediaCount = allMessages.filter(m => m.has_media || m.media_url).length
-  
+
   console.log(`✅ Mensajes cargados: ${allMessages.length} de ${totalMessages || 0} total`)
   console.log(`   📨 ${incomingCount} entrantes (cliente → bot)`)
   console.log(`   📤 ${outgoingCount} salientes (bot → cliente)`)
@@ -704,7 +706,7 @@ export async function globalSearchChats(searchQuery, limit = 50) {
       if (!uniqueChatsMap.has(chat.id)) {
         // Verificar si hay coincidencia en mensaje
         const messageMatch = messageMatchMap.get(chat.id)
-        
+
         uniqueChatsMap.set(chat.id, {
           ...chat,
           contact_name: chat.contact?.name || chat.contact_name || chat.name || 'Sin nombre',
@@ -811,7 +813,7 @@ export function downloadConversationAsMarkdown(conversation) {
 export async function getCompletedSalesCount() {
   try {
     console.log('📊 Obteniendo ventas concretadas...')
-    
+
     // Buscar chats que tengan análisis de IA con venta concretada
     const { data: chatsWithSales, error } = await supabase
       .from('chats')
@@ -848,7 +850,7 @@ export async function getCompletedSalesCount() {
 export async function getCompletedSalesConversations(limit = 100) {
   try {
     console.log('📊 Obteniendo conversaciones con ventas concretadas...')
-    
+
     const { data: salesConversations, error } = await supabase
       .from('chats')
       .select(`
@@ -902,7 +904,7 @@ export async function getCompletedSalesConversations(limit = 100) {
       if (conv.bot?.session_name) {
         const sessionParts = conv.bot.session_name.split('_')
         // Buscar nombres comunes en la sesión
-        const possibleNames = sessionParts.filter(part => 
+        const possibleNames = sessionParts.filter(part =>
           !['nova', 'apolo', 'flash', 'colombia', 'venezuela', 'moises', 'jesus', 'endry'].includes(part.toLowerCase())
         )
         if (possibleNames.length > 0) {
@@ -917,14 +919,14 @@ export async function getCompletedSalesConversations(limit = 100) {
         displayName,
         displayPhone,
         advisorName,
-        formattedDate: conv.last_message_time 
+        formattedDate: conv.last_message_time
           ? new Date(conv.last_message_time).toLocaleString('es-ES', {
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
           : 'Sin fecha'
       }
     })
