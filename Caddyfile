@@ -23,15 +23,11 @@ waha.lobocrea.pro {
 }
 
 # Express API
-api.nlobocrea.pro {
+api.lobocrea.pro {
     reverse_proxy localhost:4000
     
-    # Headers para API
-    header {
-        Access-Control-Allow-Origin "*"
-        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-        Access-Control-Allow-Headers "Content-Type, Authorization"
-    }
+    # CORS manejado por Express (src/index.js)
+    # No agregar headers CORS aquí para evitar duplicados
     
     # Logs
     log {
