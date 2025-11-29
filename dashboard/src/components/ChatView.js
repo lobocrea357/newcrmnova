@@ -53,6 +53,41 @@ export default function ChatView({ chatId, onClose }) {
     return
   }
 
+  // Recargar mensaje completo con media_files desde la BD
+  const refreshMessageWithMedia = async (messageId) => {
+    try {
+      console.log('🔄 Recargando mensaje con multimedia:', messageId)
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          id,
+          body,
+          content,
+          type,
+          from_me,
+          timestamp,
+          has_media,
+          media_url,
+          media_mimetype,
+          metadata,
+          media_files(*)
+        `)
+        .eq('id', messageId)
+        .single()
+      
+      if (data && !error) {
+        console.log('✅ Mensaje recargado con media_files:', data.media_files?.length || 0)
+        setMessages(prev => prev.map(msg => 
+          msg.id === messageId ? data : msg
+        ))
+      } else if (error) {
+        console.error('❌ Error recargando mensaje:', error.message)
+      }
+    } catch (error) {
+      console.error('❌ Error en refreshMessageWithMedia:', error)
+    }
+  }
+
   const handleMessageChange = async (payload) => {
     const { eventType, new: newMessage, old: oldMessage } = payload
 
@@ -69,19 +104,27 @@ export default function ChatView({ chatId, onClose }) {
         return [...prev, newMessage]
       })
     } else if (eventType === 'UPDATE' && newMessage) {
-      console.log('🔄 Mensaje actualizado, actualizando en el estado sin recargar')
-      // Actualizar solo el mensaje específico sin recargar todo
-      setMessages(prev => {
-        const index = prev.findIndex(msg => msg.id === newMessage.id)
-        if (index === -1) {
-          console.log('⚠️ Mensaje actualizado no encontrado en el estado, ignorando')
-          return prev
-        }
-        const updated = [...prev]
-        updated[index] = newMessage
-        console.log('✅ Mensaje actualizado en posición:', index)
-        return updated
-      })
+      console.log('🔄 Mensaje actualizado detectado')
+      
+      // Si el mensaje tiene multimedia, recargarlo con media_files
+      if (newMessage.has_media) {
+        console.log('📎 Mensaje con multimedia, recargando desde BD...')
+        await refreshMessageWithMedia(newMessage.id)
+      } else {
+        // Si no tiene multimedia, actualizar directamente
+        console.log('📝 Actualizando mensaje sin multimedia')
+        setMessages(prev => {
+          const index = prev.findIndex(msg => msg.id === newMessage.id)
+          if (index === -1) {
+            console.log('⚠️ Mensaje actualizado no encontrado en el estado, ignorando')
+            return prev
+          }
+          const updated = [...prev]
+          updated[index] = newMessage
+          console.log('✅ Mensaje actualizado en posición:', index)
+          return updated
+        })
+      }
     } else if (eventType === 'DELETE' && oldMessage) {
       console.log('🗑️ Mensaje eliminado, removiendo del estado sin recargar')
       // Eliminar solo el mensaje específico sin recargar todo
@@ -149,8 +192,8 @@ export default function ChatView({ chatId, onClose }) {
     // Suscribirse a cambios en mensajes de este chat
     console.log('🔔 Suscribiéndose a mensajes del chat:', chatId)
 
-    const channel = supabase
-      .channel(`chat-${chatId}`)
+    const messagesChannel = supabase
+      .channel(`chat-messages-${chatId}`)
       .on(
         'postgres_changes',
         {
@@ -166,10 +209,35 @@ export default function ChatView({ chatId, onClose }) {
       )
       .subscribe()
 
+    // Suscripción ADICIONAL a media_files como respaldo
+    // Esto captura cuando se inserta un archivo multimedia
+    console.log('🔔 Suscribiéndose a multimedia del chat:', chatId)
+    const mediaChannel = supabase
+      .channel(`chat-media-${chatId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'media_files'
+        },
+        async (payload) => {
+          console.log('📎 Nuevo archivo multimedia detectado:', payload)
+          // Verificar que el mensaje pertenece a este chat
+          const messageId = payload.new?.message_id
+          if (messageId) {
+            // Recargar el mensaje con los media_files
+            await refreshMessageWithMedia(messageId)
+          }
+        }
+      )
+      .subscribe()
+
     // Cleanup: desuscribirse al desmontar
     return () => {
       console.log('🔕 Desuscribiéndose del chat:', chatId)
-      supabase.removeChannel(channel)
+      supabase.removeChannel(messagesChannel)
+      supabase.removeChannel(mediaChannel)
     }
   }, [chatId])
 

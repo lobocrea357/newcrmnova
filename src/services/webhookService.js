@@ -447,6 +447,21 @@ export class WebhookService {
       const savedMedia = await mediaService.saveMediaFile(botId, messageId, mediaData);
       console.log(`✅ Referencia guardada en media_files (ID: ${savedMedia.id})`);
 
+      // PASO 2.5: Disparar UPDATE en el mensaje para notificar Realtime
+      console.log(`🔔 Actualizando mensaje para notificar multimedia disponible...`);
+      const { error: updateError } = await supabase
+        .from('messages')
+        .update({ 
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', messageId);
+
+      if (updateError) {
+        console.error('⚠️ Error actualizando mensaje (no crítico):', updateError.message);
+      } else {
+        console.log(`✅ Mensaje actualizado - Realtime notificará al frontend`);
+      }
+
       // PASO 3: Transcribir audio si aplica
       if (messageType === 'audio' || messageType === 'ptt' || messageType === 'voice') {
         console.log(`🎤 Audio detectado, iniciando transcripción...`);
