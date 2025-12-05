@@ -1273,7 +1273,7 @@ function DashboardContent() {
                 </p>
               </div>
             ) : (
-              <div className="flex-1 max-h-[60vh] lg:max-h-[600px] overflow-y-auto divide-y divide-gray-100">
+              <div className="flex-1 max-h-[50vh] lg:max-h-[650px] overflow-y-auto divide-y divide-gray-100">
                 {getAllFilteredBots().map((bot) => {
                   const botIsActive = isBotActive(bot.status);
                   const formattedStatus = formatBotStatus(bot.status);
@@ -1422,7 +1422,7 @@ function DashboardContent() {
                       </span>
                     )}
                   </div>
-                  <button
+                {/*   <button
                     onClick={() => syncBotData(selectedBot.session_name)}
                     disabled={syncingBot === selectedBot.session_name}
                     className={`
@@ -1440,7 +1440,7 @@ function DashboardContent() {
                         }`}
                     />
                     {syncingBot === selectedBot.session_name ? 'Sincronizando...' : 'Sincronizar Bot'}
-                  </button>
+                  </button> */}
                 </div>
               )}
             </div>
@@ -1499,7 +1499,7 @@ function DashboardContent() {
                     </div>
                   </div>
                 ) : (
-                  <div className="max-h-[60vh] lg:max-h-[500px] overflow-y-auto divide-y divide-gray-200">
+                  <div className="max-h-[50vh] lg:max-h-[450px] overflow-y-auto divide-y divide-gray-200">
                     {globalSearchResults.map((chat) => (
                       <div
                         key={chat.id}
@@ -1603,7 +1603,7 @@ function DashboardContent() {
                 </div>
               ) : (
                 <>
-                  <div className="max-h-[60vh] lg:max-h-[600px] overflow-y-auto divide-y divide-gray-200">
+                  <div className="max-h-[50vh] lg:max-h-[450px] overflow-y-auto divide-y divide-gray-200">
                     {selectedBotConversations.map((conv) => (
                       <div
                         key={conv.id}

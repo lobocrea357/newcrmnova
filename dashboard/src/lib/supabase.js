@@ -393,14 +393,12 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
     console.log(`   ${index + 1}. ${chat.contact_name}: ${chatDate.toLocaleString('es-ES')} (${chat.message_count} mensajes)`)
   })
 
-  // Recalcular totales basados en conversaciones válidas
-  const validTotal = validChats.length
-  const validTotalPages = Math.ceil(validTotal / pageSize)
-
+  // IMPORTANTE: Usar el total original de la BD para calcular páginas correctamente
+  // NO usar validChats.length porque eso solo cuenta las conversaciones de la página actual
   return {
     data: validChats,
-    total: validTotal,
-    totalPages: validTotalPages,
+    total: total,  // Total original de la BD
+    totalPages: totalPages,  // Páginas calculadas del total original
     currentPage: page
   }
 }
