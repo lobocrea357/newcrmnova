@@ -146,7 +146,7 @@ export class WebhookService {
     try {
       const { session, payload } = event;
 
-     /*  console.log(`\n📨 ========== PROCESANDO MENSAJE ==========`);
+      console.log(`\n📨 ========== PROCESANDO MENSAJE ==========`);
       console.log(`Evento: ${event.event}`);
       console.log(`ID: ${payload.id}`);
       console.log(`From: ${payload.from}`);
@@ -161,7 +161,7 @@ export class WebhookService {
       console.log(JSON.stringify(payload, null, 2));
       console.log(`\n🔍 ========== DEBUG: EVENT COMPLETO ==========`);
       console.log(JSON.stringify(event, null, 2));
-      console.log(`==========================================\n`); */
+      console.log(`==========================================\n`);
 
       // PASO 1: Obtener o crear BOT (usar event.me para datos correctos)
       console.log(`\n📨 Procesando mensaje: ${payload.id}`);
@@ -170,7 +170,8 @@ export class WebhookService {
       console.log(`✅ Bot obtenido: ${bot.session_name} (ID: ${bot.id})`);
 
       // PASO 2: Obtener o crear CONTACTO (con datos de WAHA API)
-      const contact = await this.getOrCreateContact(bot.id, payload, session);
+      // Pasamos event.me para detectar si el nombre del contacto es igual al del bot
+      const contact = await this.getOrCreateContact(bot.id, payload, session, event.me);
       console.log(`✅ Contacto obtenido: ${contact.phone_number} (ID: ${contact.id})`);
 
       // PASO 3: Obtener o crear CHAT (pasando el objeto contact completo)
@@ -243,20 +244,39 @@ export class WebhookService {
   /**
    * Obtiene o crea el contacto (SIEMPRE verifica datos faltantes)
    */
-  async getOrCreateContact(botId, payload, session) {
+  async getOrCreateContact(botId, payload, session, eventMe = null) {
     try {
       // El contacto SIEMPRE es el 'from' (la otra persona)
       // - En mensajes entrantes: from = quien envía (contacto)
       // - En mensajes salientes: from = quien recibe (contacto)
       
-      const contactNumber = payload.from?.split('@')[0];
-      const contactId = payload.from; // ID completo con @c.us o @newsletter
+      // IMPORTANTE: WhatsApp usa diferentes formatos de ID:
+      // - @c.us o @s.whatsapp.net: número de teléfono tradicional
+      // - @lid: ID interno de WhatsApp (nuevo formato)
+      // Debemos normalizar usando remoteJidAlt cuando esté disponible
+      
+      let contactId = payload.from;
+      let contactNumber = payload.from?.split('@')[0];
+      
+      // Si el from es un @lid, intentar usar remoteJidAlt que tiene el número real
+      if (payload.from?.includes('@lid') && payload._data?.key?.remoteJidAlt) {
+        const altId = payload._data.key.remoteJidAlt;
+        // remoteJidAlt puede ser @s.whatsapp.net o @c.us
+        if (altId.includes('@s.whatsapp.net') || altId.includes('@c.us')) {
+          contactNumber = altId.split('@')[0];
+          contactId = `${contactNumber}@c.us`;
+          console.log(`   🔄 Normalizado de @lid a número real: ${contactNumber}`);
+        }
+      }
       
       if (!contactNumber) {
         throw new Error('No se pudo extraer número de contacto');
       }
 
+      // Obtener el nombre del bot para detectar nombres incorrectos
+      const botPushName = eventMe?.pushName || null;
       console.log(`   📞 Contacto: ${contactNumber}`);
+      console.log(`   🤖 Nombre del bot: ${botPushName || 'Desconocido'}`);
 
       // Verificar si el contacto ya existe
       const { data: existingContact } = await supabase
@@ -266,36 +286,74 @@ export class WebhookService {
         .eq('phone_number', contactNumber)
         .maybeSingle();
 
-      // Extraer nombre del contacto desde payload
-      const contactName = payload._data?.notifyName || 
-                         payload.pushName || 
-                         payload.verifiedBizName || 
-                         payload._data?.pushName ||
-                         payload._data?.verifiedName ||
-                         null;
+      // 🔍 DEBUG: Analizar cada propiedad del payload para nombres
+      console.log(`\n🔍 ========== DEBUG: ANÁLISIS DE NOMBRES DEL CONTACTO ==========`);
+      console.log(`payload._data?.notifyName: ${payload._data?.notifyName || 'NULL'}`);
+      console.log(`payload.pushName: ${payload.pushName || 'NULL'}`);
+      console.log(`payload.verifiedBizName: ${payload.verifiedBizName || 'NULL'}`);
+      console.log(`payload._data?.pushName: ${payload._data?.pushName || 'NULL'}`);
+      console.log(`payload._data?.verifiedName: ${payload._data?.verifiedName || 'NULL'}`);
+      console.log(`payload.from: ${payload.from}`);
+      console.log(`payload.to: ${payload.to || 'NO EXISTE'}`);
+      console.log(`payload.fromMe: ${payload.fromMe}`);
+      console.log(`==========================================\n`);
 
-      // Si el contacto existe Y tiene datos completos, retornarlo
-      if (existingContact && 
-          existingContact.name && 
-          existingContact.profile_picture_url) {
-        console.log(`   ✅ Contacto con datos completos: ${existingContact.name}`);
-        return existingContact;
+      // Función para verificar si un nombre es el nombre del bot (incorrecto)
+      const isInvalidName = (name) => {
+        if (!name) return true;
+        if (!botPushName) return false;
+        // Comparar ignorando emojis y espacios extra
+        const normalize = (str) => str?.toLowerCase().replace(/[^\w\s]/g, '').trim();
+        return normalize(name) === normalize(botPushName);
+      };
+
+      // Si el contacto existe, verificar si tiene nombre válido
+      if (existingContact) {
+        const hasValidName = existingContact.name && !isInvalidName(existingContact.name);
+        const hasProfilePic = existingContact.profile_picture_url;
+        
+        if (hasValidName && hasProfilePic) {
+          console.log(`   ✅ Contacto con datos completos y válidos: ${existingContact.name}`);
+          return existingContact;
+        }
+        
+        // Si el nombre es igual al del bot, necesita corrección
+        if (isInvalidName(existingContact.name)) {
+          console.log(`   ⚠️ Contacto tiene nombre del bot, necesita corrección`);
+        }
       }
 
-      // Si no existe o le faltan datos, consultar WAHA
+      // Consultar WAHA para obtener datos reales
       console.log(`   🔍 Consultando datos desde WAHA...`);
       const wahaContactData = await WahaContactService.getFullContactData(session, contactId);
 
-      // Combinar datos del payload y de WAHA (priorizar WAHA)
+      // Determinar el nombre correcto (NUNCA usar el nombre del bot)
+      let finalName = null;
+      
+      // Prioridad: WAHA > verifiedBizName > número de teléfono
+      if (wahaContactData.name && !isInvalidName(wahaContactData.name)) {
+        finalName = wahaContactData.name;
+      } else if (payload.verifiedBizName && !isInvalidName(payload.verifiedBizName)) {
+        finalName = payload.verifiedBizName;
+      } else if (payload._data?.verifiedName && !isInvalidName(payload._data?.verifiedName)) {
+        finalName = payload._data?.verifiedName;
+      }
+      
+      // Si no hay nombre válido, usar el número de teléfono
+      if (!finalName) {
+        finalName = contactNumber;
+        console.log(`   ⚠️ No se encontró nombre válido, usando número: ${contactNumber}`);
+      }
+
       const finalContactData = {
-        name: wahaContactData.name || contactName,
-        push_name: wahaContactData.push_name || contactName,
+        name: finalName,
+        push_name: finalName,
         profile_picture_url: wahaContactData.profile_picture_url,
         is_business: wahaContactData.is_business,
         is_enterprise: wahaContactData.is_enterprise
       };
 
-      console.log(`   👤 Nombre: ${finalContactData.name || 'Sin nombre'}`);
+      console.log(`   👤 Nombre final: ${finalContactData.name}`);
 
       return await contactService.getOrCreateContact(botId, contactNumber, finalContactData);
     } catch (error) {
@@ -310,7 +368,18 @@ export class WebhookService {
   async getOrCreateChat(botId, contact, payload) {
     try {
       // El chat ID es el 'from' (el número del contacto)
-      const chatId = payload.from;
+      // IMPORTANTE: Normalizar @lid a @c.us para evitar chats duplicados
+      let chatId = payload.from;
+      
+      // Si el from es un @lid, usar el número del contacto normalizado
+      if (payload.from?.includes('@lid') && payload._data?.key?.remoteJidAlt) {
+        const altId = payload._data.key.remoteJidAlt;
+        if (altId.includes('@s.whatsapp.net') || altId.includes('@c.us')) {
+          const phoneNumber = altId.split('@')[0];
+          chatId = `${phoneNumber}@c.us`;
+          console.log(`   🔄 Chat ID normalizado de @lid a: ${chatId}`);
+        }
+      }
       
       if (!chatId) {
         throw new Error('No se pudo extraer chat ID');
@@ -320,16 +389,25 @@ export class WebhookService {
 
       const isGroup = chatId.includes('@g.us');
       
+      // 🔍 DEBUG: Analizar cada propiedad para el nombre del chat
+      console.log(`\n🔍 ========== DEBUG: ANÁLISIS DE NOMBRES DEL CHAT ==========`);
+      console.log(`contact.name: ${contact.name || 'NULL'}`);
+      console.log(`contact.push_name: ${contact.push_name || 'NULL'}`);
+      console.log(`payload._data?.notifyName: ${payload._data?.notifyName || 'NULL'}`);
+      console.log(`payload.pushName: ${payload.pushName || 'NULL'}`);
+      console.log(`payload._data?.pushName: ${payload._data?.pushName || 'NULL'}`);
+      console.log(`chatId.split('@')[0]: ${chatId.split('@')[0]}`);
+      console.log(`payload.fromMe: ${payload.fromMe}`);
+      console.log(`==========================================\n`);
+      
       // SOLUCIÓN: Usar el nombre del contacto de la BD en lugar del payload
       // Esto evita que el nombre cambie según quién envía el mensaje
+      // IMPORTANTE: NO usar propiedades del payload porque pueden ser del bot
       const chatName = contact.name || 
                       contact.push_name || 
-                      payload._data?.notifyName || 
-                      payload.pushName || 
-                      payload._data?.pushName ||
-                      chatId.split('@')[0];
+                      chatId.split('@')[0];  // Fallback al número de teléfono
 
-      console.log(`✅ Nombre del chat (desde contacto): ${chatName}`);
+      console.log(`✅ Nombre del chat seleccionado: ${chatName}`);
 
       return await chatService.getOrCreateChat(botId, chatId, contact.id, {
         name: chatName,

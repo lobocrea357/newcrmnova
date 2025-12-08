@@ -6,6 +6,12 @@ export class ChatService {
    */
   async getOrCreateChat(botId, chatId, contactId = null, chatData = {}) {
     try {
+      console.log(`\n🔍 ========== CHAT SERVICE: getOrCreateChat ==========`);
+      console.log(`Bot ID: ${botId}`);
+      console.log(`Chat ID: ${chatId}`);
+      console.log(`Contact ID: ${contactId}`);
+      console.log(`Chat Data:`, JSON.stringify(chatData, null, 2));
+      
       // Buscar chat existente por contact_number (campo que existe en tu schema)
       const { data: existingChat, error: searchError } = await supabase
         .from('chats')
@@ -15,9 +21,18 @@ export class ChatService {
         .maybeSingle();
 
       if (existingChat) {
+        console.log(`✅ Chat existente encontrado:`, {
+          id: existingChat.id,
+          contact_name: existingChat.contact_name || 'NULL',
+          name: existingChat.name || 'NULL',
+          contact_number: existingChat.contact_number
+        });
+        
         // Si el chat existe, NO actualizar el nombre para mantener consistencia
         // Solo actualizar si el chat no tiene nombre y ahora sí viene uno
         if (!existingChat.contact_name && chatData.name) {
+          console.log(`🔄 Actualizando nombre del chat: ${chatData.name}`);
+          
           const { data: updatedChat, error: updateError } = await supabase
             .from('chats')
             .update({
@@ -30,14 +45,21 @@ export class ChatService {
 
           if (updateError) {
             console.error('Error actualizando nombre del chat:', updateError);
+            console.log(`==========================================\n`);
             return existingChat; // Retornar el chat sin actualizar si hay error
           }
+          console.log(`✅ Chat actualizado exitosamente`);
+          console.log(`==========================================\n`);
           return updatedChat;
         }
+        console.log(`➡️ No se actualiza el nombre del chat (ya tiene nombre)`);
+        console.log(`==========================================\n`);
         return existingChat;
       }
 
       // Preparar datos del chat compatible con ambas estructuras
+      console.log(`🆕 Creando nuevo chat...`);
+      
       const chatInsertData = {
         bot_id: botId,
         contact_number: chatId.split('@')[0],
@@ -47,6 +69,8 @@ export class ChatService {
         unread_count: chatData.unread_count || 0,
         is_group: chatData.is_group !== undefined ? chatData.is_group : false
       };
+      
+      console.log(`📝 contact_name que se va a guardar: ${chatInsertData.contact_name}`);
 
       // Agregar campos opcionales si existen en el schema
       if (chatData.name) chatInsertData.name = chatData.name; // Campo 'name' separado
@@ -58,6 +82,8 @@ export class ChatService {
       if (chatData.muted !== undefined) chatInsertData.muted = chatData.muted;
       if (chatData.metadata) chatInsertData.metadata = chatData.metadata;
 
+      console.log(`📝 Datos completos de inserción:`, JSON.stringify(chatInsertData, null, 2));
+      
       // Crear nuevo chat
       const { data: newChat, error: createError } = await supabase
         .from('chats')
@@ -66,6 +92,9 @@ export class ChatService {
         .single();
 
       if (createError) throw createError;
+      
+      console.log(`✅ Chat creado exitosamente: ID ${newChat.id}`);
+      console.log(`==========================================\n`);
       return newChat;
     } catch (error) {
       console.error('Error en getOrCreateChat:', error);
