@@ -66,7 +66,7 @@ export class WahaContactService {
    */
   async getFullContactData(session, contactId) {
     try {
-     // console.log(`🔍 Consultando API de WAHA para contacto: ${contactId}`);
+      console.log(`\n🔍 ========== WAHA API: Consultando contacto ${contactId} ==========`);
 
       // Hacer llamadas en paralelo para optimizar
       const [basicInfo, about, profilePicture] = await Promise.all([
@@ -74,6 +74,10 @@ export class WahaContactService {
         this.getContactAbout(session, contactId),
         this.getContactProfilePicture(session, contactId)
       ]);
+      
+      console.log(`🔍 WAHA API - basicInfo:`, JSON.stringify(basicInfo, null, 2));
+      console.log(`🔍 WAHA API - about:`, JSON.stringify(about, null, 2));
+      console.log(`🔍 WAHA API - profilePicture:`, JSON.stringify(profilePicture, null, 2));
 
       const fullData = {
         phone_number: contactId.split('@')[0],
@@ -90,6 +94,11 @@ export class WahaContactService {
         fullData.push_name = basicInfo.pushname;
         fullData.is_business = basicInfo.isBusiness || false;
         fullData.is_enterprise = basicInfo.isEnterprise || false;
+        
+        console.log(`🔍 WAHA - Nombre extraído: ${fullData.name || 'NULL'}`);
+        console.log(`🔍 WAHA - Push name extraído: ${fullData.push_name || 'NULL'}`);
+      } else {
+        console.log(`⚠️ WAHA - No se obtuvo basicInfo`);
       }
 
       // Extraer información adicional de about
@@ -103,11 +112,14 @@ export class WahaContactService {
         fullData.profile_picture_url = profilePicture.profilePictureURL;
       }
 
-    /*   console.log(`✅ Datos obtenidos de WAHA:`, {
+      console.log(`\n✅ WAHA - Datos finales obtenidos:`, {
         name: fullData.name || 'NULL',
         push_name: fullData.push_name || 'NULL',
-        profile_picture_url: fullData.profile_picture_url ? 'Disponible' : 'NULL'
-      }); */
+        profile_picture_url: fullData.profile_picture_url ? 'Disponible' : 'NULL',
+        is_business: fullData.is_business,
+        is_enterprise: fullData.is_enterprise
+      });
+      console.log(`==========================================\n`);
 
       return fullData;
     } catch (error) {
