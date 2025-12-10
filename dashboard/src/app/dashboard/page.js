@@ -346,7 +346,7 @@ function DashboardContent() {
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000); // 30 minutos
+    const timeoutId = setTimeout(() => controller.abort(), 45 * 60 * 1000); // 45 minutos
 
     try {
       const response = await fetch(`${apiUrl}/api/full-sync/selected-bots`, {
@@ -400,7 +400,7 @@ function DashboardContent() {
     } catch (error) {
       const errorMessage =
         error.name === 'AbortError'
-          ? 'Timeout: La sincronización tardó más de 30 minutos'
+          ? 'Timeout: La sincronización tardó más de 45 minutos'
           : error.message || 'Error desconocido';
       appendSyncLog(`❌ Error: ${errorMessage}`, 'error');
       setSyncProgress({ percent: 0, status: `Error: ${errorMessage}` });
@@ -422,7 +422,7 @@ function DashboardContent() {
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000); // 30 minutos
+    const timeoutId = setTimeout(() => controller.abort(), 45 * 60 * 1000); // 45 minutos
 
     try {
       const response = await fetch(`${apiUrl}/api/full-sync/all-bots`, {
@@ -454,7 +454,7 @@ function DashboardContent() {
     } catch (error) {
       const errorMessage =
         error.name === 'AbortError'
-          ? 'Timeout: La sincronización tardó más de 30 minutos'
+          ? 'Timeout: La sincronización tardó más de 45 minutos'
           : error.message || 'Error desconocido';
       appendSyncLog(`❌ Error: ${errorMessage}`, 'error');
       setSyncProgress({ percent: 0, status: `Error: ${errorMessage}` });
