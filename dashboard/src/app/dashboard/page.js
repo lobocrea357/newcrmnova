@@ -62,10 +62,6 @@ function DashboardContent() {
   const [syncingAll, setSyncingAll] = useState(false);
   const [syncProgress, setSyncProgress] = useState(null);
   const [syncLogs, setSyncLogs] = useState([]);
-  
-  // Estados para modal de selección de bots para sincronización
-  const [syncModalOpen, setSyncModalOpen] = useState(false);
-  const [selectedBotsForSync, setSelectedBotsForSync] = useState([]);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [lastChatId, setLastChatId] = useState(null);
@@ -298,120 +294,6 @@ function DashboardContent() {
     ]);
   };
 
-  // Obtener solo bots activos (WORKING) para el modal de selección
-  const getWorkingBots = () => {
-    return bots.filter(bot => bot.status === 'WORKING');
-  };
-
-  // Manejar selección de bot para sincronización
-  const handleBotSelectionForSync = (sessionName) => {
-    setSelectedBotsForSync(prev => {
-      if (prev.includes(sessionName)) {
-        // Quitar de la selección
-        return prev.filter(name => name !== sessionName);
-      } else if (prev.length < 3) {
-        // Agregar si hay espacio
-        return [...prev, sessionName];
-      } else {
-        // Ya hay 3 seleccionados, no agregar más
-        return prev;
-      }
-    });
-  };
-
-  // Abrir modal de selección
-  const openSyncModal = () => {
-    setSelectedBotsForSync([]);
-    setSyncModalOpen(true);
-  };
-
-  // Cerrar modal de selección
-  const closeSyncModal = () => {
-    if (!syncingAll) {
-      setSyncModalOpen(false);
-      setSelectedBotsForSync([]);
-    }
-  };
-
-  // Iniciar sincronización con bots seleccionados
-  const handleSelectedBotsSync = async () => {
-    if (syncingAll || selectedBotsForSync.length === 0) return;
-
-    // Cerrar modal de selección y abrir modal de progreso
-    setSyncModalOpen(false);
-    setSyncingAll(true);
-    setSyncLogs([]);
-    setSyncProgress({ percent: 5, status: 'Conectando con WAHA remoto...' });
-    appendSyncLog(`🚀 Iniciando sincronización de ${selectedBotsForSync.length} bot(s): ${selectedBotsForSync.join(', ')}`);
-
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000); // 30 minutos
-
-    try {
-      const response = await fetch(`${apiUrl}/api/full-sync/selected-bots`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          botSessionNames: selectedBotsForSync,
-          limit: 1000,
-          includeMedia: true,
-          transcribeAudio: true
-        }),
-        signal: controller.signal
-      });
-
-      setSyncProgress({ percent: 50, status: 'Procesando respuesta del servidor...' });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      if (result.success) {
-        setSyncProgress({ percent: 100, status: 'Sincronización completada' });
-        appendSyncLog('✅ Sincronización completada correctamente');
-        appendSyncLog(`📊 Bots procesados: ${result?.data?.bots || 0}`);
-        appendSyncLog(`💬 Conversaciones sincronizadas: ${result?.data?.chats || 0}`);
-        appendSyncLog(`📩 Mensajes nuevos: ${result?.data?.messages || 0}`);
-        
-        // Mostrar detalles por bot
-        if (result?.data?.results) {
-          result.data.results.forEach(r => {
-            if (r.success) {
-              appendSyncLog(`   ✅ ${r.bot}: ${r.stats?.messages || 0} mensajes en ${r.duration}s`);
-            } else {
-              appendSyncLog(`   ❌ ${r.bot}: ${r.error}`, 'error');
-            }
-          });
-        }
-        
-        // Mostrar bots inactivos si los hay
-        if (result?.data?.inactiveBots?.length > 0) {
-          appendSyncLog(`⚠️ Bots inactivos omitidos: ${result.data.inactiveBots.map(b => b.name).join(', ')}`, 'warning');
-        }
-      } else {
-        appendSyncLog(`❌ Error: ${result.error}`, 'error');
-        setSyncProgress({ percent: 0, status: `Error: ${result.error}` });
-      }
-
-      await fetchData();
-    } catch (error) {
-      const errorMessage =
-        error.name === 'AbortError'
-          ? 'Timeout: La sincronización tardó más de 30 minutos'
-          : error.message || 'Error desconocido';
-      appendSyncLog(`❌ Error: ${errorMessage}`, 'error');
-      setSyncProgress({ percent: 0, status: `Error: ${errorMessage}` });
-    } finally {
-      clearTimeout(timeoutId);
-      setSyncingAll(false);
-      setSelectedBotsForSync([]); // Limpiar selección después de sincronizar
-    }
-  };
-
-  // Mantener handleFullSync para compatibilidad (sincronizar TODOS)
   const handleFullSync = async () => {
     if (syncingAll) return;
 
@@ -964,171 +846,7 @@ function DashboardContent() {
         </div>
       )}
 
-      {/* Modal de Selección de Bots para Sincronización */}
-      {syncModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900">Sincronizar Bots</h3>
-                <p className="text-sm text-gray-500">
-                  Selecciona de 1 a 3 bots activos para sincronizar
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeSyncModal}
-                className={`text-gray-400 hover:text-gray-600 ${syncingAll ? 'pointer-events-none opacity-50' : ''}`}
-                disabled={syncingAll}
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="px-6 py-4 border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">
-                  <strong>{selectedBotsForSync.length}</strong> de <strong>3</strong> bots seleccionados
-                </span>
-                <span className="text-xs text-gray-400">
-                  Solo se muestran bots activos (WORKING)
-                </span>
-              </div>
-              {selectedBotsForSync.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {selectedBotsForSync.map(name => (
-                    <span 
-                      key={name}
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium"
-                    >
-                      {name}
-                      <button
-                        type="button"
-                        onClick={() => handleBotSelectionForSync(name)}
-                        className="hover:bg-indigo-200 rounded-full p-0.5"
-                        disabled={syncingAll}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-6 py-4">
-              {getWorkingBots().length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Bot className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p>No hay bots activos (WORKING) disponibles</p>
-                  <p className="text-xs mt-1">Conecta al menos un bot en WAHA para sincronizar</p>
-                </div>
-              ) : (
-                <div className="grid gap-3">
-                  {getWorkingBots().map((bot) => {
-                    const isSelected = selectedBotsForSync.includes(bot.session_name);
-                    const isDisabled = !isSelected && selectedBotsForSync.length >= 3;
-                    
-                    return (
-                      <button
-                        key={bot.id}
-                        type="button"
-                        onClick={() => handleBotSelectionForSync(bot.session_name)}
-                        disabled={isDisabled || syncingAll}
-                        className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${
-                          isSelected 
-                            ? 'border-indigo-500 bg-indigo-50' 
-                            : isDisabled
-                              ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
-                              : 'border-gray-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50'
-                        }`}
-                      >
-                        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
-                          isSelected ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-500'
-                        }`}>
-                          {isSelected ? (
-                            <Check className="h-5 w-5" />
-                          ) : (
-                            <Bot className="h-5 w-5" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 truncate">
-                            {bot.session_name}
-                          </p>
-                          <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
-                            <span className="flex items-center gap-1">
-                              <Circle className="h-2 w-2 fill-green-500 text-green-500" />
-                              WORKING
-                            </span>
-                            {bot.phone_number && (
-                              <span className="flex items-center gap-1">
-                                <Phone className="h-3 w-3" />
-                                {bot.phone_number}
-                              </span>
-                            )}
-                            <span className="flex items-center gap-1">
-                              <MessageSquare className="h-3 w-3" />
-                              {bot.conversation_count || 0} conversaciones
-                            </span>
-                          </div>
-                        </div>
-                        {isSelected && (
-                          <div className="flex-shrink-0">
-                            <span className="px-2 py-1 bg-indigo-500 text-white text-xs font-medium rounded-full">
-                              Seleccionado
-                            </span>
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between gap-4">
-              <p className="text-xs text-gray-500">
-                Máximo 3 bots a la vez para optimizar recursos y tiempo de sincronización
-              </p>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={closeSyncModal}
-                  disabled={syncingAll}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSelectedBotsSync}
-                  disabled={selectedBotsForSync.length === 0 || syncingAll}
-                  className={`px-6 py-2 rounded-lg text-sm font-medium text-white transition-colors flex items-center gap-2 ${
-                    selectedBotsForSync.length === 0 || syncingAll
-                      ? 'bg-indigo-300 cursor-not-allowed'
-                      : 'bg-indigo-600 hover:bg-indigo-700'
-                  }`}
-                >
-                  {syncingAll ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      Sincronizando...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4" />
-                      Sincronizar ({selectedBotsForSync.length})
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Sincronización (Progreso) */}
+      {/* Modal de Sincronización */}
       {syncProgress && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col">
@@ -1211,7 +929,7 @@ function DashboardContent() {
             </div>
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-stretch sm:justify-end items-stretch sm:items-center">
               <button
-                onClick={openSyncModal}
+                onClick={handleFullSync}
                 className={`w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-white transition-colors ${
                   syncingAll ? 'bg-indigo-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
                 }`}
@@ -1222,7 +940,7 @@ function DashboardContent() {
                 ) : (
                   <RefreshCw className="h-4 w-4" />
                 )}
-                {syncingAll ? 'Sincronizando...' : 'Sincronizar Bots'}
+                {syncingAll ? 'Sincronizando...' : 'Sincronizar Todos los Bots'}
               </button>
               <button
                 onClick={() => router.push('/dashboard/ai-insights')}
