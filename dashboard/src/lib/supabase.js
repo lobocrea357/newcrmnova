@@ -178,6 +178,108 @@ export async function getBotsByWorker(workerId) {
   }))
 }
 
+const PAYMENT_KEYWORDS = [
+  'pago',
+  'pagos',
+  'pagar',
+  'metodo de pago',
+  'metodos de pago',
+  'tarjeta',
+  'transferencia',
+  'efectivo',
+  'deposito',
+  'depósito',
+  'zelle',
+  'abono',
+  'cuota',
+  'pse',
+  'paypal'
+]
+
+const normalizedPaymentKeywords = PAYMENT_KEYWORDS.map(keyword =>
+  keyword
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+)
+
+const normalizeText = (text = '') =>
+  text
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+
+function analyzeConversationMetrics(messages = []) {
+  if (!messages?.length) return null
+
+  const responseTimes = []
+  let lastClientMessageTime = null
+
+  messages.forEach((msg) => {
+    if (!msg?.timestamp) return
+    const timestamp = new Date(msg.timestamp).getTime()
+
+    if (!msg.from_me) {
+      lastClientMessageTime = timestamp
+      return
+    }
+
+    if (msg.from_me && lastClientMessageTime) {
+      const diffMinutes = (timestamp - lastClientMessageTime) / (1000 * 60)
+      if (diffMinutes >= 0 && diffMinutes < 60 * 24 * 7) {
+        responseTimes.push(diffMinutes)
+      }
+      lastClientMessageTime = null
+    }
+  })
+
+  const responseMetrics = responseTimes.length
+    ? {
+        averageMinutes: Number(
+          (responseTimes.reduce((sum, value) => sum + value, 0) / responseTimes.length).toFixed(1)
+        ),
+        maxMinutes: Number(Math.max(...responseTimes).toFixed(1)),
+        samples: responseTimes.length
+      }
+    : null
+
+  const paymentMentions = {
+    count: 0,
+    lastTimestamp: null,
+    lastFromMe: null,
+    lastSnippet: null,
+    firstTimestamp: null
+  }
+
+  messages.forEach((msg) => {
+    const rawBody = msg.body || msg.content || ''
+    if (!rawBody) return
+
+    const normalizedBody = normalizeText(rawBody)
+    const containsPaymentKeyword = normalizedPaymentKeywords.some((keyword) =>
+      normalizedBody.includes(keyword)
+    )
+
+    if (containsPaymentKeyword) {
+      paymentMentions.count += 1
+      const timestamp = msg.timestamp ? new Date(msg.timestamp).toISOString() : null
+
+      if (!paymentMentions.firstTimestamp) {
+        paymentMentions.firstTimestamp = timestamp
+      }
+      paymentMentions.lastTimestamp = timestamp
+      paymentMentions.lastFromMe = !!msg.from_me
+      paymentMentions.lastSnippet = rawBody.substring(0, 120)
+    }
+  })
+
+  return {
+    response: responseMetrics,
+    paymentMentions: paymentMentions.count > 0 ? paymentMentions : null
+  }
+}
+
 /**
  * Obtiene las conversaciones de un bot específico con paginación
  * OPTIMIZADO: Mejor manejo de nombres y números de contacto
@@ -266,6 +368,22 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
         .limit(1)
         .maybeSingle()
 
+      // Calcular métricas detalladas solo si hay mensajes
+      let conversationMetrics = null
+      if ((count || 0) > 0) {
+        const { data: conversationMessages, error: metricsError } = await supabase
+          .from('messages')
+          .select('from_me, body, content, timestamp')
+          .eq('chat_id', chat.id)
+          .order('timestamp', { ascending: true })
+
+        if (!metricsError) {
+          conversationMetrics = analyzeConversationMetrics(conversationMessages || [])
+        } else {
+          console.warn('⚠️ Error obteniendo mensajes para métricas:', metricsError.message)
+        }
+      }
+
       // OPTIMIZADO: Lógica mejorada para determinar nombre y número
       let displayName = 'Sin nombre'
       let displayPhone = ''
@@ -346,7 +464,8 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
         last_message_preview: lastMessage?.body?.substring(0, 100) || chat.last_message?.substring(0, 100) || '',
         last_message_timestamp: lastMessage?.timestamp || chat.last_message_time || chat.updated_at,
         last_message_from_me: lastMessage?.from_me || false,
-        is_valid_contact: isValidContact
+        is_valid_contact: isValidContact,
+        conversation_metrics: conversationMetrics
       }
     })
   )

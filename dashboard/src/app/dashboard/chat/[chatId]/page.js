@@ -9,6 +9,7 @@ import HighlightText from '@/components/HighlightText'
 import { globalSearchChats } from '@/lib/supabase'
 import { Search, X, RefreshCw, Phone, Bot, CheckCheck } from 'lucide-react'
 import ChatAnalysis from '@/components/ChatAnalysis'
+import MessageInsightsPanel from '@/components/MessageInsightsPanel'
 
 export default function ChatPage() {
   const params = useParams()
@@ -241,15 +242,15 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Chat Area - Ancho optimizado para mobile, flex en desktop */}
-          <div className="w-[90vw] md:w-[85vw] lg:min-w-0 lg:flex-[3] bg-white rounded-lg shadow-xl overflow-hidden flex-shrink-0">
+          {/* Insights Panel */}
+          <MessageInsightsPanel messages={messages} />
+
+          {/* Chat Area */}
+          <div className="flex-1 min-w-[85vw] lg:min-w-0 bg-white rounded-lg shadow-xl overflow-hidden">
             <ChatView chatId={chatId} onClose={handleClose} />
           </div>
 
-          {/* Analysis Area - Ancho optimizado para mobile, flex en desktop */}
-          <div className="w-[85vw] md:w-[75vw] lg:min-w-0 lg:flex-1 bg-white rounded-lg shadow-xl overflow-hidden flex-shrink-0">
-            <ChatAnalysis messages={messages} />
-          </div>
+          <ChatAnalysis messages={messages} />
         </div>
       </div>
     </div>

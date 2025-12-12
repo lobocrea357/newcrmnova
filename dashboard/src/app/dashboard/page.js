@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, Suspense } from 'react'
+import { jsPDF } from 'jspdf'
 import {
   supabase,
   getAllWorkers,
@@ -33,7 +34,14 @@ import {
   ArrowUp,
   ArrowDown,
   Brain,
-  ArrowRight
+  ArrowRight,
+  Clock3,
+  CreditCard,
+  Sparkles,
+  Edit3,
+  FileText,
+  Download,
+  Loader2
 } from "lucide-react";
 
 function DashboardContent() {
@@ -62,6 +70,20 @@ function DashboardContent() {
   const [syncingAll, setSyncingAll] = useState(false);
   const [syncProgress, setSyncProgress] = useState(null);
   const [syncLogs, setSyncLogs] = useState([]);
+  const [sessionToken, setSessionToken] = useState(null);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportPrompt, setReportPrompt] = useState(`Eres un director comercial senior. Bajo ningún motivo inventes datos.
+Analiza TODAS las conversaciones del asesor y elabora un reporte ejecutivo con:
+- Resumen ejecutivo con métricas fuertes.
+- Momentos destacados (ventas logradas o buenas respuestas) citando fragmentos.
+- Momentos con demoras o riesgos, citando fragmentos y tiempos.
+- Razones de no venta u oportunidades de mejora.
+- Recomendaciones accionables para el equipo.
+
+El tono debe ser profesional y directo.`);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportData, setReportData] = useState(null);
+  const [reportError, setReportError] = useState(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [lastChatId, setLastChatId] = useState(null);
@@ -76,17 +98,30 @@ function DashboardContent() {
     checkUser();
   }, []);
 
+  useEffect(() => {
+    if (reportModalOpen) {
+      setReportError(null);
+      setReportData(null);
+    }
+  }, [reportModalOpen]);
+
   const checkUser = async () => {
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+      error
+    } = await supabase.auth.getSession();
 
-    if (!user) {
-      router.push("/login");
+    if (error) {
+      console.error('Error obteniendo sesión:', error);
+    }
+
+    if (!session?.user) {
+      router.push('/login');
       return;
     }
 
-    setUser(user);
+    setUser(session.user);
+    setSessionToken(session.access_token || null);
     fetchData();
   };
 
@@ -387,9 +422,317 @@ function DashboardContent() {
   const KNOWN_LEADS = ["colombia", "venezuela"];
   const KNOWN_LEADERS = ["moises", "jesus", "endry"];
 
+  const formatResponseTime = (minutes) => {
+    if (minutes === null || minutes === undefined || Number.isNaN(minutes)) return null;
+    if (minutes < 1) return `${Math.round(minutes * 60)}s`;
+    if (minutes < 60) return `${minutes.toFixed(1)} min`;
+    const hours = minutes / 60;
+    if (hours < 24) return `${hours.toFixed(1)} h`;
+    return `${(hours / 24).toFixed(1)} d`;
+  };
+
   const capitalizeWord = (str) => {
     if (!str) return "";
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
+
+  const cleanText = (text = '') =>
+    text
+      .replace(/\*\*/g, '')
+      .replace(/[_`]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const generatePdfReport = (payload, advisorName) => {
+    if (!payload) return;
+
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginX = 15;
+    const contentWidth = pageWidth - marginX * 2;
+    let cursorY = 42;
+
+    const ensureSpace = (space = 12) => {
+      if (cursorY + space > 280) {
+        doc.addPage();
+        cursorY = 20;
+      }
+    };
+
+    const addParagraph = (text) => {
+      if (!text) return;
+      const lines = doc.splitTextToSize(text, contentWidth);
+      lines.forEach((line) => {
+        ensureSpace(6);
+        doc.text(line, marginX, cursorY);
+        cursorY += 6;
+      });
+      cursorY += 2;
+    };
+
+    const addSectionTitle = (title, subtitle) => {
+      ensureSpace(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(40, 44, 60);
+      doc.text(title, marginX, cursorY);
+      cursorY += 5;
+      if (subtitle) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(106, 109, 122);
+        doc.text(subtitle, marginX, cursorY);
+        cursorY += 6;
+      }
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(39, 40, 45);
+    };
+
+    const drawStatsGrid = (items) => {
+      if (!items.length) return;
+      const cardWidth = (contentWidth - 8) / 2;
+      let column = 0;
+      items.forEach((item) => {
+        ensureSpace(28);
+        const x = marginX + column * (cardWidth + 8);
+        doc.setDrawColor(215, 218, 245);
+        doc.setFillColor(247, 248, 255);
+        doc.roundedRect(x, cursorY, cardWidth, 24, 3, 3, 'FD');
+        doc.setTextColor(116, 120, 138);
+        doc.setFontSize(8);
+        doc.text(item.label, x + 4, cursorY + 8);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(13);
+        doc.setTextColor(34, 34, 44);
+        doc.text(String(item.value ?? '—'), x + 4, cursorY + 18);
+        doc.setFont('helvetica', 'normal');
+        column += 1;
+        if (column === 2) {
+          column = 0;
+          cursorY += 28;
+        }
+      });
+      if (column !== 0) {
+        cursorY += 28;
+      }
+      doc.setTextColor(40, 44, 60);
+    };
+
+    const drawChatSection = (title, items, palette) => {
+      if (!items || !items.length) return;
+      addSectionTitle(title);
+      const cardWidth = contentWidth;
+      items.forEach((item, idx) => {
+        const metaParts = [];
+        if (item.contact) metaParts.push(item.contact);
+        if (item.responseMinutes !== undefined) metaParts.push(`${item.responseMinutes} min`);
+        const meta = metaParts.join(' · ') || `Caso ${idx + 1}`;
+        const clientText = item.clientSnippet
+          ? `Cliente: ${item.clientSnippet}`
+          : item.reason
+            ? item.reason
+            : '';
+        const advisorText = item.advisorSnippet ? item.advisorSnippet : '';
+        const clientLines = clientText ? doc.splitTextToSize(clientText, cardWidth - 20) : [];
+        const advisorLines = advisorText ? doc.splitTextToSize(`Asesor: ${advisorText}`, cardWidth - 24) : [];
+        const clientHeight = clientLines.length ? clientLines.length * 5 + 10 : 0;
+        const advisorHeight = advisorLines.length ? advisorLines.length * 5 + 10 : 0;
+        const baseHeight = 18 + clientHeight + advisorHeight + (clientHeight && advisorHeight ? 4 : 0);
+
+        ensureSpace(baseHeight + 10);
+        doc.setDrawColor(...palette.border);
+        doc.setFillColor(...palette.fill);
+        doc.roundedRect(marginX, cursorY, cardWidth, baseHeight, 4, 4, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.setTextColor(42, 44, 61);
+        doc.text(meta, marginX + 4, cursorY + 7);
+        let blockY = cursorY + 12;
+
+        if (clientLines.length) {
+          doc.setDrawColor(221, 228, 255);
+          doc.setFillColor(255, 255, 255);
+          doc.roundedRect(marginX + 4, blockY, cardWidth - 8, clientHeight, 3, 3, 'FD');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.setTextColor(78, 82, 120);
+          doc.text('Cliente', marginX + 8, blockY + 5);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(60, 63, 92);
+          let textY = blockY + 10;
+          clientLines.forEach((line) => {
+            doc.text(line, marginX + 8, textY);
+            textY += 5;
+          });
+          blockY += clientHeight + 4;
+        }
+
+        if (advisorLines.length) {
+          doc.setDrawColor(255, 222, 203);
+          doc.setFillColor(255, 255, 255);
+          doc.roundedRect(marginX + 4, blockY, cardWidth - 8, advisorHeight, 3, 3, 'FD');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.setTextColor(104, 74, 54);
+          doc.text('Asesor', marginX + cardWidth - 12, blockY + 5, { align: 'right' });
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(78, 62, 48);
+          let textY = blockY + 10;
+          advisorLines.forEach((line) => {
+            doc.text(line, marginX + 8, textY);
+            textY += 5;
+          });
+          blockY += advisorHeight + 4;
+        }
+
+        cursorY = blockY + 6;
+        doc.setTextColor(39, 40, 45);
+      });
+    };
+
+    // Header
+    doc.setFillColor(36, 33, 93);
+    doc.setDrawColor(36, 33, 93);
+    doc.roundedRect(marginX, 15, contentWidth, 22, 4, 4, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Informe IA · ${advisorName || 'Asesor'}`, marginX + 6, 29);
+    doc.setFontSize(10);
+    doc.text(new Date().toLocaleDateString('es-ES'), marginX + contentWidth - 6, 29, {
+      align: 'right'
+    });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(39, 40, 45);
+
+    const summary = payload.summary || {};
+    const narrative = payload.aiNarrative || {};
+    const summaryParagraph = `Se analizaron ${summary.totalChats ?? 0} conversaciones (${summary.totalMessages ?? 0
+      } mensajes) para comprender el desempeño del asesor. Se confirmaron ${summary.salesCompleted ?? 0
+      } ventas y se identificaron ${summary.salesFailed ?? 0} oportunidades perdidas. El tiempo de respuesta promedio fue de ${summary.averageResponseMinutes ?? 'N/D'
+      } minutos, con picos de hasta ${summary.worstResponseMinutes ?? 'N/D'} minutos en los casos más lentos.`;
+    addParagraph(summaryParagraph);
+
+    drawStatsGrid([
+      { label: 'Conversaciones', value: summary.totalChats ?? '—' },
+      { label: 'Mensajes', value: summary.totalMessages ?? '—' },
+      { label: 'Ventas concretadas', value: summary.salesCompleted ?? 0 },
+      { label: 'Oportunidades perdidas', value: summary.salesFailed ?? 0 },
+      {
+        label: 'Tiempo respuesta promedio',
+        value: summary.averageResponseMinutes ? `${summary.averageResponseMinutes} min` : 'N/D'
+      },
+      {
+        label: 'Respuesta más lenta',
+        value: summary.worstResponseMinutes ? `${summary.worstResponseMinutes} min` : 'N/D'
+      }
+    ]);
+
+    addSectionTitle('Narrativa general', 'Resumen elaborado automáticamente por la IA');
+    addParagraph(
+      cleanText(narrative.introduction || narrative.executive_summary || '') ||
+        'No se pudo generar un resumen automático.'
+    );
+
+    const addFindings = () => {
+      if (!Array.isArray(narrative.findings) || !narrative.findings.length) return;
+      narrative.findings.forEach((finding, idx) => {
+        addSectionTitle(`Hallazgo ${idx + 1}: ${cleanText(finding.title || '')}`);
+        addParagraph(cleanText(finding.description || ''));
+        if (Array.isArray(finding.evidence_quotes) && finding.evidence_quotes.length) {
+          finding.evidence_quotes.forEach((quote) =>
+            addParagraph(`Cita: "${cleanText(quote)}"`)
+          );
+        }
+        if (finding.impact) {
+          addParagraph(`Impacto: ${cleanText(finding.impact)}`);
+        }
+      });
+    };
+
+    const addImprovements = () => {
+      if (!Array.isArray(narrative.improvements) || !narrative.improvements.length) return;
+      narrative.improvements.forEach((improvement, idx) => {
+        addSectionTitle(`Area de mejora ${idx + 1}: ${cleanText(improvement.title || '')}`);
+        if (Array.isArray(improvement.actions) && improvement.actions.length) {
+          improvement.actions.forEach((action) => addParagraph(`• ${cleanText(action)}`));
+        }
+      });
+    };
+
+    addFindings();
+    addImprovements();
+
+    if (narrative.conclusion || narrative.closing_statement) {
+      addSectionTitle('Conclusión y próximos pasos');
+      addParagraph(cleanText(narrative.conclusion || narrative.closing_statement || ''));
+    }
+
+    drawChatSection('Momentos destacados', payload.evidence?.highlightedWins, {
+      fill: [244, 243, 255],
+      border: [195, 188, 255]
+    });
+
+    drawChatSection('Respuestas con demora', payload.evidence?.lateResponses, {
+      fill: [255, 247, 236],
+      border: [253, 213, 152]
+    });
+
+    drawChatSection(
+      'Oportunidades de mejora',
+      (payload.evidence?.improvementReasons || []).map((item) => ({
+        contact: item.contact,
+        clientSnippet: item.reason
+      })),
+      {
+        fill: [242, 248, 248],
+        border: [188, 218, 218]
+      }
+    );
+
+    doc.save(`reporte_${advisorName || 'asesor'}.pdf`);
+  };
+
+  const handleGenerateReport = async () => {
+    if (!selectedBotId) return;
+    if (!sessionToken) {
+      setReportError('No se pudo validar la sesión actual. Vuelve a iniciar sesión e inténtalo de nuevo.');
+      return;
+    }
+    setReportLoading(true);
+    setReportError(null);
+    try {
+      const response = await fetch('/api/generate-report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify({
+          botId: selectedBotId,
+          customPrompt: reportPrompt
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudo generar el reporte.');
+      }
+      setReportData(data);
+      generatePdfReport(data, selectedBot?.session_name);
+    } catch (error) {
+      console.error('Error generating report:', error);
+      setReportError(error.message);
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const closeReportModal = () => {
+    if (reportLoading) return;
+    setReportModalOpen(false);
+    setReportError(null);
   };
 
   const parseBotSessionName = (sessionName) => {
@@ -1422,25 +1765,17 @@ function DashboardContent() {
                       </span>
                     )}
                   </div>
-                {/*   <button
-                    onClick={() => syncBotData(selectedBot.session_name)}
-                    disabled={syncingBot === selectedBot.session_name}
-                    className={`
-                      inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg
-                      transition-all duration-200 shadow-sm
-                      ${syncingBot === selectedBot.session_name
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 hover:shadow-md active:scale-95'
-                      }
-                    `}
-                    title="Sincronizar datos del bot desde WAHA"
+                  <button
+                    onClick={() => {
+                      setReportData(null);
+                      setReportError(null);
+                      setReportModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow"
                   >
-                    <RefreshCw
-                      className={`h-4 w-4 ${syncingBot === selectedBot.session_name ? 'animate-spin' : ''
-                        }`}
-                    />
-                    {syncingBot === selectedBot.session_name ? 'Sincronizando...' : 'Sincronizar Bot'}
-                  </button> */}
+                    <FileText className="h-4 w-4" />
+                    Generar reporte
+                  </button>
                 </div>
               )}
             </div>
@@ -1632,7 +1967,7 @@ function DashboardContent() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex flex-col items-end flex-shrink-0 text-xs text-gray-500">
+                        <div className="flex flex-col items-end flex-shrink-0 text-xs text-gray-500 gap-1">
                           {/* Indicador IA */}
                           {conv.ai_analysis && (
                             <div className="mb-1" title={conv.ai_analysis.sale_completed ? 'Venta Probable' : 'Venta Improbable'}>
@@ -1650,11 +1985,27 @@ function DashboardContent() {
                             </div>
                           )}
 
+                          {conv.conversation_metrics?.response && (
+                            <div className="flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200" title="Tiempo promedio de respuesta del asesor">
+                              <Clock3 className="h-3 w-3 text-indigo-500" />
+                              <span>
+                                {formatResponseTime(conv.conversation_metrics.response.averageMinutes)} avg
+                              </span>
+                            </div>
+                          )}
+
+                          {conv.conversation_metrics?.paymentMentions && (
+                            <div className="flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200" title="La conversación menciona pagos o métodos de pago">
+                              <CreditCard className="h-3 w-3" />
+                              <span>{conv.conversation_metrics.paymentMentions.count} mención(es)</span>
+                            </div>
+                          )}
+
                           <span className="text-sm font-semibold text-gray-900">
                             {conv.message_count || 0} mensajes
                           </span>
                           {conv.last_message_time && (
-                            <span className="mt-1">
+                            <span className="mt-0.5">
                               {new Date(conv.last_message_time).toLocaleDateString('es-ES', {
                                 day: '2-digit',
                                 month: 'short',
@@ -1712,6 +2063,174 @@ function DashboardContent() {
           </section>
         </div>
       </main>
+
+      {reportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={closeReportModal}
+          ></div>
+          <div className="relative z-10 w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh]">
+            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-500 font-semibold">
+                  Reporte IA
+                </p>
+                <h3 className="text-2xl font-semibold text-slate-900">
+                  Generar reporte del asesor
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Analizaremos todas las conversaciones recientes para identificar aciertos, riesgos y oportunidades.
+                </p>
+              </div>
+              <button
+                onClick={closeReportModal}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+                disabled={reportLoading}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 mb-2">
+                  <Edit3 className="h-4 w-4 text-purple-600" />
+                  Prompt para IA
+                </div>
+                <textarea
+                  value={reportPrompt}
+                  onChange={(e) => setReportPrompt(e.target.value)}
+                  className="w-full min-h-[140px] rounded-2xl border border-slate-200 bg-white p-3 text-sm text-slate-800 focus:ring-4 focus:ring-purple-100 focus:border-purple-300"
+                />
+                <p className="mt-2 text-xs text-slate-500">
+                  Puedes personalizar el enfoque del reporte agregando instrucciones específicas (productos, campañas, etc.).
+                </p>
+              </div>
+
+              {reportError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {reportError}
+                </div>
+              )}
+
+              {reportData && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="rounded-2xl border border-slate-100 p-4 bg-white shadow-sm">
+                      <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">Conversaciones</p>
+                      <p className="mt-2 text-2xl font-bold text-slate-900">{reportData.summary?.totalChats ?? '—'}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-100 p-4 bg-white shadow-sm">
+                      <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">Ventas logradas</p>
+                      <p className="mt-2 text-2xl font-bold text-emerald-700">{reportData.summary?.salesCompleted ?? 0}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-100 p-4 bg-white shadow-sm">
+                      <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">Promedio respuesta</p>
+                      <p className="mt-2 text-2xl font-bold text-indigo-700">
+                        {reportData.summary?.averageResponseMinutes
+                          ? `${reportData.summary.averageResponseMinutes} min`
+                          : 'N/D'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="rounded-2xl border border-purple-100 bg-purple-50/40 p-4">
+                      <h4 className="text-sm font-semibold text-purple-800 mb-2 uppercase tracking-[0.2em]">
+                        Momentos destacados
+                      </h4>
+                      <div className="space-y-3 text-sm text-slate-700">
+                        {reportData.evidence?.highlightedWins?.length
+                          ? reportData.evidence.highlightedWins.map((item, idx) => (
+                              <div key={`win-${idx}`} className="rounded-xl border border-white/70 bg-white px-3 py-2 shadow-sm">
+                                <p className="font-semibold text-slate-900">{item.contact} · {item.responseMinutes} min</p>
+                                <p className="text-xs text-slate-500">Cliente: {item.clientSnippet}</p>
+                                <p className="text-xs text-slate-500">Asesor: {item.advisorSnippet}</p>
+                              </div>
+                            ))
+                          : <p className="text-xs text-slate-500">Aún no hay registros.</p>}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-amber-100 bg-amber-50/40 p-4">
+                      <h4 className="text-sm font-semibold text-amber-800 mb-2 uppercase tracking-[0.2em]">
+                        Respuestas tardías
+                      </h4>
+                      <div className="space-y-3 text-sm text-slate-700">
+                        {reportData.evidence?.lateResponses?.length
+                          ? reportData.evidence.lateResponses.map((item, idx) => (
+                              <div key={`late-${idx}`} className="rounded-xl border border-amber-100 bg-white px-3 py-2 shadow-sm">
+                                <p className="font-semibold text-slate-900">{item.contact} · {item.responseMinutes} min</p>
+                                <p className="text-xs text-slate-500">Cliente: {item.clientSnippet}</p>
+                                <p className="text-xs text-slate-500">Asesor: {item.advisorSnippet}</p>
+                              </div>
+                            ))
+                          : <p className="text-xs text-slate-500">Sin demoras relevantes.</p>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                    <h4 className="text-sm font-semibold text-slate-800 mb-2 uppercase tracking-[0.2em]">
+                      Motivos de mejora detectados
+                    </h4>
+                    <div className="space-y-2 text-sm text-slate-700">
+                      {reportData.evidence?.improvementReasons?.length
+                        ? reportData.evidence.improvementReasons.map((item, idx) => (
+                            <p key={`improve-${idx}`}>
+                              <span className="font-semibold text-slate-900">{item.contact}:</span> {item.reason}
+                            </p>
+                          ))
+                        : <p className="text-xs text-slate-500">Sin observaciones registradas.</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs text-slate-500">
+                El reporte se descargará en PDF automáticamente al generarse.
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={closeReportModal}
+                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
+                  disabled={reportLoading}
+                >
+                  Cancelar
+                </button>
+                {reportData && (
+                  <button
+                    onClick={() => generatePdfReport(reportData, selectedBot?.session_name)}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50"
+                  >
+                    <Download className="h-4 w-4" />
+                    Descargar PDF
+                  </button>
+                )}
+                <button
+                  onClick={handleGenerateReport}
+                  disabled={reportLoading}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-60"
+                >
+                  {reportLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generando...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Generar PDF
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
