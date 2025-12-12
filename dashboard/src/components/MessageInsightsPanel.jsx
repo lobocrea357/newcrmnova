@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { Edit3, MessageCircle, Clock3, Award, Sparkles } from 'lucide-react'
+import { useMemo, useState, useRef } from 'react'
+import { Edit3, MessageCircle, Clock3, Award, Sparkles, MoreVertical, Menu } from 'lucide-react'
 
 const DEFAULT_PROMPT = `Eres un experto en atención al cliente.
 Evalúa cómo responder mejor basándote en ejemplos de esta conversación.`
@@ -15,8 +15,63 @@ const formatResponseTime = (minutes) => {
   return `${(hours / 24).toFixed(1)} d`
 }
 
+// Componente reutilizable para popover de información
+function InfoPopover({ isOpen, onClose, children }) {
+  if (!isOpen) return null
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-10"
+        onClick={onClose}
+      />
+      <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-white rounded-xl shadow-lg border border-slate-200 z-20">
+        <p className="text-sm text-slate-600">
+          {children}
+        </p>
+      </div>
+    </>
+  )
+}
+
+// Componente para header de sección con popover
+function SectionHeader({ label, title, description, labelColor = 'text-purple-500' }) {
+  const [showPopover, setShowPopover] = useState(false)
+
+  return (
+    <header className="flex items-start justify-between gap-2">
+      <div className="flex-1 min-w-0">
+        <p className={`text-xs font-semibold uppercase tracking-[0.3em] ${labelColor}`}>{label}</p>
+        <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+        {/* Descripción visible solo en pantallas grandes (xl+) */}
+        <p className="text-sm text-slate-500 hidden xl:block">{description}</p>
+      </div>
+
+      {/* Botón de 3 puntos para pantallas hasta lg */}
+      <div className="relative xl:hidden flex-shrink-0">
+        <button
+          onClick={() => setShowPopover(!showPopover)}
+          className="p-1 rounded-lg hover:bg-slate-100 transition-colors"
+          aria-label="Ver descripción"
+        >
+          <MoreVertical className="h-4 w-4 text-slate-400" />
+        </button>
+        <InfoPopover isOpen={showPopover} onClose={() => setShowPopover(false)}>
+          {description}
+        </InfoPopover>
+      </div>
+    </header>
+  )
+}
+
 export default function MessageInsightsPanel({ messages = [] }) {
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT)
+  const [showInfoPopover, setShowInfoPopover] = useState(false)
+  const [showNavMenu, setShowNavMenu] = useState(false)
+  const scrollContainerRef = useRef(null)
+  const promptSectionRef = useRef(null)
+  const messagesSectionRef = useRef(null)
+  const momentsSectionRef = useRef(null)
 
   const sortedMessages = useMemo(() => {
     return [...messages].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
@@ -64,39 +119,71 @@ export default function MessageInsightsPanel({ messages = [] }) {
       .slice(0, 4)
   }, [highlightedExchanges])
 
+  const scrollToSection = (ref) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setShowNavMenu(false)
+  }
+
   return (
-    <aside className="hidden xl:flex w-full max-w-sm flex-col rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="px-5 py-4 border-b border-slate-100">
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">IA Coach</p>
-        <h2 className="mt-1 text-xl font-semibold text-slate-900">Mejoras en los mensajes</h2>
-        <p className="text-sm text-slate-500">
-          Ajusta el prompt y repasa las mejores respuestas para imitar el tono adecuado.
-        </p>
-      </div>
+    <aside className="w-[300px] md:w-[340px] lg:w-[400px] xl:w-[440px] min-w-[300px] md:min-w-[340px] lg:min-w-[400px] xl:min-w-[440px] flex-shrink-0 flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden relative">
+      {/* Header compacto */}
+      <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">IA Coach</p>
+            <h2 className="mt-1 text-xl font-semibold text-slate-900">Mejoras en los mensajes</h2>
+            {/* Descripción visible solo en pantallas xl+ */}
+            <p className="text-sm text-slate-500 hidden xl:block">
+              Ajusta el prompt y repasa las mejores respuestas para imitar el tono adecuado.
+            </p>
+          </div>
 
-      <div className="px-5 py-4 border-b border-slate-100 space-y-3">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-[0.3em]">
-          <Edit3 className="h-4 w-4 text-indigo-500" />
-          Prompt del asesor
+          {/* Botón de 3 puntos para móvil y tablet (hasta lg) */}
+          <div className="relative xl:hidden flex-shrink-0">
+            <button
+              onClick={() => setShowInfoPopover(!showInfoPopover)}
+              className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              aria-label="Más información"
+            >
+              <MoreVertical className="h-5 w-5 text-slate-500" />
+            </button>
+            <InfoPopover isOpen={showInfoPopover} onClose={() => setShowInfoPopover(false)}>
+              Ajusta el prompt y repasa las mejores respuestas para imitar el tono adecuado.
+            </InfoPopover>
+          </div>
         </div>
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          className="w-full h-28 p-3 border border-indigo-100 rounded-2xl text-sm text-slate-700 focus:ring-4 focus:ring-indigo-50 focus:border-indigo-300"
-        />
-        <p className="text-xs text-slate-500 flex items-center gap-1">
-          <Sparkles className="h-3 w-3 text-purple-500" />
-          Ajusta el texto para guiar futuras respuestas del asesor.
-        </p>
       </div>
 
-  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-        <section className="space-y-3">
-          <header>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-purple-500">Mensajes destacados</p>
-            <h3 className="text-base font-semibold text-slate-900">Respuestas que funcionaron</h3>
-            <p className="text-sm text-slate-500">Toma nota de cómo el asesor atiende las solicitudes del cliente.</p>
-          </header>
+      {/* Contenido scrollable unificado */}
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto px-5 py-4 space-y-6"
+      >
+        {/* Sección: Prompt del asesor */}
+        <section ref={promptSectionRef} className="space-y-3 scroll-mt-4">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-[0.3em]">
+            <Edit3 className="h-4 w-4 text-indigo-500" />
+            Prompt del asesor
+          </div>
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            className="w-full h-28 p-3 border border-indigo-100 rounded-2xl text-sm text-slate-700 focus:ring-4 focus:ring-indigo-50 focus:border-indigo-300 resize-none"
+          />
+          <p className="text-xs text-slate-500 flex items-center gap-1">
+            <Sparkles className="h-3 w-3 text-purple-500" />
+            Ajusta el texto para guiar futuras respuestas del asesor.
+          </p>
+        </section>
+
+        {/* Sección: Mensajes destacados */}
+        <section ref={messagesSectionRef} className="space-y-3 scroll-mt-4">
+          <SectionHeader
+            label="Mensajes destacados"
+            title="Respuestas que funcionaron"
+            description="Toma nota de cómo el asesor atiende las solicitudes del cliente."
+            labelColor="text-purple-500"
+          />
 
           {featuredMessages.length === 0 ? (
             <div className="text-sm text-slate-500 text-center py-4 border border-dashed border-slate-200 rounded-2xl">
@@ -141,14 +228,14 @@ export default function MessageInsightsPanel({ messages = [] }) {
           )}
         </section>
 
-        <section className="space-y-3">
-          <header>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-amber-500">Momentos destacados</p>
-            <h3 className="text-base font-semibold text-slate-900">Respuesta óptima en tiempo y calidad</h3>
-            <p className="text-sm text-slate-500">
-              Identificamos cuándo el asesor resolvió con rapidez y claridad lo que el cliente necesitaba.
-            </p>
-          </header>
+        {/* Sección: Momentos destacados */}
+        <section ref={momentsSectionRef} className="space-y-3 scroll-mt-4">
+          <SectionHeader
+            label="Momentos destacados"
+            title="Respuesta óptima en tiempo y calidad"
+            description="Identificamos cuándo el asesor resolvió con rapidez y claridad lo que el cliente necesitaba."
+            labelColor="text-amber-500"
+          />
 
           {bestMoments.length === 0 ? (
             <div className="text-sm text-slate-500 text-center py-4 border border-dashed border-slate-200 rounded-2xl">
@@ -174,6 +261,55 @@ export default function MessageInsightsPanel({ messages = [] }) {
             ))
           )}
         </section>
+
+        {/* Espaciado extra para que el botón flotante no tape contenido */}
+        <div className="h-16" />
+      </div>
+
+      {/* Botón flotante de navegación - posicionado más arriba para no chocar con el botón de Análisis IA */}
+      <div className="absolute bottom-20 right-4 md:bottom-4">
+        <div className="relative">
+          <button
+            onClick={() => setShowNavMenu(!showNavMenu)}
+            className="w-10 h-10 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg flex items-center justify-center transition-all hover:scale-105"
+            aria-label="Navegar a sección"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+
+          {/* Menú de navegación */}
+          {showNavMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowNavMenu(false)}
+              />
+              <div className="absolute bottom-full right-0 mb-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-20">
+                <button
+                  onClick={() => scrollToSection(promptSectionRef)}
+                  className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                >
+                  <Edit3 className="h-4 w-4 text-indigo-500" />
+                  <span>Prompt</span>
+                </button>
+                <button
+                  onClick={() => scrollToSection(messagesSectionRef)}
+                  className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors border-t border-slate-100"
+                >
+                  <MessageCircle className="h-4 w-4 text-purple-500" />
+                  <span>Mensajes</span>
+                </button>
+                <button
+                  onClick={() => scrollToSection(momentsSectionRef)}
+                  className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors border-t border-slate-100"
+                >
+                  <Award className="h-4 w-4 text-amber-500" />
+                  <span>Momentos</span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </aside>
   )

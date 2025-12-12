@@ -125,7 +125,16 @@ export default function ChatPage() {
             <div className="w-[280px] md:w-80 min-w-[280px] md:min-w-[320px] bg-white rounded-lg shadow-xl flex-shrink-0 flex flex-col overflow-hidden">
               {/* Header del sidebar */}
               <div className="px-4 py-4 border-b border-gray-200 bg-gray-50">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Resultados de Búsqueda</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-gray-900">Resultados de Búsqueda</h3>
+                  <button
+                    onClick={() => setShowSearchSidebar(false)}
+                    className="text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full p-1 transition-colors"
+                    title="Cerrar panel de búsqueda"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
                 
                 {/* Buscador */}
                 <div className="relative">
