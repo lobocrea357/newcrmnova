@@ -189,11 +189,13 @@ export class WebhookService {
       console.log(`✅ Mensaje guardado: ${savedMessage.id}`);
 
       // PASO 4.5: Actualizar último mensaje del chat
+      // IMPORTANTE: Usar chat.chat_id (normalizado) en vez de payload.from
+      // porque payload.from puede ser @lid y el chat se guarda con número real
       const timestamp = payload.timestamp ? new Date(payload.timestamp * 1000).toISOString() : new Date().toISOString();
       const messageText = payload.body?.substring(0, 100) || (payload.hasMedia ? '[Media]' : '[Mensaje]');
       
-      await chatService.updateLastMessage(bot.id, payload.from, timestamp, messageText);
-      console.log(`✅ Chat actualizado con último mensaje`);
+      await chatService.updateLastMessage(bot.id, chat.chat_id, timestamp, messageText);
+      console.log(`✅ Chat actualizado con último mensaje (chat_id: ${chat.chat_id})`);
 
       // PASO 5: Procesar MULTIMEDIA (si existe)
       if (payload.hasMedia) {

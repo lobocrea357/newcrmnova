@@ -323,16 +323,11 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
     .not('chat_id', 'ilike', '%@broadcast%')
     .not('chat_id', 'ilike', '%@newsletter%')
 
-  // Intentar ordenar por last_message_time, luego por updated_at, finalmente por created_at
-  try {
-    query = query.order('last_message_time', { ascending: false, nullsLast: true })
-  } catch {
-    try {
-      query = query.order('updated_at', { ascending: false })
-    } catch {
-      query = query.order('created_at', { ascending: false })
-    }
-  }
+  // Ordenar por last_message_time (descendente) - los NULL van al final
+  // Luego por updated_at como fallback secundario
+  query = query
+    .order('last_message_time', { ascending: false, nullsFirst: false })
+    .order('updated_at', { ascending: false })
 
   query = query.range(from, to)
 
@@ -470,23 +465,9 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
     })
   )
 
-  // MOSTRAR TODAS LAS CONVERSACIONES - SIN FILTROS (temporal para debug)
-  // Mostrar TODAS las conversaciones para diagnosticar el problema
+  // IMPORTANTE: NO reordenar aquí con .sort() porque corrompe la paginación
+  // El ordenamiento correcto ya viene de la base de datos
   const validChats = chatsWithDetails
-    // .filter(chat => chat.message_count > 0 || chat.is_valid_contact) // DESHABILITADO TEMPORALMENTE
-    .sort((a, b) => {
-      // Usar múltiples fallbacks para la fecha de ordenamiento
-      const dateA = new Date(a.last_message_timestamp || a.last_message_time || a.updated_at || a.created_at)
-      const dateB = new Date(b.last_message_timestamp || b.last_message_time || b.updated_at || b.created_at)
-
-      // Ordenar de más reciente a más antiguo (dateB - dateA)
-      const result = dateB - dateA
-
-      // Logging simplificado para evitar conflictos
-      // (Logging detallado movido al final)
-
-      return result
-    })
 
   console.log('📊 DIAGNÓSTICO COMPLETO:')
   console.log(`   🔍 Chats obtenidos inicialmente: ${chatsWithDetails.length}`)
