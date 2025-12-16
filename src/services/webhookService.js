@@ -189,11 +189,13 @@ export class WebhookService {
       console.log(`✅ Mensaje guardado: ${savedMessage.id}`);
 
       // PASO 4.5: Actualizar último mensaje del chat
+      // IMPORTANTE: Usar chat.chat_id (normalizado) en vez de payload.from
+      // porque payload.from puede ser @lid y el chat se guarda con número real
       const timestamp = payload.timestamp ? new Date(payload.timestamp * 1000).toISOString() : new Date().toISOString();
       const messageText = payload.body?.substring(0, 100) || (payload.hasMedia ? '[Media]' : '[Mensaje]');
       
-      await chatService.updateLastMessage(bot.id, payload.from, timestamp, messageText);
-      console.log(`✅ Chat actualizado con último mensaje`);
+      await chatService.updateLastMessage(bot.id, chat.chat_id, timestamp, messageText);
+      console.log(`✅ Chat actualizado con último mensaje (chat_id: ${chat.chat_id})`);
 
       // PASO 5: Procesar MULTIMEDIA (si existe)
       if (payload.hasMedia) {
@@ -391,21 +393,32 @@ export class WebhookService {
       
       // 🔍 DEBUG: Analizar cada propiedad para el nombre del chat
       console.log(`\n🔍 ========== DEBUG: ANÁLISIS DE NOMBRES DEL CHAT ==========`);
+      console.log(`isGroup: ${isGroup}`);
       console.log(`contact.name: ${contact.name || 'NULL'}`);
       console.log(`contact.push_name: ${contact.push_name || 'NULL'}`);
+      console.log(`payload._data?.subject: ${payload._data?.subject || 'NULL'}`);
       console.log(`payload._data?.notifyName: ${payload._data?.notifyName || 'NULL'}`);
       console.log(`payload.pushName: ${payload.pushName || 'NULL'}`);
-      console.log(`payload._data?.pushName: ${payload._data?.pushName || 'NULL'}`);
       console.log(`chatId.split('@')[0]: ${chatId.split('@')[0]}`);
       console.log(`payload.fromMe: ${payload.fromMe}`);
       console.log(`==========================================\n`);
       
-      // SOLUCIÓN: Usar el nombre del contacto de la BD en lugar del payload
-      // Esto evita que el nombre cambie según quién envía el mensaje
-      // IMPORTANTE: NO usar propiedades del payload porque pueden ser del bot
-      const chatName = contact.name || 
-                      contact.push_name || 
-                      chatId.split('@')[0];  // Fallback al número de teléfono
+      // Determinar el nombre del chat según el tipo
+      let chatName;
+      
+      if (isGroup) {
+        // Para GRUPOS: usar subject del payload (nombre del grupo)
+        chatName = payload._data?.subject || 
+                   payload._data?.notifyName ||
+                   chatId.split('@')[0];  // Fallback al ID del grupo
+        console.log(`📢 Nombre del GRUPO: ${chatName}`);
+      } else {
+        // Para CHATS INDIVIDUALES: usar nombre del contacto de la BD
+        // Esto evita que el nombre cambie según quién envía el mensaje
+        chatName = contact.name || 
+                   contact.push_name || 
+                   chatId.split('@')[0];  // Fallback al número de teléfono
+      }
 
       console.log(`✅ Nombre del chat seleccionado: ${chatName}`);
 
