@@ -1968,8 +1968,8 @@ El tono debe ser profesional y directo.`);
                           </div>
                         </div>
                         <div className="flex flex-col items-end flex-shrink-0 text-xs text-gray-500 gap-1">
-                          {/* Indicador IA */}
-                          {conv.ai_analysis && (
+                          {/* Indicador IA - Solo mostrar si hay análisis real (sale_completed definido) */}
+                          {conv.ai_analysis && conv.ai_analysis.sale_completed !== undefined && (
                             <div className="mb-1" title={conv.ai_analysis.sale_completed ? 'Venta Probable' : 'Venta Improbable'}>
                               {conv.ai_analysis.sale_completed ? (
                                 <div className="flex items-center gap-1 text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">

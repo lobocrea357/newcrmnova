@@ -33,4 +33,29 @@ router.get('/recent', async (req, res) => {
   }
 });
 
+/**
+ * PUT /chats/:chatId/ai-analysis
+ * Guarda el análisis de IA en un chat
+ */
+router.put('/:chatId/ai-analysis', async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const { ai_analysis } = req.body;
+
+    if (!chatId) {
+      return res.status(400).json({ success: false, error: 'chatId es requerido' });
+    }
+
+    if (!ai_analysis || typeof ai_analysis !== 'object') {
+      return res.status(400).json({ success: false, error: 'ai_analysis debe ser un objeto válido' });
+    }
+
+    const updatedChat = await chatService.saveAiAnalysis(chatId, ai_analysis);
+    res.json({ success: true, data: updatedChat });
+  } catch (error) {
+    console.error('Error guardando análisis IA:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;

@@ -3,22 +3,46 @@
 import { useState } from 'react'
 import { Sparkles, X } from 'lucide-react'
 
-export default function ChatAnalysis({ messages }) {
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+
+export default function ChatAnalysis({ messages, chatId }) {
     const [isAnalyzing, setIsAnalyzing] = useState(false)
+    const [isSaving, setIsSaving] = useState(false)
     const [analysis, setAnalysis] = useState(null)
     const [error, setError] = useState(null)
+    const [saveError, setSaveError] = useState(null)
+    const [saved, setSaved] = useState(false)
     const [isPanelOpen, setIsPanelOpen] = useState(false)
     const [customPrompt, setCustomPrompt] = useState(
-        `Eres un experto analista de ventas y calidad de atención al cliente.
-Analiza la siguiente conversación de WhatsApp entre un Asesor y un Cliente.
-Tu objetivo es determinar si la venta se concretó, identificar fallos y evaluar la atención.
+        `Eres un experto analista de ventas y calidad de atención al cliente especializado en venta de boletos/tickets de viaje.
 
-Debes responder EXCLUSIVAMENTE en formato JSON con la siguiente estructura:
+Analiza la siguiente conversación de WhatsApp entre un Asesor y un Cliente.
+
+## CRITERIOS PARA DETERMINAR SI LA VENTA SE CONCRETÓ:
+
+Una venta se considera CONCRETADA (sale_completed: true) ÚNICAMENTE cuando se cumplen AMBAS condiciones:
+1. **Confirmación de pago**: El cliente realizó el pago (completo o financiado) Y el asesor confirma haberlo recibido/verificado.
+2. **Emisión del boleto/ticket**: El asesor menciona que va a emitir, está emitiendo, o ya emitió el boleto/ticket. Frases clave: "voy a emitir", "estás en lista de emisión", "procedo con la emisión", "tu boleto está siendo emitido", etc.
+
+Una venta NO está concretada (sale_completed: false) si:
+- Solo hubo cotización o consulta de precios
+- El cliente mostró interés pero no pagó
+- Hubo negociación pero sin cierre
+- El cliente pidió tiempo para pensar
+- No hay mención de confirmación de pago NI emisión de boleto
+
+## TU TAREA:
+1. Determinar si la venta se concretó según los criterios anteriores
+2. Evaluar la calidad de atención del asesor (amabilidad, rapidez, claridad, proactividad)
+3. Identificar momentos clave de la conversación
+4. Si no hubo venta, explicar brevemente por qué
+
+## FORMATO DE RESPUESTA (JSON estricto):
 {
-  "sale_completed": boolean, // true si hubo venta/acuerdo explícito, false si no.
-  "failure_reason": string, // Breve explicación de por qué no se cerró (o "N/A" si se cerró).
-  "advisor_performance": string, // Comentarios sobre el desempeño del asesor.
-  "key_moments": string[] // Lista de momentos clave.
+  "sale_completed": boolean,
+  "failure_reason": string, // Si sale_completed es false, explica por qué. Si es true, pon "N/A".
+  "advisor_performance": string, // Evaluación detallada del desempeño del asesor: puntos fuertes, áreas de mejora, tono, rapidez.
+  "key_moments": string[] // Lista de 3-5 momentos importantes de la conversación.
 }`
     )
     const [showPrompt, setShowPrompt] = useState(false)
@@ -47,10 +71,47 @@ Debes responder EXCLUSIVAMENTE en formato JSON con la siguiente estructura:
             }
 
             setAnalysis(data)
+
+            // Guardar automáticamente en la base de datos si tenemos chatId
+            if (chatId) {
+                await saveAnalysisToDatabase(data)
+            }
         } catch (err) {
             setError(err.message)
         } finally {
             setIsAnalyzing(false)
+        }
+    }
+
+    const saveAnalysisToDatabase = async (analysisData) => {
+        setIsSaving(true)
+        setSaveError(null)
+        setSaved(false)
+
+        try {
+            const response = await fetch(`${API_URL}/api/chats/${chatId}/ai-analysis`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    ai_analysis: analysisData,
+                }),
+            })
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Error al guardar el análisis')
+            }
+
+            setSaved(true)
+            console.log('✅ Análisis guardado en la base de datos')
+        } catch (err) {
+            console.error('❌ Error guardando análisis:', err)
+            setSaveError(err.message)
+        } finally {
+            setIsSaving(false)
         }
     }
 
@@ -158,6 +219,38 @@ Debes responder EXCLUSIVAMENTE en formato JSON con la siguiente estructura:
 
                         {analysis && (
                             <div className="space-y-4 animate-fadeIn">
+                                {/* Indicador de guardado */}
+                                {chatId && (
+                                    <div className={`p-3 rounded-xl text-sm flex items-center gap-2 ${isSaving ? 'bg-blue-50 text-blue-700' :
+                                        saved ? 'bg-green-50 text-green-700' :
+                                            saveError ? 'bg-red-50 text-red-700' :
+                                                'bg-gray-50 text-gray-600'
+                                        }`}>
+                                        {isSaving && (
+                                            <>
+                                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-200 border-t-blue-600"></div>
+                                                <span>Guardando análisis...</span>
+                                            </>
+                                        )}
+                                        {saved && !isSaving && (
+                                            <>
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                <span>Análisis guardado en la base de datos</span>
+                                            </>
+                                        )}
+                                        {saveError && !isSaving && (
+                                            <>
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                                <span>Error: {saveError}</span>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Resultado Venta */}
                                 <div className={`p-4 rounded-2xl border ${analysis.sale_completed ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                                     <div className="flex items-center gap-2 mb-1">

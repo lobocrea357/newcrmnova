@@ -259,7 +259,7 @@ export default function ChatPage() {
             <ChatView chatId={chatId} onClose={handleClose} />
           </div>
 
-          <ChatAnalysis messages={messages} />
+          <ChatAnalysis messages={messages} chatId={chatId} />
         </div>
       </div>
     </div>
