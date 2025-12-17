@@ -182,6 +182,41 @@ export class ChatService {
       throw error;
     }
   }
+
+  /**
+   * Guarda el análisis de IA en un chat
+   * @param {string} chatId - ID del chat
+   * @param {object} aiAnalysis - Objeto con el análisis de IA (sale_completed, failure_reason, etc.)
+   */
+  async saveAiAnalysis(chatId, aiAnalysis) {
+    try {
+      console.log(`\n🤖 ========== CHAT SERVICE: saveAiAnalysis ==========`);
+      console.log(`Chat ID: ${chatId}`);
+      console.log(`AI Analysis:`, JSON.stringify(aiAnalysis, null, 2));
+
+      const { data, error } = await supabase
+        .from('chats')
+        .update({ 
+          ai_analysis: aiAnalysis,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', chatId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Error guardando análisis IA:', error);
+        throw error;
+      }
+
+      console.log(`✅ Análisis IA guardado exitosamente para chat ${chatId}`);
+      console.log(`==========================================\n`);
+      return data;
+    } catch (error) {
+      console.error('Error en saveAiAnalysis:', error);
+      throw error;
+    }
+  }
 }
 
 export default new ChatService();
