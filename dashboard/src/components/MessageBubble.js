@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, memo } from 'react'
 
-export default function MessageBubble({ message, contactName }) {
+function MessageBubble({ message, contactName }) {
   const [imageError, setImageError] = useState(false)
   const [videoError, setVideoError] = useState(false)
   const isFromMe = message.from_me
@@ -23,15 +23,7 @@ export default function MessageBubble({ message, contactName }) {
     else if (mediaFile.mimetype.includes('document') || mediaFile.mimetype.includes('pdf')) messageType = 'document'
   }
   
-  // Logging detallado para debug
-  console.log('📱 MessageBubble:', { 
-    id: message.id,
-    from_me: message.from_me,
-    messageType, 
-    hasMedia, 
-    body: message.body || message.content,
-    timestamp: message.timestamp
-  })
+  // Removed debug logging for performance
 
   return (
     <div className={`flex ${isFromMe ? 'justify-end' : 'justify-start'} mb-4 animate-fadeIn`}>
@@ -66,7 +58,7 @@ export default function MessageBubble({ message, contactName }) {
                   });
                   setImageError(true);
                 }}
-                onLoad={() => console.log('✅ Imagen cargada:', mediaFile.file_url)}
+                onLoad={() => {/* Image loaded successfully */}}
                 loading="lazy"
               />
               {message.body && (
@@ -87,7 +79,7 @@ export default function MessageBubble({ message, contactName }) {
                   });
                   setVideoError(true);
                 }}
-                onLoadedMetadata={() => console.log('✅ Video cargado:', mediaFile.file_url)}
+                onLoadedMetadata={() => {/* Video loaded successfully */}}
               >
                 Tu navegador no soporta el elemento de video.
               </video>
@@ -178,3 +170,13 @@ export default function MessageBubble({ message, contactName }) {
     </div>
   )
 }
+
+// Memoize component to prevent unnecessary re-renders
+// Only re-render if message.id or message.timestamp changes
+export default memo(MessageBubble, (prevProps, nextProps) => {
+  return (
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.timestamp === nextProps.message.timestamp &&
+    prevProps.contactName === nextProps.contactName
+  )
+})

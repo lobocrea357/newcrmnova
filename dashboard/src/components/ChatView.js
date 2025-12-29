@@ -31,8 +31,6 @@ export default function ChatView({ chatId, onClose }) {
     try {
       const result = await getConversationWithMessages(chatId)
       if (result) {
-        console.log('📊 TODOS los mensajes cargados:', result.messages.length, 'total:', result.totalMessages)
-        console.log('📊 Estadísticas:', result.stats)
         setConversation(result.conversation)
         setMessages(result.messages)
         setHasMore(false) // Ya no hay más mensajes porque cargamos todos
@@ -49,14 +47,12 @@ export default function ChatView({ chatId, onClose }) {
   // Ya no necesitamos cargar más mensajes porque cargamos todos
   const loadMoreMessages = async () => {
     // Función deshabilitada - ya cargamos todos los mensajes
-    console.log('ℹ️ Todos los mensajes ya están cargados')
     return
   }
 
   // Recargar mensaje completo con media_files desde la BD
   const refreshMessageWithMedia = async (messageId) => {
     try {
-      console.log('🔄 Recargando mensaje con multimedia:', messageId)
       const { data, error } = await supabase
         .from('messages')
         .select(`
@@ -76,7 +72,6 @@ export default function ChatView({ chatId, onClose }) {
         .single()
       
       if (data && !error) {
-        console.log('✅ Mensaje recargado con media_files:', data.media_files?.length || 0)
         setMessages(prev => prev.map(msg => 
           msg.id === messageId ? data : msg
         ))
@@ -92,47 +87,33 @@ export default function ChatView({ chatId, onClose }) {
     const { eventType, new: newMessage, old: oldMessage } = payload
 
     if (eventType === 'INSERT' && newMessage) {
-      console.log('✨ Nuevo mensaje detectado, agregando al final')
       // Verificar que el mensaje no exista ya (evitar duplicados)
       setMessages(prev => {
         const exists = prev.some(msg => msg.id === newMessage.id)
         if (exists) {
-          console.log('⚠️ Mensaje ya existe, ignorando INSERT')
           return prev
         }
-        console.log('📝 Mensajes antes:', prev.length, '→ después:', prev.length + 1)
         return [...prev, newMessage]
       })
     } else if (eventType === 'UPDATE' && newMessage) {
-      console.log('🔄 Mensaje actualizado detectado')
-      
       // Si el mensaje tiene multimedia, recargarlo con media_files
       if (newMessage.has_media) {
-        console.log('📎 Mensaje con multimedia, recargando desde BD...')
         await refreshMessageWithMedia(newMessage.id)
       } else {
         // Si no tiene multimedia, actualizar directamente
-        console.log('📝 Actualizando mensaje sin multimedia')
         setMessages(prev => {
           const index = prev.findIndex(msg => msg.id === newMessage.id)
           if (index === -1) {
-            console.log('⚠️ Mensaje actualizado no encontrado en el estado, ignorando')
             return prev
           }
           const updated = [...prev]
           updated[index] = newMessage
-          console.log('✅ Mensaje actualizado en posición:', index)
           return updated
         })
       }
     } else if (eventType === 'DELETE' && oldMessage) {
-      console.log('🗑️ Mensaje eliminado, removiendo del estado sin recargar')
       // Eliminar solo el mensaje específico sin recargar todo
-      setMessages(prev => {
-        const filtered = prev.filter(msg => msg.id !== oldMessage.id)
-        console.log('📝 Mensajes antes:', prev.length, '→ después:', filtered.length)
-        return filtered
-      })
+      setMessages(prev => prev.filter(msg => msg.id !== oldMessage.id))
     }
   }
 
@@ -163,11 +144,7 @@ export default function ChatView({ chatId, onClose }) {
     }
 
     try {
-      console.log('📤 Enviando mensaje:', { session, chatIdWhatsApp, text: textToSend })
-      
       await messageService.sendTextMessage(session, chatIdWhatsApp, textToSend)
-      
-      console.log('✅ Mensaje enviado correctamente')
       
       // El mensaje aparecerá automáticamente gracias a Supabase realtime
       // cuando el webhook procese la respuesta
@@ -190,8 +167,6 @@ export default function ChatView({ chatId, onClose }) {
     loadConversation()
 
     // Suscribirse a cambios en mensajes de este chat
-    console.log('🔔 Suscribiéndose a mensajes del chat:', chatId)
-
     const messagesChannel = supabase
       .channel(`chat-messages-${chatId}`)
       .on(
@@ -203,7 +178,6 @@ export default function ChatView({ chatId, onClose }) {
           filter: `chat_id=eq.${chatId}`
         },
         (payload) => {
-          console.log('📨 Cambio detectado en mensajes:', payload)
           handleMessageChange(payload)
         }
       )
@@ -211,7 +185,6 @@ export default function ChatView({ chatId, onClose }) {
 
     // Suscripción ADICIONAL a media_files como respaldo
     // Esto captura cuando se inserta un archivo multimedia
-    console.log('🔔 Suscribiéndose a multimedia del chat:', chatId)
     const mediaChannel = supabase
       .channel(`chat-media-${chatId}`)
       .on(
@@ -222,7 +195,6 @@ export default function ChatView({ chatId, onClose }) {
           table: 'media_files'
         },
         async (payload) => {
-          console.log('📎 Nuevo archivo multimedia detectado:', payload)
           // Verificar que el mensaje pertenece a este chat
           const messageId = payload.new?.message_id
           if (messageId) {
@@ -235,7 +207,6 @@ export default function ChatView({ chatId, onClose }) {
 
     // Cleanup: desuscribirse al desmontar
     return () => {
-      console.log('🔕 Desuscribiéndose del chat:', chatId)
       supabase.removeChannel(messagesChannel)
       supabase.removeChannel(mediaChannel)
     }
@@ -436,28 +407,13 @@ export default function ChatView({ chatId, onClose }) {
 
         {messages && messages.length > 0 ? (
           <div className="max-w-4xl mx-auto">
-            {(() => {
-              console.log('🎨 Renderizando', messages.length, 'mensajes')
-              
-              // LOGGING DETALLADO PARA DEBUG
-              const entrantes = messages.filter(m => !m.from_me)
-              const salientes = messages.filter(m => m.from_me)
-              console.log(`📊 Mensajes a renderizar:`)
-              console.log(`   📨 ${entrantes.length} entrantes (from_me: false)`)
-              console.log(`   📤 ${salientes.length} salientes (from_me: true)`)
-              
-              messages.forEach((msg, idx) => {
-                console.log(`   ${idx + 1}. ${msg.from_me ? '📤 BOT' : '📨 CLIENTE'}: "${(msg.body || '').substring(0, 50)}..."`)
-              })
-              
-              return messages.map((message, index) => (
-                <MessageBubble
-                  key={message.id || index}
-                  message={message}
-                  contactName={contactName}
-                />
-              ))
-            })()}
+            {messages.map((message, index) => (
+              <MessageBubble
+                key={message.id || index}
+                message={message}
+                contactName={contactName}
+              />
+            ))}
             <div ref={messagesEndRef} />
           </div>
         ) : (

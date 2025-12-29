@@ -13,8 +13,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
  * Obtiene todos los workers con sus estadísticas
  */
 export async function getAllWorkers() {
-  console.log('🔍 Obteniendo workers...')
-
   const { data: workers, error } = await supabase
     .from('workers')
     .select('*')
@@ -24,8 +22,6 @@ export async function getAllWorkers() {
     console.error('❌ Error al obtener workers:', error)
     return []
   }
-
-  console.log('👷 Workers obtenidos:', workers?.length || 0, workers)
 
   // Obtener estadísticas para cada worker
   const workersWithStats = await Promise.all(
@@ -56,7 +52,6 @@ export async function getAllWorkers() {
     })
   )
 
-  console.log('📊 Workers con estadísticas:', workersWithStats)
   return workersWithStats
 }
 
@@ -71,12 +66,13 @@ export async function getAllBots() {
     throw new Error('No hay sesión activa')
   }
 
-  console.log('✅ Sesión verificada:', session.user.email)
-
-  // Primero obtener los bots
+  // OPTIMIZADO: Obtener bots con workers en una sola query usando JOIN
   const { data: bots, error } = await supabase
     .from('bots')
-    .select('*')
+    .select(`
+      *,
+      worker:workers(id, name, email)
+    `)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -84,50 +80,41 @@ export async function getAllBots() {
     return []
   }
 
-  console.log('📊 Bots obtenidos desde Supabase:', bots?.length || 0, bots)
-
-  // Obtener información adicional para cada bot
+  // OPTIMIZADO: Obtener estadísticas de todos los bots en paralelo
   const botsWithDetails = await Promise.all(
     (bots || []).map(async (bot) => {
-      // Obtener worker
-      let worker = null
-      if (bot.worker_id) {
-        const { data: workerData } = await supabase
-          .from('workers')
-          .select('id, name, email')
-          .eq('id', bot.worker_id)
+      // Ejecutar count y recentChat en paralelo en lugar de secuencial
+      const [countResult, recentChatResult] = await Promise.all([
+        // Contar chats válidos
+        supabase
+          .from('chats')
+          .select('*', { count: 'exact', head: true })
+          .eq('bot_id', bot.id)
+          .not('chat_id', 'ilike', '%status%')
+          .not('chat_id', 'ilike', '%@broadcast%')
+          .not('chat_id', 'ilike', '%@newsletter%'),
+        
+        // Obtener última actividad
+        supabase
+          .from('chats')
+          .select('last_message_time, updated_at, created_at')
+          .eq('bot_id', bot.id)
+          .not('chat_id', 'ilike', '%status%')
+          .not('chat_id', 'ilike', '%@broadcast%')
+          .not('chat_id', 'ilike', '%@newsletter%')
+          .order('last_message_time', { ascending: false, nullsLast: true })
+          .order('updated_at', { ascending: false, nullsLast: true })
+          .limit(1)
           .single()
-        worker = workerData
-      }
+      ])
 
-      // Contar chats y obtener fecha de última actividad
-      const { count } = await supabase
-        .from('chats')
-        .select('*', { count: 'exact', head: true })
-        .eq('bot_id', bot.id)
-        .not('chat_id', 'ilike', '%status%')
-        .not('chat_id', 'ilike', '%@broadcast%')
-        .not('chat_id', 'ilike', '%@newsletter%')
-
-      // Obtener la fecha de la conversación más reciente
-      const { data: recentChat } = await supabase
-        .from('chats')
-        .select('last_message_time, updated_at, created_at')
-        .eq('bot_id', bot.id)
-        .not('chat_id', 'ilike', '%status%')
-        .not('chat_id', 'ilike', '%@broadcast%')
-        .not('chat_id', 'ilike', '%@newsletter%')
-        .order('last_message_time', { ascending: false, nullsLast: true })
-        .order('updated_at', { ascending: false, nullsLast: true })
-        .limit(1)
-        .single()
-
-      const validChatsCount = count || 0
+      const validChatsCount = countResult.count || 0
+      const recentChat = recentChatResult.data
       const lastActivity = recentChat?.last_message_time || recentChat?.updated_at || recentChat?.created_at || bot.created_at
 
       return {
         ...bot,
-        worker,
+        worker: bot.worker || null,
         conversation_count: validChatsCount || 0,
         last_activity: lastActivity,
         last_activity_date: lastActivity ? new Date(lastActivity) : new Date(bot.created_at)
@@ -143,12 +130,6 @@ export async function getAllBots() {
 
     // Luego por fecha de última actividad (más reciente primero)
     return b.last_activity_date - a.last_activity_date
-  })
-
-  console.log('📊 Asesores ordenados por actividad (más recientes primero):')
-  sortedBots.forEach((bot, index) => {
-    const statusIcon = bot.status === 'WORKING' ? '✅' : bot.status === 'FAILED' ? '❌' : '⏸️'
-    console.log(`   ${index + 1}. ${statusIcon} ${bot.session_name}: ${bot.conversation_count} conv. - ${bot.last_activity_date.toLocaleString('es-ES')}`)
   })
 
   return sortedBots
@@ -338,45 +319,50 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
     return { data: [], total: 0, totalPages: 0, currentPage: page }
   }
 
-  console.log('✅ Conversaciones obtenidas:', data?.length || 0, 'de', total, 'totales')
-
   if (!data || data.length === 0) {
-    console.log('⚠️ No se encontraron conversaciones para esta página')
     return { data: [], total, totalPages, currentPage: page }
   }
 
-  // Obtener conteo de mensajes y último mensaje para cada chat
+  // OPTIMIZADO: Obtener mensajes de todos los chats EN PARALELO (Promise.all)
+  // Esto es más rápido que secuencial y más seguro que batch query
   const chatsWithDetails = await Promise.all(
     data.map(async (chat) => {
-      // Contar mensajes
-      const { count } = await supabase
-        .from('messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('chat_id', chat.id)
-
-      // Obtener último mensaje
-      const { data: lastMessage } = await supabase
-        .from('messages')
-        .select('body, timestamp, from_me')
-        .eq('chat_id', chat.id)
-        .order('timestamp', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      // Calcular métricas detalladas solo si hay mensajes
-      let conversationMetrics = null
-      if ((count || 0) > 0) {
-        const { data: conversationMessages, error: metricsError } = await supabase
+      // Ejecutar todas las queries de este chat en paralelo
+      const [countResult, lastMessageResult, allMessagesResult] = await Promise.all([
+        // Contar mensajes
+        supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('chat_id', chat.id),
+        
+        // Obtener último mensaje
+        supabase
+          .from('messages')
+          .select('body, timestamp, from_me')
+          .eq('chat_id', chat.id)
+          .order('timestamp', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        
+        // Obtener todos los mensajes para métricas
+        supabase
           .from('messages')
           .select('from_me, body, content, timestamp')
           .eq('chat_id', chat.id)
           .order('timestamp', { ascending: true })
+      ])
 
-        if (!metricsError) {
-          conversationMetrics = analyzeConversationMetrics(conversationMessages || [])
-        } else {
-          console.warn('⚠️ Error obteniendo mensajes para métricas:', metricsError.message)
-        }
+      const count = countResult.count || 0
+      const lastMessage = lastMessageResult.data
+      const chatMessages = allMessagesResult.data || []
+
+      // Calcular métricas detalladas si hay mensajes
+      let conversationMetrics = null
+      if (count > 0 && chatMessages.length > 0) {
+        conversationMetrics = analyzeConversationMetrics(chatMessages)
+      } else if (count > 0 && chatMessages.length === 0) {
+        // Si hay count pero no mensajes, hay un problema - loggearlo
+        console.warn(`⚠️ Chat ${chat.id} tiene ${count} mensajes pero no se cargaron`)
       }
 
       // OPTIMIZADO: Lógica mejorada para determinar nombre y número
@@ -469,30 +455,6 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
   // El ordenamiento correcto ya viene de la base de datos (ORDER BY last_message_time DESC)
   const validChats = chatsWithDetails
 
-  console.log('📊 DIAGNÓSTICO COMPLETO:')
-  console.log(`   🔍 Chats obtenidos inicialmente: ${chatsWithDetails.length}`)
-  console.log(`   ✅ Chats válidos después del filtro: ${validChats.length}`)
-  console.log(`   📨 Chats con mensajes: ${validChats.filter(c => c.message_count > 0).length}`)
-  console.log(`   👤 Chats con contacto válido: ${validChats.filter(c => c.is_valid_contact).length}`)
-
-  // Si no hay chats válidos, mostrar por qué
-  if (validChats.length === 0 && chatsWithDetails.length > 0) {
-    console.log('⚠️ PROBLEMA: Hay chats pero ninguno pasa el filtro')
-    chatsWithDetails.slice(0, 3).forEach((chat, index) => {
-      console.log(`   ${index + 1}. Chat ${chat.chat_id}:`)
-      console.log(`      - Mensajes: ${chat.message_count}`)
-      console.log(`      - Contacto válido: ${chat.is_valid_contact}`)
-      console.log(`      - Nombre: ${chat.contact_name}`)
-    })
-  }
-
-  // Logging del orden final (primeras 5 conversaciones)
-  console.log('📅 Orden cronológico de conversaciones (más recientes primero):')
-  validChats.slice(0, 5).forEach((chat, index) => {
-    const chatDate = new Date(chat.last_message_timestamp || chat.last_message_time || chat.updated_at || chat.created_at)
-    console.log(`   ${index + 1}. ${chat.contact_name}: ${chatDate.toLocaleString('es-ES')} (${chat.message_count} mensajes)`)
-  })
-
   // IMPORTANTE: Usar el total original de la BD para calcular páginas correctamente
   // NO usar validChats.length porque eso solo cuenta las conversaciones de la página actual
   return {
@@ -511,8 +473,6 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
  * @returns {Promise<{conversation: Object, messages: Array, totalMessages: number}>}
  */
 export async function getConversationWithMessages(chatId, batchSize = 10000) {
-  console.log('🔍 Obteniendo conversación optimizada:', chatId)
-
   // Primero contar total de mensajes en este chat
   const { count: totalMessages, error: countError } = await supabase
     .from('messages')
@@ -521,8 +481,6 @@ export async function getConversationWithMessages(chatId, batchSize = 10000) {
 
   if (countError) {
     console.error('❌ Error al contar mensajes:', countError)
-  } else {
-    console.log(`📊 Total de mensajes en este chat: ${totalMessages || 0}`)
   }
 
   // Obtener información del chat
@@ -588,14 +546,6 @@ export async function getConversationWithMessages(chatId, batchSize = 10000) {
       hasError = true
     } else {
       allMessages = messages || []
-      console.log(`✅ Consulta exitosa: ${allMessages.length} mensajes cargados`)
-
-      // LOGGING DETALLADO DE LOS MENSAJES CARGADOS
-      const entrantes = allMessages.filter(m => !m.from_me)
-      const salientes = allMessages.filter(m => m.from_me)
-      console.log(`📊 Mensajes cargados desde BD:`)
-      console.log(`   📨 ${entrantes.length} entrantes (from_me: false)`)
-      console.log(`   📤 ${salientes.length} salientes (from_me: true)`)
     }
   } catch (error) {
     console.warn('⚠️ Error en consulta:', error)
@@ -604,7 +554,6 @@ export async function getConversationWithMessages(chatId, batchSize = 10000) {
 
   // Si hay error, intentar consulta más básica
   if (hasError || allMessages.length === 0) {
-    console.log('🔄 Intentando consulta básica...')
     try {
       const { data: basicMessages, error: basicError } = await supabase
         .from('messages')
@@ -618,7 +567,6 @@ export async function getConversationWithMessages(chatId, batchSize = 10000) {
         allMessages = []
       } else {
         allMessages = basicMessages || []
-        console.log('✅ Consulta básica exitosa')
       }
     } catch (basicError) {
       console.error('❌ Error crítico:', basicError)
@@ -630,12 +578,6 @@ export async function getConversationWithMessages(chatId, batchSize = 10000) {
   const incomingCount = allMessages.filter(m => !m.from_me).length
   const outgoingCount = allMessages.filter(m => m.from_me).length
   const mediaCount = allMessages.filter(m => m.has_media || m.media_url).length
-
-  console.log(`✅ Mensajes cargados: ${allMessages.length} de ${totalMessages || 0} total`)
-  console.log(`   📨 ${incomingCount} entrantes (cliente → bot)`)
-  console.log(`   📤 ${outgoingCount} salientes (bot → cliente)`)
-  console.log(`   📎 ${mediaCount} con multimedia`)
-  console.log(`   👤 Contacto: ${contactName}`)
 
   // Procesar mensajes para mejor visualización
   const processedMessages = allMessages.map(msg => ({
@@ -688,7 +630,6 @@ export async function globalSearchChats(searchQuery, limit = 50) {
   }
 
   const query = searchQuery.trim().toLowerCase()
-  console.log('🔍 Búsqueda global:', query)
 
   try {
     // Buscar en chats por nombre de contacto o número de teléfono
