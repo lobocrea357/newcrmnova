@@ -1,5 +1,7 @@
 'use client'
 
+import { memo } from 'react'
+
 /**
  * HighlightText - Componente para resaltar coincidencias de búsqueda
  * Similar al comportamiento de WhatsApp
@@ -8,7 +10,7 @@
  * @param {string} searchQuery - Término de búsqueda
  * @param {string} className - Clases CSS adicionales para el texto
  */
-export default function HighlightText({ text, searchQuery, className = '' }) {
+function HighlightText({ text, searchQuery, className = '' }) {
   if (!text) return null
   if (!searchQuery || searchQuery.trim() === '') {
     return <span className={className}>{text}</span>
@@ -40,3 +42,6 @@ export default function HighlightText({ text, searchQuery, className = '' }) {
     </span>
   )
 }
+
+// Memoize component to prevent re-renders during search operations
+export default memo(HighlightText)

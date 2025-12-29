@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, memo } from 'react'
 
 /**
  * ContactAvatar - Componente reutilizable para mostrar la foto de perfil de un contacto
@@ -10,7 +10,7 @@ import { useState } from 'react'
  * @param {string} size - Tamaño del avatar: 'sm' | 'md' | 'lg' | 'xl'
  * @param {string} className - Clases CSS adicionales
  */
-export default function ContactAvatar({ 
+function ContactAvatar({ 
   profilePictureUrl, 
   contactName = 'Contacto', 
   size = 'md',
@@ -117,7 +117,6 @@ export default function ContactAvatar({
             } transition-opacity duration-200`}
             onLoad={() => {
               setImageLoading(false)
-              console.log('✅ Foto de perfil cargada:', profilePictureUrl)
             }}
             onError={(e) => {
               console.warn('⚠️ Error al cargar foto de perfil:', {
@@ -150,3 +149,6 @@ export default function ContactAvatar({
     </div>
   )
 }
+
+// Memoize component to prevent unnecessary re-renders
+export default memo(ContactAvatar)
