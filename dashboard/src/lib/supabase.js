@@ -120,7 +120,7 @@ export async function getAllBots() {
         .order('last_message_time', { ascending: false, nullsLast: true })
         .order('updated_at', { ascending: false, nullsLast: true })
         .limit(1)
-        .single()
+        .maybeSingle()
 
       const validChatsCount = count || 0
       const lastActivity = recentChat?.last_message_time || recentChat?.updated_at || recentChat?.created_at || bot.created_at
@@ -902,6 +902,93 @@ export function downloadConversationAsMarkdown(conversation) {
   link.click()
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
+}
+
+/**
+ * Obtiene los N chats más recientes de TODOS los bots
+ * @param {number} limit - Cantidad de chats a obtener (default: 20)
+ * @returns {Promise<Array>} Array de chats con sus mensajes
+ */
+export async function getRecentChatsFromAllBots(limit = 20) {
+  try {
+    console.log(`📊 Obteniendo los ${limit} chats más recientes de todos los bots...`)
+
+    // Obtener los chats más recientes de todos los bots
+    const { data: recentChats, error: chatsError } = await supabase
+      .from('chats')
+      .select(`
+        id,
+        chat_id,
+        contact_name,
+        contact_number,
+        last_message_time,
+        ai_analysis,
+        bot_id,
+        bot:bots(id, session_name, phone_number)
+      `)
+      .not('chat_id', 'ilike', '%status%')
+      .not('chat_id', 'ilike', '%@broadcast%')
+      .not('chat_id', 'ilike', '%@newsletter%')
+      .order('last_message_time', { ascending: false, nullsFirst: false })
+      .limit(limit)
+
+    if (chatsError) {
+      console.error('❌ Error obteniendo chats recientes:', chatsError)
+      return []
+    }
+
+    if (!recentChats || recentChats.length === 0) {
+      console.log('⚠️ No se encontraron chats recientes')
+      return []
+    }
+
+    console.log(`✅ ${recentChats.length} chats recientes obtenidos`)
+
+    // Obtener mensajes para cada chat
+    const chatsWithMessages = await Promise.all(
+      recentChats.map(async (chat) => {
+        const { data: messages, error: messagesError } = await supabase
+          .from('messages')
+          .select('id, body, content, from_me, timestamp, type')
+          .eq('chat_id', chat.id)
+          .order('timestamp', { ascending: true })
+          .limit(200) // Limitar mensajes por chat para no sobrecargar
+
+        if (messagesError) {
+          console.warn(`⚠️ Error obteniendo mensajes para chat ${chat.id}:`, messagesError.message)
+          return { ...chat, messages: [] }
+        }
+
+        // Determinar nombre del contacto
+        let contactName = 'Sin nombre'
+        if (chat.contact_name) {
+          contactName = chat.contact_name
+        } else if (chat.contact_number) {
+          contactName = chat.contact_number
+        } else if (chat.chat_id) {
+          contactName = chat.chat_id.split('@')[0]
+        }
+
+        return {
+          ...chat,
+          contact_name: contactName,
+          bot_name: chat.bot?.session_name || 'Bot desconocido',
+          messages: messages || [],
+          message_count: messages?.length || 0
+        }
+      })
+    )
+
+    // Filtrar chats que tengan al menos algunos mensajes
+    const validChats = chatsWithMessages.filter(chat => chat.message_count > 0)
+    
+    console.log(`📊 ${validChats.length} chats con mensajes válidos`)
+    return validChats
+
+  } catch (error) {
+    console.error('❌ Error en getRecentChatsFromAllBots:', error)
+    return []
+  }
 }
 
 /**

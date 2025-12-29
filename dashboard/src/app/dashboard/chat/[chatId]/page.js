@@ -8,7 +8,6 @@ import ContactAvatar from '@/components/ContactAvatar'
 import HighlightText from '@/components/HighlightText'
 import { globalSearchChats } from '@/lib/supabase'
 import { Search, X, RefreshCw, Phone, Bot, CheckCheck } from 'lucide-react'
-import ChatAnalysis from '@/components/ChatAnalysis'
 import MessageInsightsPanel from '@/components/MessageInsightsPanel'
 
 export default function ChatPage() {
@@ -258,8 +257,6 @@ export default function ChatPage() {
           <div className="flex-1 min-w-[85vw] lg:min-w-0 bg-white rounded-lg shadow-xl overflow-hidden">
             <ChatView chatId={chatId} onClose={handleClose} />
           </div>
-
-          <ChatAnalysis messages={messages} chatId={chatId} />
         </div>
       </div>
     </div>

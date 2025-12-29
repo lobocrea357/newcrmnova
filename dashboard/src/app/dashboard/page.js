@@ -13,6 +13,7 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation'
 import ContactAvatar from '@/components/ContactAvatar'
 import HighlightText from '@/components/HighlightText'
+import BulkAnalysisPanel from '@/components/BulkAnalysisPanel'
 import {
   Bot,
   MessageSquare,
@@ -2063,6 +2064,9 @@ El tono debe ser profesional y directo.`);
           </section>
         </div>
       </main>
+
+      {/* Panel de Análisis IA Global */}
+      <BulkAnalysisPanel sessionToken={sessionToken} />
 
       {reportModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
