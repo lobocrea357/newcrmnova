@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { getConversationWithMessages } from '@/lib/supabase'
 import ChatView from '@/components/ChatView'
 import ContactAvatar from '@/components/ContactAvatar'
 import HighlightText from '@/components/HighlightText'
@@ -22,6 +21,7 @@ export default function ChatPage() {
   const [globalSearchResults, setGlobalSearchResults] = useState([])
   const [loadingGlobalSearch, setLoadingGlobalSearch] = useState(false)
   const [showSearchSidebar, setShowSearchSidebar] = useState(false)
+  const [messages, setMessages] = useState([]) // Estado para mensajes cargados desde ChatView
 
   // Restaurar búsqueda global si viene desde búsqueda
   useEffect(() => {
@@ -40,17 +40,6 @@ export default function ChatPage() {
       }
     }
   }, [fromSearch])
-  const [messages, setMessages] = useState([])
-
-  useEffect(() => {
-    const loadMessages = async () => {
-      const conversation = await getConversationWithMessages(chatId)
-      if (conversation && conversation.messages) {
-        setMessages(conversation.messages)
-      }
-    }
-    loadMessages()
-  }, [chatId])
 
   const handleClose = () => {
     const botId = searchParams.get('botId')
@@ -256,7 +245,11 @@ export default function ChatPage() {
 
           {/* Chat Area */}
           <div className="flex-1 min-w-[85vw] lg:min-w-0 bg-white rounded-lg shadow-xl overflow-hidden">
-            <ChatView chatId={chatId} onClose={handleClose} />
+            <ChatView 
+              chatId={chatId} 
+              onClose={handleClose}
+              onMessagesLoaded={setMessages}
+            />
           </div>
 
           <ChatAnalysis messages={messages} chatId={chatId} />

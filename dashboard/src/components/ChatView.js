@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { getConversationWithMessages, supabase } from '@/lib/supabase'
-import MessageBubble from './MessageBubble'
+import { getPaginatedMessages, supabase } from '@/lib/supabase'
+import VirtualizedMessageList from './VirtualizedMessageList'
 import ContactAvatar from './ContactAvatar'
 import messageService from '@/services/messageService'
 
-export default function ChatView({ chatId, onClose }) {
+export default function ChatView({ chatId, onClose, onMessagesLoaded }) {
   const [conversation, setConversation] = useState(null)
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
@@ -18,24 +18,40 @@ export default function ChatView({ chatId, onClose }) {
   const [messageText, setMessageText] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [totalMessages, setTotalMessages] = useState(0) // Total de mensajes en el chat (desde main)
-  const messagesEndRef = useRef(null)
-  const messagesContainerRef = useRef(null)
-  const previousScrollHeightRef = useRef(0)
-  const isInitialLoadRef = useRef(true)
-  const lastMessageCountRef = useRef(0)
   const inputRef = useRef(null)
+  const scrollToBottomRef = useRef(null)
 
-  // Cargar conversación completa (TODOS los mensajes)
+  // OPTIMIZADO: Cargar solo los últimos 50 mensajes inicialmente
   const loadConversation = async () => {
     setLoading(true)
     try {
-      const result = await getConversationWithMessages(chatId)
+      // Cargar info del chat
+      const { data: chatData } = await supabase
+        .from('chats')
+        .select('*, bot:bots(*), contact:contacts(*)')
+        .eq('id', chatId)
+        .single()
+
+      if (chatData) {
+        setConversation(chatData)
+      }
+
+      // Cargar últimos 20 mensajes
+      const result = await getPaginatedMessages(chatId, 20)
       if (result) {
-        setConversation(result.conversation)
         setMessages(result.messages)
-        setHasMore(false) // Ya no hay más mensajes porque cargamos todos
-        setOldestTimestamp(null) // No necesario
+        setHasMore(result.hasMore)
         setTotalMessages(result.totalMessages || 0)
+        
+        // Notificar al parent sobre los mensajes cargados
+        if (onMessagesLoaded) {
+          onMessagesLoaded(result.messages)
+        }
+        
+        // Guardar timestamp del mensaje más antiguo cargado
+        if (result.messages.length > 0) {
+          setOldestTimestamp(result.messages[0].timestamp)
+        }
       }
     } catch (error) {
       console.error('Error al cargar conversación:', error)
@@ -44,10 +60,33 @@ export default function ChatView({ chatId, onClose }) {
     }
   }
 
-  // Ya no necesitamos cargar más mensajes porque cargamos todos
+  // Cargar más mensajes antiguos (scroll hacia arriba)
   const loadMoreMessages = async () => {
-    // Función deshabilitada - ya cargamos todos los mensajes
-    return
+    if (loadingMore || !hasMore) return
+
+    setLoadingMore(true)
+    try {
+      // Cargar 20 mensajes anteriores al más antiguo actual (mismo tamaño que carga inicial)
+      const result = await getPaginatedMessages(chatId, 20, oldestTimestamp)
+      
+      if (result && result.messages.length > 0) {
+        // Agregar mensajes antiguos al inicio - React Virtuoso manejará el scroll
+        setMessages(prevMessages => [...result.messages, ...prevMessages])
+        setOldestTimestamp(result.messages[0].timestamp)
+        setHasMore(result.hasMore)
+        
+        // Notificar al parent con los mensajes actualizados
+        if (onMessagesLoaded) {
+          onMessagesLoaded([...result.messages, ...messages])
+        }
+      } else {
+        setHasMore(false)
+      }
+    } catch (error) {
+      console.error('Error al cargar más mensajes:', error)
+    } finally {
+      setLoadingMore(false)
+    }
   }
 
   // Recargar mensaje completo con media_files desde la BD
@@ -95,6 +134,11 @@ export default function ChatView({ chatId, onClose }) {
         }
         return [...prev, newMessage]
       })
+      
+      // Scroll al final cuando llega un mensaje nuevo
+      setTimeout(() => {
+        scrollToBottomRef.current?.()
+      }, 100)
     } else if (eventType === 'UPDATE' && newMessage) {
       // Si el mensaje tiene multimedia, recargarlo con media_files
       if (newMessage.has_media) {
@@ -117,9 +161,6 @@ export default function ChatView({ chatId, onClose }) {
     }
   }
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
 
   // Enviar mensaje
   const handleSendMessage = async (e) => {
@@ -148,6 +189,11 @@ export default function ChatView({ chatId, onClose }) {
       
       // El mensaje aparecerá automáticamente gracias a Supabase realtime
       // cuando el webhook procese la respuesta
+      
+      // Scroll al final después de enviar
+      setTimeout(() => {
+        scrollToBottomRef.current?.()
+      }, 100)
       
     } catch (error) {
       console.error('❌ Error al enviar mensaje:', error)
@@ -212,77 +258,7 @@ export default function ChatView({ chatId, onClose }) {
     }
   }, [chatId])
 
-  // Manejar scroll: detectar cuando el usuario se aleja del final y mostrar botón
-  // Nota: aunque actualmente se cargan todos los mensajes, mantenemos la lógica
-  // de botón flotante y contador de no leídos.
-  const handleScroll = () => {
-    if (!messagesContainerRef.current) return
-
-    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
-    
-    // Si en algún momento se vuelve a activar paginación, esta lógica seguirá funcionando
-    if (scrollTop < 50 && !loadingMore && hasMore) {
-      loadMoreMessages()
-    }
-
-    // Mostrar botón de scroll si no está cerca del final
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 200
-    setShowScrollButton(!isNearBottom)
-    
-    // Resetear contador de no leídos si está en el final
-    if (isNearBottom) {
-      setUnreadCount(0)
-      lastMessageCountRef.current = messages.length
-    }
-  }
-
-  // Mantener lógica simple para el efecto de "mantener posición" ya que ahora
-  // la conversación se carga completa de una vez.
-  useEffect(() => {
-    return
-  }, [messages])
-
-  // Scroll al final solo en la carga inicial o cuando llega un nuevo mensaje
-  useEffect(() => {
-    if (messages.length === 0) return
-
-    // Scroll automático solo en carga inicial
-    if (isInitialLoadRef.current) {
-      setTimeout(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
-          lastMessageCountRef.current = messages.length
-        }
-        isInitialLoadRef.current = false
-      }, 100)
-      return
-    }
-
-    // Para nuevos mensajes, hacer scroll solo si el usuario ya está cerca del final
-    // Esto permite que el usuario pueda leer mensajes antiguos sin interrupciones
-    if (messagesContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 200
-      
-      if (isNearBottom) {
-        // Usuario está cerca del final, hacer scroll automático
-        setTimeout(() => {
-          if (messagesContainerRef.current) {
-            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
-          }
-        }, 50)
-        setUnreadCount(0)
-        lastMessageCountRef.current = messages.length
-      } else {
-        // Usuario está leyendo mensajes antiguos, incrementar contador
-        const newMessages = messages.length - lastMessageCountRef.current
-        if (newMessages > 0) {
-          setUnreadCount(prev => prev + newMessages)
-          lastMessageCountRef.current = messages.length
-        }
-      }
-    }
-  }, [messages.length])
+  // VirtualizedMessageList maneja el scroll automáticamente
 
   if (loading) {
     return (
@@ -384,72 +360,18 @@ export default function ChatView({ chatId, onClose }) {
         </div>
       </div>
 
-      {/* Messages */}
-      <div
-        ref={messagesContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto bg-gray-50 px-6 py-4 relative"
-      >
-        {/* Indicador de estado de carga */}
-        {messages.length > 0 && (
-          <div className="flex justify-center py-4">
-            {totalMessages > 0 && totalMessages === messages.length ? (
-              <div className="text-xs text-green-600 bg-green-50 px-4 py-2 rounded-full shadow-sm border border-green-200">
-                ✅ Conversación completa ({messages.length} mensajes)
-              </div>
-            ) : (
-              <div className="text-xs text-blue-600 bg-blue-50 px-4 py-2 rounded-full shadow-sm border border-blue-200">
-                📥 Mostrando {messages.length} de {totalMessages || 0} mensajes
-              </div>
-            )}
-          </div>
-        )}
-
-        {messages && messages.length > 0 ? (
-          <div className="max-w-4xl mx-auto">
-            {messages.map((message, index) => (
-              <MessageBubble
-                key={message.id || index}
-                message={message}
-                contactName={contactName}
-              />
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              <p className="text-gray-500">No hay mensajes en esta conversación</p>
-            </div>
-          </div>
-        )}
+      {/* Messages - Scroll nativo optimizado */}
+      <div className="flex-1 relative">
+        <VirtualizedMessageList
+          messages={messages}
+          contactName={contactName}
+          hasMore={hasMore}
+          loadMore={loadMoreMessages}
+          isLoadingMore={loadingMore}
+          onScrollToBottom={(fn) => { scrollToBottomRef.current = fn }}
+        />
       </div>
 
-      {/* Botón flotante para scroll al final (dentro del panel de chat, pero fijo respecto al scroll) */}
-      {showScrollButton && (
-        <button
-          onClick={() => {
-            if (messagesContainerRef.current) {
-              messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
-              setUnreadCount(0)
-              lastMessageCountRef.current = messages.length
-            }
-          }}
-          className="absolute right-4 md:right-6 bottom-28 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all duration-200 flex items-center gap-2 z-10"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-          </svg>
-          {unreadCount > 0 && (
-            <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-              {unreadCount}
-            </span>
-          )}
-        </button>
-      )}
 
       {/* Footer con input */}
       <div className="bg-white border-t border-gray-200">

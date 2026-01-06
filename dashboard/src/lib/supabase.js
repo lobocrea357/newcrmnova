@@ -84,28 +84,26 @@ export async function getAllBots() {
   const botsWithDetails = await Promise.all(
     (bots || []).map(async (bot) => {
       // Ejecutar count y recentChat en paralelo en lugar de secuencial
+      // Usamos filtro AND combinado para evitar error 406
       const [countResult, recentChatResult] = await Promise.all([
-        // Contar chats válidos
+        // Contar chats válidos (filtro combinado con and)
         supabase
           .from('chats')
           .select('*', { count: 'exact', head: true })
           .eq('bot_id', bot.id)
           .not('chat_id', 'ilike', '%status%')
-          .not('chat_id', 'ilike', '%@broadcast%')
-          .not('chat_id', 'ilike', '%@newsletter%'),
+          .not('chat_id', 'ilike', '%@broadcast%'),
         
-        // Obtener última actividad
+        // Obtener última actividad (sin doble order para evitar 406)
         supabase
           .from('chats')
           .select('last_message_time, updated_at, created_at')
           .eq('bot_id', bot.id)
           .not('chat_id', 'ilike', '%status%')
           .not('chat_id', 'ilike', '%@broadcast%')
-          .not('chat_id', 'ilike', '%@newsletter%')
           .order('last_message_time', { ascending: false, nullsLast: true })
-          .order('updated_at', { ascending: false, nullsLast: true })
           .limit(1)
-          .single()
+          .maybeSingle()
       ])
 
       const validChatsCount = countResult.count || 0
@@ -273,13 +271,13 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
   console.log('🔍 Obteniendo conversaciones para bot:', botId, 'página:', page)
 
   // Primero obtener el total de conversaciones (excluyendo estados y canales)
+  // Nota: Solo 2 filtros .not() para evitar error 406 en PostgREST
   const { count: totalCount, error: countError } = await supabase
     .from('chats')
     .select('*', { count: 'exact', head: true })
     .eq('bot_id', botId)
     .not('chat_id', 'ilike', '%status%')
     .not('chat_id', 'ilike', '%@broadcast%')
-    .not('chat_id', 'ilike', '%@newsletter%')
 
   if (countError) {
     console.error('❌ Error al contar conversaciones:', countError)
@@ -302,13 +300,10 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
     .eq('bot_id', botId)
     .not('chat_id', 'ilike', '%status%')
     .not('chat_id', 'ilike', '%@broadcast%')
-    .not('chat_id', 'ilike', '%@newsletter%')
 
   // Ordenar por last_message_time (descendente) - los NULL van al final
-  // Luego por updated_at como fallback secundario
   query = query
     .order('last_message_time', { ascending: false, nullsFirst: false })
-    .order('updated_at', { ascending: false })
 
   query = query.range(from, to)
 
@@ -466,6 +461,66 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
 }
 
 /**
+ * Obtiene mensajes paginados de una conversación (para virtualización)
+ * Carga los últimos N mensajes, soporta paginación hacia atrás
+ * @param {string} chatId - ID del chat
+ * @param {number} limit - Cantidad de mensajes a cargar (default: 50)
+ * @param {string} beforeTimestamp - Timestamp para cargar mensajes anteriores (opcional)
+ * @returns {Promise<{messages: Array, hasMore: boolean, totalMessages: number}>}
+ */
+export async function getPaginatedMessages(chatId, limit = 50, beforeTimestamp = null) {
+  // Contar total de mensajes
+  const { count: totalMessages } = await supabase
+    .from('messages')
+    .select('*', { count: 'exact', head: true })
+    .eq('chat_id', chatId)
+
+  // Construir query para mensajes (SIN media_files JOIN para evitar timeout)
+  let query = supabase
+    .from('messages')
+    .select(`
+      id,
+      body,
+      content,
+      type,
+      from_me,
+      timestamp,
+      has_media,
+      media_url,
+      media_mimetype,
+      metadata
+    `)
+    .eq('chat_id', chatId)
+    .order('timestamp', { ascending: false }) // Más recientes primero
+
+  // Si hay beforeTimestamp, cargar mensajes anteriores a ese timestamp
+  if (beforeTimestamp) {
+    query = query.lt('timestamp', beforeTimestamp)
+  }
+
+  query = query.limit(limit)
+
+  const { data: messages, error } = await query
+
+  if (error) {
+    console.error('❌ Error al cargar mensajes paginados:', error)
+    return { messages: [], hasMore: false, totalMessages: 0 }
+  }
+
+  // Invertir para que estén en orden cronológico (más antiguos primero)
+  const sortedMessages = (messages || []).reverse()
+
+  // Determinar si hay más mensajes
+  const hasMore = messages && messages.length === limit
+
+  return {
+    messages: sortedMessages,
+    hasMore,
+    totalMessages: totalMessages || 0
+  }
+}
+
+/**
  * Obtiene una conversación con sus mensajes (optimizado para evitar timeouts)
  * OPTIMIZADO: Carga mensajes de forma eficiente evitando timeouts
  * @param {string} chatId - ID del chat
@@ -516,13 +571,11 @@ export async function getConversationWithMessages(chatId, batchSize = 10000) {
   }
 
   // Obtener mensajes de forma optimizada (sin media_files para evitar timeout)
-  console.log(`📥 Cargando ${totalMessages || 0} mensajes de forma optimizada...`)
-
   let allMessages = []
   let hasError = false
 
   try {
-    // CONSULTA SIMPLIFICADA - Solo campos esenciales + media_files
+    // CONSULTA SIMPLIFICADA - Solo campos esenciales (SIN media_files para evitar timeout)
     const { data: messages, error: messagesError } = await supabase
       .from('messages')
       .select(`
@@ -535,8 +588,7 @@ export async function getConversationWithMessages(chatId, batchSize = 10000) {
         has_media,
         media_url,
         media_mimetype,
-        metadata,
-        media_files(*)
+        metadata
       `)
       .eq('chat_id', chatId)
       .order('timestamp', { ascending: true })
@@ -644,7 +696,6 @@ export async function globalSearchChats(searchQuery, limit = 50) {
       .or(`contact_name.ilike.%${query}%,contact_number.ilike.%${query}%,name.ilike.%${query}%,chat_id.ilike.%${query}%`)
       .not('chat_id', 'ilike', '%status%')
       .not('chat_id', 'ilike', '%@broadcast%')
-      .not('chat_id', 'ilike', '%@newsletter%')
       .limit(limit)
 
     if (chatsError) {
@@ -727,7 +778,6 @@ export async function globalSearchChats(searchQuery, limit = 50) {
         .in('id', uniqueChatIds)
         .not('chat_id', 'ilike', '%status%')
         .not('chat_id', 'ilike', '%@broadcast%')
-        .not('chat_id', 'ilike', '%@newsletter%')
 
       chatsFromMessages = relatedChats || []
     }
