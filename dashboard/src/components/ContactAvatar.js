@@ -119,10 +119,8 @@ function ContactAvatar({
               setImageLoading(false)
             }}
             onError={(e) => {
-              console.warn('⚠️ Error al cargar foto de perfil:', {
-                url: profilePictureUrl,
-                contactName
-              })
+              // URLs de WhatsApp expiran - marcar como error y usar avatar por defecto
+              // TODO: Implementar refresh de URLs desde WAHA API
               setImageError(true)
               setImageLoading(false)
             }}

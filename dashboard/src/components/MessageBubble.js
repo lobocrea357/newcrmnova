@@ -26,7 +26,10 @@ function MessageBubble({ message, contactName }) {
   // Removed debug logging for performance
 
   return (
-    <div className={`flex ${isFromMe ? 'justify-end' : 'justify-start'} mb-4 animate-fadeIn`}>
+    <div 
+      className={`flex ${isFromMe ? 'justify-end' : 'justify-start'} mb-4 animate-fadeIn`}
+      style={{ contain: 'layout', willChange: 'auto' }}
+    >
       <div className={`max-w-[70%] ${isFromMe ? 'order-2' : 'order-1'}`}>
         {/* Nombre del remitente */}
         {!isFromMe && (
@@ -46,43 +49,47 @@ function MessageBubble({ message, contactName }) {
           {/* Contenido según el tipo de mensaje */}
           {messageType === 'image' && mediaFile && !imageError ? (
             <div className="mb-2">
-              <img
-                src={mediaFile.file_url || mediaFile.url}
-                alt="Imagen"
-                style={{ width: '300px', height: 'auto' }}
-                className="rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
-                onError={(e) => {
-                  console.error('❌ Error cargando imagen:', {
-                    url: mediaFile.file_url,
-                    error: e
-                  });
-                  setImageError(true);
-                }}
-                onLoad={() => {/* Image loaded successfully */}}
-                loading="lazy"
-              />
+              {/* Contenedor con aspect ratio fijo para evitar saltos de layout */}
+              <div className="relative w-[300px] bg-gray-100 rounded-lg overflow-hidden" style={{ minHeight: '200px' }}>
+                <img
+                  src={mediaFile.file_url || mediaFile.url}
+                  alt="Imagen"
+                  className="w-full h-full object-cover rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                  onError={(e) => {
+                    console.error('❌ Error cargando imagen:', {
+                      url: mediaFile.file_url,
+                      error: e
+                    });
+                    setImageError(true);
+                  }}
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
               {message.body && (
                 <p className="mt-2 text-sm">{message.body}</p>
               )}
             </div>
           ) : messageType === 'video' && mediaFile && !videoError ? (
             <div className="mb-2">
-              <video
-                controls
-                className="rounded-lg max-w-full h-auto shadow-sm"
-                src={mediaFile.file_url || mediaFile.url}
-                preload="metadata"
-                onError={(e) => {
-                  console.error('❌ Error cargando video:', {
-                    url: mediaFile.file_url,
-                    error: e
-                  });
-                  setVideoError(true);
-                }}
-                onLoadedMetadata={() => {/* Video loaded successfully */}}
-              >
-                Tu navegador no soporta el elemento de video.
-              </video>
+              {/* Contenedor con dimensiones fijas para videos */}
+              <div className="relative w-[300px] bg-gray-900 rounded-lg overflow-hidden" style={{ height: '200px' }}>
+                <video
+                  controls
+                  className="w-full h-full object-contain rounded-lg shadow-sm"
+                  src={mediaFile.file_url || mediaFile.url}
+                  preload="metadata"
+                  onError={(e) => {
+                    console.error('❌ Error cargando video:', {
+                      url: mediaFile.file_url,
+                      error: e
+                    });
+                    setVideoError(true);
+                  }}
+                >
+                  Tu navegador no soporta el elemento de video.
+                </video>
+              </div>
               {message.body && (
                 <p className="mt-2 text-sm">{message.body}</p>
               )}
