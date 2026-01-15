@@ -1259,7 +1259,7 @@ El tono debe ser profesional y directo.`);
       )}
 
       {/* Header */}
-      <header className="bg-white shadow">
+    {/*   <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -1309,11 +1309,18 @@ El tono debe ser profesional y directo.`);
             </div>
           </div>
         </div>
-      </header>
+      </header> */}
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-end mb-4">
+           <button
+                onClick={() => router.push('/dashboard/ai-insights')}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <Brain className="h-4 w-4" />
+                AI Insights
+              </button>
           <button
             type="button"
             onClick={() => setCompactMode((prev) => !prev)}
