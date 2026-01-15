@@ -44,7 +44,7 @@ export default function CRMLayout({ children }) {
 
   return (
     <div className="min-h-screen">
-      <Sidebar />
+        <Sidebar />
       <div className="ml-64">
         <Navbar />
         <main>{children}</main>

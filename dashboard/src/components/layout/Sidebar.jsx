@@ -1,8 +1,9 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import {
     LayoutDashboard,
     MessageSquare,
@@ -13,11 +14,24 @@ import {
     BookOpen,
     AlertTriangle,
     XCircle,
-    Settings
+    Settings,
+    User,
+    Briefcase
 } from 'lucide-react'
 
 const Sidebar = () => {
     const pathname = usePathname()
+    const [user, setUser] = useState(null)
+
+    useEffect(() => {
+        loadUser()
+    }, [])
+
+    const loadUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser()
+        setUser(user)
+        console.log(user)
+    }
 
     const menuItems = [
         { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -40,11 +54,21 @@ const Sidebar = () => {
 
     return (
         <aside className="fixed left-0 top-0 w-64 bg-gray-800 text-white h-screen flex flex-col z-40">
-            <div className="p-4 border-b border-gray-700">
-                <h2 className="text-xl font-bold">CRM Nova</h2>
+            {/* Header Logo */}
+            <div className="p-5 border-b border-gray-700">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-orange-500 flex items-center justify-center flex-shrink-0">
+                        <Briefcase className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-bold text-white">CRM Nova</h2>
+                        <p className="text-xs text-gray-400">Sistema de Gestión</p>
+                    </div>
+                </div>
             </div>
 
-            <nav className="flex-1 overflow-y-auto py-4">
+            {/* Navigation */}
+            <nav className="flex-1 overflow-y-auto py-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800">
                 <ul className="space-y-1 px-3">
                     {menuItems.map((item) => {
                         const Icon = item.icon
@@ -71,6 +95,23 @@ const Sidebar = () => {
                     })}
                 </ul>
             </nav>
+
+            {/* Footer Usuario */}
+            <div className="p-4 border-t border-gray-700 bg-gray-900">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-semibold text-white">
+                            {(user?.user_metadata?.full_name || user?.email || 'U').charAt(0).toUpperCase()}
+                        </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">
+                            {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuario'}
+                        </p>
+                        <p className="text-xs text-gray-400">Administrador</p>
+                    </div>
+                </div>
+            </div>
         </aside>
     )
 }

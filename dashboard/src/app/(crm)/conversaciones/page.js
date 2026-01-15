@@ -1313,7 +1313,7 @@ El tono debe ser profesional y directo.`);
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-end gap-2 mb-4">
            <button
                 onClick={() => router.push('/dashboard/ai-insights')}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
@@ -1417,7 +1417,10 @@ El tono debe ser profesional y directo.`);
                       {
                         bots.filter(
                           (bot) =>
-                            bot.status === "working" || bot.status === "active"
+                            bot.status === "WORKING" || 
+                            bot.status === "ACTIVE" || 
+                            bot.status === "working" || 
+                            bot.status === "active"
                         ).length
                       }
                     </dd>
