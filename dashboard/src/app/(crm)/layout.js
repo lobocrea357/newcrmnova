@@ -11,21 +11,25 @@ export default function CRMLayout({ children }) {
   const pathname = usePathname()
   const [loading, setLoading] = useState(true)
   const [authenticated, setAuthenticated] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
-    checkAuth()
-  }, [])
+    checkAuth();
+  }, []);
 
   const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
     if (!session) {
-      router.push('/login')
+      router.push("/login");
     } else {
-      setAuthenticated(true)
+      setAuthenticated(true);
     }
-    setLoading(false)
-  }
+    setLoading(false);
+  };
 
   if (loading) {
     return (
@@ -35,20 +39,32 @@ export default function CRMLayout({ children }) {
           <p className="text-gray-600">Verificando sesión...</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (!authenticated) {
-    return null
+    return null;
   }
 
   return (
-    <div className="min-h-screen">
-        <Sidebar />
-      <div className="ml-64">
-        <Navbar />
+    <div className="min-h-screen overflow-x-hidden">
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        collapsed={sidebarCollapsed}
+      />
+      <div
+        className={`transition-all duration-300 ${
+          sidebarCollapsed ? "lg:ml-20" : "lg:ml-64"
+        }`}
+      >
+        <Navbar
+          onMenuClick={() => setSidebarOpen(true)}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          sidebarCollapsed={sidebarCollapsed}
+        />
         <main>{children}</main>
       </div>
     </div>
-  )
+  );
 }

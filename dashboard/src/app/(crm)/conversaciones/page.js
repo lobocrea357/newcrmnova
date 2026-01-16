@@ -126,21 +126,23 @@ El tono debe ser profesional y directo.`);
   };
 
   useEffect(() => {
-    const botIdFromUrl = searchParams.get('botId');
+    const botIdFromUrl = searchParams.get("botId");
     if (!botIdFromUrl) return;
 
     if (!bots || bots.length === 0) return;
 
     setSelectedBotId(botIdFromUrl);
-    
+
     // Intentar restaurar la página guardada para este bot
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       try {
-        const savedPage = window.localStorage.getItem(`dashboard:bot:${botIdFromUrl}:page`);
+        const savedPage = window.localStorage.getItem(
+          `conversaciones:bot:${botIdFromUrl}:page`,
+        );
         const page = savedPage ? parseInt(savedPage, 10) : 1;
         fetchConversations(botIdFromUrl, page);
       } catch (error) {
-        console.error('Error restaurando página guardada:', error);
+        console.error("Error restaurando página guardada:", error);
         fetchConversations(botIdFromUrl);
       }
     } else {
@@ -150,52 +152,61 @@ El tono debe ser profesional y directo.`);
 
   // Mantener y restaurar la última conversación visitada usando localStorage
   useEffect(() => {
-    const chatIdFromUrl = searchParams.get('chatId');
+    const chatIdFromUrl = searchParams.get("chatId");
 
     if (chatIdFromUrl) {
       setLastChatId(chatIdFromUrl);
 
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         try {
-          window.localStorage.setItem('dashboard:lastChatId', String(chatIdFromUrl));
+          window.localStorage.setItem(
+            "conversaciones:lastChatId",
+            String(chatIdFromUrl),
+          );
         } catch (error) {
-          console.error('Error guardando lastChatId en localStorage:', error);
+          console.error("Error guardando lastChatId en localStorage:", error);
         }
       }
 
       return;
     }
 
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       try {
-        const storedChatId = window.localStorage.getItem('dashboard:lastChatId');
+        const storedChatId = window.localStorage.getItem(
+          "conversaciones:lastChatId",
+        );
         if (storedChatId) {
           setLastChatId(storedChatId);
         }
       } catch (error) {
-        console.error('Error leyendo lastChatId desde localStorage:', error);
+        console.error("Error leyendo lastChatId desde localStorage:", error);
       }
     }
   }, [searchParams]);
 
   // Restaurar búsqueda global al regresar desde un chat
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       try {
-        const savedQuery = window.localStorage.getItem('dashboard:globalSearchQuery');
-        const savedResults = window.localStorage.getItem('dashboard:globalSearchResults');
-        
+        const savedQuery = window.localStorage.getItem(
+          "conversaciones:globalSearchQuery",
+        );
+        const savedResults = window.localStorage.getItem(
+          "conversaciones:globalSearchResults",
+        );
+
         if (savedQuery && savedResults) {
           setGlobalSearchQuery(savedQuery);
           setGlobalSearchResults(JSON.parse(savedResults));
           setIsGlobalSearchActive(true);
-          
+
           // Limpiar el localStorage después de restaurar
-          window.localStorage.removeItem('dashboard:globalSearchQuery');
-          window.localStorage.removeItem('dashboard:globalSearchResults');
+          window.localStorage.removeItem("conversaciones:globalSearchQuery");
+          window.localStorage.removeItem("conversaciones:globalSearchResults");
         }
       } catch (error) {
-        console.error('Error restaurando búsqueda global:', error);
+        console.error("Error restaurando búsqueda global:", error);
       }
     }
   }, []);
@@ -204,12 +215,12 @@ El tono debe ser profesional y directo.`);
     try {
       setSyncingBot(sessionName);
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
       const response = await fetch(`${apiUrl}/api/sync/${sessionName}/all`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
-        }
+          "Content-Type": "application/json",
+        },
       });
 
       const result = await response.json();
@@ -221,12 +232,12 @@ El tono debe ser profesional y directo.`);
 
         alert(
           `✅ SINCRONIZACIÓN COMPLETADA\n\n` +
-          `📊 Resultados:\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `• Contactos actualizados: ${contactsUpdated}\n` +
-          `• Chats actualizados: ${chatsUpdated}\n` +
-          `• Bot actualizado: ${botUpdated ? 'Sí ✓' : 'No (ya tenía datos)'}\n\n` +
-          `Los datos se reflejarán al recargar la página.`
+            `📊 Resultados:\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `• Contactos actualizados: ${contactsUpdated}\n` +
+            `• Chats actualizados: ${chatsUpdated}\n` +
+            `• Bot actualizado: ${botUpdated ? "Sí ✓" : "No (ya tenía datos)"}\n\n` +
+            `Los datos se reflejarán al recargar la página.`,
         );
 
         // Recargar datos para reflejar los cambios
@@ -238,29 +249,32 @@ El tono debe ser profesional y directo.`);
         }
       } else {
         // Mostrar error detallado
-        const errorMsg = result.error || 'Error desconocido';
+        const errorMsg = result.error || "Error desconocido";
 
         // Detectar si es error de sesión no encontrada
-        if (errorMsg.includes('NO existe') || errorMsg.includes('does not exist')) {
+        if (
+          errorMsg.includes("NO existe") ||
+          errorMsg.includes("does not exist")
+        ) {
           alert(
             `⚠️ BOT NO CONECTADO EN WAHA\n\n` +
-            `El bot "${sessionName}" no está activo en WAHA.\n\n` +
-            `Para sincronizar datos necesitas:\n` +
-            `  1. Conectar el bot en WAHA (escanear QR)\n` +
-            `  2. Esperar que el estado sea "WORKING"\n` +
-            `  3. Intentar la sincronización nuevamente\n\n` +
-            `❌ Detalles: ${errorMsg}`
+              `El bot "${sessionName}" no está activo en WAHA.\n\n` +
+              `Para sincronizar datos necesitas:\n` +
+              `  1. Conectar el bot en WAHA (escanear QR)\n` +
+              `  2. Esperar que el estado sea "WORKING"\n` +
+              `  3. Intentar la sincronización nuevamente\n\n` +
+              `❌ Detalles: ${errorMsg}`,
           );
         } else {
           alert(`❌ Error en la sincronización:\n\n${errorMsg}`);
         }
       }
     } catch (error) {
-      console.error('Error sincronizando bot:', error);
+      console.error("Error sincronizando bot:", error);
       alert(
         `❌ ERROR DE CONEXIÓN\n\n` +
-        `No se pudo conectar con el servidor.\n\n` +
-        `Detalles: ${error.message || 'Error desconocido'}`
+          `No se pudo conectar con el servidor.\n\n` +
+          `Detalles: ${error.message || "Error desconocido"}`,
       );
     } finally {
       setSyncingBot(null);
@@ -280,7 +294,7 @@ El tono debe ser profesional y directo.`);
       const [workersData, botsData, completedSales] = await Promise.all([
         getAllWorkers(),
         getAllBots(),
-        getCompletedSalesCount()
+        getCompletedSalesCount(),
       ]);
 
       console.log("👷 Workers obtenidos:", workersData.length);
@@ -306,8 +320,10 @@ El tono debe ser profesional y directo.`);
       const conversations = await getCompletedSalesConversations(200);
       setSalesConversations(conversations);
     } catch (error) {
-      console.error('Error obteniendo ventas:', error);
-      setSalesModalError('No se pudo cargar el detalle de ventas. Intenta nuevamente.');
+      console.error("Error obteniendo ventas:", error);
+      setSalesModalError(
+        "No se pudo cargar el detalle de ventas. Intenta nuevamente.",
+      );
     } finally {
       setSalesModalLoading(false);
     }
@@ -318,14 +334,14 @@ El tono debe ser profesional y directo.`);
     setSalesModalError(null);
   };
 
-  const appendSyncLog = (message, type = 'info') => {
+  const appendSyncLog = (message, type = "info") => {
     setSyncLogs((prev) => [
       ...prev,
       {
         message,
         type,
-        time: new Date().toLocaleTimeString('es-ES')
-      }
+        time: new Date().toLocaleTimeString("es-ES"),
+      },
     ]);
   };
 
@@ -334,46 +350,53 @@ El tono debe ser profesional y directo.`);
 
     setSyncingAll(true);
     setSyncLogs([]);
-    setSyncProgress({ percent: 5, status: 'Conectando con WAHA remoto...' });
-    appendSyncLog('🚀 Iniciando sincronización COMPLETA de TODOS los bots desde WAHA');
+    setSyncProgress({ percent: 5, status: "Conectando con WAHA remoto..." });
+    appendSyncLog(
+      "🚀 Iniciando sincronización COMPLETA de TODOS los bots desde WAHA",
+    );
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000); // 30 minutos
 
     try {
       const response = await fetch(`${apiUrl}/api/full-sync/all-bots`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           limit: 1000,
           includeMedia: true,
           transcribeAudio: true,
-          fixFromMe: true
+          fixFromMe: true,
         }),
-        signal: controller.signal
+        signal: controller.signal,
       });
 
-      setSyncProgress({ percent: 50, status: 'Procesando respuesta del servidor...' });
+      setSyncProgress({
+        percent: 50,
+        status: "Procesando respuesta del servidor...",
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
 
       const result = await response.json();
-      setSyncProgress({ percent: 100, status: 'Sincronización completada' });
-      appendSyncLog('✅ Sincronización completada correctamente');
+      setSyncProgress({ percent: 100, status: "Sincronización completada" });
+      appendSyncLog("✅ Sincronización completada correctamente");
       appendSyncLog(`📊 Bots procesados: ${result?.data?.bots || 0}`);
-      appendSyncLog(`💬 Conversaciones sincronizadas: ${result?.data?.chats || 0}`);
+      appendSyncLog(
+        `💬 Conversaciones sincronizadas: ${result?.data?.chats || 0}`,
+      );
       appendSyncLog(`📩 Mensajes nuevos: ${result?.data?.messages || 0}`);
 
       await fetchData();
     } catch (error) {
       const errorMessage =
-        error.name === 'AbortError'
-          ? 'Timeout: La sincronización tardó más de 30 minutos'
-          : error.message || 'Error desconocido';
-      appendSyncLog(`❌ Error: ${errorMessage}`, 'error');
+        error.name === "AbortError"
+          ? "Timeout: La sincronización tardó más de 30 minutos"
+          : error.message || "Error desconocido";
+      appendSyncLog(`❌ Error: ${errorMessage}`, "error");
       setSyncProgress({ percent: 0, status: `Error: ${errorMessage}` });
     } finally {
       clearTimeout(timeoutId);
@@ -391,15 +414,15 @@ El tono debe ser profesional y directo.`);
     try {
       setLoadingConversations((prev) => ({ ...prev, [botId]: true }));
       const result = await getConversationsByBot(botId, page, 10);
-      
+
       setConversations((prev) => ({ ...prev, [botId]: result.data }));
       setConversationsPagination((prev) => ({
         ...prev,
         [botId]: {
           currentPage: result.currentPage,
           totalPages: result.totalPages,
-          total: result.total
-        }
+          total: result.total,
+        },
       }));
     } catch (error) {
       console.error("Error fetching conversations:", error);
@@ -414,8 +437,8 @@ El tono debe ser profesional y directo.`);
 
     // Actualizar la URL para mantener el contexto del bot seleccionado
     const params = new URLSearchParams();
-    params.set('botId', botId);
-    router.push(`/dashboard?${params.toString()}`);
+    params.set("botId", botId);
+    router.push(`/conversaciones?${params.toString()}`);
   };
 
   const KNOWN_SEDES = ["nova", "apolo", "flash"];
@@ -423,7 +446,8 @@ El tono debe ser profesional y directo.`);
   const KNOWN_LEADERS = ["moises", "jesus", "endry"];
 
   const formatResponseTime = (minutes) => {
-    if (minutes === null || minutes === undefined || Number.isNaN(minutes)) return null;
+    if (minutes === null || minutes === undefined || Number.isNaN(minutes))
+      return null;
     if (minutes < 1) return `${Math.round(minutes * 60)}s`;
     if (minutes < 60) return `${minutes.toFixed(1)} min`;
     const hours = minutes / 60;
@@ -436,17 +460,13 @@ El tono debe ser profesional y directo.`);
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
   };
 
-  const cleanText = (text = '') =>
-    text
-      .replace(/\*\*/g, '')
-      .replace(/[_`]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+  const cleanText = (text = "") =>
+    text.replace(/\*\*/g, "").replace(/[_`]/g, "").replace(/\s+/g, " ").trim();
 
   const generatePdfReport = (payload, advisorName) => {
     if (!payload) return;
 
-    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
     const pageWidth = doc.internal.pageSize.getWidth();
     const marginX = 15;
     const contentWidth = pageWidth - marginX * 2;
@@ -472,19 +492,19 @@ El tono debe ser profesional y directo.`);
 
     const addSectionTitle = (title, subtitle) => {
       ensureSpace(10);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       doc.setTextColor(40, 44, 60);
       doc.text(title, marginX, cursorY);
       cursorY += 5;
       if (subtitle) {
-        doc.setFont('helvetica', 'normal');
+        doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(106, 109, 122);
         doc.text(subtitle, marginX, cursorY);
         cursorY += 6;
       }
-      doc.setFont('helvetica', 'normal');
+      doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       doc.setTextColor(39, 40, 45);
     };
@@ -498,15 +518,15 @@ El tono debe ser profesional y directo.`);
         const x = marginX + column * (cardWidth + 8);
         doc.setDrawColor(215, 218, 245);
         doc.setFillColor(247, 248, 255);
-        doc.roundedRect(x, cursorY, cardWidth, 24, 3, 3, 'FD');
+        doc.roundedRect(x, cursorY, cardWidth, 24, 3, 3, "FD");
         doc.setTextColor(116, 120, 138);
         doc.setFontSize(8);
         doc.text(item.label, x + 4, cursorY + 8);
-        doc.setFont('helvetica', 'bold');
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(13);
         doc.setTextColor(34, 34, 44);
-        doc.text(String(item.value ?? '—'), x + 4, cursorY + 18);
-        doc.setFont('helvetica', 'normal');
+        doc.text(String(item.value ?? "—"), x + 4, cursorY + 18);
+        doc.setFont("helvetica", "normal");
         column += 1;
         if (column === 2) {
           column = 0;
@@ -526,25 +546,38 @@ El tono debe ser profesional y directo.`);
       items.forEach((item, idx) => {
         const metaParts = [];
         if (item.contact) metaParts.push(item.contact);
-        if (item.responseMinutes !== undefined) metaParts.push(`${item.responseMinutes} min`);
-        const meta = metaParts.join(' · ') || `Caso ${idx + 1}`;
+        if (item.responseMinutes !== undefined)
+          metaParts.push(`${item.responseMinutes} min`);
+        const meta = metaParts.join(" · ") || `Caso ${idx + 1}`;
         const clientText = item.clientSnippet
           ? `Cliente: ${item.clientSnippet}`
           : item.reason
             ? item.reason
-            : '';
-        const advisorText = item.advisorSnippet ? item.advisorSnippet : '';
-        const clientLines = clientText ? doc.splitTextToSize(clientText, cardWidth - 20) : [];
-        const advisorLines = advisorText ? doc.splitTextToSize(`Asesor: ${advisorText}`, cardWidth - 24) : [];
-        const clientHeight = clientLines.length ? clientLines.length * 5 + 10 : 0;
-        const advisorHeight = advisorLines.length ? advisorLines.length * 5 + 10 : 0;
-        const baseHeight = 18 + clientHeight + advisorHeight + (clientHeight && advisorHeight ? 4 : 0);
+            : "";
+        const advisorText = item.advisorSnippet ? item.advisorSnippet : "";
+        const clientLines = clientText
+          ? doc.splitTextToSize(clientText, cardWidth - 20)
+          : [];
+        const advisorLines = advisorText
+          ? doc.splitTextToSize(`Asesor: ${advisorText}`, cardWidth - 24)
+          : [];
+        const clientHeight = clientLines.length
+          ? clientLines.length * 5 + 10
+          : 0;
+        const advisorHeight = advisorLines.length
+          ? advisorLines.length * 5 + 10
+          : 0;
+        const baseHeight =
+          18 +
+          clientHeight +
+          advisorHeight +
+          (clientHeight && advisorHeight ? 4 : 0);
 
         ensureSpace(baseHeight + 10);
         doc.setDrawColor(...palette.border);
         doc.setFillColor(...palette.fill);
-        doc.roundedRect(marginX, cursorY, cardWidth, baseHeight, 4, 4, 'FD');
-        doc.setFont('helvetica', 'bold');
+        doc.roundedRect(marginX, cursorY, cardWidth, baseHeight, 4, 4, "FD");
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(10.5);
         doc.setTextColor(42, 44, 61);
         doc.text(meta, marginX + 4, cursorY + 7);
@@ -553,12 +586,20 @@ El tono debe ser profesional y directo.`);
         if (clientLines.length) {
           doc.setDrawColor(221, 228, 255);
           doc.setFillColor(255, 255, 255);
-          doc.roundedRect(marginX + 4, blockY, cardWidth - 8, clientHeight, 3, 3, 'FD');
-          doc.setFont('helvetica', 'bold');
+          doc.roundedRect(
+            marginX + 4,
+            blockY,
+            cardWidth - 8,
+            clientHeight,
+            3,
+            3,
+            "FD",
+          );
+          doc.setFont("helvetica", "bold");
           doc.setFontSize(9);
           doc.setTextColor(78, 82, 120);
-          doc.text('Cliente', marginX + 8, blockY + 5);
-          doc.setFont('helvetica', 'normal');
+          doc.text("Cliente", marginX + 8, blockY + 5);
+          doc.setFont("helvetica", "normal");
           doc.setTextColor(60, 63, 92);
           let textY = blockY + 10;
           clientLines.forEach((line) => {
@@ -571,12 +612,22 @@ El tono debe ser profesional y directo.`);
         if (advisorLines.length) {
           doc.setDrawColor(255, 222, 203);
           doc.setFillColor(255, 255, 255);
-          doc.roundedRect(marginX + 4, blockY, cardWidth - 8, advisorHeight, 3, 3, 'FD');
-          doc.setFont('helvetica', 'bold');
+          doc.roundedRect(
+            marginX + 4,
+            blockY,
+            cardWidth - 8,
+            advisorHeight,
+            3,
+            3,
+            "FD",
+          );
+          doc.setFont("helvetica", "bold");
           doc.setFontSize(9);
           doc.setTextColor(104, 74, 54);
-          doc.text('Asesor', marginX + cardWidth - 12, blockY + 5, { align: 'right' });
-          doc.setFont('helvetica', 'normal');
+          doc.text("Asesor", marginX + cardWidth - 12, blockY + 5, {
+            align: "right",
+          });
+          doc.setFont("helvetica", "normal");
           doc.setTextColor(78, 62, 48);
           let textY = blockY + 10;
           advisorLines.forEach((line) => {
@@ -594,56 +645,77 @@ El tono debe ser profesional y directo.`);
     // Header
     doc.setFillColor(36, 33, 93);
     doc.setDrawColor(36, 33, 93);
-    doc.roundedRect(marginX, 15, contentWidth, 22, 4, 4, 'F');
-    doc.setFont('helvetica', 'bold');
+    doc.roundedRect(marginX, 15, contentWidth, 22, 4, 4, "F");
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
     doc.setTextColor(255, 255, 255);
-    doc.text(`Informe IA · ${advisorName || 'Asesor'}`, marginX + 6, 29);
+    doc.text(`Informe IA · ${advisorName || "Asesor"}`, marginX + 6, 29);
     doc.setFontSize(10);
-    doc.text(new Date().toLocaleDateString('es-ES'), marginX + contentWidth - 6, 29, {
-      align: 'right'
-    });
-    doc.setFont('helvetica', 'normal');
+    doc.text(
+      new Date().toLocaleDateString("es-ES"),
+      marginX + contentWidth - 6,
+      29,
+      {
+        align: "right",
+      },
+    );
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(39, 40, 45);
 
     const summary = payload.summary || {};
     const narrative = payload.aiNarrative || {};
-    const summaryParagraph = `Se analizaron ${summary.totalChats ?? 0} conversaciones (${summary.totalMessages ?? 0
-      } mensajes) para comprender el desempeño del asesor. Se confirmaron ${summary.salesCompleted ?? 0
-      } ventas y se identificaron ${summary.salesFailed ?? 0} oportunidades perdidas. El tiempo de respuesta promedio fue de ${summary.averageResponseMinutes ?? 'N/D'
-      } minutos, con picos de hasta ${summary.worstResponseMinutes ?? 'N/D'} minutos en los casos más lentos.`;
+    const summaryParagraph = `Se analizaron ${summary.totalChats ?? 0} conversaciones (${
+      summary.totalMessages ?? 0
+    } mensajes) para comprender el desempeño del asesor. Se confirmaron ${
+      summary.salesCompleted ?? 0
+    } ventas y se identificaron ${summary.salesFailed ?? 0} oportunidades perdidas. El tiempo de respuesta promedio fue de ${
+      summary.averageResponseMinutes ?? "N/D"
+    } minutos, con picos de hasta ${summary.worstResponseMinutes ?? "N/D"} minutos en los casos más lentos.`;
     addParagraph(summaryParagraph);
 
     drawStatsGrid([
-      { label: 'Conversaciones', value: summary.totalChats ?? '—' },
-      { label: 'Mensajes', value: summary.totalMessages ?? '—' },
-      { label: 'Ventas concretadas', value: summary.salesCompleted ?? 0 },
-      { label: 'Oportunidades perdidas', value: summary.salesFailed ?? 0 },
+      { label: "Conversaciones", value: summary.totalChats ?? "—" },
+      { label: "Mensajes", value: summary.totalMessages ?? "—" },
+      { label: "Ventas concretadas", value: summary.salesCompleted ?? 0 },
+      { label: "Oportunidades perdidas", value: summary.salesFailed ?? 0 },
       {
-        label: 'Tiempo respuesta promedio',
-        value: summary.averageResponseMinutes ? `${summary.averageResponseMinutes} min` : 'N/D'
+        label: "Tiempo respuesta promedio",
+        value: summary.averageResponseMinutes
+          ? `${summary.averageResponseMinutes} min`
+          : "N/D",
       },
       {
-        label: 'Respuesta más lenta',
-        value: summary.worstResponseMinutes ? `${summary.worstResponseMinutes} min` : 'N/D'
-      }
+        label: "Respuesta más lenta",
+        value: summary.worstResponseMinutes
+          ? `${summary.worstResponseMinutes} min`
+          : "N/D",
+      },
     ]);
 
-    addSectionTitle('Narrativa general', 'Resumen elaborado automáticamente por la IA');
+    addSectionTitle(
+      "Narrativa general",
+      "Resumen elaborado automáticamente por la IA",
+    );
     addParagraph(
-      cleanText(narrative.introduction || narrative.executive_summary || '') ||
-        'No se pudo generar un resumen automático.'
+      cleanText(narrative.introduction || narrative.executive_summary || "") ||
+        "No se pudo generar un resumen automático.",
     );
 
     const addFindings = () => {
-      if (!Array.isArray(narrative.findings) || !narrative.findings.length) return;
+      if (!Array.isArray(narrative.findings) || !narrative.findings.length)
+        return;
       narrative.findings.forEach((finding, idx) => {
-        addSectionTitle(`Hallazgo ${idx + 1}: ${cleanText(finding.title || '')}`);
-        addParagraph(cleanText(finding.description || ''));
-        if (Array.isArray(finding.evidence_quotes) && finding.evidence_quotes.length) {
+        addSectionTitle(
+          `Hallazgo ${idx + 1}: ${cleanText(finding.title || "")}`,
+        );
+        addParagraph(cleanText(finding.description || ""));
+        if (
+          Array.isArray(finding.evidence_quotes) &&
+          finding.evidence_quotes.length
+        ) {
           finding.evidence_quotes.forEach((quote) =>
-            addParagraph(`Cita: "${cleanText(quote)}"`)
+            addParagraph(`Cita: "${cleanText(quote)}"`),
           );
         }
         if (finding.impact) {
@@ -653,11 +725,19 @@ El tono debe ser profesional y directo.`);
     };
 
     const addImprovements = () => {
-      if (!Array.isArray(narrative.improvements) || !narrative.improvements.length) return;
+      if (
+        !Array.isArray(narrative.improvements) ||
+        !narrative.improvements.length
+      )
+        return;
       narrative.improvements.forEach((improvement, idx) => {
-        addSectionTitle(`Area de mejora ${idx + 1}: ${cleanText(improvement.title || '')}`);
+        addSectionTitle(
+          `Area de mejora ${idx + 1}: ${cleanText(improvement.title || "")}`,
+        );
         if (Array.isArray(improvement.actions) && improvement.actions.length) {
-          improvement.actions.forEach((action) => addParagraph(`• ${cleanText(action)}`));
+          improvement.actions.forEach((action) =>
+            addParagraph(`• ${cleanText(action)}`),
+          );
         }
       });
     };
@@ -666,63 +746,67 @@ El tono debe ser profesional y directo.`);
     addImprovements();
 
     if (narrative.conclusion || narrative.closing_statement) {
-      addSectionTitle('Conclusión y próximos pasos');
-      addParagraph(cleanText(narrative.conclusion || narrative.closing_statement || ''));
+      addSectionTitle("Conclusión y próximos pasos");
+      addParagraph(
+        cleanText(narrative.conclusion || narrative.closing_statement || ""),
+      );
     }
 
-    drawChatSection('Momentos destacados', payload.evidence?.highlightedWins, {
+    drawChatSection("Momentos destacados", payload.evidence?.highlightedWins, {
       fill: [244, 243, 255],
-      border: [195, 188, 255]
+      border: [195, 188, 255],
     });
 
-    drawChatSection('Respuestas con demora', payload.evidence?.lateResponses, {
+    drawChatSection("Respuestas con demora", payload.evidence?.lateResponses, {
       fill: [255, 247, 236],
-      border: [253, 213, 152]
+      border: [253, 213, 152],
     });
 
     drawChatSection(
-      'Oportunidades de mejora',
+      "Oportunidades de mejora",
       (payload.evidence?.improvementReasons || []).map((item) => ({
         contact: item.contact,
-        clientSnippet: item.reason
+        clientSnippet: item.reason,
       })),
       {
         fill: [242, 248, 248],
-        border: [188, 218, 218]
-      }
+        border: [188, 218, 218],
+      },
     );
 
-    doc.save(`reporte_${advisorName || 'asesor'}.pdf`);
+    doc.save(`reporte_${advisorName || "asesor"}.pdf`);
   };
 
   const handleGenerateReport = async () => {
     if (!selectedBotId) return;
     if (!sessionToken) {
-      setReportError('No se pudo validar la sesión actual. Vuelve a iniciar sesión e inténtalo de nuevo.');
+      setReportError(
+        "No se pudo validar la sesión actual. Vuelve a iniciar sesión e inténtalo de nuevo.",
+      );
       return;
     }
     setReportLoading(true);
     setReportError(null);
     try {
-      const response = await fetch('/api/generate-report', {
-        method: 'POST',
+      const response = await fetch("/api/generate-report", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionToken}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
         },
         body: JSON.stringify({
           botId: selectedBotId,
-          customPrompt: reportPrompt
-        })
+          customPrompt: reportPrompt,
+        }),
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'No se pudo generar el reporte.');
+        throw new Error(data.error || "No se pudo generar el reporte.");
       }
       setReportData(data);
       generatePdfReport(data, selectedBot?.session_name);
     } catch (error) {
-      console.error('Error generating report:', error);
+      console.error("Error generating report:", error);
       setReportError(error.message);
     } finally {
       setReportLoading(false);
@@ -778,13 +862,13 @@ El tono debe ser profesional y directo.`);
     const displayName =
       nameTokens.length > 0
         ? nameTokens
-          .map((t) =>
-            t
-              .split("-")
-              .map((part) => capitalizeWord(part))
-              .join(" ")
-          )
-          .join(" ")
+            .map((t) =>
+              t
+                .split("-")
+                .map((part) => capitalizeWord(part))
+                .join(" "),
+            )
+            .join(" ")
         : String(sessionName);
 
     return {
@@ -982,40 +1066,38 @@ El tono debe ser profesional y directo.`);
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-  };
-
   const handleConversationClick = (botId, chatId) => {
     const chatIdStr = String(chatId);
     setLastChatId(chatIdStr);
 
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       try {
-        window.localStorage.setItem('dashboard:lastChatId', chatIdStr);
-        
+        window.localStorage.setItem("conversaciones:lastChatId", chatIdStr);
+
         // Guardar la página actual del paginador para este bot
         const currentPagination = conversationsPagination[botId];
         if (currentPagination && currentPagination.currentPage) {
           window.localStorage.setItem(
-            `dashboard:bot:${botId}:page`, 
-            String(currentPagination.currentPage)
+            `conversaciones:bot:${botId}:page`,
+            String(currentPagination.currentPage),
           );
         }
       } catch (error) {
-        console.error('Error guardando en localStorage desde handleConversationClick:', error);
+        console.error(
+          "Error guardando en localStorage desde handleConversationClick:",
+          error,
+        );
       }
     }
 
-    router.push(`/dashboard/chat/${chatId}?botId=${botId}`);
+    router.push(`/conversaciones/chat/${chatId}?botId=${botId}`);
   };
 
   // Función para ejecutar búsqueda global
   const handleGlobalSearch = async (query) => {
     setGlobalSearchQuery(query);
-    
-    if (!query || query.trim() === '') {
+
+    if (!query || query.trim() === "") {
       setIsGlobalSearchActive(false);
       setGlobalSearchResults([]);
       return;
@@ -1023,12 +1105,12 @@ El tono debe ser profesional y directo.`);
 
     setLoadingGlobalSearch(true);
     setIsGlobalSearchActive(true);
-    
+
     try {
       const results = await globalSearchChats(query);
       setGlobalSearchResults(results);
     } catch (error) {
-      console.error('Error en búsqueda global:', error);
+      console.error("Error en búsqueda global:", error);
       setGlobalSearchResults([]);
     } finally {
       setLoadingGlobalSearch(false);
@@ -1037,7 +1119,7 @@ El tono debe ser profesional y directo.`);
 
   // Función para limpiar búsqueda global
   const handleClearGlobalSearch = () => {
-    setGlobalSearchQuery('');
+    setGlobalSearchQuery("");
     setGlobalSearchResults([]);
     setIsGlobalSearchActive(false);
   };
@@ -1046,20 +1128,28 @@ El tono debe ser profesional y directo.`);
   const handleGlobalSearchResultClick = (chat) => {
     const chatIdStr = String(chat.id);
     const botIdStr = String(chat.bot_id);
-    
+
     // Guardar el estado de búsqueda en localStorage para restaurarlo después
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       try {
-        window.localStorage.setItem('dashboard:globalSearchQuery', globalSearchQuery);
-        window.localStorage.setItem('dashboard:globalSearchResults', JSON.stringify(globalSearchResults));
-        window.localStorage.setItem('dashboard:lastChatId', chatIdStr);
+        window.localStorage.setItem(
+          "conversaciones:globalSearchQuery",
+          globalSearchQuery,
+        );
+        window.localStorage.setItem(
+          "conversaciones:globalSearchResults",
+          JSON.stringify(globalSearchResults),
+        );
+        window.localStorage.setItem("conversaciones:lastChatId", chatIdStr);
       } catch (error) {
-        console.error('Error guardando búsqueda global:', error);
+        console.error("Error guardando búsqueda global:", error);
       }
     }
 
     // Navegar al chat con parámetro de búsqueda
-    router.push(`/dashboard/chat/${chatIdStr}?botId=${botIdStr}&fromSearch=true`);
+    router.push(
+      `/conversaciones/chat/${chatIdStr}?botId=${botIdStr}&fromSearch=true`,
+    );
   };
 
   const handlePageChange = async (botId, newPage) => {
@@ -1075,7 +1165,11 @@ El tono debe ser profesional y directo.`);
     : [];
 
   const selectedBotPagination = selectedBotId
-    ? conversationsPagination[selectedBotId] || { currentPage: 1, totalPages: 0, total: 0 }
+    ? conversationsPagination[selectedBotId] || {
+        currentPage: 1,
+        totalPages: 0,
+        total: 0,
+      }
     : { currentPage: 1, totalPages: 0, total: 0 };
 
   if (loading) {
@@ -1091,7 +1185,7 @@ El tono debe ser profesional y directo.`);
 
   const totalConversations = bots.reduce(
     (sum, bot) => sum + (bot.conversation_count || 0),
-    0
+    0,
   );
 
   const activeFilterPills = getActiveFilterPills();
@@ -1104,8 +1198,12 @@ El tono debe ser profesional y directo.`);
           <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">Ventas Concretadas</h3>
-                <p className="text-sm text-gray-500">Conversaciones con venta confirmada por IA</p>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Ventas Concretadas
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Conversaciones con venta confirmada por IA
+                </p>
               </div>
               <button
                 type="button"
@@ -1118,7 +1216,8 @@ El tono debe ser profesional y directo.`);
 
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between text-sm">
               <span className="text-gray-600">
-                Total: <strong>{salesConversations.length}</strong> ventas registradas
+                Total: <strong>{salesConversations.length}</strong> ventas
+                registradas
               </span>
               <span className="text-gray-500 flex items-center gap-1">
                 <ArrowUp className="h-4 w-4 text-green-500" />
@@ -1143,7 +1242,10 @@ El tono debe ser profesional y directo.`);
               ) : (
                 <ul className="divide-y divide-gray-100">
                   {salesConversations.map((sale) => (
-                    <li key={sale.id} className="px-6 py-4 flex items-center justify-between gap-4">
+                    <li
+                      key={sale.id}
+                      className="px-6 py-4 flex items-center justify-between gap-4"
+                    >
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-gray-900 truncate">
                           {sale.displayName} · {sale.displayPhone}
@@ -1159,7 +1261,9 @@ El tono debe ser profesional y directo.`);
                           type="button"
                           onClick={() => {
                             handleCloseSalesModal();
-                            router.push(`/dashboard/chat/${sale.id}?botId=${sale.bot?.id || sale.bot_id}`);
+                            router.push(
+                              `/conversaciones/chat/${sale.id}?botId=${sale.bot?.id || sale.bot_id}`,
+                            );
                           }}
                           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-xs font-semibold hover:bg-green-100"
                         >
@@ -1175,7 +1279,8 @@ El tono debe ser profesional y directo.`);
 
             <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
               <p className="text-xs text-gray-500">
-                Mostrando las conversaciones donde la IA marcó <strong>sale_completed = true</strong>
+                Mostrando las conversaciones donde la IA marcó{" "}
+                <strong>sale_completed = true</strong>
               </p>
               <button
                 type="button"
@@ -1195,13 +1300,17 @@ El tono debe ser profesional y directo.`);
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">Sincronización Completa</h3>
-                <p className="text-sm text-gray-500">Conectando con Express y WAHA</p>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Sincronización Completa
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Conectando con Express y WAHA
+                </p>
               </div>
               <button
                 type="button"
                 onClick={handleCloseSyncModal}
-                className={`text-gray-400 hover:text-gray-600 ${syncingAll ? 'pointer-events-none opacity-50' : ''}`}
+                className={`text-gray-400 hover:text-gray-600 ${syncingAll ? "pointer-events-none opacity-50" : ""}`}
                 disabled={syncingAll}
               >
                 <X className="h-6 w-6" />
@@ -1209,7 +1318,9 @@ El tono debe ser profesional y directo.`);
             </div>
 
             <div className="px-6 py-4">
-              <p className="text-sm font-medium text-gray-700 mb-2">{syncProgress.status}</p>
+              <p className="text-sm font-medium text-gray-700 mb-2">
+                {syncProgress.status}
+              </p>
               <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-indigo-600 transition-all duration-300"
@@ -1221,13 +1332,22 @@ El tono debe ser profesional y directo.`);
             <div className="flex-1 overflow-y-auto px-6 pb-4">
               <div className="bg-gray-50 rounded-lg border border-gray-100 p-4 text-sm max-h-64 overflow-y-auto">
                 {syncLogs.length === 0 ? (
-                  <p className="text-gray-500 text-center">Esperando actualizaciones...</p>
+                  <p className="text-gray-500 text-center">
+                    Esperando actualizaciones...
+                  </p>
                 ) : (
                   <ul className="space-y-2">
                     {syncLogs.map((log, index) => (
-                      <li key={`${log.time}-${index}`} className="flex items-start gap-2">
-                        <span className="text-[11px] text-gray-400">{log.time}</span>
-                        <span className={`text-sm ${log.type === 'error' ? 'text-red-600' : 'text-gray-700'}`}>
+                      <li
+                        key={`${log.time}-${index}`}
+                        className="flex items-start gap-2"
+                      >
+                        <span className="text-[11px] text-gray-400">
+                          {log.time}
+                        </span>
+                        <span
+                          className={`text-sm ${log.type === "error" ? "text-red-600" : "text-gray-700"}`}
+                        >
                           {log.message}
                         </span>
                       </li>
@@ -1239,7 +1359,8 @@ El tono debe ser profesional y directo.`);
 
             <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
               <p className="text-xs text-gray-500">
-                La sincronización puede tardar varios minutos dependiendo de la cantidad de bots.
+                La sincronización puede tardar varios minutos dependiendo de la
+                cantidad de bots.
               </p>
               <button
                 type="button"
@@ -1247,8 +1368,8 @@ El tono debe ser profesional y directo.`);
                 disabled={syncingAll}
                 className={`px-4 py-2 rounded-lg border text-sm transition ${
                   syncingAll
-                    ? 'border-gray-300 text-gray-400'
-                    : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                    ? "border-gray-300 text-gray-400"
+                    : "border-gray-300 text-gray-700 hover:bg-gray-100"
                 }`}
               >
                 Cerrar
@@ -1258,75 +1379,22 @@ El tono debe ser profesional y directo.`);
         </div>
       )}
 
-      {/* Header */}
-    {/*   <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Dashboard CRM WhatsApp
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Bienvenido, {user?.email}
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-stretch sm:justify-end items-stretch sm:items-center">
-              <button
-                onClick={handleFullSync}
-                className={`w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-white transition-colors ${
-                  syncingAll ? 'bg-indigo-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
-                }`}
-                disabled={syncingAll}
-              >
-                {syncingAll ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                {syncingAll ? 'Sincronizando...' : 'Sincronizar Todos los Bots'}
-              </button>
-              <button
-                onClick={() => router.push('/dashboard/ai-insights')}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-              >
-                <Brain className="h-4 w-4" />
-                AI Insights
-              </button>
-              <button
-                onClick={fetchData}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Actualizar
-              </button>
-              <button
-                onClick={handleLogout}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-                Cerrar Sesión
-              </button>
-            </div>
-          </div>
-        </div>
-      </header> */}
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-end gap-2 mb-4">
-           <button
-                onClick={() => router.push('/dashboard/ai-insights')}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-              >
-                <Brain className="h-4 w-4" />
-                AI Insights
-              </button>
+          <button
+            onClick={() => router.push("/conversaciones/ai-insights")}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            <Brain className="h-4 w-4" />
+            AI Insights
+          </button>
           <button
             type="button"
             onClick={() => setCompactMode((prev) => !prev)}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-white text-xs text-gray-700 hover:bg-gray-50"
           >
-            Modo: {compactMode ? 'Compacto' : 'Detallado'}
+            Modo: {compactMode ? "Compacto" : "Detallado"}
           </button>
         </div>
 
@@ -1417,10 +1485,10 @@ El tono debe ser profesional y directo.`);
                       {
                         bots.filter(
                           (bot) =>
-                            bot.status === "WORKING" || 
-                            bot.status === "ACTIVE" || 
-                            bot.status === "working" || 
-                            bot.status === "active"
+                            bot.status === "WORKING" ||
+                            bot.status === "ACTIVE" ||
+                            bot.status === "working" ||
+                            bot.status === "active",
                         ).length
                       }
                     </dd>
@@ -1439,7 +1507,9 @@ El tono debe ser profesional y directo.`);
               <h2 className="text-xl font-semibold text-gray-900">Filtros</h2>
               {activeFiltersCount() > 0 && (
                 <span className="hidden md:inline text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
-                  {activeFiltersCount()} filtro{activeFiltersCount() > 1 ? 's' : ''} activo{activeFiltersCount() > 1 ? 's' : ''}
+                  {activeFiltersCount()} filtro
+                  {activeFiltersCount() > 1 ? "s" : ""} activo
+                  {activeFiltersCount() > 1 ? "s" : ""}
                 </span>
               )}
             </div>
@@ -1464,7 +1534,7 @@ El tono debe ser profesional y directo.`);
                 onClick={() => setShowFilters((prev) => !prev)}
                 className="inline-flex items-center gap-1 text-xs font-medium text-gray-600"
               >
-                {showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
+                {showFilters ? "Ocultar filtros" : "Mostrar filtros"}
                 {showFilters ? (
                   <ChevronUp className="h-4 w-4" />
                 ) : (
@@ -1488,7 +1558,7 @@ El tono debe ser profesional y directo.`);
               ))}
             </div>
           )}
-          <div className={`px-6 py-4 ${showFilters ? 'block' : 'hidden'}`}>
+          <div className={`px-6 py-4 ${showFilters ? "block" : "hidden"}`}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Filtro de búsqueda global */}
               <div>
@@ -1580,7 +1650,8 @@ El tono debe ser profesional y directo.`);
                   <span className="text-sm text-gray-600">
                     {getAllFilteredBots().length} de {bots.length} asesores
                     {activeFiltersCount() > 0 &&
-                      ` (${activeFiltersCount()} filtro${activeFiltersCount() > 1 ? "s" : ""
+                      ` (${activeFiltersCount()} filtro${
+                        activeFiltersCount() > 1 ? "s" : ""
                       } activo${activeFiltersCount() > 1 ? "s" : ""})`}
                   </span>
                   <button
@@ -1638,20 +1709,23 @@ El tono debe ser profesional y directo.`);
                       key={bot.id}
                       type="button"
                       onClick={() => handleBotSelect(bot.id)}
-                      className={`w-full text-left px-4 py-3 flex items-center justify-between gap-3 transition-colors border-l-4 ${isSelected
-                        ? 'bg-indigo-50 border-indigo-500'
-                        : 'border-transparent hover:bg-gray-50'
-                        }`}
+                      className={`w-full text-left px-4 py-3 flex items-center justify-between gap-3 transition-colors border-l-4 ${
+                        isSelected
+                          ? "bg-indigo-50 border-indigo-500"
+                          : "border-transparent hover:bg-gray-50"
+                      }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="relative flex-shrink-0">
                           <div
-                            className={`h-10 w-10 rounded-full flex items-center justify-center ${botIsActive ? 'bg-green-100' : 'bg-gray-200'
-                              }`}
+                            className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                              botIsActive ? "bg-green-100" : "bg-gray-200"
+                            }`}
                           >
                             <Bot
-                              className={`h-5 w-5 ${botIsActive ? 'text-green-600' : 'text-gray-600'
-                                }`}
+                              className={`h-5 w-5 ${
+                                botIsActive ? "text-green-600" : "text-gray-600"
+                              }`}
                             />
                           </div>
                           {botIsActive && (
@@ -1667,10 +1741,11 @@ El tono debe ser profesional y directo.`);
                           </p>
                           <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-gray-500">
                             <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full border ${botIsActive
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : 'bg-gray-50 text-gray-600 border-gray-200'
-                                }`}
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full border ${
+                                botIsActive
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : "bg-gray-50 text-gray-600 border-gray-200"
+                              }`}
                             >
                               {formattedStatus}
                             </span>
@@ -1704,7 +1779,9 @@ El tono debe ser profesional y directo.`);
                         <span className="text-sm font-semibold text-gray-900">
                           {bot.conversation_count || 0}
                         </span>
-                        <span className="text-xs text-gray-500">Conversaciones</span>
+                        <span className="text-xs text-gray-500">
+                          Conversaciones
+                        </span>
                       </div>
                     </button>
                   );
@@ -1725,10 +1802,10 @@ El tono debe ser profesional y directo.`);
                         Conversaciones de {meta.displayName}
                       </h2>
                       <p className="text-xs text-gray-500 mt-1">
-                        {selectedBotPagination.total > 0 
-                          ? `${selectedBotPagination.total} conversaciones totales` 
+                        {selectedBotPagination.total > 0
+                          ? `${selectedBotPagination.total} conversaciones totales`
                           : `${selectedBot.conversation_count || 0} conversaciones totales`}
-                        {selectedBotPagination.totalPages > 1 && 
+                        {selectedBotPagination.totalPages > 1 &&
                           ` • Mostrando página ${selectedBotPagination.currentPage} de ${selectedBotPagination.totalPages}`}
                       </p>
                       <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px] text-gray-600">
@@ -1757,7 +1834,8 @@ El tono debe ser profesional y directo.`);
                     Conversaciones
                   </h2>
                   <p className="text-xs text-gray-500 mt-1">
-                    Selecciona un asesor en la lista para ver sus conversaciones.
+                    Selecciona un asesor en la lista para ver sus
+                    conversaciones.
                   </p>
                 </div>
               )}
@@ -1765,9 +1843,7 @@ El tono debe ser profesional y directo.`);
               {selectedBot && (
                 <div className="flex flex-col items-end gap-3">
                   <div className="flex flex-col items-end text-xs text-gray-500">
-                    <span>
-                      Estado: {formatBotStatus(selectedBot.status)}
-                    </span>
+                    <span>Estado: {formatBotStatus(selectedBot.status)}</span>
                     {selectedBot.phone_number && (
                       <span className="flex items-center gap-1 mt-1">
                         <Phone className="h-3 w-3" />
@@ -1818,7 +1894,9 @@ El tono debe ser profesional y directo.`);
               )}
               {isGlobalSearchActive && !loadingGlobalSearch && (
                 <div className="mt-2 text-sm text-gray-600">
-                  {globalSearchResults.length} resultado{globalSearchResults.length !== 1 ? 's' : ''} encontrado{globalSearchResults.length !== 1 ? 's' : ''}
+                  {globalSearchResults.length} resultado
+                  {globalSearchResults.length !== 1 ? "s" : ""} encontrado
+                  {globalSearchResults.length !== 1 ? "s" : ""}
                 </div>
               )}
             </div>
@@ -1839,7 +1917,8 @@ El tono debe ser profesional y directo.`);
                         No se encontraron resultados
                       </h3>
                       <p className="mt-1 text-sm text-gray-500 max-w-md">
-                        No hay conversaciones que coincidan con "{globalSearchQuery}"
+                        No hay conversaciones que coincidan con "
+                        {globalSearchQuery}"
                       </p>
                     </div>
                   </div>
@@ -1851,32 +1930,32 @@ El tono debe ser profesional y directo.`);
                         onClick={() => handleGlobalSearchResultClick(chat)}
                         className={`px-6 py-4 cursor-pointer transition-colors flex items-center justify-between gap-4 ${
                           lastChatId === String(chat.id)
-                            ? 'bg-indigo-50 hover:bg-indigo-100'
-                            : 'hover:bg-gray-50'
+                            ? "bg-indigo-50 hover:bg-indigo-100"
+                            : "hover:bg-gray-50"
                         }`}
                       >
                         <div className="flex items-center min-w-0 flex-1 gap-4">
-                          <ContactAvatar 
+                          <ContactAvatar
                             profilePictureUrl={chat.contact_profile_picture_url}
-                            contactName={chat.contact_name || 'Sin nombre'}
+                            contactName={chat.contact_name || "Sin nombre"}
                             size="md"
                           />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium truncate">
-                              <HighlightText 
-                                text={chat.contact_name || 'Sin nombre'} 
+                              <HighlightText
+                                text={chat.contact_name || "Sin nombre"}
                                 searchQuery={globalSearchQuery}
                                 className="text-gray-900"
                               />
                             </p>
-                            
+
                             {/* Preview del mensaje si hay coincidencia en mensajes */}
                             {chat.match_message ? (
                               <div className="flex items-start gap-1 mt-0.5 text-xs text-gray-600">
                                 <CheckCheck className="h-3 w-3 mt-0.5 text-gray-400 flex-shrink-0" />
                                 <span className="truncate">
-                                  <HighlightText 
-                                    text={chat.match_message} 
+                                  <HighlightText
+                                    text={chat.match_message}
                                     searchQuery={globalSearchQuery}
                                     className="text-gray-600"
                                   />
@@ -1887,8 +1966,8 @@ El tono debe ser profesional y directo.`);
                               <div className="flex items-center gap-2 mt-0.5 text-xs">
                                 <Phone className="h-3 w-3 text-gray-500" />
                                 <span className="truncate max-w-[120px]">
-                                  <HighlightText 
-                                    text={chat.contact_phone} 
+                                  <HighlightText
+                                    text={chat.contact_phone}
                                     searchQuery={globalSearchQuery}
                                     className="text-gray-500"
                                   />
@@ -1905,10 +1984,12 @@ El tono debe ser profesional y directo.`);
                         <div className="flex flex-col items-end flex-shrink-0 text-xs text-gray-500">
                           {chat.last_message_time && (
                             <span>
-                              {new Date(chat.last_message_time).toLocaleDateString('es-ES', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric',
+                              {new Date(
+                                chat.last_message_time,
+                              ).toLocaleDateString("es-ES", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
                               })}
                             </span>
                           )}
@@ -1925,7 +2006,8 @@ El tono debe ser profesional y directo.`);
                       No hay asesor seleccionado
                     </h3>
                     <p className="mt-1 text-sm text-gray-500 max-w-md">
-                      Usa la lista de la izquierda para elegir un asesor y ver el detalle de sus conversaciones.
+                      Usa la lista de la izquierda para elegir un asesor y ver
+                      el detalle de sus conversaciones.
                     </p>
                   </div>
                 </div>
@@ -1942,7 +2024,8 @@ El tono debe ser profesional y directo.`);
                       No hay conversaciones para este asesor
                     </h3>
                     <p className="mt-1 text-sm text-gray-500 max-w-md">
-                      Las conversaciones aparecerán aquí cuando el bot reciba mensajes de clientes.
+                      Las conversaciones aparecerán aquí cuando el bot reciba
+                      mensajes de clientes.
                     </p>
                   </div>
                 </div>
@@ -1952,22 +2035,24 @@ El tono debe ser profesional y directo.`);
                     {selectedBotConversations.map((conv) => (
                       <div
                         key={conv.id}
-                        onClick={() => handleConversationClick(selectedBot.id, conv.id)}
+                        onClick={() =>
+                          handleConversationClick(selectedBot.id, conv.id)
+                        }
                         className={`px-6 py-4 cursor-pointer transition-colors flex items-center justify-between gap-4 ${
                           lastChatId === String(conv.id)
-                            ? 'bg-indigo-50 hover:bg-indigo-100'
-                            : 'hover:bg-gray-50'
+                            ? "bg-indigo-50 hover:bg-indigo-100"
+                            : "hover:bg-gray-50"
                         }`}
                       >
                         <div className="flex items-center min-w-0 flex-1 gap-4">
-                          <ContactAvatar 
+                          <ContactAvatar
                             profilePictureUrl={conv.contact_profile_picture_url}
-                            contactName={conv.contact_name || 'Sin nombre'}
+                            contactName={conv.contact_name || "Sin nombre"}
                             size="md"
                           />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-gray-900 truncate">
-                              {conv.contact_name || 'Sin nombre'}
+                              {conv.contact_name || "Sin nombre"}
                             </p>
                             <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
                               <Phone className="h-3 w-3" />
@@ -1979,35 +2064,63 @@ El tono debe ser profesional y directo.`);
                         </div>
                         <div className="flex flex-col items-end flex-shrink-0 text-xs text-gray-500 gap-1">
                           {/* Indicador IA - Solo mostrar si hay análisis real (sale_completed definido) */}
-                          {conv.ai_analysis && conv.ai_analysis.sale_completed !== undefined && (
-                            <div className="mb-1" title={conv.ai_analysis.sale_completed ? 'Venta Probable' : 'Venta Improbable'}>
-                              {conv.ai_analysis.sale_completed ? (
-                                <div className="flex items-center gap-1 text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">
-                                  <ArrowUp className="h-3 w-3" />
-                                  <span className="font-bold text-xs">Venta</span>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1 text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
-                                  <ArrowDown className="h-3 w-3" />
-                                  <span className="font-bold text-xs">No Venta</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                          {conv.ai_analysis &&
+                            conv.ai_analysis.sale_completed !== undefined && (
+                              <div
+                                className="mb-1"
+                                title={
+                                  conv.ai_analysis.sale_completed
+                                    ? "Venta Probable"
+                                    : "Venta Improbable"
+                                }
+                              >
+                                {conv.ai_analysis.sale_completed ? (
+                                  <div className="flex items-center gap-1 text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">
+                                    <ArrowUp className="h-3 w-3" />
+                                    <span className="font-bold text-xs">
+                                      Venta
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1 text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
+                                    <ArrowDown className="h-3 w-3" />
+                                    <span className="font-bold text-xs">
+                                      No Venta
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
                           {conv.conversation_metrics?.response && (
-                            <div className="flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200" title="Tiempo promedio de respuesta del asesor">
+                            <div
+                              className="flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200"
+                              title="Tiempo promedio de respuesta del asesor"
+                            >
                               <Clock3 className="h-3 w-3 text-indigo-500" />
                               <span>
-                                {formatResponseTime(conv.conversation_metrics.response.averageMinutes)} avg
+                                {formatResponseTime(
+                                  conv.conversation_metrics.response
+                                    .averageMinutes,
+                                )}{" "}
+                                avg
                               </span>
                             </div>
                           )}
 
                           {conv.conversation_metrics?.paymentMentions && (
-                            <div className="flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200" title="La conversación menciona pagos o métodos de pago">
+                            <div
+                              className="flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200"
+                              title="La conversación menciona pagos o métodos de pago"
+                            >
                               <CreditCard className="h-3 w-3" />
-                              <span>{conv.conversation_metrics.paymentMentions.count} mención(es)</span>
+                              <span>
+                                {
+                                  conv.conversation_metrics.paymentMentions
+                                    .count
+                                }{" "}
+                                mención(es)
+                              </span>
                             </div>
                           )}
 
@@ -2016,10 +2129,12 @@ El tono debe ser profesional y directo.`);
                           </span>
                           {conv.last_message_time && (
                             <span className="mt-0.5">
-                              {new Date(conv.last_message_time).toLocaleDateString('es-ES', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric',
+                              {new Date(
+                                conv.last_message_time,
+                              ).toLocaleDateString("es-ES", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
                               })}
                             </span>
                           )}
@@ -2033,7 +2148,8 @@ El tono debe ser profesional y directo.`);
                     <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <span>
-                          Página {selectedBotPagination.currentPage} de {selectedBotPagination.totalPages}
+                          Página {selectedBotPagination.currentPage} de{" "}
+                          {selectedBotPagination.totalPages}
                         </span>
                         <span className="text-xs text-gray-500">
                           ({selectedBotPagination.total} conversaciones totales)
@@ -2041,24 +2157,44 @@ El tono debe ser profesional y directo.`);
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handlePageChange(selectedBotId, selectedBotPagination.currentPage - 1)}
-                          disabled={selectedBotPagination.currentPage === 1 || loadingConversations[selectedBotId]}
+                          onClick={() =>
+                            handlePageChange(
+                              selectedBotId,
+                              selectedBotPagination.currentPage - 1,
+                            )
+                          }
+                          disabled={
+                            selectedBotPagination.currentPage === 1 ||
+                            loadingConversations[selectedBotId]
+                          }
                           className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            selectedBotPagination.currentPage === 1 || loadingConversations[selectedBotId]
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                            selectedBotPagination.currentPage === 1 ||
+                            loadingConversations[selectedBotId]
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
                           }`}
                         >
                           <ChevronLeft className="h-4 w-4" />
                           Anterior
                         </button>
                         <button
-                          onClick={() => handlePageChange(selectedBotId, selectedBotPagination.currentPage + 1)}
-                          disabled={selectedBotPagination.currentPage === selectedBotPagination.totalPages || loadingConversations[selectedBotId]}
+                          onClick={() =>
+                            handlePageChange(
+                              selectedBotId,
+                              selectedBotPagination.currentPage + 1,
+                            )
+                          }
+                          disabled={
+                            selectedBotPagination.currentPage ===
+                              selectedBotPagination.totalPages ||
+                            loadingConversations[selectedBotId]
+                          }
                           className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            selectedBotPagination.currentPage === selectedBotPagination.totalPages || loadingConversations[selectedBotId]
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                            selectedBotPagination.currentPage ===
+                              selectedBotPagination.totalPages ||
+                            loadingConversations[selectedBotId]
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
                           }`}
                         >
                           Siguiente
@@ -2090,7 +2226,8 @@ El tono debe ser profesional y directo.`);
                   Generar reporte del asesor
                 </h3>
                 <p className="text-sm text-slate-500 mt-1">
-                  Analizaremos todas las conversaciones recientes para identificar aciertos, riesgos y oportunidades.
+                  Analizaremos todas las conversaciones recientes para
+                  identificar aciertos, riesgos y oportunidades.
                 </p>
               </div>
               <button
@@ -2114,7 +2251,8 @@ El tono debe ser profesional y directo.`);
                   className="w-full min-h-[140px] rounded-2xl border border-slate-200 bg-white p-3 text-sm text-slate-800 focus:ring-4 focus:ring-purple-100 focus:border-purple-300"
                 />
                 <p className="mt-2 text-xs text-slate-500">
-                  Puedes personalizar el enfoque del reporte agregando instrucciones específicas (productos, campañas, etc.).
+                  Puedes personalizar el enfoque del reporte agregando
+                  instrucciones específicas (productos, campañas, etc.).
                 </p>
               </div>
 
@@ -2128,19 +2266,29 @@ El tono debe ser profesional y directo.`);
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="rounded-2xl border border-slate-100 p-4 bg-white shadow-sm">
-                      <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">Conversaciones</p>
-                      <p className="mt-2 text-2xl font-bold text-slate-900">{reportData.summary?.totalChats ?? '—'}</p>
+                      <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">
+                        Conversaciones
+                      </p>
+                      <p className="mt-2 text-2xl font-bold text-slate-900">
+                        {reportData.summary?.totalChats ?? "—"}
+                      </p>
                     </div>
                     <div className="rounded-2xl border border-slate-100 p-4 bg-white shadow-sm">
-                      <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">Ventas logradas</p>
-                      <p className="mt-2 text-2xl font-bold text-emerald-700">{reportData.summary?.salesCompleted ?? 0}</p>
+                      <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">
+                        Ventas logradas
+                      </p>
+                      <p className="mt-2 text-2xl font-bold text-emerald-700">
+                        {reportData.summary?.salesCompleted ?? 0}
+                      </p>
                     </div>
                     <div className="rounded-2xl border border-slate-100 p-4 bg-white shadow-sm">
-                      <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">Promedio respuesta</p>
+                      <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">
+                        Promedio respuesta
+                      </p>
                       <p className="mt-2 text-2xl font-bold text-indigo-700">
                         {reportData.summary?.averageResponseMinutes
                           ? `${reportData.summary.averageResponseMinutes} min`
-                          : 'N/D'}
+                          : "N/D"}
                       </p>
                     </div>
                   </div>
@@ -2151,15 +2299,30 @@ El tono debe ser profesional y directo.`);
                         Momentos destacados
                       </h4>
                       <div className="space-y-3 text-sm text-slate-700">
-                        {reportData.evidence?.highlightedWins?.length
-                          ? reportData.evidence.highlightedWins.map((item, idx) => (
-                              <div key={`win-${idx}`} className="rounded-xl border border-white/70 bg-white px-3 py-2 shadow-sm">
-                                <p className="font-semibold text-slate-900">{item.contact} · {item.responseMinutes} min</p>
-                                <p className="text-xs text-slate-500">Cliente: {item.clientSnippet}</p>
-                                <p className="text-xs text-slate-500">Asesor: {item.advisorSnippet}</p>
+                        {reportData.evidence?.highlightedWins?.length ? (
+                          reportData.evidence.highlightedWins.map(
+                            (item, idx) => (
+                              <div
+                                key={`win-${idx}`}
+                                className="rounded-xl border border-white/70 bg-white px-3 py-2 shadow-sm"
+                              >
+                                <p className="font-semibold text-slate-900">
+                                  {item.contact} · {item.responseMinutes} min
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  Cliente: {item.clientSnippet}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  Asesor: {item.advisorSnippet}
+                                </p>
                               </div>
-                            ))
-                          : <p className="text-xs text-slate-500">Aún no hay registros.</p>}
+                            ),
+                          )
+                        ) : (
+                          <p className="text-xs text-slate-500">
+                            Aún no hay registros.
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="rounded-2xl border border-amber-100 bg-amber-50/40 p-4">
@@ -2167,15 +2330,28 @@ El tono debe ser profesional y directo.`);
                         Respuestas tardías
                       </h4>
                       <div className="space-y-3 text-sm text-slate-700">
-                        {reportData.evidence?.lateResponses?.length
-                          ? reportData.evidence.lateResponses.map((item, idx) => (
-                              <div key={`late-${idx}`} className="rounded-xl border border-amber-100 bg-white px-3 py-2 shadow-sm">
-                                <p className="font-semibold text-slate-900">{item.contact} · {item.responseMinutes} min</p>
-                                <p className="text-xs text-slate-500">Cliente: {item.clientSnippet}</p>
-                                <p className="text-xs text-slate-500">Asesor: {item.advisorSnippet}</p>
-                              </div>
-                            ))
-                          : <p className="text-xs text-slate-500">Sin demoras relevantes.</p>}
+                        {reportData.evidence?.lateResponses?.length ? (
+                          reportData.evidence.lateResponses.map((item, idx) => (
+                            <div
+                              key={`late-${idx}`}
+                              className="rounded-xl border border-amber-100 bg-white px-3 py-2 shadow-sm"
+                            >
+                              <p className="font-semibold text-slate-900">
+                                {item.contact} · {item.responseMinutes} min
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                Cliente: {item.clientSnippet}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                Asesor: {item.advisorSnippet}
+                              </p>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-slate-500">
+                            Sin demoras relevantes.
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2185,13 +2361,22 @@ El tono debe ser profesional y directo.`);
                       Motivos de mejora detectados
                     </h4>
                     <div className="space-y-2 text-sm text-slate-700">
-                      {reportData.evidence?.improvementReasons?.length
-                        ? reportData.evidence.improvementReasons.map((item, idx) => (
+                      {reportData.evidence?.improvementReasons?.length ? (
+                        reportData.evidence.improvementReasons.map(
+                          (item, idx) => (
                             <p key={`improve-${idx}`}>
-                              <span className="font-semibold text-slate-900">{item.contact}:</span> {item.reason}
+                              <span className="font-semibold text-slate-900">
+                                {item.contact}:
+                              </span>{" "}
+                              {item.reason}
                             </p>
-                          ))
-                        : <p className="text-xs text-slate-500">Sin observaciones registradas.</p>}
+                          ),
+                        )
+                      ) : (
+                        <p className="text-xs text-slate-500">
+                          Sin observaciones registradas.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2212,7 +2397,9 @@ El tono debe ser profesional y directo.`);
                 </button>
                 {reportData && (
                   <button
-                    onClick={() => generatePdfReport(reportData, selectedBot?.session_name)}
+                    onClick={() =>
+                      generatePdfReport(reportData, selectedBot?.session_name)
+                    }
                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50"
                   >
                     <Download className="h-4 w-4" />

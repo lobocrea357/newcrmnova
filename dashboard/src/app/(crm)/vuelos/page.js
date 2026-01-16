@@ -1,6 +1,8 @@
+'use client'
+
 import UnderDevelopment from "@/components/layout/UnderDevelopment";
 
-export default function AnulablesPage() {
+export default function VuelosPage() {
   return (
     <div>
           <UnderDevelopment 

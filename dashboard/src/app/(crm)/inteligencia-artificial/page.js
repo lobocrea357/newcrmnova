@@ -1,9 +1,13 @@
 'use client'
 
+import UnderDevelopment from '@/components/layout/UnderDevelopment'
+
 export default function InteligenciaArtificialPage() {
   return (
-    <div>
-      <h1>Anulables</h1>
-    </div>
+    <UnderDevelopment 
+      moduleName="Modulo"
+      description="Proximamente"
+    
+    />
   );
 }

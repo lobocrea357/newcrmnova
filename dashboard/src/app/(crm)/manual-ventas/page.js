@@ -1,9 +1,15 @@
 'use client'
 
+import UnderDevelopment from "@/components/layout/UnderDevelopment";
+
 export default function ManualVentasPage() {
   return (
     <div>
-      <h1>Anulables</h1>
+      <UnderDevelopment 
+      moduleName="Modulo"
+      description="Proximamente"
+    
+    />
     </div>
   );
 }
