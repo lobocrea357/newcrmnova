@@ -79,7 +79,7 @@ const NotFound = () => {
                 </div>
 
                 {/* Enlaces rápidos */}
-                <div className="mt-12 pt-8 border-t border-gray-200">
+                {/* <div className="mt-12 pt-8 border-t border-gray-200">
                     <p className="text-sm text-gray-500 mb-4">Enlaces rápidos:</p>
                     <div className="flex flex-wrap justify-center gap-4 text-sm">
                         <Link href="/conversaciones" className="text-blue-600 hover:text-blue-700 hover:underline">
@@ -98,7 +98,7 @@ const NotFound = () => {
                             Configuración
                         </Link>
                     </div>
-                </div>
+                </div> */}
             </div>
         </div>
     )
