@@ -96,16 +96,18 @@ export default function ConversationPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => router.push(`/dashboard/bot/${botId}`)}
+                onClick={() => router.push(`/conversaciones/bot/${botId}`)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <ArrowLeft className="h-6 w-6 text-gray-600" />
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {conversation.contact_name || 'Sin nombre'}
+                  {conversation.contact_name || "Sin nombre"}
                 </h1>
-                <p className="text-sm text-gray-600">{conversation.remote_jid}</p>
+                <p className="text-sm text-gray-600">
+                  {conversation.remote_jid}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -142,11 +144,15 @@ export default function ConversationPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <p className="text-sm text-gray-500">Bot</p>
-              <p className="text-lg font-semibold text-gray-900">{conversation.bot?.name}</p>
+              <p className="text-lg font-semibold text-gray-900">
+                {conversation.bot?.name}
+              </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Total de mensajes</p>
-              <p className="text-lg font-semibold text-gray-900">{conversation.messages.length}</p>
+              <p className="text-lg font-semibold text-gray-900">
+                {conversation.messages.length}
+              </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Última actividad</p>
@@ -165,30 +171,38 @@ export default function ConversationPage() {
           <div className="p-6 space-y-4 max-h-[600px] overflow-y-auto">
             {conversation.messages.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-gray-500">No hay mensajes en esta conversación</p>
+                <p className="text-gray-500">
+                  No hay mensajes en esta conversación
+                </p>
               </div>
             ) : (
               conversation.messages.map((message, index) => (
                 <div
                   key={message.id}
-                  className={`flex ${message.from_me ? 'justify-end' : 'justify-start'}`}
+                  className={`flex ${message.from_me ? "justify-end" : "justify-start"}`}
                 >
                   <div
                     className={`max-w-lg rounded-lg px-4 py-3 shadow-sm ${
                       message.from_me
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-100 text-gray-900'
+                        ? "bg-indigo-600 text-white"
+                        : "bg-gray-100 text-gray-900"
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs font-semibold">
-                        {message.from_me ? '🤖 Bot' : `👤 ${conversation.contact_name || 'Usuario'}`}
+                        {message.from_me
+                          ? "🤖 Bot"
+                          : `👤 ${conversation.contact_name || "Usuario"}`}
                       </span>
                     </div>
-                    <p className="text-sm whitespace-pre-wrap break-words">{message.body}</p>
-                    <p className={`text-xs mt-2 ${
-                      message.from_me ? 'text-indigo-200' : 'text-gray-500'
-                    }`}>
+                    <p className="text-sm whitespace-pre-wrap break-words">
+                      {message.body}
+                    </p>
+                    <p
+                      className={`text-xs mt-2 ${
+                        message.from_me ? "text-indigo-200" : "text-gray-500"
+                      }`}
+                    >
                       {formatTime(message.timestamp)}
                     </p>
                   </div>
@@ -199,5 +213,5 @@ export default function ConversationPage() {
         </div>
       </main>
     </div>
-  )
+  );
 }

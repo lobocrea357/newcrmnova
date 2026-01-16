@@ -25,84 +25,102 @@ export default function ChatPage() {
 
   // Restaurar búsqueda global si viene desde búsqueda
   useEffect(() => {
-    if (fromSearch && typeof window !== 'undefined') {
+    if (fromSearch && typeof window !== "undefined") {
       try {
-        const savedQuery = window.localStorage.getItem('dashboard:globalSearchQuery')
-        const savedResults = window.localStorage.getItem('dashboard:globalSearchResults')
-        
+        const savedQuery = window.localStorage.getItem(
+          "conversaciones:globalSearchQuery",
+        );
+        const savedResults = window.localStorage.getItem(
+          "conversaciones:globalSearchResults",
+        );
+
         if (savedQuery && savedResults) {
-          setGlobalSearchQuery(savedQuery)
-          setGlobalSearchResults(JSON.parse(savedResults))
-          setShowSearchSidebar(true)
+          setGlobalSearchQuery(savedQuery);
+          setGlobalSearchResults(JSON.parse(savedResults));
+          setShowSearchSidebar(true);
         }
       } catch (error) {
-        console.error('Error restaurando búsqueda:', error)
+        console.error("Error restaurando búsqueda:", error);
       }
     }
-  }, [fromSearch])
+  }, [fromSearch]);
 
   const handleClose = () => {
-    const botId = searchParams.get('botId')
-    
+    const botId = searchParams.get("botId");
+
     // Si viene desde búsqueda, guardar el estado antes de regresar
-    if (showSearchSidebar && typeof window !== 'undefined') {
+    if (showSearchSidebar && typeof window !== "undefined") {
       try {
-        window.localStorage.setItem('dashboard:globalSearchQuery', globalSearchQuery)
-        window.localStorage.setItem('dashboard:globalSearchResults', JSON.stringify(globalSearchResults))
+        window.localStorage.setItem(
+          "conversaciones:globalSearchQuery",
+          globalSearchQuery,
+        );
+        window.localStorage.setItem(
+          "conversaciones:globalSearchResults",
+          JSON.stringify(globalSearchResults),
+        );
       } catch (error) {
-        console.error('Error guardando búsqueda:', error)
+        console.error("Error guardando búsqueda:", error);
       }
     }
-    
+
     if (botId) {
-      router.push(`/dashboard?botId=${botId}&chatId=${chatId}`)
+      router.push(`/conversaciones?botId=${botId}&chatId=${chatId}`);
     } else {
-      router.push('/dashboard')
+      router.push("/conversaciones");
     }
-  }
+  };
 
   const handleGlobalSearch = async (query) => {
-    setGlobalSearchQuery(query)
-    
-    if (!query || query.trim() === '') {
-      setGlobalSearchResults([])
-      return
+    setGlobalSearchQuery(query);
+
+    if (!query || query.trim() === "") {
+      setGlobalSearchResults([]);
+      return;
     }
 
-    setLoadingGlobalSearch(true)
-    
+    setLoadingGlobalSearch(true);
+
     try {
-      const results = await globalSearchChats(query)
-      setGlobalSearchResults(results)
+      const results = await globalSearchChats(query);
+      setGlobalSearchResults(results);
     } catch (error) {
-      console.error('Error en búsqueda global:', error)
-      setGlobalSearchResults([])
+      console.error("Error en búsqueda global:", error);
+      setGlobalSearchResults([]);
     } finally {
-      setLoadingGlobalSearch(false)
+      setLoadingGlobalSearch(false);
     }
-  }
+  };
 
   const handleClearGlobalSearch = () => {
-    setGlobalSearchQuery('')
-    setGlobalSearchResults([])
-  }
+    setGlobalSearchQuery("");
+    setGlobalSearchResults([]);
+  };
 
   const handleSearchResultClick = (chat) => {
-    const newChatId = String(chat.id)
-    const botId = String(chat.bot_id)
-    
+    const newChatId = String(chat.id);
+    const botId = String(chat.bot_id);
+
     // Guardar búsqueda antes de navegar
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       try {
-        window.localStorage.setItem('dashboard:globalSearchQuery', globalSearchQuery)
-        window.localStorage.setItem('dashboard:globalSearchResults', JSON.stringify(globalSearchResults))
+        window.localStorage.setItem(
+          "conversaciones:globalSearchQuery",
+          globalSearchQuery,
+        );
+        window.localStorage.setItem(
+          "conversaciones:globalSearchResults",
+          JSON.stringify(globalSearchResults),
+        );
       } catch (error) {
-        console.error('Error guardando búsqueda:', error)
+        console.error("Error guardando búsqueda:", error);
       }
     }
-    
-    router.push(`/dashboard/chat/${newChatId}?botId=${botId}&fromSearch=true`)
-  }
+
+    router.push(
+      `/conversaciones/chat/${newChatId}?botId=${botId}&fromSearch=true`,
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">

@@ -51,30 +51,31 @@ export default function BotConversationsPage() {
   }
 
   const handleConversationClick = (conversationId) => {
-    router.push(`/dashboard/bot/${botId}/conversation/${conversationId}`)
-  }
+    router.push(`/conversaciones/bot/${botId}/conversation/${conversationId}`);
+  };
 
   const handleDownloadAll = async () => {
     // Implementar descarga de todas las conversaciones
-    alert('Descargando todas las conversaciones...')
-  }
+    alert("Descargando todas las conversaciones...");
+  };
 
-  const filteredConversations = conversations.filter(conv => 
-    conv.contact_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.remote_jid?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredConversations = conversations.filter(
+    (conv) =>
+      conv.contact_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conv.remote_jid?.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
 
   const formatDate = (timestamp) => {
-    if (!timestamp) return 'Sin mensajes'
-    const date = new Date(timestamp)
-    return date.toLocaleString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
+    if (!timestamp) return "Sin mensajes";
+    const date = new Date(timestamp);
+    return date.toLocaleString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   if (loading) {
     return (
@@ -84,7 +85,7 @@ export default function BotConversationsPage() {
           <p className="text-gray-600">Cargando conversaciones...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -95,13 +96,15 @@ export default function BotConversationsPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push("/conversaciones")}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <ArrowLeft className="h-6 w-6 text-gray-600" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">{bot?.name}</h1>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {bot?.name}
+                </h1>
                 <p className="text-sm text-gray-600">
                   {conversations.length} conversaciones
                 </p>
@@ -151,12 +154,14 @@ export default function BotConversationsPage() {
             <div className="px-6 py-12 text-center">
               <MessageSquare className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">
-                {searchTerm ? 'No se encontraron conversaciones' : 'No hay conversaciones'}
+                {searchTerm
+                  ? "No se encontraron conversaciones"
+                  : "No hay conversaciones"}
               </h3>
               <p className="mt-1 text-sm text-gray-500">
-                {searchTerm 
-                  ? 'Intenta con otro término de búsqueda' 
-                  : 'Las conversaciones aparecerán aquí cuando lleguen mensajes'}
+                {searchTerm
+                  ? "Intenta con otro término de búsqueda"
+                  : "Las conversaciones aparecerán aquí cuando lleguen mensajes"}
               </p>
             </div>
           ) : (
@@ -176,7 +181,7 @@ export default function BotConversationsPage() {
                       </div>
                       <div className="ml-4 min-w-0 flex-1">
                         <h3 className="text-lg font-medium text-gray-900 truncate">
-                          {conv.contact_name || 'Sin nombre'}
+                          {conv.contact_name || "Sin nombre"}
                         </h3>
                         <p className="text-sm text-gray-500 truncate">
                           {conv.remote_jid}
@@ -193,8 +198,18 @@ export default function BotConversationsPage() {
                         </div>
                       </div>
                       <div className="text-gray-400">
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        <svg
+                          className="h-5 w-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
                         </svg>
                       </div>
                     </div>
@@ -206,5 +221,5 @@ export default function BotConversationsPage() {
         </div>
       </main>
     </div>
-  )
+  );
 }
