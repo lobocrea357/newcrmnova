@@ -36,6 +36,7 @@ const Navbar = ({ onMenuClick, onToggleCollapse, sidebarCollapsed = false }) => 
       '/manual-ventas': 'Manual de Ventas',
       '/rutas-riesgo': 'Rutas en Riesgo',
       '/anulables': 'Anulables',
+      '/vuelos': 'Vuelos',
       '/configuracion': 'Configuración',
     }
     return routes[pathname] || 'Dashboard'
@@ -51,6 +52,7 @@ const Navbar = ({ onMenuClick, onToggleCollapse, sidebarCollapsed = false }) => 
       '/manual-ventas': 'Guías y recursos de ventas',
       '/rutas-riesgo': 'Rutas y clientes en riesgo',
       '/anulables': 'Gestión de anulaciones',
+      '/vuelos': 'Gestión de vuelos',
       '/configuracion': 'Configuración del sistema',
     }
     return subtitles[pathname] || 'Bienvenido al CRM'
