@@ -32,14 +32,14 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
     const loadUser = async () => {
         const { data: { user } } = await supabase.auth.getUser()
         setUser(user)
-        console.log(user)
+        //console.log(user)
     }
 
     const menuItems = [
         { href: '/', label: 'Dashboard', icon: LayoutDashboard },
         { href: '/conversaciones', label: 'Conversaciones', icon: MessageSquare },
         { href: '/rutas-riesgo', label: 'Rutas en Riesgo', icon: AlertTriangle },
-        { href: '/desempenio', label: 'Desempeño', icon: TrendingUp },
+        { href: '/rendimiento', label: 'Rendimiento', icon: TrendingUp },
         { href: '/manual-ventas', label: 'Manual de Ventas', icon: BookOpen },
         { href: '/vuelos', label: 'Vuelos', icon: PlaneTakeoff },
         { href: '/anulables', label: 'Anulables', icon: XCircle },

@@ -289,7 +289,7 @@ El tono debe ser profesional y directo.`);
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      console.log("🔐 Sesión activa:", session?.user?.email);
+      // console.log("🔐 Sesión activa:", session?.user?.email);
 
       const [workersData, botsData, completedSales] = await Promise.all([
         getAllWorkers(),
@@ -297,8 +297,8 @@ El tono debe ser profesional y directo.`);
         getCompletedSalesCount(),
       ]);
 
-      console.log("👷 Workers obtenidos:", workersData.length);
-      console.log("🤖 Bots obtenidos:", botsData.length);
+      // console.log("👷 Workers obtenidos:", workersData.length);
+      // console.log("🤖 Bots obtenidos:", botsData.length);
 
       setWorkers(workersData);
       setBots(botsData);

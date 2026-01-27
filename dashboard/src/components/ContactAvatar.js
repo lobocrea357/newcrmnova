@@ -119,10 +119,12 @@ function ContactAvatar({
               setImageLoading(false)
             }}
             onError={(e) => {
-              // URLs de WhatsApp expiran - marcar como error y usar avatar por defecto
-              // TODO: Implementar refresh de URLs desde WAHA API
-              setImageError(true)
-              setImageLoading(false)
+              // Suppress WhatsApp URL 403 errors from console
+              // These are expected because WhatsApp profile picture URLs expire
+              // The component already handles this by showing initials
+              e.preventDefault();
+              setImageError(true);
+              setImageLoading(false);
             }}
             loading="lazy"
           />

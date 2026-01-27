@@ -157,6 +157,14 @@ export async function getBotsByWorker(workerId) {
   }))
 }
 
+// Bots excluidos (prueba/testing - no son asesores reales)
+const EXCLUDED_BOT_PATTERNS = [
+  'abraham',
+  'abrahama',
+  'paul',
+  'hernandez'
+]
+
 const PAYMENT_KEYWORDS = [
   'pago',
   'pagos',
@@ -188,6 +196,12 @@ const normalizeText = (text = '') =>
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+
+// Verificar si un bot debe ser excluido (testing/prueba)
+export const isBotExcluded = (sessionName = '') => {
+  const normalized = normalizeText(sessionName)
+  return EXCLUDED_BOT_PATTERNS.some(pattern => normalized.includes(pattern))
+}
 
 function analyzeConversationMetrics(messages = []) {
   if (!messages?.length) return null
@@ -268,16 +282,18 @@ function analyzeConversationMetrics(messages = []) {
  * @returns {Promise<{data: Array, total: number, totalPages: number, currentPage: number}>}
  */
 export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
-  console.log('🔍 Obteniendo conversaciones para bot:', botId, 'página:', page)
+  // console.log('🔍 Obteniendo conversaciones para bot:', botId, 'página:', page)
 
-  // Primero obtener el total de conversaciones (excluyendo estados y canales)
-  // Nota: Solo 2 filtros .not() para evitar error 406 en PostgREST
+  // Primero obtener el total de conversaciones (excluyendo estados, canales y grupos)
+  // FILTRO ESTRUCTURAL: Solo chats 1-a-1 con clientes
   const { count: totalCount, error: countError } = await supabase
     .from('chats')
     .select('*', { count: 'exact', head: true })
     .eq('bot_id', botId)
+    .eq('is_group', false)  // ← NUEVO: Excluir grupos
     .not('chat_id', 'ilike', '%status%')
     .not('chat_id', 'ilike', '%@broadcast%')
+    .not('chat_id', 'ilike', '%@g.us')
 
   if (countError) {
     console.error('❌ Error al contar conversaciones:', countError)
@@ -298,8 +314,10 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
       contact:contacts(id, name, phone_number, profile_picture_url, push_name)
     `)
     .eq('bot_id', botId)
+    .eq('is_group', false)  // ← NUEVO: Excluir grupos
     .not('chat_id', 'ilike', '%status%')
     .not('chat_id', 'ilike', '%@broadcast%')
+    .not('chat_id', 'ilike', '%@g.us')
 
   // Ordenar por last_message_time (descendente) - los NULL van al final
   query = query
@@ -810,7 +828,7 @@ export async function globalSearchChats(searchQuery, limit = 50) {
     })
 
     const results = Array.from(uniqueChatsMap.values())
-    console.log('✅ Resultados de búsqueda global:', results.length)
+    // console.log('✅ Resultados de búsqueda global:', results.length)
 
     // Ordenar por última actividad
     results.sort((a, b) => {
@@ -901,7 +919,7 @@ export function downloadConversationAsMarkdown(conversation) {
  */
 export async function getCompletedSalesCount() {
   try {
-    console.log('📊 Obteniendo ventas concretadas...')
+    // console.log('📊 Obteniendo ventas concretadas...')
 
     // Buscar chats que tengan análisis de IA con venta concretada
     const { data: chatsWithSales, error } = await supabase
@@ -923,7 +941,7 @@ export async function getCompletedSalesCount() {
       return 0
     }
 
-    console.log(`✅ ${chatsWithSales?.length || 0} ventas concretadas encontradas`)
+    // console.log(`✅ ${chatsWithSales?.length || 0} ventas concretadas encontradas`)
     return chatsWithSales?.length || 0
   } catch (error) {
     console.error('❌ Error en getCompletedSalesCount:', error)
@@ -938,7 +956,7 @@ export async function getCompletedSalesCount() {
  */
 export async function getCompletedSalesConversations(limit = 100) {
   try {
-    console.log('📊 Obteniendo conversaciones con ventas concretadas...')
+    // console.log('📊 Obteniendo conversaciones con ventas concretadas...')
 
     const { data: salesConversations, error } = await supabase
       .from('chats')
@@ -1020,7 +1038,7 @@ export async function getCompletedSalesConversations(limit = 100) {
       }
     })
 
-    console.log(`✅ ${processedConversations.length} conversaciones con ventas procesadas`)
+    // console.log(`✅ ${processedConversations.length} conversaciones con ventas procesadas`)
     return processedConversations
   } catch (error) {
     console.error('❌ Error en getCompletedSalesConversations:', error)
