@@ -86,21 +86,25 @@ export async function getAllBots() {
       // Ejecutar count y recentChat en paralelo en lugar de secuencial
       // Usamos filtro AND combinado para evitar error 406
       const [countResult, recentChatResult] = await Promise.all([
-        // Contar chats válidos (filtro combinado con and)
+        // Contar chats válidos (filtro combinado - MISMO que getConversationsByBot)
         supabase
           .from('chats')
           .select('*', { count: 'exact', head: true })
           .eq('bot_id', bot.id)
+          .eq('is_group', false)
           .not('chat_id', 'ilike', '%status%')
-          .not('chat_id', 'ilike', '%@broadcast%'),
+          .not('chat_id', 'ilike', '%@broadcast%')
+          .not('chat_id', 'ilike', '%@g.us'),
         
         // Obtener última actividad (sin doble order para evitar 406)
         supabase
           .from('chats')
           .select('last_message_time, updated_at, created_at')
           .eq('bot_id', bot.id)
+          .eq('is_group', false)
           .not('chat_id', 'ilike', '%status%')
           .not('chat_id', 'ilike', '%@broadcast%')
+          .not('chat_id', 'ilike', '%@g.us')
           .order('last_message_time', { ascending: false, nullsLast: true })
           .limit(1)
           .maybeSingle()
