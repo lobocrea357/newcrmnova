@@ -33,6 +33,12 @@ export const parseBotSessionName = (sessionName) => {
 
   tokens.forEach((token) => {
     const lower = token.toLowerCase()
+    
+    // Ignorar tokens numéricos puros (como 2, 3, etc.)
+    if (/^\d+$/.test(token)) {
+      return
+    }
+    
     if (!sedeKey && KNOWN_SEDES.includes(lower)) {
       sedeKey = lower
       return

@@ -23,6 +23,7 @@ import {
 import { parseBotSessionName } from "@/lib/botNameParser";
 import {
   createPerformanceAnalysis,
+  createAnalysisWithReport,
   saveMultipleEvaluations,
   calculateAnalysisStats,
   createReport,
@@ -31,6 +32,7 @@ import {
   filterCustomerChats,
   generatePerformanceReport,
 } from "@/lib/aiPerformance";
+import Breadcrumb from "@/components/ui/Breadcrumb";
 
 export default function RendimientoPage() {
   const router = useRouter();
@@ -227,15 +229,13 @@ export default function RendimientoPage() {
             status: "finalized",
           };
 
-          const analysis = await createPerformanceAnalysis(analysisData);
-
-          // Guardar evaluaciones con FK al análisis
+          // Guardar evaluaciones con FK temporal (se crearán después del análisis)
           const evaluacionesArray = Object.entries(evaluacionesIA).map(
             ([chatId, evalData]) => ({
               chat_id: chatId,
               bot_id: bot.id,
               worker_id: bot.worker_id || null,
-              performance_analysis_id: analysis.id,
+              // performance_analysis_id se agregará después
               evaluation_date: new Date().toISOString(),
               generated_by: "AI",
               manually_edited: false,
@@ -254,25 +254,18 @@ export default function RendimientoPage() {
             }),
           );
 
-          await saveMultipleEvaluations(evaluacionesArray);
+          // Crear análisis CON reporte automático
+          const { analysis, report } = await createAnalysisWithReport(analysisData, evaluacionesArray);
 
-          // NUEVO: Generar reporte automáticamente con IA
-          setProgresoMasivo((prev) =>
-            prev.map((p, idx) => (idx === i ? { ...p, status: "generating_report" } : p)),
-          );
-
-          const reportResult = await generatePerformanceReport(analysis, evaluacionesArray);
+          // Actualizar evaluaciones con el ID del análisis y guardar
+          const evaluacionesConAnalisis = evaluacionesArray.map(ev => ({
+            ...ev,
+            performance_analysis_id: analysis.id
+          }));
           
-          if (reportResult.success) {
-            // Guardar reporte en BD
-            await createReport({
-              performance_analysis_id: analysis.id,
-              report_type: 'ai_analysis_summary',
-              report_name: `Reporte IA - ${botName}`,
-              report_data: reportResult.report,
-              generated_by_user_id: profileData?.id || null,
-            });
-          }
+          await saveMultipleEvaluations(evaluacionesConAnalisis);
+
+          console.log('✅ Análisis y reporte generados para:', botName);
 
           // Actualizar progreso: completado
           setProgresoMasivo((prev) =>
@@ -481,15 +474,13 @@ export default function RendimientoPage() {
         status: "finalized",
       };
 
-      const analysis = await createPerformanceAnalysis(analysisData);
-
-      // Guardar evaluaciones individuales con FK al análisis
+      // Preparar evaluaciones para el análisis
       const evaluacionesArray = Object.entries(evaluaciones).map(
         ([chatId, evalData]) => ({
           chat_id: chatId,
           bot_id: selectedBotId,
           worker_id: selectedBot?.worker_id || null,
-          performance_analysis_id: analysis.id,
+          // performance_analysis_id se agregará después
           evaluation_date: new Date().toISOString(),
           generated_by: evalData.manually_edited ? "Manual" : "AI",
           manually_edited: evalData.manually_edited || false,
@@ -508,7 +499,16 @@ export default function RendimientoPage() {
         }),
       );
 
-      await saveMultipleEvaluations(evaluacionesArray);
+      // Crear análisis CON reporte automático
+      const { analysis, report } = await createAnalysisWithReport(analysisData, evaluacionesArray);
+
+      // Actualizar evaluaciones con el ID del análisis y guardar
+      const evaluacionesConAnalisis = evaluacionesArray.map(ev => ({
+        ...ev,
+        performance_analysis_id: analysis.id
+      }));
+
+      await saveMultipleEvaluations(evaluacionesConAnalisis);
 
       setCurrentStep(4);
 
@@ -540,6 +540,13 @@ export default function RendimientoPage() {
 
       <div className="p-6">
         <div className="max-w-7xl mx-auto space-y-6">
+          {/* Breadcrumb */}
+          <Breadcrumb items={[
+            { label: "Dashboard", href: "/dashboard" },
+            { label: "Rendimiento", href: "/rendimiento" },
+            { label: "Crear Análisis", href: "/rendimiento/new" }
+          ]} />
+
           {/* Hero Onboarding cuando no hay conversaciones */}
           {conversaciones.length === 0 && (
             <>
@@ -590,22 +597,20 @@ export default function RendimientoPage() {
 
           {/* Filtros compactos cuando ya hay conversaciones */}
           {conversaciones.length > 0 && (
-            <FiltrosRendimiento
-              bots={bots}
-              selectedBotId={selectedBotId}
-              onBotSelect={setSelectedBotId}
-              onLoadConversations={handleLoadConversations}
-              loading={loadingConversaciones || loadingBots}
-            />
-          )}
-
-          {conversaciones.length > 0 && (
             <>
+              <FiltrosRendimiento
+                bots={bots}
+                selectedBotId={selectedBotId}
+                onBotSelect={setSelectedBotId}
+                onLoadConversations={handleLoadConversations}
+                loading={loadingConversaciones || loadingBots}
+              />
+
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900">
-                      Conversaciones Cargadas
+                      Evaluaciones de {botName}
                     </h2>
                     <p className="text-sm text-gray-500 mt-1">
                       {conversaciones.length} conversaciones encontradas •{" "}

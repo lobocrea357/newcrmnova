@@ -87,6 +87,38 @@ export async function createPerformanceAnalysis(analysisData) {
   return data;
 }
 
+/**
+ * Crea un análisis Y genera automáticamente su reporte
+ * @param {Object} analysisData - Datos del análisis
+ * @param {Array} evaluations - Evaluaciones individuales de conversaciones
+ * @returns {Promise<{analysis, report}>}
+ */
+export async function createAnalysisWithReport(analysisData, evaluations = []) {
+  try {
+    // 1. Crear el análisis
+    const analysis = await createPerformanceAnalysis(analysisData);
+    
+    // 2. Generar reporte automáticamente
+    const { generatePerformanceReport } = await import('./aiPerformance');
+    const reportData = await generatePerformanceReport(evaluations);
+    
+    // 3. Guardar el reporte
+    const report = await createReport({
+      performance_analysis_id: analysis.id,
+      report_data: reportData,
+      generated_at: new Date().toISOString(),
+      report_type: 'automatic'
+    });
+    
+    console.log('✅ Análisis y reporte creados automáticamente:', { analysis, report });
+    
+    return { analysis, report };
+  } catch (error) {
+    console.error('❌ Error creando análisis con reporte:', error);
+    throw error;
+  }
+}
+
 export async function getAnalysisById(analysisId) {
   const { data, error } = await supabase
     .from("performance_analyses")
