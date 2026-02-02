@@ -93,6 +93,9 @@ El tono debe ser profesional y directo.`);
   const [globalSearchResults, setGlobalSearchResults] = useState([]);
   const [isGlobalSearchActive, setIsGlobalSearchActive] = useState(false);
   const [loadingGlobalSearch, setLoadingGlobalSearch] = useState(false);
+  
+  // Estado para búsqueda de asesores en el panel lateral
+  const [botSearchQuery, setBotSearchQuery] = useState('');
 
   useEffect(() => {
     checkUser();
@@ -899,6 +902,17 @@ El tono debe ser profesional y directo.`);
         if (!matchesSearch) return false;
       }
 
+      // Filtro de búsqueda de asesores en el panel lateral
+      if (botSearchQuery) {
+        const botSearchLower = botSearchQuery.toLowerCase();
+        const matchesBotSearch =
+          meta.displayName.toLowerCase().includes(botSearchLower) ||
+          bot.session_name?.toLowerCase().includes(botSearchLower) ||
+          bot.phone_number?.toLowerCase().includes(botSearchLower);
+
+        if (!matchesBotSearch) return false;
+      }
+
       // Filtro de estado
       if (statusFilter === "active") {
         if (bot.status !== "working" && bot.status !== "active") return false;
@@ -1670,20 +1684,42 @@ El tono debe ser profesional y directo.`);
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Panel izquierdo: lista de asesores (bots) */}
           <section className="bg-white shadow rounded-lg flex flex-col lg:col-span-1">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Asesores
-                </h2>
-                <p className="text-xs text-gray-500 mt-1">
-                  Selecciona un asesor para ver sus conversaciones.
-                </p>
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Asesores
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Selecciona un asesor para ver sus conversaciones.
+                  </p>
+                </div>
+                {getAllFilteredBots().length > 0 && (
+                  <span className="text-xs text-gray-500">
+                    {getAllFilteredBots().length} de {bots.length} visibles
+                  </span>
+                )}
               </div>
-              {getAllFilteredBots().length > 0 && (
-                <span className="text-xs text-gray-500">
-                  {getAllFilteredBots().length} de {bots.length} visibles
-                </span>
-              )}
+              
+              {/* Buscador de asesores */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={botSearchQuery}
+                  onChange={(e) => setBotSearchQuery(e.target.value)}
+                  placeholder="Buscar asesor..."
+                  className="w-full pl-10 pr-10 py-2 bg-gray-50 text-gray-900 placeholder-gray-400 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                />
+                {botSearchQuery && (
+                  <button
+                    onClick={() => setBotSearchQuery('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {getAllFilteredBots().length === 0 ? (
