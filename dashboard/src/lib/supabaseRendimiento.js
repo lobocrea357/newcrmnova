@@ -121,9 +121,29 @@ export async function createAnalysisWithReport(analysisData, evaluations = []) {
   let analysis = null;
   
   try {
-    // 1. Crear el análisis
+    // 1. Crear análisis en BD con evaluaciones
     console.log('   1️⃣ Creando análisis en BD...');
-    analysis = await createPerformanceAnalysis(analysisData);
+    
+    // Usar Express backend para crear análisis CON evaluaciones
+    const response = await fetch('http://localhost:4000/api/rendimiento/create-analysis', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        analysisData,
+        evaluations  // Pasar evaluaciones para calcular stats correctamente
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Error creando análisis:", errorData);
+      throw new Error(errorData.error || 'Error creando análisis');
+    }
+
+    const result = await response.json();
+    analysis = result.analysis;
     console.log(`   ✅ Análisis creado con ID: ${analysis.id}`);
     
     // 2. Generar reporte automáticamente con IA

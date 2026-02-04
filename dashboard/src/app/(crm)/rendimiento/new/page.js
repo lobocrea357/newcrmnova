@@ -498,6 +498,7 @@ export default function RendimientoPage() {
       );
 
       // Crear análisis CON reporte automático
+      // Las evaluaciones ya se pasan y se guardan en el backend
       const result = await createAnalysisWithReport(analysisData, evaluacionesArray);
       const analysis = result.analysis;
       const report = result.report;
@@ -506,13 +507,8 @@ export default function RendimientoPage() {
         console.warn(`⚠️ Reporte no generado: ${result.reportError || 'Error desconocido'}`);
       }
 
-      // Actualizar evaluaciones con el ID del análisis y guardar
-      const evaluacionesConAnalisis = evaluacionesArray.map(ev => ({
-        ...ev,
-        performance_analysis_id: analysis.id
-      }));
-
-      await saveMultipleEvaluations(evaluacionesConAnalisis);
+      // Las evaluaciones ya fueron guardadas por Express con el analysis_id correcto
+      console.log(`✅ Análisis y evaluaciones guardadas por Express`);
 
       setCurrentStep(4);
 
