@@ -1,6 +1,14 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+// Auto-inicializar sistema de cron solo en servidor
+if (typeof window === "undefined") {
+  // Importar dinámicamente para evitar problemas en el cliente
+  import("../lib/cronInitializer").then(({ autoInitialize }) => {
+    autoInitialize().catch(console.error);
+  });
+}
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
