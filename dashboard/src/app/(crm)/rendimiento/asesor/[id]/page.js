@@ -10,14 +10,23 @@ import {
   SlidersHorizontal,
   BarChart3,
   List,
+  Loader2,
 } from "lucide-react";
-import {
-  getMockAdvisorById,
-  getMockConversationsForAdvisor,
-  METRIC_LABELS,
-} from "@/lib/mockPerformanceData";
+import { supabase } from "@/lib/supabase";
+import { getAnalysesByWorker, getEvaluationsByAnalysis } from "@/lib/supabaseRendimiento";
+import { parseBotSessionName } from "@/lib/botNameParser";
 import PerformanceTracking from "@/components/rendimiento/PerformanceTracking";
 import Breadcrumb from "@/components/ui/Breadcrumb";
+
+const METRIC_LABELS = {
+  tiempo_contacto: "Tiempo de contacto adecuado",
+  tiempo_respuesta: "Tiempo de respuesta rápido",
+  tiempo_cotizacion: "Tiempo de cotización eficiente",
+  cierre_intencion: "Cierre con intención de compra",
+  ofrecio_scalapay: "Ofrecimiento de Scalapay",
+  mas_dos_opciones: "Más de dos opciones presentadas",
+  seguimiento_intencion: "Seguimiento de intención",
+};
 
 function formatShortDateTime(iso) {
   try {
@@ -97,39 +106,168 @@ function MessageBubble({ message }) {
 export default function AsesorAnalisisDetallePage() {
   const router = useRouter();
   const params = useParams();
-  const advisorId = params?.id;
+  const botId = params?.id; // Ahora es bot_id
 
-  const advisor = useMemo(() => getMockAdvisorById(advisorId), [advisorId]);
-  const conversations = useMemo(
-    () => getMockConversationsForAdvisor(advisorId),
-    [advisorId],
-  );
+  const [loading, setLoading] = useState(true);
+  const [advisor, setAdvisor] = useState(null);
+  const [conversations, setConversations] = useState([]);
+  const [analyses, setAnalyses] = useState([]);
+  const [activeConversationId, setActiveConversationId] = useState(null);
+  const [editedEvaluation, setEditedEvaluation] = useState(null);
+  const [saveState, setSaveState] = useState({ saving: false, saved: false });
+  const [activeTab, setActiveTab] = useState('conversaciones');
 
-  const [activeConversationId, setActiveConversationId] = useState(
-    conversations[0]?.id || null,
-  );
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeConversationId) || null,
     [conversations, activeConversationId],
   );
 
-  const [editedEvaluation, setEditedEvaluation] = useState(null);
-  const [saveState, setSaveState] = useState({ saving: false, saved: false });
-  const [activeTab, setActiveTab] = useState('conversaciones'); // 'conversaciones' | 'seguimiento'
+  useEffect(() => {
+    loadAdvisorData();
+  }, [botId]);
 
   useEffect(() => {
-    setActiveConversationId((prev) => prev || conversations[0]?.id || null);
-  }, [conversations]);
+    if (conversations.length > 0 && !activeConversationId) {
+      setActiveConversationId(conversations[0]?.id);
+    }
+  }, [conversations, activeConversationId]);
 
   useEffect(() => {
     if (!activeConversation?.evaluation) {
       setEditedEvaluation(null);
       return;
     }
-    // Copia editable
     setEditedEvaluation({ ...activeConversation.evaluation });
     setSaveState({ saving: false, saved: false });
-  }, [activeConversationId]); // intencional: reset al cambiar conversación
+  }, [activeConversationId]);
+
+  const loadAdvisorData = async () => {
+    try {
+      setLoading(true);
+
+      // Obtener bot directamente
+      const { data: botData, error: botError } = await supabase
+        .from('bots')
+        .select('*, worker:workers(*)')
+        .eq('id', botId)
+        .single();
+
+      if (botError) {
+        console.error('Error obteniendo bot:', botError);
+        throw botError;
+      }
+
+      // Obtener análisis del bot
+      const { data: analysesData, error: analysesError } = await supabase
+        .from('performance_analyses')
+        .select('*')
+        .eq('bot_id', botId)
+        .eq('status', 'finalized')
+        .order('created_at', { ascending: false });
+
+      if (analysesError) throw analysesError;
+      setAnalyses(analysesData || []);
+
+      // Obtener evaluaciones de todos los análisis
+      const allEvaluations = [];
+      for (const analysis of analysesData || []) {
+        const evaluations = await getEvaluationsByAnalysis(analysis.id);
+        allEvaluations.push(...(evaluations || []));
+      }
+
+      // Agrupar por chat_id y tomar la evaluación más reciente
+      const conversationsMap = new Map();
+      for (const evaluation of allEvaluations) {
+        const chatId = evaluation.chat_id;
+        if (!conversationsMap.has(chatId) || 
+            new Date(evaluation.evaluation_date) > new Date(conversationsMap.get(chatId).evaluation.updatedAt)) {
+          
+          // Cargar mensajes del chat
+          const { data: messages } = await supabase
+            .from('messages')
+            .select('id, body, content, from_me, timestamp')
+            .eq('chat_id', chatId)
+            .order('timestamp', { ascending: true })
+            .limit(50);
+
+          conversationsMap.set(chatId, {
+            id: chatId,
+            contactName: evaluation.chat?.contact_name || evaluation.chat?.contact_number || 'Sin nombre',
+            contactNumber: evaluation.chat?.contact_number || '',
+            lastMessagePreview: messages?.[messages.length - 1]?.body || 'Sin mensajes',
+            updatedAt: evaluation.evaluation_date,
+            involvedInAnalysis: true,
+            evaluation: {
+              tiempo_contacto: evaluation.tiempo_contacto || false,
+              tiempo_respuesta: evaluation.tiempo_respuesta || false,
+              tiempo_cotizacion: evaluation.tiempo_cotizacion || false,
+              cierre_intencion: evaluation.cierre_intencion || false,
+              ofrecio_scalapay: evaluation.ofrecio_scalapay || false,
+              mas_dos_opciones: evaluation.mas_dos_opciones || false,
+              seguimiento_intencion: evaluation.seguimiento_intencion || false,
+              notes: evaluation.ai_feedback || evaluation.manager_notes || '',
+            },
+            messages: (messages || []).map(msg => ({
+              id: msg.id,
+              from: msg.from_me ? 'advisor' : 'client',
+              text: msg.body || msg.content || '',
+              ts: msg.timestamp,
+            })),
+          });
+        }
+      }
+
+      const conversationsArray = Array.from(conversationsMap.values());
+      setConversations(conversationsArray);
+
+      // Calcular métricas agregadas
+      const latestAnalysis = analysesData?.[0];
+      const metrics = {
+        tiempo_contacto: (latestAnalysis?.tiempo_contacto_count || 0) > (latestAnalysis?.total_conversations_analyzed || 1) * 0.7,
+        tiempo_respuesta: (latestAnalysis?.tiempo_respuesta_count || 0) > (latestAnalysis?.total_conversations_analyzed || 1) * 0.7,
+        tiempo_cotizacion: (latestAnalysis?.tiempo_cotizacion_count || 0) > (latestAnalysis?.total_conversations_analyzed || 1) * 0.7,
+        cierre_intencion: (latestAnalysis?.cierre_intencion_count || 0) > (latestAnalysis?.total_conversations_analyzed || 1) * 0.7,
+        ofrecio_scalapay: (latestAnalysis?.ofrecio_scalapay_count || 0) > (latestAnalysis?.total_conversations_analyzed || 1) * 0.7,
+        mas_dos_opciones: (latestAnalysis?.mas_dos_opciones_count || 0) > (latestAnalysis?.total_conversations_analyzed || 1) * 0.7,
+        seguimiento_intencion: (latestAnalysis?.seguimiento_intencion_count || 0) > (latestAnalysis?.total_conversations_analyzed || 1) * 0.7,
+      };
+
+      // Preparar historial para gráfico
+      const history = (analysesData || []).slice(0, 7).reverse().map(a => ({
+        date: new Date(a.analysis_date).toISOString().split('T')[0],
+        score: parseFloat(a.average_score || 0),
+        metrics: {
+          tiempo_contacto: (a.tiempo_contacto_count || 0) > (a.total_conversations_analyzed || 1) * 0.7,
+          tiempo_respuesta: (a.tiempo_respuesta_count || 0) > (a.total_conversations_analyzed || 1) * 0.7,
+          tiempo_cotizacion: (a.tiempo_cotizacion_count || 0) > (a.total_conversations_analyzed || 1) * 0.7,
+          cierre_intencion: (a.cierre_intencion_count || 0) > (a.total_conversations_analyzed || 1) * 0.7,
+          ofrecio_scalapay: (a.ofrecio_scalapay_count || 0) > (a.total_conversations_analyzed || 1) * 0.7,
+          mas_dos_opciones: (a.mas_dos_opciones_count || 0) > (a.total_conversations_analyzed || 1) * 0.7,
+          seguimiento_intencion: (a.seguimiento_intencion_count || 0) > (a.total_conversations_analyzed || 1) * 0.7,
+        },
+      }));
+
+      const advisorName = botData.worker?.name || parseBotSessionName(botData.session_name).fullName;
+      
+      setAdvisor({
+        id: botData.id,
+        name: advisorName,
+        dailyScore: parseFloat(latestAnalysis?.average_score || 0),
+        trend: 'stable',
+        metrics: metrics,
+        aiFeedback: {
+          strengths: [],
+          improvements: [],
+        },
+        history: history,
+      });
+
+    } catch (error) {
+      console.error('Error cargando datos del asesor:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const metricKeys = useMemo(() => Object.keys(METRIC_LABELS), []);
 
@@ -139,11 +277,64 @@ export default function AsesorAnalisisDetallePage() {
   };
 
   const handleSave = async () => {
-    // En esta fase es mock: simulamos guardado
-    setSaveState({ saving: true, saved: false });
-    await new Promise((r) => setTimeout(r, 450));
-    setSaveState({ saving: false, saved: true });
+    if (!editedEvaluation || !activeConversationId) return;
+
+    try {
+      setSaveState({ saving: true, saved: false });
+
+      // Buscar la evaluación en la base de datos
+      const { data: existingEval, error: fetchError } = await supabase
+        .from('conversation_evaluations')
+        .select('id')
+        .eq('chat_id', activeConversationId)
+        .order('evaluation_date', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Actualizar evaluación
+      const { error: updateError } = await supabase
+        .from('conversation_evaluations')
+        .update({
+          tiempo_contacto: editedEvaluation.tiempo_contacto || false,
+          tiempo_respuesta: editedEvaluation.tiempo_respuesta || false,
+          tiempo_cotizacion: editedEvaluation.tiempo_cotizacion || false,
+          cierre_intencion: editedEvaluation.cierre_intencion || false,
+          ofrecio_scalapay: editedEvaluation.ofrecio_scalapay || false,
+          mas_dos_opciones: editedEvaluation.mas_dos_opciones || false,
+          seguimiento_intencion: editedEvaluation.seguimiento_intencion || false,
+          manager_notes: editedEvaluation.notes || '',
+          manually_edited: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingEval.id);
+
+      if (updateError) throw updateError;
+
+      setSaveState({ saving: false, saved: true });
+      
+      // Recargar datos
+      setTimeout(() => {
+        loadAdvisorData();
+      }, 1000);
+    } catch (error) {
+      console.error('Error guardando evaluación:', error);
+      alert('Error al guardar los cambios');
+      setSaveState({ saving: false, saved: false });
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Cargando datos del asesor...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!advisor) {
     return (
@@ -158,10 +349,10 @@ export default function AsesorAnalisisDetallePage() {
               Volver a Rendimiento
             </button>
             <div className="mt-4 text-gray-900 font-semibold">
-              Asesor no encontrado (mock)
+              Asesor no encontrado
             </div>
             <div className="text-sm text-gray-600 mt-1">
-              Verifica el id en la URL.
+              No se encontraron datos para este asesor. Verifica el ID en la URL.
             </div>
           </div>
         </div>
@@ -175,9 +366,9 @@ export default function AsesorAnalisisDetallePage() {
         <div className="max-w-[1600px] mx-auto space-y-4">
           {/* Breadcrumb */}
           <Breadcrumb items={[
-            { label: "Dashboard", href: "/dashboard" },
+            { label: "Dashboard", href: "/" },
             { label: "Rendimiento", href: "/rendimiento" },
-            { label: advisor?.name || "Detalle Asesor", href: `/rendimiento/asesor/${advisorId}` }
+            { label: advisor?.name || "Detalle Asesor", href: `/rendimiento/asesor/${botId}` }
           ]} />
 
           {/* Header con Tabs */}
@@ -277,7 +468,7 @@ export default function AsesorAnalisisDetallePage() {
                   ))}
                   {conversations.length === 0 && (
                     <div className="p-6 text-center text-sm text-gray-600">
-                      No hay conversaciones mock para este asesor.
+                      No hay conversaciones analizadas para este asesor.
                     </div>
                   )}
                 </div>
@@ -318,7 +509,7 @@ export default function AsesorAnalisisDetallePage() {
                     {activeConversation &&
                       (activeConversation?.messages || []).length === 0 && (
                         <div className="p-6 text-center text-sm text-gray-600">
-                          No hay mensajes mock para esta conversación.
+                          No hay mensajes disponibles para esta conversación.
                         </div>
                       )}
                   </div>
@@ -382,9 +573,9 @@ export default function AsesorAnalisisDetallePage() {
                       </div>
 
                       <div>
-                        <div className="text-sm font-semibold text-gray-900 mb-2">
+                        <label className="block text-sm font-semibold text-gray-900 mb-2 bg-white">
                           Notas
-                        </div>
+                        </label>
                         <textarea
                           value={editedEvaluation?.notes || ""}
                           onChange={(e) => {
@@ -396,11 +587,11 @@ export default function AsesorAnalisisDetallePage() {
                             setSaveState((s) => ({ ...s, saved: false }));
                           }}
                           rows={6}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                           placeholder="Escribe observaciones para este resultado..."
                         />
                         <div className="text-xs text-gray-500 mt-2">
-                          Nota: por ahora el guardado es mock (simulado).
+                          Los cambios se guardarán en la base de datos.
                         </div>
                       </div>
                     </>

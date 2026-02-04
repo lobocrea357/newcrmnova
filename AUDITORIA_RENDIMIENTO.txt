@@ -1,0 +1,209 @@
+═══════════════════════════════════════════════════════════════════
+AUDITORÍA DE MÓDULO DE RENDIMIENTO - Archivos en Uso vs Redundantes
+═══════════════════════════════════════════════════════════════════
+
+📅 Fecha: 4 de febrero de 2026
+🎯 Objetivo: Identificar qué archivos se usan y cuáles pueden eliminarse
+
+═══════════════════════════════════════════════════════════════════
+📂 ENDPOINTS API (/dashboard/src/app/api)
+═══════════════════════════════════════════════════════════════════
+
+✅ EN USO ACTIVO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. /api/analyze-batch/route.js
+   - Propósito: Análisis masivo de conversaciones en batch
+   - Usado por: batchAIAnalysis.js → /rendimiento/new/page.js
+   - Estado: ✅ CRÍTICO - Mantener
+   - Notas: Core del análisis masivo
+
+2. /api/get-messages/route.js
+   - Propósito: Obtener mensajes de un chat
+   - Usado por: conversationLoader.js → Todo el módulo
+   - Estado: ✅ CRÍTICO - Mantener
+   - Notas: Recientemente corregido para usar chat_id de WhatsApp
+
+3. /api/performance-report/route.js
+   - Propósito: Generar reporte de rendimiento con IA
+   - Usado por: aiPerformance.js → createAnalysisWithReport
+   - Estado: ✅ ACTIVO - Mantener
+   - Notas: Genera reportes automáticos post-análisis
+
+4. /api/regenerate-report/[analysisId]/route.js
+   - Propósito: Regenerar reporte manualmente
+   - Usado por: /rendimiento/reportes/page.js
+   - Estado: ✅ ACTIVO - Mantener
+   - Notas: Para edición manual de reportes
+
+⚠️ POSIBLEMENTE REDUNDANTE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. /api/analyze-customer-chat/route.js
+   - Propósito: Analizar si un chat es de cliente o interno
+   - Usado por: aiPerformance.js (filterCustomerChats)
+   - Estado: ⚠️ POCO USADO
+   - Recomendación: Revisar si el filtrado estructural es suficiente
+   - Motivo: El filtrado se hace principalmente en conversationLoader.js
+
+6. /api/analyze-chat/route.js (singular)
+   - Propósito: Analizar una conversación individual
+   - Usado por: ???
+   - Estado: ❌ POSIBLE REDUNDANTE
+   - Recomendación: REVISAR si se usa en algún lugar
+   - Notas: analyze-batch hace lo mismo pero mejor
+
+7. /api/generate-report/route.js
+   - Propósito: Generar reporte (versión vieja?)
+   - Usado por: ???
+   - Estado: ❌ PROBABLEMENTE REDUNDANTE
+   - Recomendación: ELIMINAR si no se usa
+   - Notas: performance-report hace lo mismo
+
+═══════════════════════════════════════════════════════════════════
+🧩 COMPONENTES (/dashboard/src/components/rendimiento)
+═══════════════════════════════════════════════════════════════════
+
+✅ EN USO ACTIVO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. AdvisorPerformanceCard.jsx
+   - Usado en: /rendimiento/page.js
+   - Propósito: Tarjeta de asesor en dashboard principal
+   - Estado: ✅ ACTIVO
+
+2. PerformanceTracking.jsx
+   - Usado en: /rendimiento/asesor/[id]/page.js
+   - Propósito: Gráficos de seguimiento histórico
+   - Estado: ✅ ACTIVO
+   - Notas: Tab "Seguimiento Histórico"
+
+3. FiltrosRendimiento.jsx
+   - Usado en: /rendimiento/new/page.js
+   - Propósito: Filtros para nuevo análisis
+   - Estado: ✅ ACTIVO
+
+4. HeroOnboarding.jsx
+   - Usado en: /rendimiento/new/page.js
+   - Propósito: Hero section onboarding
+   - Estado: ✅ ACTIVO
+
+5. ResumenRendimiento.jsx
+   - Usado en: /rendimiento/new/page.js
+   - Propósito: Resumen de análisis
+   - Estado: ✅ ACTIVO
+
+6. TablaEvaluaciones.jsx
+   - Usado en: /rendimiento/new/page.js
+   - Propósito: Tabla de evaluaciones
+   - Estado: ✅ ACTIVO
+
+7. ModalWhatsApp.jsx
+   - Usado en: /rendimiento/new/page.js
+   - Propósito: Modal para ver conversaciones
+   - Estado: ✅ ACTIVO
+
+8. GeneradorReporte.jsx
+   - Usado en: /rendimiento/new/page.js
+   - Propósito: Generador de reportes
+   - Estado: ✅ ACTIVO
+
+9. StepperRendimiento.jsx
+   - Usado en: /rendimiento/new/page.js
+   - Propósito: Stepper de proceso
+   - Estado: ✅ ACTIVO
+
+10. ReportModal.jsx
+    - Usado en: /rendimiento/reportes/page.js
+    - Propósito: Modal de visualización de reportes
+    - Estado: ✅ ACTIVO
+
+11. ModalAnalisisMuestra.jsx
+    - Usado en: /rendimiento/muestra-analisis/page.js
+    - Propósito: Modal para análisis de muestra
+    - Estado: ✅ ACTIVO
+
+⚠️ SIN USO DETECTADO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+12. PanelAjustesAnalisis.jsx
+    - Usado en: ???
+    - Estado: ❓ NO ENCONTRADO EN GREP
+    - Recomendación: REVISAR si se usa, sino ELIMINAR
+
+═══════════════════════════════════════════════════════════════════
+📄 PÁGINAS (/dashboard/src/app/(crm)/rendimiento)
+═══════════════════════════════════════════════════════════════════
+
+✅ TODAS EN USO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. page.js - Dashboard principal
+2. new/page.js - Crear nuevo análisis
+3. asesor/[id]/page.js - Detalle de asesor
+4. reportes/page.js - Vista de reportes
+5. muestra-analisis/page.js - Análisis de muestra
+
+═══════════════════════════════════════════════════════════════════
+🔧 PROBLEMAS DETECTADOS Y CORRECCIONES APLICADAS
+═══════════════════════════════════════════════════════════════════
+
+1. ✅ CORREGIDO: Textarea de observaciones
+   - Problema: Letras blancas, difícil de leer
+   - Solución: bg-white + text-gray-900
+   - Archivo: /rendimiento/asesor/[id]/page.js:590
+
+2. ✅ CORREGIDO: Generación de reportes con 0 evaluaciones
+   - Problema: Error "Se requieren evaluaciones"
+   - Solución: Permitir reportes vacíos con mensaje explicativo
+   - Archivo: aiPerformance.js:100-122
+
+3. ✅ CORREGIDO: Consulta de mensajes
+   - Problema: Usaba UUID en vez de chat_id de WhatsApp
+   - Solución: Usar chat_id (formato: 584128031480@c.us)
+   - Archivos: 
+     - get-messages/route.js:48-67
+     - conversationLoader.js:197-227
+     - batchAIAnalysis.js:38
+
+4. ⚠️ PENDIENTE: Scores en 0.0% en seguimiento histórico
+   - Causa probable: Los análisis se están guardando pero average_score = 0
+   - Motivo: Si NO hay evaluaciones con mensajes, score es 0
+   - Solución sugerida: 
+     a) Verificar que ahora SÍ se traen mensajes (rebuild Docker)
+     b) Crear un nuevo análisis para verificar
+     c) Los análisis antiguos seguirán en 0 (fueron creados sin mensajes)
+
+═══════════════════════════════════════════════════════════════════
+📊 RESUMEN EJECUTIVO
+═══════════════════════════════════════════════════════════════════
+
+ARCHIVOS A REVISAR PARA POSIBLE ELIMINACIÓN:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. /api/analyze-chat/route.js (singular) - Reemplazado por analyze-batch
+2. /api/generate-report/route.js - Duplicado de performance-report
+3. /api/analyze-customer-chat/route.js - Poco usado, filtrado estructural mejor
+4. /components/rendimiento/PanelAjustesAnalisis.jsx - No usado
+
+ARCHIVOS CRÍTICOS (NO TOCAR):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ /api/analyze-batch/route.js
+✅ /api/get-messages/route.js
+✅ /api/performance-report/route.js
+✅ /lib/conversationLoader.js
+✅ /lib/batchAIAnalysis.js
+✅ /lib/supabaseRendimiento.js
+✅ /lib/aiPerformance.js
+
+ESTADO GENERAL:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Mensajes ahora se traen correctamente
+✅ Reportes vacíos ya no causan error
+✅ UI de textarea corregida
+⚠️ Scores en 0 debido a análisis previos sin mensajes
+   → Se resolverá automáticamente con nuevos análisis
+
+PRÓXIMOS PASOS RECOMENDADOS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Rebuild Docker: docker-compose build && docker-compose up -d
+2. Crear un nuevo análisis de prueba
+3. Verificar que ahora SÍ aparecen los scores > 0
+4. Si funciona, eliminar archivos redundantes (opcional)
+5. Los análisis antiguos permanecerán en 0 (fueron creados sin datos)
+
+═══════════════════════════════════════════════════════════════════

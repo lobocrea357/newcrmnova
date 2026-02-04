@@ -10,16 +10,20 @@ import {
   AlertTriangle,
   FileText,
 } from "lucide-react";
-import { MOCK_PERFORMANCE_DATA, TEAMS } from "@/lib/mockPerformanceData";
 import AdvisorPerformanceCard from "@/components/rendimiento/AdvisorPerformanceCard";
 import Breadcrumb from "@/components/ui/Breadcrumb";
-import { supabase } from "@/lib/supabase";
+import { supabase, getAllBots, isBotExcluded } from "@/lib/supabase";
+import { getDashboardStats } from "@/lib/supabaseRendimiento";
+import { parseBotSessionName } from "@/lib/botNameParser";
 
 export default function RendimientoPage() {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState("today");
   const [activeTab, setActiveTab] = useState("general");
   const [recentlyViewedId, setRecentlyViewedId] = useState(null);
+  const [advisors, setAdvisors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [teams, setTeams] = useState([]);
 
   // Obtener y loggear usuario loggeado
   useEffect(() => {
@@ -38,34 +42,81 @@ export default function RendimientoPage() {
     loadUserData();
   }, []);
 
-  // Detectar asesor visto recientemente
-  useState(() => {
+  // Detectar asesor visto recientemente (badge permanente)
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const lastViewed = localStorage.getItem('lastViewedAdvisor');
       if (lastViewed) {
         setRecentlyViewedId(lastViewed);
-        // Limpiar después de 5 segundos
-        setTimeout(() => {
-          setRecentlyViewedId(null);
-          localStorage.removeItem('lastViewedAdvisor');
-        }, 5000);
       }
     }
   }, []);
 
+  // Cargar datos reales de asesores
+  useEffect(() => {
+    loadAdvisorsData();
+  }, []);
+
+  const loadAdvisorsData = async () => {
+    try {
+      setLoading(true);
+      const stats = await getDashboardStats();
+      
+      // Transformar datos a formato compatible con AdvisorPerformanceCard
+      const advisorsData = stats.map((stat) => {
+        const botName = stat.worker?.name || "Asesor sin asignar";
+        const workerId = stat.worker?.id;
+        const averageScore = parseFloat(stat.averageScore || 0);
+        const averagePercentage = parseFloat(stat.averagePercentage || 0);
+        const trend = stat.trend > 0 ? "up" : stat.trend < 0 ? "down" : "stable";
+
+        // Extraer métricas del último análisis
+        const latestAnalysis = stat.latestAnalysis || {};
+        const metrics = {
+          tiempo_contacto: (latestAnalysis.tiempo_contacto_count || 0) > (latestAnalysis.total_conversations_analyzed || 1) * 0.7,
+          tiempo_respuesta: (latestAnalysis.tiempo_respuesta_count || 0) > (latestAnalysis.total_conversations_analyzed || 1) * 0.7,
+          tiempo_cotizacion: (latestAnalysis.tiempo_cotizacion_count || 0) > (latestAnalysis.total_conversations_analyzed || 1) * 0.7,
+          cierre_intencion: (latestAnalysis.cierre_intencion_count || 0) > (latestAnalysis.total_conversations_analyzed || 1) * 0.7,
+          ofrecio_scalapay: (latestAnalysis.ofrecio_scalapay_count || 0) > (latestAnalysis.total_conversations_analyzed || 1) * 0.7,
+          mas_dos_opciones: (latestAnalysis.mas_dos_opciones_count || 0) > (latestAnalysis.total_conversations_analyzed || 1) * 0.7,
+          seguimiento_intencion: (latestAnalysis.seguimiento_intencion_count || 0) > (latestAnalysis.total_conversations_analyzed || 1) * 0.7,
+        };
+
+        return {
+          id: stat.botId, // Usar bot_id real
+          workerId: workerId, // Mantener worker_id si existe
+          name: botName,
+          dailyScore: averageScore,
+          trend: trend,
+          metrics: metrics,
+          totalConversations: stat.totalConversations || 0,
+          team: "general",
+        };
+      });
+
+      setAdvisors(advisorsData);
+      
+      // Extraer equipos únicos (por ahora solo general)
+      setTeams([]);
+    } catch (error) {
+      console.error("Error cargando datos de asesores:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Calcular KPIs globales
-  const allAdvisors = Object.values(MOCK_PERFORMANCE_DATA.teams).flat();
-  const totalConversations = allAdvisors.length * 15;
-  const avgScore =
-    allAdvisors.reduce((acc, adv) => acc + adv.dailyScore, 0) /
-    allAdvisors.length;
+  const allAdvisors = advisors;
+  const totalConversations = allAdvisors.reduce((acc, adv) => acc + (adv.totalConversations || 0), 0);
+  const avgScore = allAdvisors.length > 0
+    ? allAdvisors.reduce((acc, adv) => acc + adv.dailyScore, 0) / allAdvisors.length
+    : 0;
   const criticalAlerts = allAdvisors.filter((adv) => adv.dailyScore < 5).length;
 
   // Filtrar asesores según tab activo
-  const displayedAdvisors =
-    activeTab === "general"
-      ? allAdvisors
-      : MOCK_PERFORMANCE_DATA.teams[activeTab] || [];
+  const displayedAdvisors = activeTab === "general"
+    ? allAdvisors
+    : allAdvisors.filter((adv) => adv.team === activeTab);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -73,12 +124,20 @@ export default function RendimientoPage() {
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Breadcrumb */}
           <Breadcrumb items={[
-            { label: "Dashboard", href: "/dashboard" },
+            { label: "Dashboard", href: "/" },
             { label: "Rendimiento", href: "/rendimiento" }
           ]} />
 
           {/* Header */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            {loading && (
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center rounded-xl z-10">
+                <div className="flex items-center gap-3">
+                  <RefreshCw className="h-5 w-5 text-blue-600 animate-spin" />
+                  <span className="text-gray-700 font-medium">Cargando datos...</span>
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
@@ -103,16 +162,19 @@ export default function RendimientoPage() {
                 </select>
 
                 <button
+                  onClick={() => router.push("/rendimiento/muestra-analisis")}
+                  className="px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-2"
+                >
+                  <TrendingUp className="h-4 w-4" />
+                  Muestra de Análisis
+                </button>
+
+                <button
                   onClick={() => router.push("/rendimiento/reportes")}
                   className="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors shadow-sm flex items-center gap-2"
                 >
                   <FileText className="h-4 w-4" />
                   Reportes
-                </button>
-
-                <button className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4" />
-                  Actualizar Análisis
                 </button>
               </div>
             </div>
@@ -128,7 +190,7 @@ export default function RendimientoPage() {
                 <TrendingUp className="h-5 w-5 text-blue-200" />
               </div>
               <div className="text-4xl font-bold">{avgScore.toFixed(1)}</div>
-              <div className="text-sm text-blue-100 mt-1">De 10.0 puntos</div>
+              <div className="text-sm text-blue-100 mt-1">De 7.0 puntos</div>
             </div>
 
             <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
@@ -189,7 +251,7 @@ export default function RendimientoPage() {
               >
                 Vista General ({allAdvisors.length})
               </button>
-              {TEAMS.map((team) => (
+              {teams.map((team) => (
                 <button
                   key={team}
                   onClick={() => setActiveTab(team)}
@@ -199,7 +261,7 @@ export default function RendimientoPage() {
                       : "text-gray-600 hover:bg-gray-100"
                   }`}
                 >
-                  Equipo {team} ({MOCK_PERFORMANCE_DATA.teams[team].length})
+                  Equipo {team} ({allAdvisors.filter((adv) => adv.team === team).length})
                 </button>
               ))}
             </div>

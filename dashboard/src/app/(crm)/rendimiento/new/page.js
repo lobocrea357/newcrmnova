@@ -28,10 +28,13 @@ import {
   calculateAnalysisStats,
   createReport,
 } from "@/lib/supabaseRendimiento";
+import { generatePerformanceReport } from "@/lib/aiPerformance";
+import { loadConversationsForAnalysis } from "@/lib/conversationLoader";
 import {
-  filterCustomerChats,
-  generatePerformanceReport,
-} from "@/lib/aiPerformance";
+  analyzeConversationsBatch,
+  processEvaluationsWithScores,
+} from "@/lib/batchAIAnalysis";
+import { generateFilterReport } from "@/lib/chatFilters";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 
 export default function RendimientoPage() {
@@ -164,58 +167,52 @@ export default function RendimientoPage() {
         );
 
         try {
-          // Cargar conversaciones (ya filtradas por is_group en getConversationsByBot)
-          const { data: conversations, total } = await getConversationsByBot(
-            bot.id,
-            1,
-            50, // Aumentar para tener más muestra después del filtrado IA
+          // PASO 1: Cargar conversaciones con filtros inteligentes
+          setProgresoMasivo((prev) =>
+            prev.map((p, idx) => (idx === i ? { ...p, status: "loading" } : p)),
           );
+
+          const { conversations, stats: filterStats } = await loadConversationsForAnalysis(
+            bot.id,
+            {
+              targetValid: 20, // Objetivo: 20 conversaciones válidas
+              maxAttempts: 300, // Revisar hasta 300 chats si es necesario
+              excludeGroups: true,
+              excludeInternal: true,
+              useCache: true,
+              minLastMessageDays: 30,
+            }
+          );
+
+          console.log(`Bot ${botName}:`, generateFilterReport(filterStats));
 
           if (!conversations || conversations.length === 0) {
             setProgresoMasivo((prev) =>
               prev.map((p, idx) =>
-                idx === i ? { ...p, status: "skipped", conversaciones: 0 } : p,
-              ),
+                idx === i ? { ...p, status: "skipped", conversaciones: 0 } : p
+              )
             );
             continue;
           }
 
-          // NUEVO: Filtrar chats con IA para excluir chats internos/gerentes
+          // PASO 2: Análisis IA en batch (más eficiente)
           setProgresoMasivo((prev) =>
-            prev.map((p, idx) => (idx === i ? { ...p, status: "filtering" } : p)),
+            prev.map((p, idx) => (idx === i ? { ...p, status: "analyzing" } : p))
           );
 
-          const getMessagesForChat = async (chatId) => {
-            const { data } = await supabase
-              .from('messages')
-              .select('from_me, body, content, timestamp')
-              .eq('chat_id', chatId)
-              .order('timestamp', { ascending: false })
-              .limit(15);
-            return data || [];
-          };
-
-          const customerChats = await filterCustomerChats(conversations, getMessagesForChat);
-
-          if (customerChats.length === 0) {
-            setProgresoMasivo((prev) =>
-              prev.map((p, idx) =>
-                idx === i ? { ...p, status: "skipped", conversaciones: 0 } : p,
-              ),
-            );
-            continue;
-          }
-
-          // Actualizar progreso: analizando chats filtrados
-          setProgresoMasivo((prev) =>
-            prev.map((p, idx) => (idx === i ? { ...p, status: "analyzing" } : p)),
+          const evaluacionesIA = await analyzeConversationsBatch(
+            conversations,
+            null, // Sin callback de progreso individual
+            15 // Batch size
           );
 
-          // Simular análisis IA solo en chats de clientes
-          const evaluacionesIA = await simularAnalisisIA(customerChats);
+          // Procesar con scores
+          const evaluacionesConScores = processEvaluationsWithScores(
+            evaluacionesIA
+          );
 
-          // Calcular estadísticas
-          const stats = calculateAnalysisStats(evaluacionesIA);
+          // CRÍTICO: Pasar evaluacionesConScores (con score/percentage calculado)
+          const stats = calculateAnalysisStats(evaluacionesConScores);
 
           // Crear análisis
           const analysisData = {
@@ -255,7 +252,13 @@ export default function RendimientoPage() {
           );
 
           // Crear análisis CON reporte automático
-          const { analysis, report } = await createAnalysisWithReport(analysisData, evaluacionesArray);
+          const result = await createAnalysisWithReport(analysisData, evaluacionesArray);
+          const analysis = result.analysis;
+          const report = result.report;
+          
+          if (!report) {
+            console.warn(`⚠️ Reporte no generado para ${botName}: ${result.reportError || 'Error desconocido'}`);
+          }
 
           // Actualizar evaluaciones con el ID del análisis y guardar
           const evaluacionesConAnalisis = evaluacionesArray.map(ev => ({
@@ -274,7 +277,7 @@ export default function RendimientoPage() {
                 ? {
                     ...p,
                     status: "completed",
-                    conversaciones: customerChats.length,
+                    conversaciones: conversations.length,
                     score: parseFloat(stats.average_score),
                     percentage: parseFloat(stats.average_percentage),
                   }
@@ -448,14 +451,9 @@ export default function RendimientoPage() {
     try {
       setGuardando(true);
 
-      // Buscar el perfil del usuario en la tabla profiles
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", user?.id)
-        .single();
+      const userId = null;
 
-      // Calcular estadísticas
+      // Calcular estadísticas (evaluaciones ya tienen scores)
       const stats = calculateAnalysisStats(evaluaciones);
 
       // Crear el análisis
@@ -470,7 +468,7 @@ export default function RendimientoPage() {
         )
           ? "AI"
           : "Manual",
-        created_by_user_id: profileData?.id || null,
+        created_by_user_id: userId,
         status: "finalized",
       };
 
@@ -484,7 +482,7 @@ export default function RendimientoPage() {
           evaluation_date: new Date().toISOString(),
           generated_by: evalData.manually_edited ? "Manual" : "AI",
           manually_edited: evalData.manually_edited || false,
-          evaluated_by_user_id: profileData?.id || null,
+          evaluated_by_user_id: userId,
           ...Object.fromEntries(
             PARAMETROS_EVALUACION.map((param) => [
               param.key,
@@ -500,7 +498,13 @@ export default function RendimientoPage() {
       );
 
       // Crear análisis CON reporte automático
-      const { analysis, report } = await createAnalysisWithReport(analysisData, evaluacionesArray);
+      const result = await createAnalysisWithReport(analysisData, evaluacionesArray);
+      const analysis = result.analysis;
+      const report = result.report;
+      
+      if (!report) {
+        console.warn(`⚠️ Reporte no generado: ${result.reportError || 'Error desconocido'}`);
+      }
 
       // Actualizar evaluaciones con el ID del análisis y guardar
       const evaluacionesConAnalisis = evaluacionesArray.map(ev => ({
@@ -542,7 +546,7 @@ export default function RendimientoPage() {
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Breadcrumb */}
           <Breadcrumb items={[
-            { label: "Dashboard", href: "/dashboard" },
+            { label: "Dashboard", href: "/" },
             { label: "Rendimiento", href: "/rendimiento" },
             { label: "Crear Análisis", href: "/rendimiento/new" }
           ]} />

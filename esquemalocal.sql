@@ -52,7 +52,7 @@ CREATE TABLE public.bot_stats (
 CREATE TABLE public.bots (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
-  phone_number text NOT NULL UNIQUE,
+  phone_number text NOT NULL,
   status text DEFAULT 'offline'::text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
@@ -128,8 +128,6 @@ CREATE TABLE public.conversation_evaluations (
   bot_id uuid NOT NULL,
   worker_id uuid,
   evaluation_date timestamp with time zone DEFAULT now(),
-  analysis_period_start date,
-  analysis_period_end date,
   generated_by text NOT NULL,
   manually_edited boolean DEFAULT false,
   evaluated_by_user_id uuid,
@@ -147,11 +145,13 @@ CREATE TABLE public.conversation_evaluations (
   manager_notes text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  performance_analysis_id uuid,
   CONSTRAINT conversation_evaluations_pkey PRIMARY KEY (id),
   CONSTRAINT conversation_evaluations_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id),
   CONSTRAINT conversation_evaluations_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id),
   CONSTRAINT conversation_evaluations_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id),
-  CONSTRAINT conversation_evaluations_evaluated_by_fkey FOREIGN KEY (evaluated_by_user_id) REFERENCES public.profiles(id)
+  CONSTRAINT conversation_evaluations_evaluated_by_fkey FOREIGN KEY (evaluated_by_user_id) REFERENCES public.profiles(id),
+  CONSTRAINT conversation_evaluations_performance_analysis_id_fkey FOREIGN KEY (performance_analysis_id) REFERENCES public.performance_analyses(id)
 );
 CREATE TABLE public.media_files (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -203,8 +203,6 @@ CREATE TABLE public.performance_analyses (
   analysis_name text NOT NULL,
   bot_id uuid NOT NULL,
   worker_id uuid,
-  period_start date NOT NULL,
-  period_end date NOT NULL,
   total_conversations_analyzed integer NOT NULL DEFAULT 0,
   average_score numeric NOT NULL DEFAULT 0.00,
   average_percentage numeric NOT NULL DEFAULT 0.00,
@@ -222,6 +220,7 @@ CREATE TABLE public.performance_analyses (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   finalized_at timestamp with time zone,
+  analysis_date date NOT NULL DEFAULT CURRENT_DATE,
   CONSTRAINT performance_analyses_pkey PRIMARY KEY (id),
   CONSTRAINT performance_analyses_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id),
   CONSTRAINT performance_analyses_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id),
@@ -257,6 +256,7 @@ CREATE TABLE public.performance_reports (
   generated_by_user_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   downloaded_at timestamp with time zone,
+  report_data jsonb DEFAULT '{}'::jsonb,
   CONSTRAINT performance_reports_pkey PRIMARY KEY (id),
   CONSTRAINT performance_reports_analysis_id_fkey FOREIGN KEY (performance_analysis_id) REFERENCES public.performance_analyses(id),
   CONSTRAINT performance_reports_generated_by_fkey FOREIGN KEY (generated_by_user_id) REFERENCES public.profiles(id)

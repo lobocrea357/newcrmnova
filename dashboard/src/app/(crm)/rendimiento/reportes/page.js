@@ -17,7 +17,6 @@ import {
 import { supabase } from "@/lib/supabase";
 import { generatePerformanceReport } from "@/lib/aiPerformance";
 import { createReport, getReportsByAnalysis } from "@/lib/supabaseRendimiento";
-import { MOCK_ANALYSES, MOCK_REPORT_STATUSES } from "@/lib/mockAnalysisData";
 import ReportModal from "@/components/rendimiento/ReportModal";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 
@@ -31,7 +30,6 @@ export default function ReportesPage() {
   const [generatingIds, setGeneratingIds] = useState(new Set());
   const [generatingBatch, setGeneratingBatch] = useState(false);
   const [reportStatuses, setReportStatuses] = useState({});
-  const [useMockData, setUseMockData] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
 
   useEffect(() => {
@@ -62,19 +60,7 @@ export default function ReportesPage() {
 
       if (error) throw error;
 
-      const hasRealData = analysesData && analysesData.length > 0;
-      
-      // Si no hay datos reales, usar mock data
-      if (!hasRealData) {
-        setUseMockData(true);
-        setAnalyses(MOCK_ANALYSES);
-        setReportStatuses(MOCK_REPORT_STATUSES);
-        setLoading(false);
-        return;
-      }
-      
-      setUseMockData(false);
-      setAnalyses(analysesData);
+      setAnalyses(analysesData || []);
 
       // Cargar estado de reportes para cada análisis
       const statuses = {};
@@ -106,15 +92,21 @@ export default function ReportesPage() {
       if (evalError) throw evalError;
 
       // Generar reporte con IA
-      const reportData = await generatePerformanceReport(
+      const reportResult = await generatePerformanceReport(
         evaluations,
         analysis.bot?.session_name || analysis.worker?.name || "Asesor"
       );
 
+      if (!reportResult.success) {
+        throw new Error(reportResult.error || 'Error generando reporte con IA');
+      }
+
       // Guardar reporte
       await createReport({
-        performanceAnalysisId: analysis.id,
-        reportData: reportData,
+        performance_analysis_id: analysis.id,
+        report_data: reportResult.report,
+        report_type: 'manual',
+        report_name: `Reporte de ${analysis.bot?.session_name || analysis.worker?.name || 'Asesor'}`,
       });
 
       // Recargar estado de reportes
@@ -161,30 +153,84 @@ export default function ReportesPage() {
     }
   };
 
+  // Transformar datos de API a formato de ReportModal
+  const transformReportData = (apiReport, analysis) => {
+    const METRIC_LABELS = {
+      tiempo_contacto: "Tiempo de contacto adecuado",
+      tiempo_respuesta: "Tiempo de respuesta rápido",
+      tiempo_cotizacion: "Tiempo de cotización eficiente",
+      cierre_intencion: "Cierre con intención de compra",
+      ofrecio_scalapay: "Ofrecimiento de Scalapay",
+      mas_dos_opciones: "Más de dos opciones presentadas",
+      seguimiento_intencion: "Seguimiento de intención",
+    };
+
+    // Construir métricas detalladas
+    const detailedMetrics = Object.entries(apiReport.metricas_detalladas || {}).map(
+      ([key, percentage]) => ({
+        parameter: METRIC_LABELS[key] || key,
+        status: parseFloat(percentage) >= 60 ? "pass" : "fail",
+        details: `Cumplimiento: ${percentage}% de las conversaciones`,
+      })
+    );
+
+    // Calcular score de 0-10 basado en promedio de porcentajes
+    const avgPercentage = analysis.average_percentage || 0;
+    const score = (avgPercentage / 10).toFixed(1);
+
+    return {
+      analysisId: analysis.id, // IMPORTANTE: para regenerar
+      advisorName: analysis.bot?.session_name || analysis.worker?.name || "Sin nombre",
+      analysisDate: analysis.analysis_date || new Date().toISOString(),
+      score: score,
+      percentage: avgPercentage,
+      totalConversations: apiReport.total_conversaciones || analysis.total_conversations_analyzed || 0,
+      summary: {
+        strengths: apiReport.fortalezas || [],
+        weaknesses: apiReport.areas_mejora || [],
+      },
+      detailedMetrics: detailedMetrics,
+      recommendations: {
+        immediate: apiReport.plan_accion || [],
+        longTerm: apiReport.conclusiones ? [apiReport.conclusiones] : [],
+      },
+      conversationExamples: [], // No disponibles en este formato
+    };
+  };
+
   const viewReport = (analysis) => {
-    const status = reportStatuses[analysis.id];
-    if (status?.report?.report_data) {
-      const reportData = typeof status.report.report_data === 'string' 
-        ? JSON.parse(status.report.report_data) 
-        : status.report.report_data;
-      setSelectedReport(reportData);
-    } else {
-      alert("No hay reporte disponible para este análisis");
+    try {
+      const status = reportStatuses[analysis.id];
+      if (!status?.report?.file_url) {
+        alert("No hay reporte disponible para este análisis");
+        return;
+      }
+      
+      const apiReportData = typeof status.report.file_url === 'string' 
+        ? JSON.parse(status.report.file_url) 
+        : status.report.file_url;
+      
+      // Transformar datos al formato del modal
+      const transformedReport = transformReportData(apiReportData, analysis);
+      setSelectedReport(transformedReport);
+    } catch (error) {
+      console.error("Error al ver reporte:", error);
+      alert("Error al cargar el reporte");
     }
   };
 
   const downloadReport = async (analysis) => {
     try {
       const status = reportStatuses[analysis.id];
-      if (!status?.report?.report_data) {
+      if (!status?.report?.file_url) {
         alert("No hay datos de reporte para descargar");
         return;
       }
 
       const reportData =
-        typeof status.report.report_data === "string"
-          ? JSON.parse(status.report.report_data)
-          : status.report.report_data;
+        typeof status.report.file_url === "string"
+          ? JSON.parse(status.report.file_url)
+          : status.report.file_url;
 
       const blob = new Blob([JSON.stringify(reportData, null, 2)], {
         type: "application/json",
@@ -225,7 +271,7 @@ export default function ReportesPage() {
       <div className="max-w-7xl mx-auto p-6 space-y-6">
         {/* Breadcrumb */}
         <Breadcrumb items={[
-          { label: "Dashboard", href: "/dashboard" },
+          { label: "Dashboard", href: "/" },
           { label: "Rendimiento", href: "/rendimiento" },
           { label: "Reportes", href: "/rendimiento/reportes" }
         ]} />
@@ -304,23 +350,6 @@ export default function ReportesPage() {
               <div className="text-sm text-amber-100 mt-1">Por generar</div>
             </div>
         </div>
-
-        {/* Banner informativo para datos de ejemplo */}
-        {useMockData && (
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
-              <div className="flex items-center gap-3">
-                <Sparkles className="h-6 w-6" />
-                <div>
-                  <h3 className="text-lg font-bold mb-1">
-                    Mostrando Datos de Ejemplo
-                  </h3>
-                  <p className="text-indigo-100 text-sm">
-                    Estos son análisis y reportes de demostración. Para ver datos reales, crea análisis desde el dashboard de rendimiento.
-                  </p>
-                </div>
-              </div>
-          </div>
-        )}
 
         {/* Acciones Masivas */}
         {pendingReportsCount > 0 && (
@@ -466,16 +495,9 @@ export default function ReportesPage() {
                             </>
                           ) : (
                             <button
-                              onClick={() => {
-                                if (useMockData) {
-                                  alert('⚠️ Datos de ejemplo\n\nEsto es un análisis de demostración. Para generar reportes reales, crea análisis desde el dashboard de rendimiento.');
-                                } else {
-                                  generateSingleReport(analysis);
-                                }
-                              }}
+                              onClick={() => generateSingleReport(analysis)}
                               disabled={isGenerating || generatingBatch}
                               className="px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                              title={useMockData ? "Este es un análisis de ejemplo" : "Generar reporte con IA"}
                             >
                               {isGenerating ? (
                                 <>
@@ -504,6 +526,11 @@ export default function ReportesPage() {
           <ReportModal
             report={selectedReport}
             onClose={() => setSelectedReport(null)}
+            onReportRegenerated={(newReport) => {
+              // Recargar datos después de regenerar
+              loadAnalyses();
+              alert('Reporte actualizado. Cierra y vuelve a abrir para ver cambios.');
+            }}
           />
         )}
       </div>
