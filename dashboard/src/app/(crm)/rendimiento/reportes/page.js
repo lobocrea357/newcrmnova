@@ -19,6 +19,7 @@ import { generatePerformanceReport } from "@/lib/aiPerformance";
 import { createReport, getReportsByAnalysis } from "@/lib/supabaseRendimiento";
 import ReportModal from "@/components/rendimiento/ReportModal";
 import Breadcrumb from "@/components/ui/Breadcrumb";
+import AnalysisStatusBadge from "@/components/rendimiento/AnalysisStatusBadge";
 
 export default function ReportesPage() {
   const router = useRouter();
@@ -31,6 +32,7 @@ export default function ReportesPage() {
   const [generatingBatch, setGeneratingBatch] = useState(false);
   const [reportStatuses, setReportStatuses] = useState({});
   const [selectedReport, setSelectedReport] = useState(null);
+  const [evaluationCounts, setEvaluationCounts] = useState({});
 
   useEffect(() => {
     loadAnalyses();
@@ -62,16 +64,29 @@ export default function ReportesPage() {
 
       setAnalyses(analysesData || []);
 
-      // Cargar estado de reportes para cada análisis
+      // Cargar estado de reportes Y conteo de evaluaciones para cada análisis
       const statuses = {};
+      const evalCounts = {};
+
       for (const analysis of analysesData || []) {
+        // Get reports
         const reports = await getReportsByAnalysis(analysis.id);
         statuses[analysis.id] = {
           hasReport: reports.length > 0,
           report: reports[0] || null,
         };
+
+        // Get evaluation count
+        const { count, error: countError } = await supabase
+          .from("conversation_evaluations")
+          .select("*", { count: "exact", head: true })
+          .eq("performance_analysis_id", analysis.id);
+
+        evalCounts[analysis.id] = countError ? 0 : (count || 0);
       }
+
       setReportStatuses(statuses);
+      setEvaluationCounts(evalCounts);
     } catch (error) {
       console.error("Error cargando análisis:", error);
     } finally {
@@ -499,17 +514,10 @@ export default function ReportesPage() {
                           <h3 className="font-semibold text-gray-900">
                             {analysis.analysis_name}
                           </h3>
-                          {status?.hasReport ? (
-                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full flex items-center gap-1">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Reporte generado
-                            </span>
-                          ) : (
-                            <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded-full flex items-center gap-1">
-                              <AlertCircle className="h-3 w-3" />
-                              Pendiente
-                            </span>
-                          )}
+                          <AnalysisStatusBadge
+                            analysis={analysis}
+                            evaluationsCount={evaluationCounts[analysis.id] || 0}
+                          />
                         </div>
                         <div className="flex items-center gap-4 text-sm text-gray-600">
                           <span>
