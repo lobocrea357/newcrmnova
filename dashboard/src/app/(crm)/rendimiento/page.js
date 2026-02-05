@@ -61,7 +61,7 @@ export default function RendimientoPage() {
     try {
       setLoading(true);
       const stats = await getDashboardStats();
-      
+
       // Transformar datos a formato compatible con AdvisorPerformanceCard
       const advisorsData = stats.map((stat) => {
         const botName = stat.worker?.name || "Asesor sin asignar";
@@ -95,7 +95,7 @@ export default function RendimientoPage() {
       });
 
       setAdvisors(advisorsData);
-      
+
       // Extraer equipos únicos (por ahora solo general)
       setTeams([]);
     } catch (error) {
@@ -153,12 +153,22 @@ export default function RendimientoPage() {
                 <select
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 font-medium shadow-sm hover:border-gray-400 transition-colors"
+                  style={{
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                    appearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
+                    backgroundPosition: 'right 0.5rem center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: '1.5em 1.5em',
+                    paddingRight: '2.5rem'
+                  }}
                 >
-                  <option value="today">Hoy</option>
-                  <option value="yesterday">Ayer</option>
-                  <option value="week">Esta Semana</option>
-                  <option value="month">Este Mes</option>
+                  <option value="today" className="text-gray-900 bg-white font-medium">Hoy</option>
+                  <option value="yesterday" className="text-gray-900 bg-white font-medium">Ayer</option>
+                  <option value="week" className="text-gray-900 bg-white font-medium">Esta Semana</option>
+                  <option value="month" className="text-gray-900 bg-white font-medium">Este Mes</option>
                 </select>
 
                 <button
@@ -205,31 +215,27 @@ export default function RendimientoPage() {
             </div>
 
             <div
-              className={`bg-gradient-to-br ${
-                criticalAlerts > 0
+              className={`bg-gradient-to-br ${criticalAlerts > 0
                   ? "from-red-500 to-red-600"
                   : "from-green-500 to-green-600"
-              } rounded-xl shadow-lg p-6 text-white`}
+                } rounded-xl shadow-lg p-6 text-white`}
             >
               <div className="flex items-center justify-between mb-2">
                 <div
-                  className={`text-sm font-medium ${
-                    criticalAlerts > 0 ? "text-red-100" : "text-green-100"
-                  }`}
+                  className={`text-sm font-medium ${criticalAlerts > 0 ? "text-red-100" : "text-green-100"
+                    }`}
                 >
                   Alertas Críticas
                 </div>
                 <AlertTriangle
-                  className={`h-5 w-5 ${
-                    criticalAlerts > 0 ? "text-red-200" : "text-green-200"
-                  }`}
+                  className={`h-5 w-5 ${criticalAlerts > 0 ? "text-red-200" : "text-green-200"
+                    }`}
                 />
               </div>
               <div className="text-4xl font-bold">{criticalAlerts}</div>
               <div
-                className={`text-sm mt-1 ${
-                  criticalAlerts > 0 ? "text-red-100" : "text-green-100"
-                }`}
+                className={`text-sm mt-1 ${criticalAlerts > 0 ? "text-red-100" : "text-green-100"
+                  }`}
               >
                 {criticalAlerts > 0
                   ? "Asesores con score < 5"
@@ -243,11 +249,10 @@ export default function RendimientoPage() {
             <div className="flex gap-2 overflow-x-auto">
               <button
                 onClick={() => setActiveTab("general")}
-                className={`px-6 py-3 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                  activeTab === "general"
+                className={`px-6 py-3 rounded-lg font-semibold transition-all whitespace-nowrap ${activeTab === "general"
                     ? "bg-blue-600 text-white shadow-md"
                     : "text-gray-600 hover:bg-gray-100"
-                }`}
+                  }`}
               >
                 Vista General ({allAdvisors.length})
               </button>
@@ -255,11 +260,10 @@ export default function RendimientoPage() {
                 <button
                   key={team}
                   onClick={() => setActiveTab(team)}
-                  className={`px-6 py-3 rounded-lg font-semibold transition-all whitespace-nowrap ${
-                    activeTab === team
+                  className={`px-6 py-3 rounded-lg font-semibold transition-all whitespace-nowrap ${activeTab === team
                       ? "bg-blue-600 text-white shadow-md"
                       : "text-gray-600 hover:bg-gray-100"
-                  }`}
+                    }`}
                 >
                   Equipo {team} ({allAdvisors.filter((adv) => adv.team === team).length})
                 </button>

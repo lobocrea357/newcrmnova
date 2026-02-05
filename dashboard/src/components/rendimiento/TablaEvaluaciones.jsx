@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { ChevronDown, ChevronUp, Eye, Sparkles, Edit3, Check, X } from 'lucide-react'
 import { PARAMETROS_EVALUACION } from '@/lib/mockRendimiento'
 
@@ -158,9 +158,8 @@ export default function TablaEvaluaciones({
                                 const isSelected = seleccionadas.includes(conv.id)
 
                                 return (
-                                    <>
+                                    <React.Fragment key={conv.id}>
                                         <tr
-                                            key={conv.id}
                                             className={`hover:bg-gray-50 transition-colors ${isSelected ? 'bg-indigo-50' : ''}`}
                                         >
                                             <td className="px-4 py-3">
@@ -286,7 +285,7 @@ export default function TablaEvaluaciones({
                                                 </td>
                                             </tr>
                                         )}
-                                    </>
+                                    </React.Fragment>
                                 )
                             })}
                         </tbody>

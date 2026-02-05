@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { TrendingUp, TrendingDown, BarChart3, Activity } from "lucide-react";
 
 /**
@@ -283,8 +284,8 @@ export default function PerformanceTracking({ advisor, historicalData = [] }) {
 
               {/* Rows */}
               {metrics.map(metric => (
-                <>
-                  <div key={`label-${metric.key}`} className="text-xs font-medium text-gray-700 py-2">
+                <React.Fragment key={metric.key}>
+                  <div className="text-xs font-medium text-gray-700 py-2">
                     {metric.label.split(' ').slice(-2).join(' ')}
                   </div>
                   {historicalData.slice(-10).map((d, i) => {
@@ -298,7 +299,7 @@ export default function PerformanceTracking({ advisor, historicalData = [] }) {
                       />
                     );
                   })}
-                </>
+                </React.Fragment>
               ))}
             </div>
           </div>

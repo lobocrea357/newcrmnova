@@ -3,8 +3,8 @@
  * Integra Supabase + filtros estructurales inteligentes
  */
 
-import { supabase } from './supabase';
-import { applyStructuralFilters, isValidChat } from './chatFilters';
+import { supabase } from "./supabase";
+import { applyStructuralFilters, isValidChat } from "./chatFilters";
 
 /**
  * Carga conversaciones con filtrado inteligente integrado
@@ -35,7 +35,7 @@ export async function loadConversationsForAnalysis(botId, options = {}) {
     let offset = 0;
     let totalProcessed = 0;
     const batchSize = 50;
-    
+
     const globalStats = {
       total_loaded: 0,
       excluded_groups: 0,
@@ -45,43 +45,45 @@ export async function loadConversationsForAnalysis(botId, options = {}) {
     };
 
     // COMPENSACIÓN: Seguir cargando hasta tener suficientes conversaciones válidas
-    while (allValidConversations.length < targetValid && totalProcessed < maxAttempts) {
-      console.log(`   📦 Cargando batch ${Math.floor(offset / batchSize) + 1} (offset: ${offset})`);
-      
+    while (
+      allValidConversations.length < targetValid &&
+      totalProcessed < maxAttempts
+    ) {
+      console.log(
+        `   📦 Cargando batch ${Math.floor(offset / batchSize) + 1} (offset: ${offset})`,
+      );
+
       // Cargar batch desde Supabase
-      let query = supabase
-        .from('chats')
-        .select('*')
-        .eq('bot_id', botId);
+      let query = supabase.from("chats").select("*").eq("bot_id", botId);
 
       // Filtrar grupos a nivel SQL
       if (excludeGroups) {
-        query = query.eq('is_group', false);
+        query = query.eq("is_group", false);
       }
 
       if (minLastMessageDays > 0) {
-        query = query.gte('last_message_at', dateLimit.toISOString());
+        query = query.gte("last_message_at", dateLimit.toISOString());
       }
 
       // Excluir patrones obvios de WhatsApp
       query = query
-        .not('chat_id', 'ilike', '%status%')
-        .not('chat_id', 'ilike', '%@broadcast%')
-        .not('chat_id', 'ilike', '%@g.us');
+        .not("chat_id", "ilike", "%status%")
+        .not("chat_id", "ilike", "%@broadcast%")
+        .not("chat_id", "ilike", "%@g.us");
 
       query = query
-        .order('last_message_at', { ascending: false })
+        .order("last_message_at", { ascending: false })
         .range(offset, offset + batchSize - 1);
 
       const { data: chats, error } = await query;
 
       if (error) {
-        console.error('❌ Error cargando conversaciones:', error);
+        console.error("❌ Error cargando conversaciones:", error);
         throw error;
       }
 
       if (!chats || chats.length === 0) {
-        console.log('   ⚠️ No hay más conversaciones disponibles');
+        console.log("   ⚠️ No hay más conversaciones disponibles");
         break;
       }
 
@@ -105,7 +107,9 @@ export async function loadConversationsForAnalysis(botId, options = {}) {
       const validInBatch = filtered.filter(isValidChat);
       allValidConversations.push(...validInBatch);
 
-      console.log(`   ✅ Batch: ${validInBatch.length} válidas | Total acumulado: ${allValidConversations.length}/${targetValid}`);
+      console.log(
+        `   ✅ Batch: ${validInBatch.length} válidas | Total acumulado: ${allValidConversations.length}/${targetValid}`,
+      );
 
       // Si ya tenemos suficientes, detener
       if (allValidConversations.length >= targetValid) {
@@ -121,8 +125,12 @@ export async function loadConversationsForAnalysis(botId, options = {}) {
     console.log(`\n✅ RESULTADO FINAL:`);
     console.log(`   • Conversaciones procesadas: ${totalProcessed}`);
     console.log(`   • Grupos excluidos: ${globalStats.excluded_groups}`);
-    console.log(`   • Chats internos excluidos: ${globalStats.excluded_internal}`);
-    console.log(`   • Conversaciones válidas obtenidas: ${finalConversations.length}/${targetValid}`);
+    console.log(
+      `   • Chats internos excluidos: ${globalStats.excluded_internal}`,
+    );
+    console.log(
+      `   • Conversaciones válidas obtenidas: ${finalConversations.length}/${targetValid}`,
+    );
 
     return {
       conversations: finalConversations,
@@ -134,7 +142,7 @@ export async function loadConversationsForAnalysis(botId, options = {}) {
       },
     };
   } catch (error) {
-    console.error('❌ Error en loadConversationsForAnalysis:', error);
+    console.error("❌ Error en loadConversationsForAnalysis:", error);
     throw error;
   }
 }
@@ -148,18 +156,18 @@ export async function loadConversationsForAnalysis(botId, options = {}) {
 export async function hasEnoughMessages(chatId, minMessages = 5) {
   try {
     const { count, error } = await supabase
-      .from('messages')
-      .select('*', { count: 'exact', head: true })
-      .eq('chat_id', chatId);
+      .from("messages")
+      .select("*", { count: "exact", head: true })
+      .eq("chat_id", chatId);
 
     if (error) {
-      console.error('Error contando mensajes:', error);
+      console.error("Error contando mensajes:", error);
       return false;
     }
 
     return (count || 0) >= minMessages;
   } catch (error) {
-    console.error('Error en hasEnoughMessages:', error);
+    console.error("Error en hasEnoughMessages:", error);
     return false;
   }
 }
@@ -171,16 +179,18 @@ export async function hasEnoughMessages(chatId, minMessages = 5) {
  * @returns {Promise<Array>} - Conversaciones filtradas
  */
 export async function filterByMessageCount(conversations, minMessages = 5) {
-  console.log(`🔍 Filtrando ${conversations.length} chats por cantidad de mensajes (min: ${minMessages})`);
+  console.log(
+    `🔍 Filtrando ${conversations.length} chats por cantidad de mensajes (min: ${minMessages})`,
+  );
 
   const results = await Promise.all(
     conversations.map(async (conv) => {
       const hasEnough = await hasEnoughMessages(conv.id, minMessages);
       return hasEnough ? conv : null;
-    })
+    }),
   );
 
-  const filtered = results.filter(conv => conv !== null);
+  const filtered = results.filter((conv) => conv !== null);
   console.log(`✅ ${filtered.length} chats tienen suficientes mensajes`);
 
   return filtered;
@@ -194,15 +204,21 @@ export async function filterByMessageCount(conversations, minMessages = 5) {
  * @param {number} limit - Límite de mensajes a obtener
  * @returns {Promise<Array>} - Mensajes del chat
  */
-export async function getMessagesForAnalysis(chatUuid, limit = 30, chatWhatsAppId = null) {
+export async function getMessagesForAnalysis(
+  chatUuid,
+  limit = 30,
+  chatWhatsAppId = null,
+) {
   try {
-    console.log(`   📝 getMessagesForAnalysis: UUID=${chatUuid?.slice(0, 8)}, WhatsAppID=${chatWhatsAppId}`);
-    
+    console.log(
+      `   📝 getMessagesForAnalysis: UUID=${chatUuid?.slice(0, 8)}, WhatsAppID=${chatWhatsAppId}`,
+    );
+
     // Llamar a Express backend en puerto 4000
-    const response = await fetch('http://localhost:4000/api/rendimiento/get-messages', {
-      method: 'POST',
+    const response = await fetch("/api/rendimiento/get-messages", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         chatId: chatUuid,
@@ -212,16 +228,20 @@ export async function getMessagesForAnalysis(chatUuid, limit = 30, chatWhatsAppI
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
-      console.error('Error obteniendo mensajes:', errorData);
+      const errorData = await response
+        .json()
+        .catch(() => ({ error: "Error desconocido" }));
+      console.error("Error obteniendo mensajes:", errorData);
       return [];
     }
 
     const result = await response.json();
-    console.log(`   ✓ API retornó ${result.count || 0} mensajes (total en BD: ${result.totalInDb || 0})`);
+    console.log(
+      `   ✓ API retornó ${result.count || 0} mensajes (total en BD: ${result.totalInDb || 0})`,
+    );
     return result.messages || [];
   } catch (error) {
-    console.error('Error en getMessagesForAnalysis:', error);
+    console.error("Error en getMessagesForAnalysis:", error);
     return [];
   }
 }

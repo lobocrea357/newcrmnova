@@ -23,10 +23,10 @@ export async function saveConversationEvaluation(evaluationData) {
 export async function saveMultipleEvaluations(evaluationsArray) {
   // Usar Express backend para guardar con SERVICE_ROLE_KEY
   try {
-    const response = await fetch('http://localhost:4000/api/rendimiento/save-evaluations', {
-      method: 'POST',
+    const response = await fetch("/api/rendimiento/save-evaluations", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ evaluations: evaluationsArray }),
     });
@@ -34,7 +34,7 @@ export async function saveMultipleEvaluations(evaluationsArray) {
     if (!response.ok) {
       const errorData = await response.json();
       console.error("Error guardando evaluaciones múltiples:", errorData);
-      throw new Error(errorData.error || 'Error guardando evaluaciones');
+      throw new Error(errorData.error || "Error guardando evaluaciones");
     }
 
     const result = await response.json();
@@ -86,10 +86,10 @@ export async function updateEvaluation(evaluationId, updateData) {
 export async function createPerformanceAnalysis(analysisData) {
   // Usar Express backend para crear con SERVICE_ROLE_KEY
   try {
-    const response = await fetch('http://localhost:4000/api/rendimiento/create-analysis', {
-      method: 'POST',
+    const response = await fetch("/api/rendimiento/create-analysis", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ analysisData }),
     });
@@ -97,7 +97,7 @@ export async function createPerformanceAnalysis(analysisData) {
     if (!response.ok) {
       const errorData = await response.json();
       console.error("Error creando análisis:", errorData);
-      throw new Error(errorData.error || 'Error creando análisis');
+      throw new Error(errorData.error || "Error creando análisis");
     }
 
     const result = await response.json();
@@ -115,92 +115,112 @@ export async function createPerformanceAnalysis(analysisData) {
  * @returns {Promise<{analysis, report}>}
  */
 export async function createAnalysisWithReport(analysisData, evaluations = []) {
-  console.log('📊 createAnalysisWithReport - Iniciando...');
-  console.log('   Evaluaciones recibidas:', evaluations.length);
-  
+  console.log("📊 createAnalysisWithReport - Iniciando...");
+  console.log("   Evaluaciones recibidas:", evaluations.length);
+
   let analysis = null;
-  
+
   try {
     // 1. Crear análisis en BD con evaluaciones
-    console.log('   1️⃣ Creando análisis en BD...');
-    
-    // Usar Express backend para crear análisis CON evaluaciones
-    const response = await fetch('http://localhost:4000/api/rendimiento/create-analysis', {
-      method: 'POST',
+    console.log("   1️⃣ Creando análisis en BD...");
+
+    // Usar Next.js API para crear análisis CON evaluaciones
+    const response = await fetch("/api/rendimiento/create-analysis", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         analysisData,
-        evaluations  // Pasar evaluaciones para calcular stats correctamente
+        evaluations, // Pasar evaluaciones para calcular stats correctamente
       }),
     });
 
+    console.log(`   📡 Response status: ${response.status}`);
+
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("Error creando análisis:", errorData);
-      throw new Error(errorData.error || 'Error creando análisis');
+      console.error("❌ Error creando análisis:", errorData);
+      console.error("   Status:", response.status);
+      console.error("   Error details:", errorData);
+      throw new Error(errorData.error || "Error creando análisis");
     }
 
     const result = await response.json();
+    console.log("   📦 API Response:", result);
+
+    if (!result.analysis) {
+      console.error("❌ API no retornó analysis:", result);
+      throw new Error("API no retornó el objeto analysis");
+    }
+
     analysis = result.analysis;
     console.log(`   ✅ Análisis creado con ID: ${analysis.id}`);
-    
+
     // 2. Generar reporte automáticamente con IA
-    console.log('   2️⃣ Generando reporte con IA...');
-    const { generatePerformanceReport } = await import('./aiPerformance');
-    
+    console.log("   2️⃣ Generando reporte con IA...");
+    const { generatePerformanceReport } = await import("./aiPerformance");
+
     // Validar que las evaluaciones tengan el formato correcto
-    const evaluationsForReport = Array.isArray(evaluations) ? evaluations : Object.values(evaluations);
-    
+    const evaluationsForReport = Array.isArray(evaluations)
+      ? evaluations
+      : Object.values(evaluations);
+
     if (evaluationsForReport.length === 0) {
-      console.warn('   ⚠️ No hay evaluaciones para generar reporte, usando fallback');
+      console.warn(
+        "   ⚠️ No hay evaluaciones para generar reporte, usando fallback",
+      );
     }
-    
+
     const reportResult = await generatePerformanceReport(
-      evaluationsForReport, 
-      analysisData.analysis_name || 'Asesor'
+      evaluationsForReport,
+      analysisData.analysis_name || "Asesor",
     );
-    
+
     // Verificar si la generación del reporte fue exitosa
     if (!reportResult.success) {
-      console.error('   ❌ Error generando reporte con IA:', reportResult.error);
+      console.error(
+        "   ❌ Error generando reporte con IA:",
+        reportResult.error,
+      );
       throw new Error(`Error en generación de reporte: ${reportResult.error}`);
     }
-    
-    console.log('   ✅ Reporte generado por IA exitosamente');
-    
+
+    console.log("   ✅ Reporte generado por IA exitosamente");
+
     // 3. Guardar el reporte en BD
-    console.log('   3️⃣ Guardando reporte en BD...');
+    console.log("   3️⃣ Guardando reporte en BD...");
     const report = await createReport({
       performance_analysis_id: analysis.id,
       report_data: reportResult.report,
-      report_type: 'automatic',
-      report_name: `Reporte ${analysisData.analysis_name || 'automático'}`,
+      report_type: "automatic",
+      report_name: `Reporte ${analysisData.analysis_name || "automático"}`,
     });
-    
+
     console.log(`   ✅ Reporte guardado con ID: ${report.id}`);
-    console.log('✅ Análisis y reporte creados exitosamente');
-    
+    console.log("✅ Análisis y reporte creados exitosamente");
+
     return { analysis, report };
   } catch (error) {
-    console.error('❌ Error en createAnalysisWithReport:', {
+    console.error("❌ Error en createAnalysisWithReport:", {
       message: error.message,
       stack: error.stack,
       analysisCreated: analysis !== null,
       analysisId: analysis?.id,
     });
-    
+
     // Si el análisis se creó pero falló el reporte, retornar el análisis de todos modos
     if (analysis) {
-      console.warn('⚠️ Análisis creado pero sin reporte. Retornando análisis sin reporte.');
-      return { 
-        analysis, 
+      console.warn(
+        "⚠️ Análisis creado pero sin reporte. Retornando análisis sin reporte.",
+      );
+      return {
+        analysis,
         report: null,
         reportError: error.message,
       };
     }
-    
+
     // Si falló todo, propagar el error
     throw error;
   }
@@ -359,12 +379,12 @@ export async function getEvaluationsByAnalysis(analysisId) {
 // ============================================
 
 export async function createReport(reportData) {
-  // Usar Express backend para crear con SERVICE_ROLE_KEY
+  // Usar Next.js API para crear con SERVICE_ROLE_KEY
   try {
-    const response = await fetch('http://localhost:4000/api/rendimiento/create-report', {
-      method: 'POST',
+    const response = await fetch("/api/rendimiento/create-report", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ reportData }),
     });
@@ -372,7 +392,7 @@ export async function createReport(reportData) {
     if (!response.ok) {
       const errorData = await response.json();
       console.error("Error creando reporte:", errorData);
-      throw new Error(errorData.error || 'Error creando reporte');
+      throw new Error(errorData.error || "Error creando reporte");
     }
 
     const result = await response.json();
@@ -384,18 +404,29 @@ export async function createReport(reportData) {
 }
 
 export async function getReportsByAnalysis(analysisId) {
-  const { data, error } = await supabase
-    .from("performance_reports")
-    .select("*")
-    .eq("performance_analysis_id", analysisId)
-    .order("created_at", { ascending: false });
+  try {
+    const response = await fetch(
+      `/api/rendimiento/create-report?analysisId=${analysisId}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
 
-  if (error) {
-    console.error("Error obteniendo reportes:", error);
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Error obteniendo reportes:", errorData);
+      throw new Error(errorData.error || "Error obteniendo reportes");
+    }
+
+    const result = await response.json();
+    return result.data || [];
+  } catch (error) {
+    console.error("Error en getReportsByAnalysis:", error);
     throw error;
   }
-
-  return data;
 }
 
 // ============================================
@@ -426,7 +457,7 @@ export async function getDashboardStats() {
 
   analyses.forEach((analysis) => {
     const botId = analysis.bot_id;
-    
+
     if (!botId) return; // Skip si no tiene bot
 
     if (!statsById[botId]) {
@@ -514,17 +545,17 @@ export async function getRecentAnalyses(limit = 10) {
 // ============================================
 
 export function calculateAnalysisStats(evaluaciones) {
-  console.log('📈 calculateAnalysisStats - Iniciando cálculo');
-  console.log('   Tipo de evaluaciones:', typeof evaluaciones);
-  console.log('   Es array?:', Array.isArray(evaluaciones));
-  
+  console.log("📈 calculateAnalysisStats - Iniciando cálculo");
+  console.log("   Tipo de evaluaciones:", typeof evaluaciones);
+  console.log("   Es array?:", Array.isArray(evaluaciones));
+
   const evaluacionesArray = Object.values(evaluaciones);
   const totalConversations = evaluacionesArray.length;
-  
+
   console.log(`   Total conversaciones: ${totalConversations}`);
 
   if (totalConversations === 0) {
-    console.warn('⚠️ No hay evaluaciones para calcular stats');
+    console.warn("⚠️ No hay evaluaciones para calcular stats");
     return {
       total_conversations_analyzed: 0,
       average_score: 0,
@@ -538,9 +569,9 @@ export function calculateAnalysisStats(evaluaciones) {
       seguimiento_intencion_count: 0,
     };
   }
-  
+
   // Mostrar primera evaluación como ejemplo
-  console.log('   Primera evaluación (ejemplo):', {
+  console.log("   Primera evaluación (ejemplo):", {
     score: evaluacionesArray[0]?.score,
     percentage: evaluacionesArray[0]?.percentage,
     tiempo_contacto: evaluacionesArray[0]?.tiempo_contacto,
@@ -587,7 +618,7 @@ export function calculateAnalysisStats(evaluaciones) {
     mas_dos_opciones_count: totals.mas_dos_opciones,
     seguimiento_intencion_count: totals.seguimiento_intencion,
   };
-  
-  console.log('✅ Stats calculados:', stats);
+
+  console.log("✅ Stats calculados:", stats);
   return stats;
 }

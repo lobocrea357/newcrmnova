@@ -8,7 +8,7 @@ import {
   isBotExcluded,
 } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Sparkles, FileText, Loader2, AlertCircle, Users } from "lucide-react";
+import { Sparkles, FileText, Loader2, AlertCircle, Users, Lightbulb } from "lucide-react";
 import FiltrosRendimiento from "@/components/rendimiento/FiltrosRendimiento";
 import HeroOnboarding from "@/components/rendimiento/HeroOnboarding";
 import ResumenRendimiento from "@/components/rendimiento/ResumenRendimiento";
@@ -36,6 +36,7 @@ import {
 } from "@/lib/batchAIAnalysis";
 import { generateFilterReport } from "@/lib/chatFilters";
 import Breadcrumb from "@/components/ui/Breadcrumb";
+import InstructionsModal from "@/components/rendimiento/InstructionsModal";
 
 export default function RendimientoPage() {
   const router = useRouter();
@@ -67,6 +68,9 @@ export default function RendimientoPage() {
   // Estado para análisis masivo
   const [analizandoMasivo, setAnalizandoMasivo] = useState(false);
   const [progresoMasivo, setProgresoMasivo] = useState([]);
+
+  // Estado para modal de instrucciones
+  const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -255,7 +259,7 @@ export default function RendimientoPage() {
           const result = await createAnalysisWithReport(analysisData, evaluacionesArray);
           const analysis = result.analysis;
           const report = result.report;
-          
+
           if (!report) {
             console.warn(`⚠️ Reporte no generado para ${botName}: ${result.reportError || 'Error desconocido'}`);
           }
@@ -265,7 +269,7 @@ export default function RendimientoPage() {
             ...ev,
             performance_analysis_id: analysis.id
           }));
-          
+
           await saveMultipleEvaluations(evaluacionesConAnalisis);
 
           console.log('✅ Análisis y reporte generados para:', botName);
@@ -275,12 +279,12 @@ export default function RendimientoPage() {
             prev.map((p, idx) =>
               idx === i
                 ? {
-                    ...p,
-                    status: "completed",
-                    conversaciones: conversations.length,
-                    score: parseFloat(stats.average_score),
-                    percentage: parseFloat(stats.average_percentage),
-                  }
+                  ...p,
+                  status: "completed",
+                  conversaciones: conversations.length,
+                  score: parseFloat(stats.average_score),
+                  percentage: parseFloat(stats.average_percentage),
+                }
                 : p,
             ),
           );
@@ -403,7 +407,7 @@ export default function RendimientoPage() {
 
       const mensajeExito =
         chatsEditadosManualmente.length > 0 &&
-        conversacionesAProcesar.length < conversacionesSeleccionadas.length
+          conversacionesAProcesar.length < conversacionesSeleccionadas.length
           ? `✅ Análisis completado para ${conversacionesAProcesar.length} conversaciones\n(${chatsEditadosManualmente.length} conversaciones manuales fueron preservadas)`
           : `✅ Análisis completado para ${conversacionesAProcesar.length} conversaciones`;
 
@@ -502,7 +506,7 @@ export default function RendimientoPage() {
       const result = await createAnalysisWithReport(analysisData, evaluacionesArray);
       const analysis = result.analysis;
       const report = result.report;
-      
+
       if (!report) {
         console.warn(`⚠️ Reporte no generado: ${result.reportError || 'Error desconocido'}`);
       }
@@ -540,12 +544,24 @@ export default function RendimientoPage() {
 
       <div className="p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          {/* Breadcrumb */}
-          <Breadcrumb items={[
-            { label: "Dashboard", href: "/" },
-            { label: "Rendimiento", href: "/rendimiento" },
-            { label: "Crear Análisis", href: "/rendimiento/new" }
-          ]} />
+          {/* Breadcrumb with Help Button */}
+          <div className="flex items-center justify-between">
+            <Breadcrumb items={[
+              { label: "Dashboard", href: "/" },
+              { label: "Rendimiento", href: "/rendimiento" },
+              { label: "Nuevo Análisis", href: "/rendimiento/new" },
+            ]} />
+
+            {/* Floating Help Button */}
+            <button
+              onClick={() => setShowInstructions(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl"
+              title="Ver instrucciones"
+            >
+              <Lightbulb className="h-4 w-4" />
+              ¿Cómo usar?
+            </button>
+          </div>
 
           {/* Hero Onboarding cuando no hay conversaciones */}
           {conversaciones.length === 0 && (
@@ -690,7 +706,7 @@ export default function RendimientoPage() {
                             {Math.round(
                               (progresoAnalisis.current /
                                 progresoAnalisis.total) *
-                                100,
+                              100,
                             )}
                             %
                           </p>
@@ -818,11 +834,10 @@ export default function RendimientoPage() {
                   return (
                     <div
                       key={progreso.botId}
-                      className={`p-4 rounded-lg border transition-all ${
-                        progreso.status === "analyzing"
-                          ? "border-blue-300 shadow-md"
-                          : "border-gray-200"
-                      } ${statusConfig.bg}`}
+                      className={`p-4 rounded-lg border transition-all ${progreso.status === "analyzing"
+                        ? "border-blue-300 shadow-md"
+                        : "border-gray-200"
+                        } ${statusConfig.bg}`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1">
@@ -840,16 +855,16 @@ export default function RendimientoPage() {
                                 {progreso.percentage.toFixed(0)}%
                               </p>
                             )}
-                            {(progreso.status === "filtering" || 
-                              progreso.status === "analyzing" || 
+                            {(progreso.status === "filtering" ||
+                              progreso.status === "analyzing" ||
                               progreso.status === "generating_report") && (
-                              <div className="flex items-center gap-2 mt-1">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                <p className="text-sm">
-                                  Procesando conversaciones...
-                                </p>
-                              </div>
-                            )}
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <p className="text-sm">
+                                    Procesando conversaciones...
+                                  </p>
+                                </div>
+                              )}
                             {progreso.status === "skipped" && (
                               <p className="text-xs text-gray-500">
                                 Sin conversaciones
@@ -887,6 +902,11 @@ export default function RendimientoPage() {
         evaluaciones={evaluaciones}
         conversaciones={conversaciones}
         botName={botName}
+      />
+
+      <InstructionsModal
+        isOpen={showInstructions}
+        onClose={() => setShowInstructions(false)}
       />
     </div>
   );

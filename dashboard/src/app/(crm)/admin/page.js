@@ -10,7 +10,7 @@ import {
   Database,
   AlertTriangle,
   CheckCircle,
-  Info
+  Info,
 } from "lucide-react";
 import CronManager from "@/components/admin/CronManager";
 import Breadcrumb from "@/components/ui/Breadcrumb";
@@ -37,10 +37,13 @@ export default function AdminPage() {
 
   const checkAuthAndPermissions = async () => {
     try {
-      const { data: { user }, error } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
 
       if (error || !user) {
-        router.push('/login');
+        router.push("/login");
         return;
       }
 
@@ -48,8 +51,9 @@ export default function AdminPage() {
 
       // Verificar si el usuario tiene permisos de administrador
       const { data: profile } = await supabase
-        .from('profiles')
-        .select(`
+        .from("profiles")
+        .select(
+          `
           id,
           email,
           full_name,
@@ -58,8 +62,9 @@ export default function AdminPage() {
             name,
             permissions
           )
-        `)
-        .eq('id', user.id)
+        `,
+        )
+        .eq("id", user.id)
         .single();
 
       // Por ahora, permitir acceso a cualquier usuario autenticado
@@ -69,9 +74,8 @@ export default function AdminPage() {
       } else {
         setAuthorized(false);
       }
-
     } catch (error) {
-      console.error('Error verificando permisos:', error);
+      console.error("Error verificando permisos:", error);
       setAuthorized(false);
     } finally {
       setLoading(false);
@@ -82,39 +86,40 @@ export default function AdminPage() {
     try {
       // Estadísticas de análisis recientes
       const { data: recentAnalyses } = await supabase
-        .from('performance_analyses')
-        .select('id, created_at, generated_by, total_conversations_analyzed')
-        .order('created_at', { ascending: false })
+        .from("performance_analyses")
+        .select("id, created_at, generated_by, total_conversations_analyzed")
+        .order("created_at", { ascending: false })
         .limit(10);
 
       // Estadísticas de reportes diarios
       const { data: dailyReports } = await supabase
-        .from('daily_sales_reports')
-        .select('id, report_date, ventas_confirmadas, leads_calientes, valor_total_ventas')
-        .order('report_date', { ascending: false })
+        .from("daily_sales_reports")
+        .select(
+          "id, report_date, ventas_confirmadas, leads_calientes, valor_total_ventas",
+        )
+        .order("report_date", { ascending: false })
         .limit(7);
 
       // Estadísticas de logs del sistema
       const { data: systemLogs } = await supabase
-        .from('sales_analysis_logs')
-        .select('id, event_type, success, created_at')
-        .order('created_at', { ascending: false })
+        .from("sales_analysis_logs")
+        .select("id, event_type, success, created_at")
+        .order("created_at", { ascending: false })
         .limit(20);
 
       // Configuración actual
       const { data: config } = await supabase
-        .from('sales_analysis_config')
-        .select('config_key, config_value, updated_at');
+        .from("sales_analysis_config")
+        .select("config_key, config_value, updated_at");
 
       setSystemStats({
         recent_analyses: recentAnalyses || [],
         daily_reports: dailyReports || [],
         system_logs: systemLogs || [],
-        configuration: config || []
+        configuration: config || [],
       });
-
     } catch (error) {
-      console.error('Error cargando estadísticas:', error);
+      console.error("Error cargando estadísticas:", error);
     }
   };
 
@@ -139,10 +144,11 @@ export default function AdminPage() {
               Acceso Denegado
             </h1>
             <p className="text-gray-600 mb-6">
-              No tienes permisos suficientes para acceder al panel de administración.
+              No tienes permisos suficientes para acceder al panel de
+              administración.
             </p>
             <button
-              onClick={() => router.push('/rendimiento')}
+              onClick={() => router.push("/rendimiento")}
               className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Volver al Dashboard
@@ -158,11 +164,13 @@ export default function AdminPage() {
       <div className="p-6">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Breadcrumb */}
-          <Breadcrumb items={[
-            { label: "Dashboard", href: "/" },
-            { label: "Rendimiento", href: "/rendimiento" },
-            { label: "Administración", href: "/admin" }
-          ]} />
+          <Breadcrumb
+            items={[
+              { label: "Dashboard", href: "/" },
+              { label: "Rendimiento", href: "/rendimiento" },
+              { label: "Administración", href: "/admin" },
+            ]}
+          />
 
           {/* Header */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -196,7 +204,8 @@ export default function AdminPage() {
                     Sistema Operativo
                   </h3>
                   <p className="text-sm text-blue-700 mt-1">
-                    El sistema de análisis automático está configurado y funcionando correctamente.
+                    El sistema de análisis automático está configurado y
+                    funcionando correctamente.
                   </p>
                 </div>
               </div>
@@ -210,7 +219,8 @@ export default function AdminPage() {
                     Base de Datos
                   </h3>
                   <p className="text-sm text-green-700 mt-1">
-                    Conexión estable. {systemStats.recent_analyses?.length || 0} análisis recientes.
+                    Conexión estable. {systemStats.recent_analyses?.length || 0}{" "}
+                    análisis recientes.
                   </p>
                 </div>
               </div>
@@ -224,7 +234,8 @@ export default function AdminPage() {
                     Monitoreo Activo
                   </h3>
                   <p className="text-sm text-yellow-700 mt-1">
-                    Supervise regularmente el rendimiento del sistema automático.
+                    Supervise regularmente el rendimiento del sistema
+                    automático.
                   </p>
                 </div>
               </div>
@@ -245,24 +256,35 @@ export default function AdminPage() {
                 </h3>
               </div>
               <div className="p-6">
-                {systemStats.recent_analyses && systemStats.recent_analyses.length > 0 ? (
+                {systemStats.recent_analyses &&
+                systemStats.recent_analyses.length > 0 ? (
                   <div className="space-y-3">
                     {systemStats.recent_analyses.slice(0, 5).map((analysis) => (
-                      <div key={analysis.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
+                      <div
+                        key={analysis.id}
+                        className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0"
+                      >
                         <div>
                           <p className="text-sm font-medium text-gray-900">
-                            {analysis.total_conversations_analyzed} conversaciones
+                            {analysis.total_conversations_analyzed}{" "}
+                            conversaciones
                           </p>
                           <p className="text-xs text-gray-500">
-                            {new Date(analysis.created_at).toLocaleDateString('es-ES')}
+                            {new Date(analysis.created_at).toLocaleDateString(
+                              "es-ES",
+                            )}
                           </p>
                         </div>
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          analysis.generated_by === 'DAILY_CRON'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {analysis.generated_by === 'DAILY_CRON' ? 'Automático' : 'Manual'}
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${
+                            analysis.generated_by === "DAILY_CRON"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-green-100 text-green-800"
+                          }`}
+                        >
+                          {analysis.generated_by === "DAILY_CRON"
+                            ? "Automático"
+                            : "Manual"}
                         </span>
                       </div>
                     ))}
@@ -284,16 +306,23 @@ export default function AdminPage() {
                 </h3>
               </div>
               <div className="p-6">
-                {systemStats.daily_reports && systemStats.daily_reports.length > 0 ? (
+                {systemStats.daily_reports &&
+                systemStats.daily_reports.length > 0 ? (
                   <div className="space-y-3">
                     {systemStats.daily_reports.slice(0, 5).map((report) => (
-                      <div key={report.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
+                      <div
+                        key={report.id}
+                        className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0"
+                      >
                         <div>
                           <p className="text-sm font-medium text-gray-900">
-                            {new Date(report.report_date).toLocaleDateString('es-ES')}
+                            {new Date(report.report_date).toLocaleDateString(
+                              "es-ES",
+                            )}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {report.ventas_confirmadas} ventas, {report.leads_calientes} leads
+                            {report.ventas_confirmadas} ventas,{" "}
+                            {report.leads_calientes} leads
                           </p>
                         </div>
                         <div className="text-right">
@@ -342,19 +371,21 @@ export default function AdminPage() {
                       {systemStats.system_logs.slice(0, 10).map((log) => (
                         <tr key={log.id}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {log.event_type.replace(/_/g, ' ').toLowerCase()}
+                            {log.event_type.replace(/_/g, " ").toLowerCase()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs rounded-full ${
-                              log.success
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {log.success ? 'Éxito' : 'Error'}
+                            <span
+                              className={`px-2 py-1 text-xs rounded-full ${
+                                log.success
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {log.success ? "Éxito" : "Error"}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(log.created_at).toLocaleString('es-ES')}
+                            {new Date(log.created_at).toLocaleString("es-ES")}
                           </td>
                         </tr>
                       ))}

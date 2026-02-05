@@ -1,31 +1,37 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import { getUserInfo } from '@/lib/userConfig'
-import { Search, Bell, User, LogOut, ChevronDown, Menu, PanelLeftClose, PanelLeft } from 'lucide-react'
+import React, { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { getUserInfo } from "@/lib/userConfig";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  Search,
+  Bell,
+  User,
+  LogOut,
+  ChevronDown,
+  Menu,
+  PanelLeftClose,
+  PanelLeft,
+} from "lucide-react";
 
-const Navbar = ({ onMenuClick, onToggleCollapse, sidebarCollapsed = false }) => {
-  const router = useRouter()
-  const pathname = usePathname()
-  const [user, setUser] = useState(null)
-  const [userInfo, setUserInfo] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [showUserMenu, setShowUserMenu] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
+const Navbar = ({
+  onMenuClick,
+  onToggleCollapse,
+  sidebarCollapsed = false,
+}) => {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user, signOut, loading } = useAuth();
+  const [userInfo, setUserInfo] = useState(null);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    loadUser()
-  }, [])
-
-  const loadUser = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      const info = getUserInfo(user?.email)
-      setUserInfo(info)
-      console.log('🔐 Usuario loggeado (Navbar):', {
+    if (user) {
+      const info = getUserInfo(user?.email);
+      setUserInfo(info);
+      console.log("🔐 Usuario loggeado (Navbar):", {
         id: user?.id,
         email: user?.email,
         fullName: user?.user_metadata?.full_name,
@@ -33,49 +39,46 @@ const Navbar = ({ onMenuClick, onToggleCollapse, sidebarCollapsed = false }) => 
         role: user?.role,
         appMetadata: user?.app_metadata,
         fullPayload: user,
-        customInfo: info
-      })
-    } finally {
-      setLoading(false)
+        customInfo: info,
+      });
     }
-  }
+  }, [user]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
+    await signOut();
+  };
 
   const getPageTitle = () => {
     const routes = {
-      '/': 'Dashboard',
-      '/conversaciones': 'Conversaciones',
-      '/inteligencia-artificial': 'Inteligencia Artificial',
-      '/rendimiento': 'Rendimiento',
-      '/reportes': 'Reportes',
-      '/manual-ventas': 'Manual de Ventas',
-      '/rutas-riesgo': 'Rutas en Riesgo',
-      '/anulables': 'Anulables',
-      '/vuelos': 'Vuelos',
-      '/configuracion': 'Configuración',
-    }
-    return routes[pathname] || 'Dashboard'
-  }
+      "/": "Dashboard",
+      "/conversaciones": "Conversaciones",
+      "/inteligencia-artificial": "Inteligencia Artificial",
+      "/rendimiento": "Rendimiento",
+      "/reportes": "Reportes",
+      "/manual-ventas": "Manual de Ventas",
+      "/rutas-riesgo": "Rutas en Riesgo",
+      "/anulables": "Anulables",
+      "/vuelos": "Vuelos",
+      "/configuracion": "Configuración",
+    };
+    return routes[pathname] || "Dashboard";
+  };
 
   const getPageSubtitle = () => {
     const subtitles = {
-      '/': 'Vista general del negocio',
-      '/conversaciones': 'Gestión de conversaciones con clientes',
-      '/inteligencia-artificial': 'Análisis y insights con IA',
-      '/rendimiento': 'Métricas y rendimiento del equipo',
-      '/reportes': 'Reportes y análisis de datos',
-      '/manual-ventas': 'Guías y recursos de ventas',
-      '/rutas-riesgo': 'Rutas y clientes en riesgo',
-      '/anulables': 'Gestión de anulaciones',
-      '/vuelos': 'Gestión de vuelos',
-      '/configuracion': 'Configuración del sistema',
-    }
-    return subtitles[pathname] || 'Bienvenido al CRM'
-  }
+      "/": "Vista general del negocio",
+      "/conversaciones": "Gestión de conversaciones con clientes",
+      "/inteligencia-artificial": "Análisis y insights con IA",
+      "/rendimiento": "Métricas y rendimiento del equipo",
+      "/reportes": "Reportes y análisis de datos",
+      "/manual-ventas": "Guías y recursos de ventas",
+      "/rutas-riesgo": "Rutas y clientes en riesgo",
+      "/anulables": "Gestión de anulaciones",
+      "/vuelos": "Gestión de vuelos",
+      "/configuracion": "Configuración del sistema",
+    };
+    return subtitles[pathname] || "Bienvenido al CRM";
+  };
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
@@ -96,7 +99,9 @@ const Navbar = ({ onMenuClick, onToggleCollapse, sidebarCollapsed = false }) => 
             <button
               onClick={onToggleCollapse}
               className="hidden lg:block p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-              aria-label={sidebarCollapsed ? "Expandir sidebar" : "Colapsar sidebar"}
+              aria-label={
+                sidebarCollapsed ? "Expandir sidebar" : "Colapsar sidebar"
+              }
               title={sidebarCollapsed ? "Expandir sidebar" : "Colapsar sidebar"}
             >
               {sidebarCollapsed ? (
@@ -152,12 +157,16 @@ const Navbar = ({ onMenuClick, onToggleCollapse, sidebarCollapsed = false }) => 
                     <div className="h-3 w-16 bg-gray-200 rounded animate-pulse" />
                   </div>
                 ) : (
-                    <div className="text-left hidden lg:block">
-                      <p className="text-sm font-medium text-gray-900">
-                        {userInfo?.fullName || user?.user_metadata?.full_name || 'Usuario'}
-                      </p>
-                      <p className="text-xs text-gray-500">{userInfo?.role || 'Usuario'}</p>
-                    </div>
+                  <div className="text-left hidden lg:block">
+                    <p className="text-sm font-medium text-gray-900">
+                      {userInfo?.fullName ||
+                        user?.user_metadata?.full_name ||
+                        "Usuario"}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {userInfo?.role || "Usuario"}
+                    </p>
+                  </div>
                 )}
                 <ChevronDown className="h-4 w-4 text-gray-500 hidden sm:block" />
               </button>
@@ -172,7 +181,9 @@ const Navbar = ({ onMenuClick, onToggleCollapse, sidebarCollapsed = false }) => 
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
                     <div className="px-4 py-3 border-b border-gray-200">
                       <p className="text-sm font-medium text-gray-900">
-                        {userInfo?.fullName || user?.user_metadata?.full_name || 'Usuario'}
+                        {userInfo?.fullName ||
+                          user?.user_metadata?.full_name ||
+                          "Usuario"}
                       </p>
                       <p className="text-xs text-gray-500 truncate">
                         {user?.email}
@@ -193,7 +204,7 @@ const Navbar = ({ onMenuClick, onToggleCollapse, sidebarCollapsed = false }) => 
         </div>
       </div>
     </header>
-  )
-}
+  );
+};
 
-export default Navbar
+export default Navbar;

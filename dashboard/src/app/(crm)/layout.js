@@ -1,16 +1,16 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import Navbar from '@/components/layout/Navbar'
-import Sidebar from '@/components/layout/Sidebar'
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import Navbar from "@/components/layout/Navbar";
+import Sidebar from "@/components/layout/Sidebar";
 
 export default function CRMLayout({ children }) {
-  const router = useRouter()
-  const pathname = usePathname()
-  const [loading, setLoading] = useState(true)
-  const [authenticated, setAuthenticated] = useState(false)
+  const router = useRouter();
+  const pathname = usePathname();
+  const [loading, setLoading] = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -19,16 +19,30 @@ export default function CRMLayout({ children }) {
   }, []);
 
   const checkAuth = async () => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    try {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
 
-    if (!session) {
-      router.push("/login");
-    } else {
+      if (error) {
+        console.error("Error checking session:", error);
+        router.push("/login");
+        return;
+      }
+
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+
       setAuthenticated(true);
+    } catch (error) {
+      console.error("Error in checkAuth:", error);
+      router.push("/login");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   if (loading) {
