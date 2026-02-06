@@ -36,8 +36,7 @@ export async function POST(request) {
       .from('performance_reports')
       .insert([{
         ...reportData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        created_at: new Date().toISOString()
       }])
       .select()
       .single()
