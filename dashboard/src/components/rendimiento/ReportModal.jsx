@@ -15,10 +15,12 @@ import {
   Calendar,
   BarChart3,
   MessageSquare,
+  RefreshCw,
 } from "lucide-react";
 
-export default function ReportModal({ report, onClose }) {
+export default function ReportModal({ report, onClose, onReportRegenerated }) {
   const [copied, setCopied] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
   if (!report) return null;
 
@@ -61,6 +63,45 @@ Este reporte fue generado automáticamente por IA analizando tus conversaciones.
     window.print();
   };
 
+  const regenerateReport = async () => {
+    if (!report.analysisId) {
+      alert('No se puede regenerar: ID de análisis no disponible');
+      return;
+    }
+
+    const confirmacion = window.confirm(
+      '¿Regenerar reporte?\n\nSe generará un nuevo reporte basado en las evaluaciones actuales.\nEsto sobrescribirá el reporte existente.\n\n¿Continuar?'
+    );
+
+    if (!confirmacion) return;
+
+    try {
+      setRegenerating(true);
+
+      // Llamar a API para regenerar reporte
+      const response = await fetch(`/api/regenerate-report/${report.analysisId}`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al regenerar reporte');
+      }
+
+      const result = await response.json();
+      alert('¡Reporte regenerado exitosamente!');
+
+      // Notificar al padre para que recargue
+      if (onReportRegenerated) {
+        onReportRegenerated(result.report);
+      }
+    } catch (error) {
+      console.error('Error regenerando reporte:', error);
+      alert('Error al regenerar el reporte');
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
   const passCount = report.detailedMetrics.filter((m) => m.status === "pass").length;
   const failCount = report.detailedMetrics.filter((m) => m.status === "fail").length;
 
@@ -85,6 +126,14 @@ Este reporte fue generado automáticamente por IA analizando tus conversaciones.
           </div>
 
           <div className="flex items-center gap-2 print:hidden">
+            <button
+              onClick={regenerateReport}
+              disabled={regenerating}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Regenerar Reporte"
+            >
+              <RefreshCw className={`h-5 w-5 ${regenerating ? 'animate-spin' : ''}`} />
+            </button>
             <button
               onClick={copyToClipboard}
               className="p-2 hover:bg-white/20 rounded-lg transition-colors"
@@ -368,6 +417,14 @@ Este reporte fue generado automáticamente por IA analizando tus conversaciones.
             )}
           </div>
           <div className="flex gap-3">
+            <button
+              onClick={regenerateReport}
+              disabled={regenerating}
+              className="px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`h-4 w-4 ${regenerating ? 'animate-spin' : ''}`} />
+              {regenerating ? 'Regenerando...' : 'Regenerar Reporte'}
+            </button>
             <button
               onClick={copyToClipboard}
               className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"

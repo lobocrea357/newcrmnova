@@ -1,4 +1,8 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== "undefined"
+    ? window.location.origin
+    : "http://localhost:3000");
 
 /**
  * Servicio para gestionar mensajes
@@ -14,27 +18,27 @@ export class MessageService {
   async sendTextMessage(session, chatId, text) {
     try {
       const response = await fetch(`${API_URL}/api/messages/send`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           session,
           chatId,
           text,
         }),
-      })
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Error al enviar mensaje')
+        const error = await response.json();
+        throw new Error(error.error || "Error al enviar mensaje");
       }
 
-      const data = await response.json()
-      return data
+      const data = await response.json();
+      return data;
     } catch (error) {
-      console.error('❌ Error enviando mensaje:', error)
-      throw error
+      console.error("❌ Error enviando mensaje:", error);
+      throw error;
     }
   }
 
@@ -46,12 +50,12 @@ export class MessageService {
    * @param {string} caption - Texto adicional (opcional)
    * @returns {Promise<Object>} Respuesta del servidor
    */
-  async sendImageMessage(session, chatId, mediaUrl, caption = '') {
+  async sendImageMessage(session, chatId, mediaUrl, caption = "") {
     try {
       const response = await fetch(`${API_URL}/api/messages/send`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           session,
@@ -59,20 +63,20 @@ export class MessageService {
           mediaUrl,
           text: caption,
         }),
-      })
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Error al enviar imagen')
+        const error = await response.json();
+        throw new Error(error.error || "Error al enviar imagen");
       }
 
-      const data = await response.json()
-      return data
+      const data = await response.json();
+      return data;
     } catch (error) {
-      console.error('❌ Error enviando imagen:', error)
-      throw error
+      console.error("❌ Error enviando imagen:", error);
+      throw error;
     }
   }
 }
 
-export default new MessageService()
+export default new MessageService();

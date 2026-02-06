@@ -8,14 +8,15 @@ import {
   isBotExcluded,
 } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Sparkles, FileText, Loader2, AlertCircle, Users } from "lucide-react";
+import { Sparkles, FileText, Loader2, AlertCircle, Users, Lightbulb, ArrowRight, Save, MessageSquare, Download, CheckCircle } from "lucide-react";
 import FiltrosRendimiento from "@/components/rendimiento/FiltrosRendimiento";
 import HeroOnboarding from "@/components/rendimiento/HeroOnboarding";
 import ResumenRendimiento from "@/components/rendimiento/ResumenRendimiento";
 import TablaEvaluaciones from "@/components/rendimiento/TablaEvaluaciones";
 import ModalWhatsApp from "@/components/rendimiento/ModalWhatsApp";
 import GeneradorReporte from "@/components/rendimiento/GeneradorReporte";
-import StepperRendimiento from "@/components/rendimiento/StepperRendimiento";
+import StepWizard from "@/components/rendimiento/StepWizard";
+import StepCard from "@/components/rendimiento/StepCard";
 import {
   simularAnalisisIA,
   PARAMETROS_EVALUACION,
@@ -28,11 +29,15 @@ import {
   calculateAnalysisStats,
   createReport,
 } from "@/lib/supabaseRendimiento";
+import { generatePerformanceReport } from "@/lib/aiPerformance";
+import { loadConversationsForAnalysis } from "@/lib/conversationLoader";
 import {
-  filterCustomerChats,
-  generatePerformanceReport,
-} from "@/lib/aiPerformance";
+  analyzeConversationsBatch,
+  processEvaluationsWithScores,
+} from "@/lib/batchAIAnalysis";
+import { generateFilterReport } from "@/lib/chatFilters";
 import Breadcrumb from "@/components/ui/Breadcrumb";
+import InstructionsModal from "@/components/rendimiento/InstructionsModal";
 
 export default function RendimientoPage() {
   const router = useRouter();
@@ -64,6 +69,9 @@ export default function RendimientoPage() {
   // Estado para análisis masivo
   const [analizandoMasivo, setAnalizandoMasivo] = useState(false);
   const [progresoMasivo, setProgresoMasivo] = useState([]);
+
+  // Estado para modal de instrucciones
+  const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -164,58 +172,52 @@ export default function RendimientoPage() {
         );
 
         try {
-          // Cargar conversaciones (ya filtradas por is_group en getConversationsByBot)
-          const { data: conversations, total } = await getConversationsByBot(
-            bot.id,
-            1,
-            50, // Aumentar para tener más muestra después del filtrado IA
+          // PASO 1: Cargar conversaciones con filtros inteligentes
+          setProgresoMasivo((prev) =>
+            prev.map((p, idx) => (idx === i ? { ...p, status: "loading" } : p)),
           );
+
+          const { conversations, stats: filterStats } = await loadConversationsForAnalysis(
+            bot.id,
+            {
+              targetValid: 20, // Objetivo: 20 conversaciones válidas
+              maxAttempts: 300, // Revisar hasta 300 chats si es necesario
+              excludeGroups: true,
+              excludeInternal: true,
+              useCache: true,
+              minLastMessageDays: 30,
+            }
+          );
+
+          console.log(`Bot ${botName}:`, generateFilterReport(filterStats));
 
           if (!conversations || conversations.length === 0) {
             setProgresoMasivo((prev) =>
               prev.map((p, idx) =>
-                idx === i ? { ...p, status: "skipped", conversaciones: 0 } : p,
-              ),
+                idx === i ? { ...p, status: "skipped", conversaciones: 0 } : p
+              )
             );
             continue;
           }
 
-          // NUEVO: Filtrar chats con IA para excluir chats internos/gerentes
+          // PASO 2: Análisis IA en batch (más eficiente)
           setProgresoMasivo((prev) =>
-            prev.map((p, idx) => (idx === i ? { ...p, status: "filtering" } : p)),
+            prev.map((p, idx) => (idx === i ? { ...p, status: "analyzing" } : p))
           );
 
-          const getMessagesForChat = async (chatId) => {
-            const { data } = await supabase
-              .from('messages')
-              .select('from_me, body, content, timestamp')
-              .eq('chat_id', chatId)
-              .order('timestamp', { ascending: false })
-              .limit(15);
-            return data || [];
-          };
-
-          const customerChats = await filterCustomerChats(conversations, getMessagesForChat);
-
-          if (customerChats.length === 0) {
-            setProgresoMasivo((prev) =>
-              prev.map((p, idx) =>
-                idx === i ? { ...p, status: "skipped", conversaciones: 0 } : p,
-              ),
-            );
-            continue;
-          }
-
-          // Actualizar progreso: analizando chats filtrados
-          setProgresoMasivo((prev) =>
-            prev.map((p, idx) => (idx === i ? { ...p, status: "analyzing" } : p)),
+          const evaluacionesIA = await analyzeConversationsBatch(
+            conversations,
+            null, // Sin callback de progreso individual
+            15 // Batch size
           );
 
-          // Simular análisis IA solo en chats de clientes
-          const evaluacionesIA = await simularAnalisisIA(customerChats);
+          // Procesar con scores
+          const evaluacionesConScores = processEvaluationsWithScores(
+            evaluacionesIA
+          );
 
-          // Calcular estadísticas
-          const stats = calculateAnalysisStats(evaluacionesIA);
+          // CRÍTICO: Pasar evaluacionesConScores (con score/percentage calculado)
+          const stats = calculateAnalysisStats(evaluacionesConScores);
 
           // Crear análisis
           const analysisData = {
@@ -255,14 +257,20 @@ export default function RendimientoPage() {
           );
 
           // Crear análisis CON reporte automático
-          const { analysis, report } = await createAnalysisWithReport(analysisData, evaluacionesArray);
+          const result = await createAnalysisWithReport(analysisData, evaluacionesArray);
+          const analysis = result.analysis;
+          const report = result.report;
+
+          if (!report) {
+            console.warn(`⚠️ Reporte no generado para ${botName}: ${result.reportError || 'Error desconocido'}`);
+          }
 
           // Actualizar evaluaciones con el ID del análisis y guardar
           const evaluacionesConAnalisis = evaluacionesArray.map(ev => ({
             ...ev,
             performance_analysis_id: analysis.id
           }));
-          
+
           await saveMultipleEvaluations(evaluacionesConAnalisis);
 
           console.log('✅ Análisis y reporte generados para:', botName);
@@ -272,12 +280,12 @@ export default function RendimientoPage() {
             prev.map((p, idx) =>
               idx === i
                 ? {
-                    ...p,
-                    status: "completed",
-                    conversaciones: customerChats.length,
-                    score: parseFloat(stats.average_score),
-                    percentage: parseFloat(stats.average_percentage),
-                  }
+                  ...p,
+                  status: "completed",
+                  conversaciones: conversations.length,
+                  score: parseFloat(stats.average_score),
+                  percentage: parseFloat(stats.average_percentage),
+                }
                 : p,
             ),
           );
@@ -400,7 +408,7 @@ export default function RendimientoPage() {
 
       const mensajeExito =
         chatsEditadosManualmente.length > 0 &&
-        conversacionesAProcesar.length < conversacionesSeleccionadas.length
+          conversacionesAProcesar.length < conversacionesSeleccionadas.length
           ? `✅ Análisis completado para ${conversacionesAProcesar.length} conversaciones\n(${chatsEditadosManualmente.length} conversaciones manuales fueron preservadas)`
           : `✅ Análisis completado para ${conversacionesAProcesar.length} conversaciones`;
 
@@ -448,14 +456,9 @@ export default function RendimientoPage() {
     try {
       setGuardando(true);
 
-      // Buscar el perfil del usuario en la tabla profiles
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", user?.id)
-        .single();
+      const userId = null;
 
-      // Calcular estadísticas
+      // Calcular estadísticas (evaluaciones ya tienen scores)
       const stats = calculateAnalysisStats(evaluaciones);
 
       // Crear el análisis
@@ -470,7 +473,7 @@ export default function RendimientoPage() {
         )
           ? "AI"
           : "Manual",
-        created_by_user_id: profileData?.id || null,
+        created_by_user_id: userId,
         status: "finalized",
       };
 
@@ -484,7 +487,7 @@ export default function RendimientoPage() {
           evaluation_date: new Date().toISOString(),
           generated_by: evalData.manually_edited ? "Manual" : "AI",
           manually_edited: evalData.manually_edited || false,
-          evaluated_by_user_id: profileData?.id || null,
+          evaluated_by_user_id: userId,
           ...Object.fromEntries(
             PARAMETROS_EVALUACION.map((param) => [
               param.key,
@@ -500,15 +503,17 @@ export default function RendimientoPage() {
       );
 
       // Crear análisis CON reporte automático
-      const { analysis, report } = await createAnalysisWithReport(analysisData, evaluacionesArray);
+      // Las evaluaciones ya se pasan y se guardan en el backend
+      const result = await createAnalysisWithReport(analysisData, evaluacionesArray);
+      const analysis = result.analysis;
+      const report = result.report;
 
-      // Actualizar evaluaciones con el ID del análisis y guardar
-      const evaluacionesConAnalisis = evaluacionesArray.map(ev => ({
-        ...ev,
-        performance_analysis_id: analysis.id
-      }));
+      if (!report) {
+        console.warn(`⚠️ Reporte no generado: ${result.reportError || 'Error desconocido'}`);
+      }
 
-      await saveMultipleEvaluations(evaluacionesConAnalisis);
+      // Las evaluaciones ya fueron guardadas por Express con el analysis_id correcto
+      console.log(`✅ Análisis y evaluaciones guardadas por Express`);
 
       setCurrentStep(4);
 
@@ -535,64 +540,324 @@ export default function RendimientoPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Stepper Superior */}
-      <StepperRendimiento currentStep={currentStep} />
+      {/* Step Wizard */}
+      <div className="bg-white border-b border-gray-200 py-8">
+        <StepWizard currentStep={currentStep} totalSteps={4} />
+      </div>
 
       <div className="p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          {/* Breadcrumb */}
-          <Breadcrumb items={[
-            { label: "Dashboard", href: "/dashboard" },
-            { label: "Rendimiento", href: "/rendimiento" },
-            { label: "Crear Análisis", href: "/rendimiento/new" }
-          ]} />
+          {/* Breadcrumb with Help Button */}
+          <div className="flex items-center justify-between">
+            <Breadcrumb items={[
+              { label: "Dashboard", href: "/" },
+              { label: "Rendimiento", href: "/rendimiento" },
+              { label: "Nuevo Análisis", href: "/rendimiento/new" },
+            ]} />
 
-          {/* Hero Onboarding cuando no hay conversaciones */}
-          {conversaciones.length === 0 && (
-            <>
-              <HeroOnboarding
-                bots={bots}
-                selectedBotId={selectedBotId}
-                onBotSelect={setSelectedBotId}
-                onLoadConversations={handleLoadConversations}
-                loading={loadingConversaciones || loadingBots}
-              />
+            {/* Floating Help Button */}
+            <button
+              onClick={() => setShowInstructions(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl"
+              title="Ver instrucciones"
+            >
+              <Lightbulb className="h-4 w-4" />
+              ¿Cómo usar?
+            </button>
+          </div>
 
-              {/* Botón de Análisis Masivo */}
-              {bots.length > 1 && (
-                <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200 p-6 mt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                        <Users className="h-6 w-6 text-purple-600" />
-                        Análisis Masivo del Equipo
-                      </h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Analiza automáticamente a todos los asesores (
-                        {bots.length} asesores disponibles)
-                      </p>
+          {/* STEP 1: Seleccionar Asesor */}
+          {currentStep === 1 && (
+            <StepCard
+              title="¿Qué asesor quieres analizar?"
+              description="Selecciona un asesor para comenzar el análisis de rendimiento"
+              icon={Users}
+            >
+              {loadingBots ? (
+                <div className="text-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-3" />
+                  <p className="text-gray-600">Cargando asesores...</p>
+                </div>
+              ) : (
+                <>
+                  <select
+                    value={selectedBotId}
+                    onChange={(e) => setSelectedBotId(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg"
+                  >
+                    <option value="">Selecciona un asesor</option>
+                    {bots.map((bot) => (
+                      <option key={bot.id} value={bot.id}>
+                        {parseBotSessionName(bot.session_name).displayName}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={() => {
+                      if (selectedBotId) {
+                        setCurrentStep(2);
+                      } else {
+                        alert("Por favor selecciona un asesor");
+                      }
+                    }}
+                    disabled={!selectedBotId}
+                    className="w-full mt-6 px-8 py-4 bg-blue-600 text-white text-lg font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                  >
+                    Continuar
+                    <ArrowRight className="h-5 w-5" />
+                  </button>
+                </>
+              )}
+            </StepCard>
+          )}
+
+          {/* STEP 2: Cargar Conversaciones */}
+          {currentStep === 2 && (
+            <StepCard
+              title="Cargar Conversaciones"
+              description={`Asesor seleccionado: ${botName}`}
+              icon={MessageSquare}
+            >
+              {conversaciones.length === 0 ? (
+                <>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-blue-800">
+                      <strong>¿Qué período quieres analizar?</strong>
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1">
+                      Se cargarán las conversaciones del día de hoy
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleLoadConversations}
+                    disabled={loadingConversaciones}
+                    className="w-full px-8 py-4 bg-blue-600 text-white text-lg font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg flex items-center justify-center gap-2"
+                  >
+                    {loadingConversaciones ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Cargando conversaciones...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-5 w-5" />
+                        Cargar Conversaciones
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setCurrentStep(1)}
+                    className="w-full mt-3 px-6 py-3 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    ← Cambiar Asesor
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                    <div className="flex items-center gap-2 text-green-800">
+                      <CheckCircle className="h-5 w-5" />
+                      <strong>
+                        {conversaciones.length} conversaciones cargadas
+                      </strong>
                     </div>
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentStep(3)}
+                    className="w-full px-8 py-4 bg-blue-600 text-white text-lg font-bold rounded-lg hover:bg-blue-700 transition-all shadow-lg flex items-center justify-center gap-2"
+                  >
+                    Continuar
+                    <ArrowRight className="h-5 w-5" />
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setConversaciones([]);
+                      setCurrentStep(2);
+                    }}
+                    className="w-full mt-3 px-6 py-3 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cargar Otras Conversaciones
+                  </button>
+                </>
+              )}
+            </StepCard>
+          )}
+
+          {/* STEP 3: Analizar */}
+          {currentStep === 3 && (
+            <StepCard
+              title="Analizar Conversaciones"
+              description={`${conversaciones.length} conversaciones listas para analizar`}
+              icon={Sparkles}
+            >
+              {Object.keys(evaluaciones).length === 0 ? (
+                <>
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 mb-6">
+                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-blue-600" />
+                      Análisis Automático con IA
+                    </h3>
+                    <p className="text-sm text-gray-700 mb-2">
+                      La IA evaluará automáticamente:
+                    </p>
+                    <ul className="text-sm text-gray-600 space-y-1 ml-4">
+                      <li>• Tiempo de contacto</li>
+                      <li>• Tiempo de respuesta</li>
+                      <li>• Calidad de cotización</li>
+                      <li>• Técnicas de cierre</li>
+                      <li>• Y 3 parámetros más...</li>
+                    </ul>
+                  </div>
+
+                  <button
+                    onClick={handleAnalizar}
+                    disabled={analizando}
+                    className="w-full px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-lg font-bold rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 transition-all shadow-lg flex items-center justify-center gap-2"
+                  >
+                    {analizando ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Analizando... {Math.round(progreso)}%
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-5 w-5" />
+                        Analizar con IA
+                      </>
+                    )}
+                  </button>
+
+                  <div className="text-center mt-4">
+                    <p className="text-xs text-gray-500 mb-2">o</p>
                     <button
-                      onClick={handleAnalisisMasivo}
-                      disabled={analizandoMasivo}
-                      className="px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg flex items-center gap-2"
+                      onClick={() => {
+                        // TODO: Implementar evaluación manual
+                        alert("Función de evaluación manual próximamente");
+                      }}
+                      className="text-sm text-gray-600 hover:text-gray-900 underline"
                     >
-                      {analizandoMasivo ? (
-                        <>
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                          Analizando...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-5 w-5" />
-                          Analizar Todo el Equipo
-                        </>
-                      )}
+                      Evaluar manualmente
                     </button>
                   </div>
-                </div>
+
+                  <button
+                    onClick={() => setCurrentStep(2)}
+                    className="w-full mt-6 px-6 py-3 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    ← Volver
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                    <div className="flex items-center gap-2 text-green-800">
+                      <CheckCircle className="h-5 w-5" />
+                      <strong>Análisis completado</strong>
+                    </div>
+                    <p className="text-sm text-green-700 mt-1">
+                      {Object.keys(evaluaciones).length} conversaciones
+                      evaluadas
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentStep(4)}
+                    className="w-full px-8 py-4 bg-blue-600 text-white text-lg font-bold rounded-lg hover:bg-blue-700 transition-all shadow-lg flex items-center justify-center gap-2"
+                  >
+                    Continuar
+                    <ArrowRight className="h-5 w-5" />
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setEvaluaciones({});
+                      setCurrentStep(3);
+                    }}
+                    className="w-full mt-3 px-6 py-3 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Volver a Analizar
+                  </button>
+                </>
               )}
-            </>
+            </StepCard>
+          )}
+
+          {/* STEP 4: Guardar */}
+          {currentStep === 4 && (
+            <StepCard
+              title="Guardar Análisis"
+              description="Revisa el resumen y guarda el análisis"
+              icon={Save}
+            >
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-6">
+                <h3 className="font-semibold text-gray-900 mb-4">
+                  📊 Resumen del Análisis
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Asesor:</span>
+                    <span className="font-medium text-gray-900">{botName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Conversaciones:</span>
+                    <span className="font-medium text-gray-900">
+                      {Object.keys(evaluaciones).length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Score Promedio:</span>
+                    <span className="font-medium text-gray-900">
+                      {calcularPromedios().scorePromedio}/7
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Rendimiento:</span>
+                    <span className="font-medium text-gray-900">
+                      {calcularPromedios().porcentajePromedio}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-2 text-green-800">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="text-sm font-medium">
+                    Evaluaciones listas para guardar
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={handleGuardarAnalisis}
+                disabled={guardando}
+                className="w-full px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-lg font-bold rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 transition-all shadow-lg flex items-center justify-center gap-2"
+              >
+                {guardando ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-5 w-5" />
+                    Guardar y Ver Reporte
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => setCurrentStep(3)}
+                className="w-full mt-3 px-6 py-3 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                ← Editar Evaluaciones
+              </button>
+            </StepCard>
           )}
 
           {/* Filtros compactos cuando ya hay conversaciones */}
@@ -690,7 +955,7 @@ export default function RendimientoPage() {
                             {Math.round(
                               (progresoAnalisis.current /
                                 progresoAnalisis.total) *
-                                100,
+                              100,
                             )}
                             %
                           </p>
@@ -818,11 +1083,10 @@ export default function RendimientoPage() {
                   return (
                     <div
                       key={progreso.botId}
-                      className={`p-4 rounded-lg border transition-all ${
-                        progreso.status === "analyzing"
-                          ? "border-blue-300 shadow-md"
-                          : "border-gray-200"
-                      } ${statusConfig.bg}`}
+                      className={`p-4 rounded-lg border transition-all ${progreso.status === "analyzing"
+                        ? "border-blue-300 shadow-md"
+                        : "border-gray-200"
+                        } ${statusConfig.bg}`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1">
@@ -840,16 +1104,16 @@ export default function RendimientoPage() {
                                 {progreso.percentage.toFixed(0)}%
                               </p>
                             )}
-                            {(progreso.status === "filtering" || 
-                              progreso.status === "analyzing" || 
+                            {(progreso.status === "filtering" ||
+                              progreso.status === "analyzing" ||
                               progreso.status === "generating_report") && (
-                              <div className="flex items-center gap-2 mt-1">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                <p className="text-sm">
-                                  Procesando conversaciones...
-                                </p>
-                              </div>
-                            )}
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <p className="text-sm">
+                                    Procesando conversaciones...
+                                  </p>
+                                </div>
+                              )}
                             {progreso.status === "skipped" && (
                               <p className="text-xs text-gray-500">
                                 Sin conversaciones
@@ -887,6 +1151,11 @@ export default function RendimientoPage() {
         evaluaciones={evaluaciones}
         conversaciones={conversaciones}
         botName={botName}
+      />
+
+      <InstructionsModal
+        isOpen={showInstructions}
+        onClose={() => setShowInstructions(false)}
       />
     </div>
   );

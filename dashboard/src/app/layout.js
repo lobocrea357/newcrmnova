@@ -1,5 +1,15 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/contexts/AuthContext";
+import ErrorBoundary from "@/components/ErrorBoundary";
+
+// Auto-inicializar sistema de cron solo en servidor
+if (typeof window === "undefined") {
+  // Importar dinámicamente para evitar problemas en el cliente
+  import("../lib/cronInitializer").then(({ autoInitialize }) => {
+    autoInitialize().catch(console.error);
+  });
+}
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,7 +32,9 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <ErrorBoundary>
+          <AuthProvider>{children}</AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );
