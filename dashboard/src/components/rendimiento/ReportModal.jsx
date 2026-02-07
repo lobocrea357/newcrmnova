@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import html2canvas from "html2canvas-pro";
+import jsPDF from "jspdf";
 import {
   X,
   Copy,
@@ -16,11 +18,29 @@ import {
   BarChart3,
   MessageSquare,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
 
-export default function ReportModal({ report, onClose, onReportRegenerated }) {
+export default function ReportModal({ report, onClose, onReportRegenerated, autoExportPDF = false }) {
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const contentRef = useRef(null);
+  const hasAutoExported = useRef(false);
+  const exportToPDFRef = useRef(null);
+
+  // Auto-export PDF cuando se abre con autoExportPDF=true
+  useEffect(() => {
+    if (autoExportPDF && report && !hasAutoExported.current && exportToPDFRef.current) {
+      hasAutoExported.current = true;
+      // Esperar a que el DOM se renderice completamente
+      const timer = setTimeout(async () => {
+        await exportToPDFRef.current();
+        onClose();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [autoExportPDF, report, onClose]);
 
   if (!report) return null;
 
@@ -58,10 +78,139 @@ Este reporte fue generado automáticamente por IA analizando tus conversaciones.
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const exportToPDF = () => {
-    // Por ahora, abrimos el diálogo de impresión que permite guardar como PDF
-    window.print();
+  const exportToPDF = async () => {
+    if (!contentRef.current) return;
+    try {
+      setExporting(true);
+
+      const content = contentRef.current;
+
+      // Guardar estilos originales
+      const originalMaxHeight = content.style.maxHeight;
+      const originalOverflow = content.style.overflow;
+
+      // Expandir para capturar TODO el contenido
+      content.style.maxHeight = "none";
+      content.style.overflow = "visible";
+      await new Promise((r) => setTimeout(r, 150));
+
+      // Config PDF A4 con márgenes
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();   // 210mm
+      const pdfHeight = pdf.internal.pageSize.getHeight();  // 297mm
+      const margin = 10;
+      const usableWidth = pdfWidth - margin * 2;
+      const headerHeight = 18;
+      const footerHeight = 10;
+      const usableHeight = pdfHeight - margin - headerHeight - footerHeight;
+      let currentY = margin + headerHeight;
+      let pageNum = 1;
+      const totalSections = content.children.length;
+
+      // Dibujar header elegante en cada página
+      const drawPageHeader = () => {
+        // Barra de color
+        pdf.setFillColor(37, 99, 235); // blue-600
+        pdf.rect(0, 0, pdfWidth, 14, "F");
+        // Título
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(10);
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(`Reporte de Rendimiento - ${report.advisorName || "Asesor"}`, margin, 9);
+        // Fecha a la derecha
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8);
+        const dateStr = new Date(report.analysisDate).toLocaleDateString("es-ES", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        });
+        pdf.text(dateStr, pdfWidth - margin, 9, { align: "right" });
+        // Línea separadora debajo del header
+        pdf.setDrawColor(37, 99, 235);
+        pdf.setLineWidth(0.5);
+        pdf.line(margin, 15, pdfWidth - margin, 15);
+        currentY = margin + headerHeight;
+      };
+
+      // Dibujar footer con número de página
+      const drawPageFooter = (pageNumber) => {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(7);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text(
+          `Página ${pageNumber} - Generado el ${new Date().toLocaleDateString("es-ES")}`,
+          pdfWidth / 2,
+          pdfHeight - 5,
+          { align: "center" },
+        );
+        // Línea fina arriba del footer
+        pdf.setDrawColor(200, 200, 200);
+        pdf.setLineWidth(0.2);
+        pdf.line(margin, pdfHeight - footerHeight, pdfWidth - margin, pdfHeight - footerHeight);
+      };
+
+      // Header primera página
+      drawPageHeader();
+
+      // Capturar cada sección hijo por separado
+      const sections = Array.from(content.children);
+
+      for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+
+        const sectionCanvas = await html2canvas(section, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: null,
+          windowWidth: content.scrollWidth,
+        });
+
+        const sectionImgData = sectionCanvas.toDataURL("image/png");
+        const sectionRatio = usableWidth / (sectionCanvas.width / 2);
+        const sectionHeightMm = (sectionCanvas.height / 2) * sectionRatio;
+
+        // Si la sección no cabe en el espacio restante, nueva página
+        if (currentY + sectionHeightMm > pdfHeight - footerHeight) {
+          drawPageFooter(pageNum);
+          pdf.addPage();
+          pageNum++;
+          drawPageHeader();
+        }
+
+        pdf.addImage(
+          sectionImgData,
+          "PNG",
+          margin,
+          currentY,
+          usableWidth,
+          sectionHeightMm,
+        );
+
+        currentY += sectionHeightMm + 4; // 4mm gap entre secciones
+      }
+
+      // Footer última página
+      drawPageFooter(pageNum);
+
+      // Restaurar estilos
+      content.style.maxHeight = originalMaxHeight;
+      content.style.overflow = originalOverflow;
+
+      pdf.save(
+        `reporte_${report.advisorName || "asesor"}_${new Date().toISOString().split("T")[0]}.pdf`,
+      );
+    } catch (error) {
+      console.error("Error exportando PDF:", error);
+      alert("Error al exportar el PDF. Intenta de nuevo.");
+    } finally {
+      setExporting(false);
+    }
   };
+
+  // Asignar ref para que useEffect de autoExportPDF pueda llamarla
+  exportToPDFRef.current = exportToPDF;
 
   const regenerateReport = async () => {
     if (!report.analysisId) {
@@ -107,7 +256,7 @@ Este reporte fue generado automáticamente por IA analizando tus conversaciones.
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col print:max-h-none print:overflow-visible">
+      <div className="print-content bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col print:max-h-none print:overflow-visible">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 flex items-center justify-between print:bg-blue-600">
           <div className="flex items-center gap-3">
@@ -147,10 +296,15 @@ Este reporte fue generado automáticamente por IA analizando tus conversaciones.
             </button>
             <button
               onClick={exportToPDF}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              disabled={exporting}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
               title="Exportar a PDF"
             >
-              <Download className="h-5 w-5" />
+              {exporting ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                  <Download className="h-5 w-5" />
+              )}
             </button>
             <button
               onClick={onClose}
@@ -162,7 +316,7 @@ Este reporte fue generado automáticamente por IA analizando tus conversaciones.
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div ref={contentRef} className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* KPIs */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white">
@@ -434,10 +588,20 @@ Este reporte fue generado automáticamente por IA analizando tus conversaciones.
             </button>
             <button
               onClick={exportToPDF}
-              className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              disabled={exporting}
+              className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Download className="h-4 w-4" />
-              Exportar PDF
+              {exporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generando PDF...
+                </>
+              ) : (
+                <>
+                    <Download className="h-4 w-4" />
+                    Exportar PDF
+                </>
+              )}
             </button>
             <button
               onClick={onClose}
