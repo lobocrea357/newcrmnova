@@ -33,6 +33,7 @@ export default function ReportesPage() {
   const [reportStatuses, setReportStatuses] = useState({});
   const [selectedReport, setSelectedReport] = useState(null);
   const [evaluationCounts, setEvaluationCounts] = useState({});
+  const [autoExportPDF, setAutoExportPDF] = useState(false);
 
   useEffect(() => {
     loadAnalyses();
@@ -64,25 +65,50 @@ export default function ReportesPage() {
 
       setAnalyses(analysesData || []);
 
-      // Cargar estado de reportes Y conteo de evaluaciones para cada análisis
-      const statuses = {};
-      const evalCounts = {};
+      // Cargar estado de reportes Y conteo de evaluaciones en BATCH (no N+1)
+      const analysisIds = (analysesData || []).map((a) => a.id);
 
-      for (const analysis of analysesData || []) {
-        // Get reports
-        const reports = await getReportsByAnalysis(analysis.id);
-        statuses[analysis.id] = {
-          hasReport: reports.length > 0,
-          report: reports[0] || null,
-        };
+      if (analysisIds.length === 0) {
+        setReportStatuses({});
+        setEvaluationCounts({});
+        return;
+      }
 
-        // Get evaluation count
-        const { count, error: countError } = await supabase
+      // Hacer ambas consultas en paralelo con una sola query cada una
+      const [reportsResult, evalsResult] = await Promise.all([
+        // 1. Obtener TODOS los reportes de todos los análisis en UNA sola query
+        supabase
+          .from("performance_reports")
+          .select("*")
+          .in("performance_analysis_id", analysisIds)
+          .order("created_at", { ascending: false }),
+        // 2. Obtener TODAS las evaluaciones (solo id y analysis_id) en UNA sola query
+        supabase
           .from("conversation_evaluations")
-          .select("*", { count: "exact", head: true })
-          .eq("performance_analysis_id", analysis.id);
+          .select("id, performance_analysis_id")
+          .in("performance_analysis_id", analysisIds),
+      ]);
 
-        evalCounts[analysis.id] = countError ? 0 : (count || 0);
+      // Procesar reportes en un mapa
+      const statuses = {};
+      const allReports = reportsResult.data || [];
+      for (const id of analysisIds) {
+        const reportsForAnalysis = allReports.filter(
+          (r) => r.performance_analysis_id === id,
+        );
+        statuses[id] = {
+          hasReport: reportsForAnalysis.length > 0,
+          report: reportsForAnalysis[0] || null,
+        };
+      }
+
+      // Procesar conteos de evaluaciones en un mapa
+      const evalCounts = {};
+      const allEvals = evalsResult.data || [];
+      for (const id of analysisIds) {
+        evalCounts[id] = allEvals.filter(
+          (e) => e.performance_analysis_id === id,
+        ).length;
       }
 
       setReportStatuses(statuses);
@@ -284,7 +310,7 @@ export default function ReportesPage() {
     }
   };
 
-  const downloadReport = async (analysis) => {
+  const downloadReport = (analysis) => {
     try {
       const status = reportStatuses[analysis.id];
       if (!status?.report?.report_data) {
@@ -292,20 +318,14 @@ export default function ReportesPage() {
         return;
       }
 
-      const reportData =
+      const apiReportData =
         typeof status.report.report_data === "string"
           ? JSON.parse(status.report.report_data)
           : status.report.report_data;
 
-      const blob = new Blob([JSON.stringify(reportData, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `reporte-${analysis.bot?.session_name || "asesor"}-${selectedDate}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const transformedReport = transformReportData(apiReportData, analysis);
+      setSelectedReport(transformedReport);
+      setAutoExportPDF(true);
     } catch (error) {
       console.error("Error descargando reporte:", error);
       alert("Error al descargar reporte");
@@ -587,9 +607,12 @@ export default function ReportesPage() {
         {selectedReport && (
           <ReportModal
             report={selectedReport}
-            onClose={() => setSelectedReport(null)}
+            autoExportPDF={autoExportPDF}
+            onClose={() => {
+              setSelectedReport(null);
+              setAutoExportPDF(false);
+            }}
             onReportRegenerated={(newReport) => {
-              // Recargar datos después de regenerar
               loadAnalyses();
               alert(
                 "Reporte actualizado. Cierra y vuelve a abrir para ver cambios.",
