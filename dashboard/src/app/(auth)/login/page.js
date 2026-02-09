@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { LogIn, Mail, Lock } from "lucide-react";
+import { LogIn, Mail, Lock, Calculator } from "lucide-react";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -140,7 +141,14 @@ export default function LoginPage() {
           </div>
         </form>
 
-        <div className="text-center text-sm text-gray-600">
+        <div className="text-center text-sm text-gray-600 space-y-4">
+          <Link 
+            href="/cotizador" 
+            className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+          >
+            <Calculator className="w-4 h-4" />
+            Acceder al Cotizador Público
+          </Link>
           <p>¿No tienes cuenta? Contacta al administrador</p>
         </div>
       </div>

@@ -19,6 +19,7 @@ import {
     User,
     Plane,
     PlaneTakeoff,
+    Calculator,
     X
 } from 'lucide-react'
 
@@ -59,6 +60,7 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         { href: '/rutas-riesgo', label: 'Rutas en Riesgo', icon: AlertTriangle },
         { href: '/rendimiento', label: 'Rendimiento', icon: TrendingUp },
         { href: '/manual-ventas', label: 'Manual de Ventas', icon: BookOpen },
+        { href: '/cotizador', label: 'Cotizador', icon: Calculator },
         { href: '/vuelos', label: 'Vuelos', icon: PlaneTakeoff },
         { href: '/anulables', label: 'Anulables', icon: XCircle },
         { href: '/reportes', label: 'Reportes', icon: FileText },
