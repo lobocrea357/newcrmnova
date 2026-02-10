@@ -166,11 +166,18 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     }
 
     // Impuesto gobierno Colombia: por cada 1000 COP se suman 4 COP
-    // No se muestra en el desglose, solo se aplica al total final.
+    let impuestoGobierno = 0
+    const totalAntesImpuestoGobierno = totalConRecargo
+
     if (moneda === 'COP') {
-      const impuestoGobierno = (totalConRecargo / 1000) * 4
+      // Impuesto 4x1000 = 0.4% del monto total, redondeado al peso más cercano
+      impuestoGobierno = Math.round(totalConRecargo * 0.004)
       totalConRecargo = totalConRecargo + impuestoGobierno
     }
+
+    console.log('Impuesto gobierno (COP):', impuestoGobierno)
+    console.log('Total antes impuesto gobierno (COP):', totalAntesImpuestoGobierno)
+    console.log('Total final con impuesto gobierno (COP):', totalConRecargo)
 
     setDesglose({
       precioBase: precio,
@@ -180,6 +187,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
       tasaCambio: tasa,
       totalPrevio: totalCalculado, // Total antes de recargos
       recargoDescripcion: recargoDescripcion,
+      totalAntesImpuestoGobierno,
+      impuestoGobierno,
       totalFinal: totalConRecargo
     })
 
@@ -208,6 +217,17 @@ export default function CotizadorForm({ isAuthenticated = false }) {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(valor)
+  }
+
+  const handleLimpiar = () => {
+    setPrecioBase('')
+    setFeeEmision('')
+    setFeeAgencia('')
+    setMetodoPago('')
+    setMoneda('')
+    setTasaCambio('')
+    setTotal(0)
+    setDesglose(null)
   }
 
   return (
@@ -356,6 +376,16 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               </div>
             </div>
           </div>
+
+          <div className="pt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={handleLimpiar}
+              className="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              Limpiar calculadora
+            </button>
+          </div>
         </div>
       </div>
 
@@ -402,6 +432,16 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                     <span className="text-slate-500">Subtotal ({moneda})</span>
                     <span className="font-medium text-slate-600">
                       {simboloMoneda} {formatearMonto(desglose.totalPrevio)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Impuesto del gobierno de Colombia (solo si aplica) */}
+                {moneda === 'COP' && desglose.impuestoGobierno > 0 && (
+                  <div className="flex justify-between items-center pt-2 text-sm">
+                    <span className="text-slate-500">Impuesto gobierno (4 COP por cada 1000)</span>
+                    <span className="font-medium text-slate-600">
+                      {simboloMoneda} {formatearMonto(desglose.impuestoGobierno)}
                     </span>
                   </div>
                 )}
