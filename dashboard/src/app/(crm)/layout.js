@@ -1,51 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { useState } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Sidebar from "@/components/layout/Sidebar";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 export default function CRMLayout({ children }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [loading, setLoading] = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
+  const { loading, isAuthenticated } = useRequireAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    try {
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession();
-
-      if (error) {
-        console.error("Error checking session:", error);
-        router.push("/login");
-        return;
-      }
-
-      if (!session) {
-        router.push("/login");
-        return;
-      }
-
-      setAuthenticated(true);
-    } catch (error) {
-      console.error("Error in checkAuth:", error);
-      router.push("/login");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
+  // Mientras verificamos la sesión o si no está autenticado (se redirige desde el hook)
+  if (loading || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -54,10 +20,6 @@ export default function CRMLayout({ children }) {
         </div>
       </div>
     );
-  }
-
-  if (!authenticated) {
-    return null;
   }
 
   return (

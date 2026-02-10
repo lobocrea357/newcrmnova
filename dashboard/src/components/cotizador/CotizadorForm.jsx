@@ -27,7 +27,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     'Davivienda',
     'Cuenta en Euros',
     'Banesco Panamá',
-    'BNC (Banco Nacional de Crédito)'
+    'BNC (Banco Nacional de Crédito)',
+    'Pago móvil'
   ]
 
   const monedas = [
@@ -70,12 +71,44 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     }
   }
 
-  // Manejar cambio de método de pago (Reglas de Moneda)
+  // Manejar cambio de método de pago (Reglas de Moneda implícita)
   useEffect(() => {
-    if (metodoPago === 'Arcadia Service') {
+    if (!metodoPago) {
+      setMoneda('')
+      return
+    }
+
+    // Pesos Colombianos
+    if (metodoPago === 'Davivienda' || metodoPago === 'Bancolombia') {
+      setMoneda('COP')
+      return
+    }
+
+    // Dólares
+    if (
+      metodoPago === 'Depósitos en dólares' ||
+      metodoPago === 'Binance (USDT)' ||
+      metodoPago === 'Zelle' ||
+      metodoPago === 'Arcadia Service' ||
+      metodoPago === 'Banesco Panamá'
+    ) {
       setMoneda('USD')
-    } else if (metodoPago === 'BNC (Banco Nacional de Crédito)') {
+      return
+    }
+
+    // Euros
+    if (metodoPago === 'Cuenta en Euros' || metodoPago === 'Scalapay') {
+      setMoneda('EUR')
+      return
+    }
+
+    // Bolívares
+    if (
+      metodoPago === 'Pago móvil' ||
+      metodoPago === 'BNC (Banco Nacional de Crédito)'
+    ) {
       setMoneda('VES')
+      return
     }
   }, [metodoPago])
 
@@ -124,11 +157,19 @@ export default function CotizadorForm({ isAuthenticated = false }) {
       const fijo = 10
       totalConRecargo = totalCalculado + porcentaje + fijo
       recargoDescripcion = `+5.6% + $10 Arcadia (${formatearMonto(porcentaje + fijo)} USD)`
-    } else if (metodoPago === 'BNC (Banco Nacional de Crédito)') {
-      // +3.5% (Asumiendo moneda es VES)
+    } else if (metodoPago === 'Depósitos en dólares') {
+      // +3.5% solo para Depósitos en dólares
       const recargo = totalCalculado * 0.035
       totalConRecargo = totalCalculado + recargo
-      recargoDescripcion = `+3.5% BNC (${formatearMonto(recargo)} VES)`
+      const simbolo = monedas.find(m => m.value === moneda)?.symbol || '$'
+      recargoDescripcion = `+3.5% Depósito en dólares (${simbolo} ${formatearMonto(recargo)})`
+    }
+
+    // Impuesto gobierno Colombia: por cada 1000 COP se suman 4 COP
+    // No se muestra en el desglose, solo se aplica al total final.
+    if (moneda === 'COP') {
+      const impuestoGobierno = (totalConRecargo / 1000) * 4
+      totalConRecargo = totalConRecargo + impuestoGobierno
     }
 
     setDesglose({
@@ -147,6 +188,19 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
   const monedaSeleccionada = monedas.find(m => m.value === moneda)
   const simboloMoneda = monedaSeleccionada?.symbol || '$'
+
+  const monedaForzada =
+    metodoPago === 'Arcadia Service' ||
+    metodoPago === 'BNC (Banco Nacional de Crédito)' ||
+    metodoPago === 'Depósitos en dólares' ||
+    metodoPago === 'Binance (USDT)' ||
+    metodoPago === 'Zelle' ||
+    metodoPago === 'Banesco Panamá' ||
+    metodoPago === 'Davivienda' ||
+    metodoPago === 'Bancolombia' ||
+    metodoPago === 'Cuenta en Euros' ||
+    metodoPago === 'Scalapay' ||
+    metodoPago === 'Pago móvil'
 
   const formatearMonto = (valor) => {
     if (!valor && valor !== 0) return '0.00'
@@ -237,11 +291,16 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                 </option>
               ))}
             </select>
+            {metodoPago === 'Depósitos en dólares' && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">
+                Moneda forzada a USD (+3.5% comisión depósito)
+              </p>
+            )}
             {metodoPago === 'Arcadia Service' && (
               <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Moneda forzada a USD (+5.6% + $10)</p>
             )}
             {metodoPago === 'BNC (Banco Nacional de Crédito)' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Moneda forzada a VES (+3.5%)</p>
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Moneda forzada a VES</p>
             )}
             {metodoPago === 'Scalapay' && (
               <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Recargo de +10.3% aplicado</p>
@@ -262,7 +321,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                 <select
                   value={moneda}
                   onChange={(e) => setMoneda(e.target.value)}
-                  disabled={metodoPago === 'Arcadia Service' || metodoPago === 'BNC (Banco Nacional de Crédito)'}
+                  disabled={monedaForzada}
                   className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white disabled:bg-gray-100 disabled:text-gray-500"
                 >
                   <option value="">Seleccionar moneda</option>
@@ -302,18 +361,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
       <div className="space-y-6">
         <div className="sticky top-6">
-          <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl shadow-xl p-8 text-white mb-6">
-            <h3 className="text-lg font-medium mb-2 opacity-90">Total a Pagar</h3>
-            <div className="text-5xl font-bold mb-4">
-              {simboloMoneda} {formatearMonto(total)}
-            </div>
-            {monedaSeleccionada && (
-              <p className="text-sm opacity-80">
-                {monedaSeleccionada.label}
-              </p>
-            )}
-          </div>
-
           {desglose ? (
             <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
               <h3 className="text-xl font-semibold text-slate-800 mb-6">
@@ -384,6 +431,18 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               </p>
             </div>
           )}
+
+          <div className="bg-linear-to-br from-indigo-600 to-purple-700 rounded-2xl shadow-xl p-8 text-white mt-6">
+            <h3 className="text-lg font-medium mb-2 opacity-90">Total a Pagar</h3>
+            <div className="text-5xl font-bold mb-4">
+              {simboloMoneda} {formatearMonto(total)}
+            </div>
+            {monedaSeleccionada && (
+              <p className="text-sm opacity-80">
+                {monedaSeleccionada.label}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>
