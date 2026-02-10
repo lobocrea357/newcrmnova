@@ -1,0 +1,51 @@
+PLAN DE IMPLEMENTACIÓN: AUTENTICACIÓN Y ROLES
+==============================================
+
+Este documento contiene el plan técnico para estandarizar la autenticación en el proyecto `dashboard`, migrando la lógica manual al hook `useRequireAuth` y estableciendo políticas claras para el manejo de roles.
+
+1. ANÁLISIS Y ACLARACIONES
+--------------------------
+
+A) MANEJO DE ROLES (Gerente vs. Asesor)
+   - Para proteger una PÁGINA ENTERA: Usar `useRequireAuth`.
+   - Para proteger ELEMENTOS (botones, secciones): Usar lógica condicional dentro del componente.
+   - Recomendación: No crear otro hook complejo. Usar el objeto `user` que ya devuelve `useAuth`.
+
+   Ejemplo:
+   const { user } = useAuth();
+   const esGerente = user?.role === 'gerente';
+   {esGerente && <BotonAdministrador />}
+
+B) QUÉ LÓGICA MOVER AL HOOK
+   - Mover toda la lógica de validación de sesión, redirección y loading del `layout.js` al `useRequireAuth`.
+   - Esto eliminará código repetitivo y centralizará la seguridad.
+
+2. PASOS DE IMPLEMENTACIÓN TÉCNICA
+----------------------------------
+
+PASO 1: LIMPIEZA DEL LAYOUT PRINCIPAL (PRIORIDAD ALTA)
+   - Archivo: dashboard/src/app/(crm)/layout.js
+   - Acción: Eliminar `useEffect`, `checkAuth`, `useState` manuales.
+   - Implementación:
+     import { useRequireAuth } from '@/hooks/useRequireAuth'
+     
+     export default function CRMLayout({ children }) {
+       const { loading, isAuthenticated } = useRequireAuth()
+       if (loading || !isAuthenticated) return <LoadingSpinner />
+       return ( ... )
+     }
+
+PASO 2: VALIDACIÓN DE PÁGINAS HÍBRIDAS (COTIZADOR)
+   - Archivo: dashboard/src/app/cotizador/page.js
+   - Estado: HÍBRIDO (Público/Privado).
+   - Acción: NO aplicar `useRequireAuth` (porque redirigiría siempre). 
+   - Mantener la lógica actual que usa `useAuth` para mostrar/ocultar elementos según si hay sesión iniciada.
+
+PASO 3: PÁGINA DE DEBUG
+   - Archivo: dashboard/src/app/debug/page.js
+   - Estado: PÚBLICO.
+   - Acción: Mantener como pública (sin `useRequireAuth`) para diagnóstico.
+
+PASO 4: HELPER PARA ROLES (OPCIONAL/RECOMENDADO)
+   - Crear un hook simple `useRole` en `dashboard/src/hooks/useRole.js` para facilitar la lectura de roles en los componentes.
+   - Return: { role, isManager, isAdmin }
