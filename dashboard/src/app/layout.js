@@ -24,11 +24,17 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "CRM WhatsApp - Dashboard",
   description: "Dashboard para gestión de bots de WhatsApp con WAHA",
+  icons: {
+    icon: '/logo-morado.png',
+  },
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/logo-morado.png" type="image/png" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

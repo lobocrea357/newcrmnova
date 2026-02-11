@@ -101,8 +101,8 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
                 {/* Header Logo */}
                 <div className="p-5 border-b border-gray-700">
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-orange-500 flex items-center justify-center flex-shrink-0">
-                            <Plane className="h-6 w-6 text-white" />
+                        <div className="h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            <img src="/logo-blanco2.png" alt="Logo" className="h-12 w-12 object-contain" />
                         </div>
                         {!collapsed && (
                             <div className="flex-1 min-w-0">

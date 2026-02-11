@@ -40,15 +40,15 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="max-w-md w-full space-y-8 p-10 bg-white rounded-xl shadow-2xl">
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-indigo-600 rounded-full flex items-center justify-center">
-            <LogIn className="h-8 w-8 text-white" />
+          <div className="mx-auto h-32 w-auto flex items-center justify-center">
+            <img src="/viajes-nova-morado.png" alt="Logo" className="h-32 w-auto object-contain" />
           </div>
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            WhatsApp Bot Dashboard
+          <h2 className="mt-2 text-3xl font-extrabold text-gray-900">
+            CRM NovaNet
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Inicia sesión para gestionar tus bots
-          </p>
+         {/*  <p className="mt-2 text-sm text-gray-600">
+            Inicia sesión 
+          </p> */}
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>
