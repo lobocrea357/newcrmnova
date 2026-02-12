@@ -137,6 +137,9 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   const [destino, setDestino] = useState('')
   const [idaVuelta, setIdaVuelta] = useState(false)
   const [finesMigratorios, setFinesMigratorios] = useState(false)
+  const [fechaRegreso, setFechaRegreso] = useState('')
+  const [horaSalidaRegreso, setHoraSalidaRegreso] = useState('')
+  const [horaLlegadaRegreso, setHoraLlegadaRegreso] = useState('')
   const [aerolinea, setAerolinea] = useState('')
 
   const [exportingPdf, setExportingPdf] = useState(false)
@@ -364,6 +367,21 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     setDestino('')
     setIdaVuelta(false)
     setFinesMigratorios(false)
+    setFechaRegreso('')
+    setHoraSalidaRegreso('')
+    setHoraLlegadaRegreso('')
+    setAerolinea('')
+  }
+
+  const limpiarDetallesVuelo = () => {
+    setFechaSalida('')
+    setHoraSalida('')
+    setHoraLlegada('')
+    setOrigen('')
+    setDestino('')
+    setFechaRegreso('')
+    setHoraSalidaRegreso('')
+    setHoraLlegadaRegreso('')
     setAerolinea('')
   }
 
@@ -469,6 +487,49 @@ export default function CotizadorForm({ isAuthenticated = false }) {
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-100 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => {
+                const newValue = !idaVuelta
+                if (newValue) {
+                  setFinesMigratorios(false)
+                  limpiarDetallesVuelo()
+                } else {
+                  limpiarDetallesVuelo()
+                }
+                setIdaVuelta(newValue)
+              }}
+              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${idaVuelta
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+            >
+              <div className={`w-2 h-2 rounded-full ${idaVuelta ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
+              IDA Y VUELTA
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const newValue = !finesMigratorios
+                if (newValue) {
+                  setIdaVuelta(false)
+                  limpiarDetallesVuelo()
+                } else {
+                  limpiarDetallesVuelo()
+                }
+                setFinesMigratorios(newValue)
+              }}
+              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${finesMigratorios
+                  ? 'bg-amber-500 text-white shadow-md'
+                  : 'bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+            >
+              <div className={`w-2 h-2 rounded-full ${finesMigratorios ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
+              FINES MIGRATORIOS
+            </button>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
@@ -496,81 +557,86 @@ export default function CotizadorForm({ isAuthenticated = false }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                Fecha de Salida
-              </label>
-              <input
-                type="date"
-                value={fechaSalida}
-                onChange={(e) => setFechaSalida(e.target.value)}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                Aerolínea
-              </label>
-              <input
-                type="text"
-                value={aerolinea}
-                onChange={(e) => setAerolinea(e.target.value)}
-                placeholder="Ej: Avianca"
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              />
+          <div>
+            <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
+              Aerolínea
+            </label>
+            <input
+              type="text"
+              value={aerolinea}
+              onChange={(e) => setAerolinea(e.target.value)}
+              placeholder="Ej: Avianca"
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+            />
+          </div>
+
+          <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-4">
+            <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-widest px-1">Vuelo de Ida</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">FECHA</label>
+                <input
+                  type="date"
+                  value={fechaSalida}
+                  onChange={(e) => setFechaSalida(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">SALIDA</label>
+                <input
+                  type="time"
+                  value={horaSalida}
+                  onChange={(e) => setHoraSalida(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">LLEGADA</label>
+                <input
+                  type="time"
+                  value={horaLlegada}
+                  onChange={(e) => setHoraLlegada(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                Hora Salida
-              </label>
-              <input
-                type="time"
-                value={horaSalida}
-                onChange={(e) => setHoraSalida(e.target.value)}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              />
+          {idaVuelta && (
+            <div className="p-4 bg-purple-50/50 rounded-xl border border-purple-100 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+              <h4 className="text-xs font-bold text-purple-700 uppercase tracking-widest px-1">Vuelo de Vuelta</h4>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">FECHA</label>
+                  <input
+                    type="date"
+                    value={fechaRegreso}
+                    onChange={(e) => setFechaRegreso(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 transition-all text-sm bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">SALIDA</label>
+                  <input
+                    type="time"
+                    value={horaSalidaRegreso}
+                    onChange={(e) => setHoraSalidaRegreso(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 transition-all text-sm bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">LLEGADA</label>
+                  <input
+                    type="time"
+                    value={horaLlegadaRegreso}
+                    onChange={(e) => setHoraLlegadaRegreso(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 transition-all text-sm bg-white"
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                Hora Llegada (Est.)
-              </label>
-              <input
-                type="time"
-                value={horaLlegada}
-                onChange={(e) => setHoraLlegada(e.target.value)}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-6 py-2 px-2 bg-slate-50 rounded-lg border border-slate-100">
-            <label className="flex items-center gap-2 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={idaVuelta}
-                onChange={(e) => setIdaVuelta(e.target.checked)}
-                className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
-              />
-              <span className="text-sm font-medium text-slate-700 group-hover:text-indigo-600 transition-colors">
-                Ida y Vuelta
-              </span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={finesMigratorios}
-                onChange={(e) => setFinesMigratorios(e.target.checked)}
-                className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
-              />
-              <span className="text-sm font-medium text-slate-700 group-hover:text-indigo-600 transition-colors">
-                Fines Migratorios
-              </span>
-            </label>
-          </div>
+          )}
 
           <div>
             <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
@@ -730,9 +796,9 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-y-4 gap-x-8">
-                    {/* Trayecto */}
-                    <div className="col-span-2 flex items-center gap-4 py-2 px-4 bg-slate-50 rounded-lg border border-slate-100">
+                  <div className="space-y-6">
+                    {/* Trayecto General */}
+                    <div className="flex items-center gap-4 py-2 px-4 bg-slate-50 rounded-lg border border-slate-100">
                       <div className="flex-1">
                         <p className="text-[10px] text-slate-500 uppercase font-medium">Origen</p>
                         <p className="text-lg font-bold text-slate-800">{origen || '---'}</p>
@@ -746,35 +812,98 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                       </div>
                     </div>
 
-                    {/* Fecha y Aerolínea */}
-                    <div>
-                      <p className="text-[10px] text-slate-500 uppercase font-medium">Fecha de Salida</p>
-                      <p className="text-sm font-semibold text-slate-700">
-                        {fechaSalida ? new Date(fechaSalida).toLocaleDateString('es-ES', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric'
-                        }) : '---'}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] text-slate-500 uppercase font-medium">Aerolínea</p>
-                      <p className="text-sm font-semibold text-slate-700">{aerolinea || '---'}</p>
-                    </div>
+                    <div className="grid grid-cols-2 gap-8">
+                      {/* Bloque Ida */}
+                      <div className="space-y-3">
+                        <p className="text-[10px] font-bold text-indigo-600 uppercase border-b border-indigo-50 pb-1">Vuelo de Ida</p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[10px] text-slate-400 uppercase">Fecha</p>
+                            <p className="text-xs font-bold text-slate-700">
+                              {fechaSalida ? new Date(fechaSalida).toLocaleDateString('es-ES', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                              }) : '---'}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] text-slate-400 uppercase">Aerolínea</p>
+                            <p className="text-xs font-bold text-slate-700">{aerolinea || '---'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-slate-400 uppercase">Salida</p>
+                            <p className="text-xs font-bold text-slate-700">{horaSalida || '--:--'}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] text-slate-400 uppercase">Llegada</p>
+                            <p className="text-xs font-bold text-slate-700">{horaLlegada || '--:--'}</p>
+                          </div>
+                        </div>
+                      </div>
 
-                    {/* Horas */}
-                    <div>
-                      <p className="text-[10px] text-slate-500 uppercase font-medium">Hora de Salida</p>
-                      <p className="text-sm font-semibold text-slate-700">{horaSalida || '---'}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] text-slate-500 uppercase font-medium">Llegada Estimada</p>
-                      <p className="text-sm font-semibold text-slate-700">{horaLlegada || '---'}</p>
+                      {/* Bloque Vuelta (Solo si aplica) */}
+                      {idaVuelta ? (
+                        <div className="space-y-3">
+                          <p className="text-[10px] font-bold text-purple-600 uppercase border-b border-purple-50 pb-1">Vuelo de Vuelta</p>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-[10px] text-slate-400 uppercase">Fecha</p>
+                              <p className="text-xs font-bold text-slate-700">
+                                {fechaRegreso ? new Date(fechaRegreso).toLocaleDateString('es-ES', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric'
+                                }) : '---'}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] text-slate-400 uppercase">Aerolínea</p>
+                              <p className="text-xs font-bold text-slate-700">{aerolinea || '---'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-slate-400 uppercase">Salida</p>
+                              <p className="text-xs font-bold text-slate-700">{horaSalidaRegreso || '--:--'}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] text-slate-400 uppercase">Llegada</p>
+                              <p className="text-xs font-bold text-slate-700">{horaLlegadaRegreso || '--:--'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center border border-dashed border-slate-200 rounded-lg bg-slate-50/50">
+                          <p className="text-[10px] text-slate-400 uppercase italic">Solo Ida</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* 2. Total principal */}
+                {/* 2. Servicios Incluidos (Solo para Fines Migratorios) */}
+                {finesMigratorios && (
+                  <div className="bg-amber-50 rounded-xl border border-amber-200 p-6 space-y-3">
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-amber-700 border-b border-amber-200 pb-2">
+                      Servicios Incluidos (Fines Migratorios)
+                    </h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        <p className="text-xs font-bold text-slate-700">Boleto de retorno</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        <p className="text-xs font-bold text-slate-700">Seguro de viaje</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        <p className="text-xs font-bold text-slate-700">Reserva de hotel</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Total principal */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div>
                     <p className="text-xs uppercase tracking-widest text-slate-500">
