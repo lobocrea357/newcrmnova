@@ -131,6 +131,12 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   const [total, setTotal] = useState(0)
   const [desglose, setDesglose] = useState(null)
   const [fechaSalida, setFechaSalida] = useState('')
+  const [horaSalida, setHoraSalida] = useState('')
+  const [horaLlegada, setHoraLlegada] = useState('')
+  const [origen, setOrigen] = useState('')
+  const [destino, setDestino] = useState('')
+  const [idaVuelta, setIdaVuelta] = useState(false)
+  const [finesMigratorios, setFinesMigratorios] = useState(false)
   const [aerolinea, setAerolinea] = useState('')
 
   const [exportingPdf, setExportingPdf] = useState(false)
@@ -352,6 +358,12 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     setTotal(0)
     setDesglose(null)
     setFechaSalida('')
+    setHoraSalida('')
+    setHoraLlegada('')
+    setOrigen('')
+    setDestino('')
+    setIdaVuelta(false)
+    setFinesMigratorios(false)
     setAerolinea('')
   }
 
@@ -460,6 +472,33 @@ export default function CotizadorForm({ isAuthenticated = false }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                Origen
+              </label>
+              <input
+                type="text"
+                value={origen}
+                onChange={(e) => setOrigen(e.target.value)}
+                placeholder="Ej: CCS"
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                Destino
+              </label>
+              <input
+                type="text"
+                value={destino}
+                onChange={(e) => setDestino(e.target.value)}
+                placeholder="Ej: MAD"
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
                 Fecha de Salida
               </label>
               <input
@@ -481,6 +520,56 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                Hora Salida
+              </label>
+              <input
+                type="time"
+                value={horaSalida}
+                onChange={(e) => setHoraSalida(e.target.value)}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                Hora Llegada (Est.)
+              </label>
+              <input
+                type="time"
+                value={horaLlegada}
+                onChange={(e) => setHoraLlegada(e.target.value)}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-6 py-2 px-2 bg-slate-50 rounded-lg border border-slate-100">
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={idaVuelta}
+                onChange={(e) => setIdaVuelta(e.target.checked)}
+                className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
+              />
+              <span className="text-sm font-medium text-slate-700 group-hover:text-indigo-600 transition-colors">
+                Ida y Vuelta
+              </span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={finesMigratorios}
+                onChange={(e) => setFinesMigratorios(e.target.checked)}
+                className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
+              />
+              <span className="text-sm font-medium text-slate-700 group-hover:text-indigo-600 transition-colors">
+                Fines Migratorios
+              </span>
+            </label>
           </div>
 
           <div>
@@ -609,27 +698,83 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   </div>
                 </div>
                 <div className="text-right text-sm text-slate-500">
-                  <p className="font-medium">Detalles de Vuelo</p>
-                  {fechaSalida && (
-                    <p>Salida: {new Date(fechaSalida).toLocaleDateString('es-ES', {
+                  <p className="font-medium">Fecha de Cotización</p>
+                  <p>
+                    {new Date().toLocaleDateString('es-ES', {
                       day: '2-digit',
                       month: '2-digit',
                       year: 'numeric'
-                    })}</p>
-                  )}
-                  {aerolinea && <p>Aerolínea: {aerolinea}</p>}
-                  {!fechaSalida && !aerolinea && (
-                    <p>Fecha: {new Date().toLocaleDateString('es-ES', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric'
-                    })}</p>
-                  )}
+                    })}
+                  </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-6">
-                {/* Total principal */}
+                {/* 1. Información del Vuelo ([NEW]) */}
+                <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-indigo-700">
+                      Información del Vuelo
+                    </h3>
+                    <div className="flex gap-2">
+                      {idaVuelta && (
+                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded-full border border-indigo-100">
+                          IDA Y VUELTA
+                        </span>
+                      )}
+                      {finesMigratorios && (
+                        <span className="px-2 py-0.5 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-full border border-amber-100">
+                          FINES MIGRATORIOS
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-y-4 gap-x-8">
+                    {/* Trayecto */}
+                    <div className="col-span-2 flex items-center gap-4 py-2 px-4 bg-slate-50 rounded-lg border border-slate-100">
+                      <div className="flex-1">
+                        <p className="text-[10px] text-slate-500 uppercase font-medium">Origen</p>
+                        <p className="text-lg font-bold text-slate-800">{origen || '---'}</p>
+                      </div>
+                      <div className="h-px flex-1 bg-slate-300 relative">
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-indigo-500 shadow-sm" />
+                      </div>
+                      <div className="flex-1 text-right">
+                        <p className="text-[10px] text-slate-500 uppercase font-medium">Destino</p>
+                        <p className="text-lg font-bold text-slate-800">{destino || '---'}</p>
+                      </div>
+                    </div>
+
+                    {/* Fecha y Aerolínea */}
+                    <div>
+                      <p className="text-[10px] text-slate-500 uppercase font-medium">Fecha de Salida</p>
+                      <p className="text-sm font-semibold text-slate-700">
+                        {fechaSalida ? new Date(fechaSalida).toLocaleDateString('es-ES', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        }) : '---'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-slate-500 uppercase font-medium">Aerolínea</p>
+                      <p className="text-sm font-semibold text-slate-700">{aerolinea || '---'}</p>
+                    </div>
+
+                    {/* Horas */}
+                    <div>
+                      <p className="text-[10px] text-slate-500 uppercase font-medium">Hora de Salida</p>
+                      <p className="text-sm font-semibold text-slate-700">{horaSalida || '---'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-slate-500 uppercase font-medium">Llegada Estimada</p>
+                      <p className="text-sm font-semibold text-slate-700">{horaLlegada || '---'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Total principal */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div>
                     <p className="text-xs uppercase tracking-widest text-slate-500">
