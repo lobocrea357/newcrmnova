@@ -141,6 +141,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   const [horaSalidaRegreso, setHoraSalidaRegreso] = useState('')
   const [horaLlegadaRegreso, setHoraLlegadaRegreso] = useState('')
   const [aerolinea, setAerolinea] = useState('')
+  const [agencia, setAgencia] = useState(null) // 'nova', 'colombia', 'apolo'
 
   const [exportingPdf, setExportingPdf] = useState(false)
   const pdfContentRef = useRef(null)
@@ -371,6 +372,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     setHoraSalidaRegreso('')
     setHoraLlegadaRegreso('')
     setAerolinea('')
+    setAgencia(null)
   }
 
   const limpiarDetallesVuelo = () => {
@@ -386,6 +388,10 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   }
 
   const handleExportarPdf = async () => {
+    if (!agencia) {
+      alert('Por favor selecciona la agencia (Nova, Nova Colombia o Apolo) antes de exportar el PDF.')
+      return
+    }
     if (!pdfContentRef.current) return
     if (!desglose) {
       alert('Primero calcula una cotización antes de exportar el PDF.')
@@ -426,6 +432,34 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   return (
     <div className="grid lg:grid-cols-2 gap-8">
       <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
+        {/* Selector de Agencia (Relocalizado y más compacto) */}
+        <div className="mb-6 pb-6 border-b border-slate-100">
+          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+            AGENCIA
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { id: 'nova', label: 'NOVA', color: 'indigo' },
+              { id: 'colombia', label: 'NOVA COLOMBIA', color: 'indigo' },
+              { id: 'apolo', label: 'APOLO', color: 'amber' }
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setAgencia(opt.id)}
+                className={`py-1.5 px-1 rounded-lg font-bold text-[9px] transition-all border-2 ${agencia === opt.id
+                  ? opt.color === 'indigo'
+                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                    : 'bg-amber-500 border-amber-500 text-white shadow-sm'
+                  : 'bg-white border-slate-50 text-slate-400 hover:border-slate-100'
+                  }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold text-slate-800 flex items-center gap-2">
             <DollarSign className="w-6 h-6 text-indigo-600" />
@@ -457,7 +491,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
             />
           </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
@@ -486,7 +519,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               />
             </div>
           </div>
-
           <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-100 rounded-xl border border-slate-200">
             <button
               type="button"
@@ -529,7 +561,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               FINES MIGRATORIOS
             </button>
           </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
@@ -556,7 +587,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               />
             </div>
           </div>
-
           <div>
             <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
               Aerolínea
@@ -569,7 +599,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
             />
           </div>
-
           <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-4">
             <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-widest px-1">Vuelo de Ida</h4>
             <div className="grid grid-cols-3 gap-4">
@@ -602,7 +631,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               </div>
             </div>
           </div>
-
           {idaVuelta && (
             <div className="p-4 bg-purple-50/50 rounded-xl border border-purple-100 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
               <h4 className="text-xs font-bold text-purple-700 uppercase tracking-widest px-1">Vuelo de Vuelta</h4>
@@ -637,7 +665,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               </div>
             </div>
           )}
-
           <div>
             <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
               <CreditCard className="w-4 h-4" />
@@ -744,9 +771,9 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <div className="flex items-center justify-between mb-6 border-b border-slate-200 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="h-16 w-16 flex items-center justify-center overflow-hidden">
-                    {/* Logo de la agencia */}
+                    {/* Logo de la agencia dinámico */}
                     <img
-                      src={AGENCY_LOGO_URL}
+                      src={agencia === 'apolo' ? '/apolo-viajes-letras-azules.png' : '/viajes-nova-morado.png'}
                       alt="Logo agencia"
                       className="h-full w-full object-contain"
                       onError={(e) => {
@@ -759,7 +786,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                       Cotización de Viaje
                     </p>
                     <h2 className="text-xl font-bold text-slate-900">
-                      {AGENCY_NAME}
+                      {agencia === 'nova' ? 'Viajes Nova' : agencia === 'colombia' ? 'Viajes Nova Colombia' : 'Apolo Viajes'}
                     </h2>
                   </div>
                 </div>
