@@ -118,7 +118,64 @@ const DATOS_PAGO_POR_METODO = {
       'Cédula: 24.347.702',
       'Titular: Josni Bonito'
     ]
+  },
+  'Depósito oficina Venezuela (efectivo)': {
+    titulo: 'Pago en efectivo - Oficinas Venezuela',
+    descripcion: 'Pago en dólares estadounidenses (USD) en efectivo en nuestras oficinas de Venezuela.',
+    detalles: [
+      'Oficinas disponibles:',
+      '• San Cristóbal',
+      '• Maracaibo',
+      '• Caracas',
+      '• Valencia (Parral)',
+      '• Valencia (Torre de Seguro Los Andes)',
+      'Consulta con tu asesor la dirección exacta de la oficina más cercana.'
+    ]
+  },
+  'Depósito oficina Colombia (efectivo)': {
+    titulo: 'Pago en efectivo - Oficina Colombia',
+    descripcion: 'Pago en pesos colombianos (COP) en efectivo en nuestra oficina de Colombia.',
+    detalles: [
+      'Oficina disponible:',
+      '• Medellín',
+      'Consulta con tu asesor la dirección exacta de la oficina.'
+    ]
+  },
+  'Depósito oficina Europa (efectivo)': {
+    titulo: 'Pago en efectivo - Oficina Europa',
+    descripcion: 'Pago en euros (EUR) en efectivo en nuestra oficina de Europa.',
+    detalles: [
+      'Oficina disponible:',
+      '• Madrid, España',
+      'Consulta con tu asesor la dirección exacta de la oficina.'
+    ]
+  },
+  'Chase Bank (Estados Unidos)': {
+    titulo: 'Transferencia Chase Bank (USD)',
+    descripcion: 'Transferencia internacional en dólares estadounidenses a cuenta Chase Bank.',
+    detalles: [
+      'Banco: Chase Bank',
+      'Número de cuenta: 900700953',
+      'Número de tránsito interbancario (Routing): 267084131'
+    ]
+  },
+  'Bizum (España)': {
+    titulo: 'Pago vía Bizum (EUR)',
+    descripcion: 'Transferencia en euros a través de Bizum.',
+    detalles: [
+      'Teléfono: +34 672 75 08 25'
+    ]
   }
+}
+
+const DATOS_PAGO_ZELLE_APOLO = {
+  titulo: 'Transferencia vía Zelle',
+  descripcion: 'Transferencia en USD por Zelle.',
+  detalles: [
+    'Titular: A&D Finance Group LLC',
+    'Correo: grupoapoloviajes@gmail.com',
+    'Concepto: Indicar nombre del cliente y número de cotización.'
+  ]
 }
 
 export default function CotizadorForm({ isAuthenticated = false }) {
@@ -143,6 +200,19 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   const [aerolinea, setAerolinea] = useState('')
   const [agencia, setAgencia] = useState(null) // 'nova', 'colombia', 'apolo'
 
+  // Escalas
+  const [haceEscala, setHaceEscala] = useState(false)
+  const [ciudadEscala1, setCiudadEscala1] = useState('')
+  const [tiempoEscala1, setTiempoEscala1] = useState('')
+  const [haceSegundaEscala, setHaceSegundaEscala] = useState(false)
+  const [ciudadEscala2, setCiudadEscala2] = useState('')
+  const [tiempoEscala2, setTiempoEscala2] = useState('')
+
+  // Equipaje
+  const [equipajeCompleto, setEquipajeCompleto] = useState(false)
+  const [equipajeMediano, setEquipajeMediano] = useState(false)
+  const [equipajeLigero, setEquipajeLigero] = useState(false)
+
   const [exportingPdf, setExportingPdf] = useState(false)
   const pdfContentRef = useRef(null)
 
@@ -161,7 +231,12 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     'Cuenta en Euros',
     'Banesco Panamá (ViajesNova)',
     'BNC - Transferencia en Bs',
-    'Pago móvil'
+    'Pago móvil',
+    'Depósito oficina Venezuela (efectivo)',
+    'Depósito oficina Colombia (efectivo)',
+    'Depósito oficina Europa (efectivo)',
+    'Chase Bank (Estados Unidos)',
+    'Bizum (España)'
   ]
 
   const monedas = [
@@ -212,7 +287,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     }
 
     // Pesos Colombianos
-    if (metodoPago === 'Davivienda' || metodoPago === 'Bancacolombia') {
+    if (metodoPago === 'Davivienda' || metodoPago === 'Bancacolombia' || metodoPago === 'Depósito oficina Colombia (efectivo)') {
       setMoneda('COP')
       return
     }
@@ -223,14 +298,16 @@ export default function CotizadorForm({ isAuthenticated = false }) {
       metodoPago === 'Binance (USDT)' ||
       metodoPago === 'Zelle' ||
       metodoPago === 'Arcadia Service' ||
-      metodoPago === 'Banesco Panamá (ViajesNova)'
+      metodoPago === 'Banesco Panamá (ViajesNova)' ||
+      metodoPago === 'Depósito oficina Venezuela (efectivo)' ||
+      metodoPago === 'Chase Bank (Estados Unidos)'
     ) {
       setMoneda('USD')
       return
     }
 
     // Euros
-    if (metodoPago === 'Cuenta en Euros' || metodoPago === 'Scalapay') {
+    if (metodoPago === 'Cuenta en Euros' || metodoPago === 'Scalapay' || metodoPago === 'Depósito oficina Europa (efectivo)' || metodoPago === 'Bizum (España)') {
       setMoneda('EUR')
       return
     }
@@ -342,7 +419,12 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     metodoPago === 'Bancacolombia' ||
     metodoPago === 'Cuenta en Euros' ||
     metodoPago === 'Scalapay' ||
-    metodoPago === 'Pago móvil'
+    metodoPago === 'Pago móvil' ||
+    metodoPago === 'Depósito oficina Venezuela (efectivo)' ||
+    metodoPago === 'Depósito oficina Colombia (efectivo)' ||
+    metodoPago === 'Depósito oficina Europa (efectivo)' ||
+    metodoPago === 'Chase Bank (Estados Unidos)' ||
+    metodoPago === 'Bizum (España)'
 
   const formatearMonto = (valor) => {
     if (!valor && valor !== 0) return '0.00'
@@ -373,6 +455,15 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     setHoraLlegadaRegreso('')
     setAerolinea('')
     setAgencia(null)
+    setHaceEscala(false)
+    setCiudadEscala1('')
+    setTiempoEscala1('')
+    setHaceSegundaEscala(false)
+    setCiudadEscala2('')
+    setTiempoEscala2('')
+    setEquipajeCompleto(false)
+    setEquipajeMediano(false)
+    setEquipajeLigero(false)
   }
 
   const limpiarDetallesVuelo = () => {
@@ -385,6 +476,12 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     setHoraSalidaRegreso('')
     setHoraLlegadaRegreso('')
     setAerolinea('')
+    setHaceEscala(false)
+    setCiudadEscala1('')
+    setTiempoEscala1('')
+    setHaceSegundaEscala(false)
+    setCiudadEscala2('')
+    setTiempoEscala2('')
   }
 
   const handleExportarPdf = async () => {
@@ -412,12 +509,13 @@ export default function CotizadorForm({ isAuthenticated = false }) {
       const pdf = new jsPDF('p', 'mm', 'a4')
       const pdfWidth = pdf.internal.pageSize.getWidth()
       const pdfHeight = pdf.internal.pageSize.getHeight()
-      const margin = 12
-      const usableWidth = pdfWidth - margin * 2
+      const marginX = 12
+      const marginTop = 6
+      const usableWidth = pdfWidth - marginX * 2
       const imgHeight = (canvas.height * usableWidth) / canvas.width
-      const startY = Math.max(margin, (pdfHeight - imgHeight) / 2)
+      const startY = marginTop
 
-      pdf.addImage(imgData, 'PNG', margin, startY, usableWidth, imgHeight)
+      pdf.addImage(imgData, 'PNG', marginX, startY, usableWidth, imgHeight)
 
       const fecha = new Date().toISOString().split('T')[0]
       pdf.save(`cotizacion_${fecha}.pdf`)
@@ -665,6 +763,146 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               </div>
             </div>
           )}
+          {/* Escalas */}
+          <div className="p-4 bg-orange-50/50 rounded-xl border border-orange-100 space-y-4">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="haceEscala"
+                checked={haceEscala}
+                onChange={(e) => {
+                  setHaceEscala(e.target.checked)
+                  if (!e.target.checked) {
+                    setCiudadEscala1('')
+                    setTiempoEscala1('')
+                    setHaceSegundaEscala(false)
+                    setCiudadEscala2('')
+                    setTiempoEscala2('')
+                  }
+                }}
+                className="w-4 h-4 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+              />
+              <label htmlFor="haceEscala" className="text-xs font-bold text-orange-700 uppercase tracking-widest cursor-pointer">
+                ¿El vuelo hace escala?
+              </label>
+            </div>
+            {haceEscala && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">CIUDAD DE ESCALA</label>
+                    <input
+                      type="text"
+                      value={ciudadEscala1}
+                      onChange={(e) => setCiudadEscala1(e.target.value)}
+                      placeholder="Ej: Bogotá"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">DURACIÓN DE ESCALA</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="18"
+                      step="0.5"
+                      value={tiempoEscala1}
+                      onChange={(e) => setTiempoEscala1(e.target.value)}
+                      placeholder="Horas (máx. 18)"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="haceSegundaEscala"
+                    checked={haceSegundaEscala}
+                    onChange={(e) => {
+                      setHaceSegundaEscala(e.target.checked)
+                      if (!e.target.checked) {
+                        setCiudadEscala2('')
+                        setTiempoEscala2('')
+                      }
+                    }}
+                    className="w-4 h-4 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                  />
+                  <label htmlFor="haceSegundaEscala" className="text-xs font-bold text-orange-600 cursor-pointer">
+                    ¿Segunda escala?
+                  </label>
+                </div>
+                {haceSegundaEscala && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">CIUDAD 2ª ESCALA</label>
+                      <input
+                        type="text"
+                        value={ciudadEscala2}
+                        onChange={(e) => setCiudadEscala2(e.target.value)}
+                        placeholder="Ej: Panamá"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">DURACIÓN 2ª ESCALA</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="18"
+                        step="0.5"
+                        value={tiempoEscala2}
+                        onChange={(e) => setTiempoEscala2(e.target.value)}
+                        placeholder="Horas (máx. 18)"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {/* Equipaje */}
+          <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-3">
+            <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-widest px-1">Equipaje</h4>
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-emerald-50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={equipajeCompleto}
+                  onChange={(e) => setEquipajeCompleto(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <div>
+                  <p className="text-sm font-bold text-slate-700">Equipaje completo</p>
+                  <p className="text-[10px] text-slate-500">Maleta 23 Kg + Maleta 8 Kg + Artículo personal</p>
+                </div>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-emerald-50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={equipajeMediano}
+                  onChange={(e) => setEquipajeMediano(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <div>
+                  <p className="text-sm font-bold text-slate-700">Equipaje mediano</p>
+                  <p className="text-[10px] text-slate-500">Maleta 23 Kg + Artículo personal</p>
+                </div>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-emerald-50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={equipajeLigero}
+                  onChange={(e) => setEquipajeLigero(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <div>
+                  <p className="text-sm font-bold text-slate-700">Equipaje ligero</p>
+                  <p className="text-[10px] text-slate-500">Maleta 10 Kg + Artículo personal</p>
+                </div>
+              </label>
+            </div>
+          </div>
           <div>
             <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
               <CreditCard className="w-4 h-4" />
@@ -904,28 +1142,79 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                         </div>
                       )}
                     </div>
+
+                    {/* Escalas */}
+                    {haceEscala && (
+                      <div className="py-3 px-4 bg-orange-50 rounded-lg border border-orange-100">
+                        <p className="text-[10px] font-bold text-orange-600 uppercase mb-2">Escalas</p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[10px] text-slate-400 uppercase">1ª Escala</p>
+                            <p className="text-xs font-bold text-slate-700">{ciudadEscala1 || '---'}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] text-slate-400 uppercase">Duración</p>
+                            <p className="text-xs font-bold text-slate-700">{tiempoEscala1 ? `${tiempoEscala1} h` : '---'}</p>
+                          </div>
+                          {haceSegundaEscala && (
+                            <>
+                              <div>
+                                <p className="text-[10px] text-slate-400 uppercase">2ª Escala</p>
+                                <p className="text-xs font-bold text-slate-700">{ciudadEscala2 || '---'}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[10px] text-slate-400 uppercase">Duración</p>
+                                <p className="text-xs font-bold text-slate-700">{tiempoEscala2 ? `${tiempoEscala2} h` : '---'}</p>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* 2. Servicios Incluidos (Solo para Fines Migratorios) */}
-                {finesMigratorios && (
+                {/* 2. Servicios Incluidos */}
+                {(idaVuelta || finesMigratorios || equipajeCompleto || equipajeMediano || equipajeLigero) && (
                   <div className="bg-amber-50 rounded-xl border border-amber-200 p-6 space-y-3">
                     <h3 className="text-sm font-bold uppercase tracking-widest text-amber-700 border-b border-amber-200 pb-2">
-                      Servicios Incluidos (Fines Migratorios)
+                      Servicios Incluidos
                     </h3>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                        <p className="text-xs font-bold text-slate-700">Boleto de retorno</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                        <p className="text-xs font-bold text-slate-700">Seguro de viaje</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                        <p className="text-xs font-bold text-slate-700">Reserva de hotel</p>
-                      </div>
+                    <div className="flex flex-wrap gap-x-6 gap-y-2">
+                      {finesMigratorios && (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                            <p className="text-xs font-bold text-slate-700">Boleto de retorno</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                            <p className="text-xs font-bold text-slate-700">Seguro de viaje</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                            <p className="text-xs font-bold text-slate-700">Reserva de hotel</p>
+                          </div>
+                        </>
+                      )}
+                      {equipajeCompleto && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <p className="text-xs font-bold text-slate-700">Equipaje completo (23 Kg + 8 Kg + artículo personal)</p>
+                        </div>
+                      )}
+                      {equipajeMediano && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <p className="text-xs font-bold text-slate-700">Equipaje mediano (23 Kg + artículo personal)</p>
+                        </div>
+                      )}
+                      {equipajeLigero && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <p className="text-xs font-bold text-slate-700">Equipaje ligero (10 Kg + artículo personal)</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -966,7 +1255,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
                   <div className="space-y-2 text-sm">
                     {(() => {
-                      const datos = DATOS_PAGO_POR_METODO[metodoPago]
+                      const datos = (metodoPago === 'Zelle' && agencia === 'apolo') ? DATOS_PAGO_ZELLE_APOLO : DATOS_PAGO_POR_METODO[metodoPago]
                       if (!datos) {
                         return (
                           <p className="text-slate-500">
@@ -982,6 +1271,50 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                           <p className="text-slate-600 italic">
                             El enlace de pago correspondiente será compartido por tu asesor de viaje una vez confirmada la cotización.
                           </p>
+                        )
+                      }
+
+                      // Depósito oficina Venezuela - 2 columnas para ciudades
+                      if (metodoPago === 'Depósito oficina Venezuela (efectivo)') {
+                        return (
+                          <>
+                            <p className="font-semibold text-slate-800">{datos.titulo}</p>
+                            <p className="text-slate-600">{datos.descripcion}</p>
+                            <p className="mt-2 text-xs font-medium text-slate-500">Oficinas disponibles:</p>
+                            <div className="grid grid-cols-2 gap-x-6 gap-y-1 mt-1">
+                              {['San Cristóbal', 'Maracaibo', 'Caracas', 'Valencia (Parral)', 'Valencia (Torre de Seguro Los Andes)'].map((ciudad, idx) => (
+                                <div key={idx} className="flex items-center gap-1.5">
+                                  <div className="w-1 h-1 rounded-full bg-slate-400 shrink-0" />
+                                  <p className="text-slate-600">{ciudad}</p>
+                                </div>
+                              ))}
+                            </div>
+                            <p className="mt-2 text-slate-500 text-xs italic">Consulta con tu asesor la dirección exacta de la oficina más cercana.</p>
+                          </>
+                        )
+                      }
+
+                      // Cuenta en Euros - 2 columnas (BBVA + Revolut)
+                      if (metodoPago === 'Cuenta en Euros') {
+                        return (
+                          <>
+                            <p className="font-semibold text-slate-800">{datos.titulo}</p>
+                            <p className="text-slate-600">{datos.descripcion}</p>
+                            <div className="grid grid-cols-2 gap-4 mt-2">
+                              <div className="space-y-1">
+                                <p className="text-xs font-bold text-slate-700 uppercase">Opción Principal</p>
+                                <p className="text-slate-600">Banco: BBVA</p>
+                                <p className="text-slate-600">Titular: Grupo Travel BA</p>
+                                <p className="text-slate-600 text-xs break-all">IBAN: ES2301821876830201934375</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-xs font-bold text-slate-700 uppercase">Opción Secundaria</p>
+                                <p className="text-slate-600">Banco: Revolut</p>
+                                <p className="text-slate-600">Titular: Gaddiel Montero Yepez</p>
+                                <p className="text-slate-600 text-xs break-all">IBAN: ES5415830001169083916022</p>
+                              </div>
+                            </div>
+                          </>
                         )
                       }
 
