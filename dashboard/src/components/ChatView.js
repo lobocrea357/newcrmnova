@@ -6,8 +6,6 @@ import VirtualizedMessageList from './VirtualizedMessageList'
 import ContactAvatar from './ContactAvatar'
 import messageService from '@/services/messageService'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
-
 export default function ChatView({ chatId, onClose, onMessagesLoaded, readOnly = false }) {
   const [conversation, setConversation] = useState(null)
   const [messages, setMessages] = useState([])
@@ -239,7 +237,7 @@ export default function ChatView({ chatId, onClose, onMessagesLoaded, readOnly =
         botId: botId
       }))
 
-      const response = await fetch(`${API_URL}/api/media/retry-failed-transcriptions`, {
+      const response = await fetch(`/api/media/retry-failed-transcriptions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: payload })
