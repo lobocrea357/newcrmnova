@@ -643,6 +643,31 @@ export async function getPaginatedMessages(
   // Invertir para que estén en orden cronológico (más antiguos primero)
   const sortedMessages = (messages || []).reverse();
 
+  // Batch-load media_files para mensajes con has_media=true
+  const mediaMessageIds = sortedMessages
+    .filter((m) => m.has_media)
+    .map((m) => m.id);
+
+  if (mediaMessageIds.length > 0) {
+    const { data: mediaFiles, error: mediaError } = await supabase
+      .from("media_files")
+      .select("*")
+      .in("message_id", mediaMessageIds);
+
+    if (!mediaError && mediaFiles) {
+      const mediaByMessage = {};
+      mediaFiles.forEach((mf) => {
+        if (!mediaByMessage[mf.message_id]) mediaByMessage[mf.message_id] = [];
+        mediaByMessage[mf.message_id].push(mf);
+      });
+      sortedMessages.forEach((msg) => {
+        if (mediaByMessage[msg.id]) {
+          msg.media_files = mediaByMessage[msg.id];
+        }
+      });
+    }
+  }
+
   // Determinar si hay más mensajes
   const hasMore = messages && messages.length === limit;
 

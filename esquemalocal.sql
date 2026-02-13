@@ -368,6 +368,17 @@ CREATE TABLE public.tags (
   CONSTRAINT tags_pkey PRIMARY KEY (id),
   CONSTRAINT tags_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id)
 );
+CREATE TABLE public.tasas_monedas (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  moneda_codigo text NOT NULL UNIQUE,
+  moneda_nombre text NOT NULL,
+  simbolo text NOT NULL DEFAULT '$'::text,
+  tasa_conversion numeric NOT NULL DEFAULT 1.0,
+  updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+  updated_by uuid,
+  CONSTRAINT tasas_monedas_pkey PRIMARY KEY (id),
+  CONSTRAINT tasas_monedas_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
+);
 CREATE TABLE public.webhook_events (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   bot_id uuid,
