@@ -90,32 +90,31 @@ export default function ChatView({ chatId, onClose, onMessagesLoaded }) {
   }
 
   // Recargar mensaje completo con media_files desde la BD
+  // Usa dos queries separadas para evitar timeout en JOIN
   const refreshMessageWithMedia = async (messageId) => {
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          id,
-          body,
-          content,
-          type,
-          from_me,
-          timestamp,
-          has_media,
-          media_url,
-          media_mimetype,
-          metadata,
-          media_files(*)
-        `)
-        .eq('id', messageId)
-        .single()
-      
-      if (data && !error) {
-        setMessages(prev => prev.map(msg => 
-          msg.id === messageId ? data : msg
+      const [msgResult, mediaResult] = await Promise.all([
+        supabase
+          .from('messages')
+          .select('id, body, content, type, from_me, timestamp, has_media, media_url, media_mimetype, metadata')
+          .eq('id', messageId)
+          .single(),
+        supabase
+          .from('media_files')
+          .select('*')
+          .eq('message_id', messageId)
+      ])
+
+      if (msgResult.data && !msgResult.error) {
+        const updatedMsg = {
+          ...msgResult.data,
+          media_files: mediaResult.data || []
+        }
+        setMessages(prev => prev.map(msg =>
+          msg.id === messageId ? updatedMsg : msg
         ))
-      } else if (error) {
-        console.error('❌ Error recargando mensaje:', error.message)
+      } else if (msgResult.error) {
+        console.error('❌ Error recargando mensaje:', msgResult.error.message)
       }
     } catch (error) {
       console.error('❌ Error en refreshMessageWithMedia:', error)
