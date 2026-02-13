@@ -2,6 +2,12 @@
 
 import { useState, useRef, useEffect, memo } from 'react'
 
+// Global audio controller - only one audio plays at a time
+let currentlyPlayingAudio = null
+let currentlyPlayingSetIsPlaying = null
+
+const PLAYBACK_SPEEDS = [1, 1.5, 2]
+
 // Helper: get file extension from name or mimetype
 function getFileExtension(fileName, mimetype) {
   if (fileName && fileName.includes('.')) {
@@ -53,6 +59,7 @@ function MessageBubble({ message, contactName }) {
   const [audioProgress, setAudioProgress] = useState(0)
   const [audioDuration, setAudioDuration] = useState(0)
   const [audioCurrentTime, setAudioCurrentTime] = useState(0)
+  const [playbackSpeed, setPlaybackSpeed] = useState(1)
   const audioRef = useRef(null)
   const isFromMe = message.from_me
   const timestamp = new Date(message.timestamp).toLocaleString()
@@ -82,10 +89,32 @@ function MessageBubble({ message, contactName }) {
     if (!audioRef.current) return
     if (isPlaying) {
       audioRef.current.pause()
+      currentlyPlayingAudio = null
+      currentlyPlayingSetIsPlaying = null
     } else {
+      // Pause any currently playing audio first
+      if (currentlyPlayingAudio && currentlyPlayingAudio !== audioRef.current) {
+        currentlyPlayingAudio.pause()
+        if (currentlyPlayingSetIsPlaying) {
+          currentlyPlayingSetIsPlaying(false)
+        }
+      }
+      audioRef.current.playbackRate = playbackSpeed
       audioRef.current.play()
+      currentlyPlayingAudio = audioRef.current
+      currentlyPlayingSetIsPlaying = setIsPlaying
     }
     setIsPlaying(!isPlaying)
+  }
+
+  const cyclePlaybackSpeed = () => {
+    const currentIndex = PLAYBACK_SPEEDS.indexOf(playbackSpeed)
+    const nextIndex = (currentIndex + 1) % PLAYBACK_SPEEDS.length
+    const newSpeed = PLAYBACK_SPEEDS[nextIndex]
+    setPlaybackSpeed(newSpeed)
+    if (audioRef.current) {
+      audioRef.current.playbackRate = newSpeed
+    }
   }
 
   useEffect(() => {
@@ -96,14 +125,36 @@ function MessageBubble({ message, contactName }) {
       setAudioProgress(audio.duration ? (audio.currentTime / audio.duration) * 100 : 0)
     }
     const onLoadedMetadata = () => setAudioDuration(audio.duration)
-    const onEnded = () => { setIsPlaying(false); setAudioProgress(0); setAudioCurrentTime(0) }
+    const onEnded = () => {
+      setIsPlaying(false)
+      setAudioProgress(0)
+      setAudioCurrentTime(0)
+      if (currentlyPlayingAudio === audio) {
+        currentlyPlayingAudio = null
+        currentlyPlayingSetIsPlaying = null
+      }
+    }
+    // Sync state if paused externally (by another audio starting)
+    const onPause = () => {
+      if (currentlyPlayingAudio !== audio) {
+        setIsPlaying(false)
+      }
+    }
     audio.addEventListener('timeupdate', onTimeUpdate)
     audio.addEventListener('loadedmetadata', onLoadedMetadata)
     audio.addEventListener('ended', onEnded)
+    audio.addEventListener('pause', onPause)
     return () => {
       audio.removeEventListener('timeupdate', onTimeUpdate)
       audio.removeEventListener('loadedmetadata', onLoadedMetadata)
       audio.removeEventListener('ended', onEnded)
+      audio.removeEventListener('pause', onPause)
+      // Cleanup global ref if this component unmounts while playing
+      if (currentlyPlayingAudio === audio) {
+        audio.pause()
+        currentlyPlayingAudio = null
+        currentlyPlayingSetIsPlaying = null
+      }
     }
   }, [mediaFile])
 
@@ -245,13 +296,19 @@ function MessageBubble({ message, contactName }) {
                   </div>
                 </div>
 
-                {/* Icono micrófono */}
-                <div className={`flex-shrink-0 ${isFromMe ? 'text-blue-100' : 'text-gray-400'}`}>
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z" />
-                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-                  </svg>
-                </div>
+                {/* Botón de velocidad */}
+                <button
+                  onClick={cyclePlaybackSpeed}
+                  className={`flex-shrink-0 min-w-[36px] h-6 rounded-full text-xs font-bold transition-colors flex items-center justify-center ${
+                    isFromMe
+                      ? ''
+                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                  }`}
+                  style={isFromMe ? { backgroundColor: 'rgba(255,255,255,0.85)', color: '#2563EB' } : {}}
+                  title="Cambiar velocidad"
+                >
+                  {playbackSpeed}x
+                </button>
               </div>
 
               {/* Transcripción o estado */}

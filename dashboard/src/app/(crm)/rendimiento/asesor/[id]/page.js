@@ -17,6 +17,7 @@ import { getAnalysesByWorker, getEvaluationsByAnalysis } from "@/lib/supabaseRen
 import { parseBotSessionName } from "@/lib/botNameParser";
 import PerformanceTracking from "@/components/rendimiento/PerformanceTracking";
 import Breadcrumb from "@/components/ui/Breadcrumb";
+import ChatView from "@/components/ChatView";
 
 const METRIC_LABELS = {
   tiempo_contacto: "Tiempo de contacto adecuado",
@@ -76,30 +77,6 @@ function ConversationRow({ conversation, isActive, onClick }) {
         </div>
       </div>
     </button>
-  );
-}
-
-function MessageBubble({ message }) {
-  const isAdvisor = message.from === "advisor";
-  return (
-    <div className={`flex ${isAdvisor ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`max-w-[85%] rounded-2xl px-4 py-2 border ${
-          isAdvisor
-            ? "bg-indigo-600 text-white border-indigo-700"
-            : "bg-white text-gray-900 border-gray-200"
-        }`}
-      >
-        <div className="text-sm whitespace-pre-wrap">{message.text}</div>
-        <div
-          className={`text-[11px] mt-1 ${
-            isAdvisor ? "text-indigo-100" : "text-gray-500"
-          }`}
-        >
-          {formatShortDateTime(message.ts)}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -182,19 +159,20 @@ export default function AsesorAnalisisDetallePage() {
         if (!conversationsMap.has(chatId) || 
             new Date(evaluation.evaluation_date) > new Date(conversationsMap.get(chatId).evaluation.updatedAt)) {
           
-          // Cargar mensajes del chat
-          const { data: messages } = await supabase
+          // Solo cargar último mensaje para preview (ChatView carga sus propios mensajes)
+          const { data: lastMsg } = await supabase
             .from('messages')
-            .select('id, body, content, from_me, timestamp')
+            .select('body')
             .eq('chat_id', chatId)
-            .order('timestamp', { ascending: true })
-            .limit(50);
+            .order('timestamp', { ascending: false })
+            .limit(1)
+            .single();
 
           conversationsMap.set(chatId, {
             id: chatId,
             contactName: evaluation.chat?.contact_name || evaluation.chat?.contact_number || 'Sin nombre',
             contactNumber: evaluation.chat?.contact_number || '',
-            lastMessagePreview: messages?.[messages.length - 1]?.body || 'Sin mensajes',
+            lastMessagePreview: lastMsg?.body || 'Sin mensajes',
             updatedAt: evaluation.evaluation_date,
             involvedInAnalysis: true,
             evaluation: {
@@ -207,12 +185,6 @@ export default function AsesorAnalisisDetallePage() {
               seguimiento_intencion: evaluation.seguimiento_intencion || false,
               notes: evaluation.ai_feedback || evaluation.manager_notes || '',
             },
-            messages: (messages || []).map(msg => ({
-              id: msg.id,
-              from: msg.from_me ? 'advisor' : 'client',
-              text: msg.body || msg.content || '',
-              ts: msg.timestamp,
-            })),
           });
         }
       }
@@ -475,45 +447,24 @@ export default function AsesorAnalisisDetallePage() {
               </div>
             </div>
 
-            {/* Centro: visor de conversación */}
+            {/* Centro: visor de conversación con ChatView readOnly */}
             <div className="lg:col-span-6">
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="p-4 border-b border-gray-200">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="font-semibold text-gray-900 truncate">
-                        {activeConversation?.contactName || "Conversación"}
-                      </div>
-                      <div className="text-xs text-gray-500 truncate">
-                        {activeConversation?.contactNumber || ""}
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-500 whitespace-nowrap">
-                      {activeConversation?.updatedAt
-                        ? formatShortDateTime(activeConversation.updatedAt)
-                        : ""}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" style={{ height: '80vh' }}>
+                {activeConversationId ? (
+                  <ChatView
+                    key={activeConversationId}
+                    chatId={activeConversationId}
+                    onClose={() => setActiveConversationId(null)}
+                    readOnly={true}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-sm text-gray-500">Selecciona una conversación para ver los mensajes.</p>
                     </div>
                   </div>
-                </div>
-
-                <div className="p-4 bg-linear-to-b from-gray-50 to-white">
-                  <div className="space-y-3 max-h-[72vh] overflow-y-auto">
-                    {(activeConversation?.messages || []).map((m) => (
-                      <MessageBubble key={m.id} message={m} />
-                    ))}
-                    {!activeConversation && (
-                      <div className="p-6 text-center text-sm text-gray-600">
-                        Selecciona una conversación.
-                      </div>
-                    )}
-                    {activeConversation &&
-                      (activeConversation?.messages || []).length === 0 && (
-                        <div className="p-6 text-center text-sm text-gray-600">
-                          No hay mensajes disponibles para esta conversación.
-                        </div>
-                      )}
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 

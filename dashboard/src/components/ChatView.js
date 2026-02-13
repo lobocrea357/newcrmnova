@@ -6,7 +6,9 @@ import VirtualizedMessageList from './VirtualizedMessageList'
 import ContactAvatar from './ContactAvatar'
 import messageService from '@/services/messageService'
 
-export default function ChatView({ chatId, onClose, onMessagesLoaded }) {
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+
+export default function ChatView({ chatId, onClose, onMessagesLoaded, readOnly = false }) {
   const [conversation, setConversation] = useState(null)
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
@@ -51,6 +53,11 @@ export default function ChatView({ chatId, onClose, onMessagesLoaded }) {
         // Guardar timestamp del mensaje más antiguo cargado
         if (result.messages.length > 0) {
           setOldestTimestamp(result.messages[0].timestamp)
+        }
+
+        // Auto-retry failed transcriptions
+        if (chatData?.bot?.id) {
+          retryFailedTranscriptions(result.messages, chatData.bot.id)
         }
       }
     } catch (error) {
@@ -205,6 +212,45 @@ export default function ChatView({ chatId, onClose, onMessagesLoaded }) {
       setIsSending(false)
       // Enfocar el input nuevamente
       inputRef.current?.focus()
+    }
+  }
+
+  // Auto-retry failed transcriptions when conversation opens
+  const retryFailedTranscriptions = async (loadedMessages, botId) => {
+    if (!loadedMessages || !botId) return
+
+    // Find audio messages with transcription_error that have media_files
+    const failedAudios = loadedMessages.filter(msg => {
+      const isAudio = ['audio', 'ptt', 'voice'].includes(msg.type)
+      const hasError = msg.metadata?.transcription_error
+      const hasMediaUrl = msg.media_files?.[0]?.file_url
+      const retryCount = msg.metadata?.transcription_retry_count || 0
+      return isAudio && hasError && hasMediaUrl && retryCount < 3
+    })
+
+    if (failedAudios.length === 0) return
+
+    console.log(`🔄 Reintentando transcripción de ${failedAudios.length} audios fallidos...`)
+
+    try {
+      const payload = failedAudios.map(msg => ({
+        messageId: msg.id,
+        audioUrl: msg.media_files[0].file_url,
+        botId: botId
+      }))
+
+      const response = await fetch(`${API_URL}/api/media/retry-failed-transcriptions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: payload })
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log(`✅ Transcripciones reintentadas: ${result.data?.success || 0} exitosas, ${result.data?.failed || 0} fallidas`)
+      }
+    } catch (error) {
+      console.warn('⚠️ Error reintentando transcripciones:', error.message)
     }
   }
 
@@ -372,79 +418,81 @@ export default function ChatView({ chatId, onClose, onMessagesLoaded }) {
       </div>
 
 
-      {/* Footer con input */}
-      <div className="bg-white border-t border-gray-200">
-        {/* Info del bot (más compacta) */}
-        <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
-          <div className="max-w-4xl mx-auto flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 text-gray-600">
-              <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-              </svg>
-              <span className="font-medium text-gray-900">{conversation?.bot?.session_name || 'N/A'}</span>
-            </div>
-            {conversation.last_message_time && (
-              <span className="text-gray-500">
-                {new Date(conversation.last_message_time).toLocaleString('es-ES', { 
-                  day: '2-digit', 
-                  month: 'short',
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Input de mensaje */}
-        <form onSubmit={handleSendMessage} className="px-4 py-3">
-          <div className="max-w-4xl mx-auto flex gap-2 items-end">
-            <div className="flex-1 relative">
-              <textarea
-                ref={inputRef}
-                value={messageText}
-                onChange={(e) => setMessageText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSendMessage(e)
-                  }
-                }}
-                placeholder="Escribe un mensaje..."
-                className="w-full px-4 py-3 pr-12 bg-white text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
-                rows={1}
-                style={{
-                  minHeight: '44px',
-                  maxHeight: '120px',
-                  height: 'auto'
-                }}
-                onInput={(e) => {
-                  e.target.style.height = 'auto'
-                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
-                }}
-              />
-              {isSending && (
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-                </div>
+      {/* Footer con input - solo si no es readOnly */}
+      {!readOnly && (
+        <div className="bg-white border-t border-gray-200">
+          {/* Info del bot (más compacta) */}
+          <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+            <div className="max-w-4xl mx-auto flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 text-gray-600">
+                <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                </svg>
+                <span className="font-medium text-gray-900">{conversation?.bot?.session_name || 'N/A'}</span>
+              </div>
+              {conversation.last_message_time && (
+                <span className="text-gray-500">
+                  {new Date(conversation.last_message_time).toLocaleString('es-ES', { 
+                    day: '2-digit', 
+                    month: 'short',
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}
+                </span>
               )}
             </div>
-            <button
-              type="submit"
-              disabled={!messageText.trim()}
-              className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg px-4 py-3 transition-colors flex items-center justify-center gap-2 font-medium text-sm"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-              <span className="hidden sm:inline">Enviar</span>
-            </button>
           </div>
-          <p className="text-xs text-gray-500 mt-2 max-w-4xl mx-auto">
-            Presiona Enter para enviar, Shift+Enter para nueva línea
-          </p>
-        </form>
-      </div>
+
+          {/* Input de mensaje */}
+          <form onSubmit={handleSendMessage} className="px-4 py-3">
+            <div className="max-w-4xl mx-auto flex gap-2 items-end">
+              <div className="flex-1 relative">
+                <textarea
+                  ref={inputRef}
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSendMessage(e)
+                    }
+                  }}
+                  placeholder="Escribe un mensaje..."
+                  className="w-full px-4 py-3 pr-12 bg-white text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
+                  rows={1}
+                  style={{
+                    minHeight: '44px',
+                    maxHeight: '120px',
+                    height: 'auto'
+                  }}
+                  onInput={(e) => {
+                    e.target.style.height = 'auto'
+                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
+                  }}
+                />
+                {isSending && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                  </div>
+                )}
+              </div>
+              <button
+                type="submit"
+                disabled={!messageText.trim()}
+                className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg px-4 py-3 transition-colors flex items-center justify-center gap-2 font-medium text-sm"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+                <span className="hidden sm:inline">Enviar</span>
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2 max-w-4xl mx-auto">
+              Presiona Enter para enviar, Shift+Enter para nueva línea
+            </p>
+          </form>
+        </div>
+      )}
     </div>
   )
 }
