@@ -3,10 +3,10 @@
 import { useState } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Sidebar from "@/components/layout/Sidebar";
-import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { useAuthRequired } from "@/hooks/useRouteGuard";
 
 export default function CRMLayout({ children }) {
-  const { loading, isAuthenticated } = useRequireAuth();
+  const { loading, isAuthenticated } = useAuthRequired();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 

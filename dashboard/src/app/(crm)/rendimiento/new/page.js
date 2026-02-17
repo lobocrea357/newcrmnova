@@ -3,10 +3,10 @@
 import { useState, useEffect } from "react";
 import {
   supabase,
-  getAllBots,
   getConversationsByBot,
   isBotExcluded,
 } from "@/lib/supabase";
+import { useBots } from "@/hooks/useBots";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Sparkles, FileText, Loader2, AlertCircle, Users, Lightbulb, ArrowRight, Save, MessageSquare, Download, CheckCircle } from "lucide-react";
 import FiltrosRendimiento from "@/components/rendimiento/FiltrosRendimiento";
@@ -42,8 +42,7 @@ import InstructionsModal from "@/components/rendimiento/InstructionsModal";
 export default function RendimientoPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [user, setUser] = useState(null);
-  const [bots, setBots] = useState([]);
+  const { bots, loading: botsLoading } = useBots();
   const [selectedBotId, setSelectedBotId] = useState(null);
   const [conversaciones, setConversaciones] = useState([]);
   const [evaluaciones, setEvaluaciones] = useState({});

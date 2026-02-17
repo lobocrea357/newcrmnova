@@ -3,18 +3,19 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { useUserProfile } from './useUserProfile'
 
 /**
- * Hook para proteger páginas que requieren autenticación
- * Redirige automáticamente al login si el usuario no está autenticado
+ * Hook para proteger páginas que requieren autenticación y roles específicos
+ * Centraliza la lógica de protección de rutas
  *
  * @param {Object} options - Opciones de configuración
  * @param {string} options.redirectTo - Ruta a la que redirigir si no está autenticado (default: '/login')
  * @param {boolean} options.requireAuth - Si requiere autenticación (default: true)
  * @param {Array<string>} options.allowedRoles - Roles permitidos para acceder (opcional)
- * @returns {Object} - Estado de autenticación y información del usuario
+ * @returns {Object} - Estado de autenticación y autorización
  */
-export const useRequireAuth = (options = {}) => {
+export const useRouteGuard = (options = {}) => {
   const {
     redirectTo = '/login',
     requireAuth = true,
@@ -22,11 +23,12 @@ export const useRequireAuth = (options = {}) => {
   } = options
 
   const router = useRouter()
-  const { user, loading, isAuthenticated, initialized } = useAuth()
+  const { user, loading: authLoading, isAuthenticated, initialized } = useAuth()
+  const { profile, role, loading: profileLoading, isAdmin, isManager } = useUserProfile()
 
   useEffect(() => {
-    // Esperar a que se inicialice la autenticación
-    if (!initialized || loading) return
+    // Esperar a que se inicialice la autenticación y el perfil
+    if (!initialized || authLoading || profileLoading) return
 
     // Si se requiere autenticación y no está autenticado
     if (requireAuth && !isAuthenticated) {
@@ -37,27 +39,28 @@ export const useRequireAuth = (options = {}) => {
 
     // Si hay roles específicos requeridos
     if (allowedRoles && isAuthenticated && user) {
-      const userRole = user.user_metadata?.role || user.app_metadata?.role || 'user'
-      const hasPermission = allowedRoles.includes(userRole)
+      const hasPermission = allowedRoles.includes(role)
 
       if (!hasPermission) {
         console.log('🚫 Acceso denegado: Rol no autorizado', {
-          userRole,
+          userRole: role,
           allowedRoles
         })
         router.push('/no-autorizado')
         return
       }
     }
-  }, [initialized, loading, isAuthenticated, user, requireAuth, allowedRoles, router, redirectTo])
+  }, [initialized, authLoading, profileLoading, isAuthenticated, user, role, requireAuth, allowedRoles, router, redirectTo])
 
   return {
     user,
-    loading: loading || !initialized,
+    profile,
+    loading: authLoading || !initialized || profileLoading,
     isAuthenticated,
-    isAuthorized: !allowedRoles || (user && allowedRoles.includes(
-      user.user_metadata?.role || user.app_metadata?.role || 'user'
-    ))
+    role,
+    isAdmin,
+    isManager,
+    isAuthorized: !allowedRoles || allowedRoles.includes(role)
   }
 }
 
@@ -65,16 +68,26 @@ export const useRequireAuth = (options = {}) => {
  * Hook simplificado para páginas que solo necesitan verificar autenticación
  */
 export const useAuthRequired = () => {
-  return useRequireAuth({ requireAuth: true })
+  return useRouteGuard({ requireAuth: true })
 }
 
 /**
  * Hook para páginas de administrador
  */
 export const useAdminRequired = () => {
-  return useRequireAuth({
+  return useRouteGuard({
     requireAuth: true,
     allowedRoles: ['admin', 'superadmin']
+  })
+}
+
+/**
+ * Hook para páginas de gerente o administrador
+ */
+export const useManagerRequired = () => {
+  return useRouteGuard({
+    requireAuth: true,
+    allowedRoles: ['admin', 'superadmin', 'gerente', 'manager']
   })
 }
 
@@ -82,7 +95,7 @@ export const useAdminRequired = () => {
  * Hook para páginas públicas que no requieren autenticación
  */
 export const usePublicPage = () => {
-  return useRequireAuth({ requireAuth: false })
+  return useRouteGuard({ requireAuth: false })
 }
 
-export default useRequireAuth
+export default useRouteGuard

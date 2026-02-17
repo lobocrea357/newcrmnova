@@ -37,7 +37,7 @@ export default function ConfiguracionPage() {
       iconColor: "text-purple-600",
       bgColor: "bg-purple-50",
       borderColor: "border-purple-200",
-      available: false,
+      available: true,
       path: "/configuracion/roles",
     },
     {

@@ -6,13 +6,14 @@ import { Users, UserPlus, RefreshCw, Shield, AlertTriangle } from "lucide-react"
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import UserList from "@/components/users/UserList";
 import UserFormModal from "@/components/users/UserFormModal";
-import { useAuth } from "@/contexts/AuthContext";
-import { useRole } from "@/hooks/useRole";
+import { useRouteGuard } from "@/hooks/useRouteGuard";
 
 export default function UsuariosPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
-  const { isAdmin } = useRole();
+  const { user, profile, loading, isAdmin } = useRouteGuard({
+    requireAuth: true,
+    allowedRoles: ['admin', 'superadmin']
+  });
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
@@ -20,10 +21,10 @@ export default function UsuariosPage() {
   const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
-    if (!authLoading && user && isAdmin) {
+    if (!loading && user && isAdmin) {
       loadData();
     }
-  }, [authLoading, user, isAdmin]);
+  }, [loading, user, isAdmin]);
 
   const loadData = async () => {
     setLoadingData(true);
@@ -94,7 +95,7 @@ export default function UsuariosPage() {
     }
   };
 
-  if (authLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
@@ -124,7 +125,7 @@ export default function UsuariosPage() {
                 <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div className="text-left">
                   <p className="text-sm text-amber-800">
-                    <strong>Rol actual:</strong> {useRole().role}
+                    <strong>Rol actual:</strong> {profile?.role?.name || 'desconocido'}
                   </p>
                   <p className="text-sm text-amber-700 mt-1">
                     Si necesitas acceso, contacta con un administrador.

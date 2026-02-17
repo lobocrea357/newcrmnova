@@ -4,13 +4,14 @@ import { jsPDF } from 'jspdf'
 import {
   supabase,
   getAllWorkers,
-  getAllBots,
   getConversationsByBot,
   globalSearchChats,
   getCompletedSalesCount,
   getCompletedSalesConversations
 } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
+import { useBots } from '@/hooks/useBots'
 import ContactAvatar from '@/components/ContactAvatar'
 import HighlightText from '@/components/HighlightText'
 import {
@@ -45,12 +46,12 @@ import {
 } from "lucide-react";
 
 function DashboardContent() {
+  const { user } = useAuth();
+  const { bots, loading: botsLoading, error: botsError } = useBots();
   const [workers, setWorkers] = useState([]);
-  const [bots, setBots] = useState([]);
   const [conversations, setConversations] = useState({});
   const [conversationsPagination, setConversationsPagination] = useState({});
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
   const [selectedBotId, setSelectedBotId] = useState(null);
   const [loadingConversations, setLoadingConversations] = useState({});
   const [searchFilter, setSearchFilter] = useState("");
@@ -294,17 +295,15 @@ El tono debe ser profesional y directo.`);
       } = await supabase.auth.getSession();
       // console.log("🔐 Sesión activa:", session?.user?.email);
 
-      const [workersData, botsData, completedSales] = await Promise.all([
+      const [workersData, completedSales] = await Promise.all([
         getAllWorkers(),
-        getAllBots(),
         getCompletedSalesCount(),
       ]);
 
       // console.log("👷 Workers obtenidos:", workersData.length);
-      // console.log("🤖 Bots obtenidos:", botsData.length);
+      // console.log("🤖 Bots obtenidos:", bots.length);
 
       setWorkers(workersData);
-      setBots(botsData);
       setSalesCount(completedSales || 0);
     } catch (error) {
       console.error("Error fetching data:", error);

@@ -12,12 +12,14 @@ import {
 } from "lucide-react";
 import AdvisorPerformanceCard from "@/components/rendimiento/AdvisorPerformanceCard";
 import Breadcrumb from "@/components/ui/Breadcrumb";
-import { supabase, getAllBots, isBotExcluded } from "@/lib/supabase";
+import { supabase, isBotExcluded } from "@/lib/supabase";
+import { useBots } from "@/hooks/useBots";
 import { getDashboardStats } from "@/lib/supabaseRendimiento";
 import { parseBotSessionName } from "@/lib/botNameParser";
 
 export default function RendimientoPage() {
   const router = useRouter();
+  const { bots, loading: botsLoading } = useBots();
   const [selectedDate, setSelectedDate] = useState("today");
   const [activeTab, setActiveTab] = useState("general");
   const [recentlyViewedId, setRecentlyViewedId] = useState(null);
