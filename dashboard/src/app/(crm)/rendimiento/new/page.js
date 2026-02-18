@@ -99,7 +99,7 @@ export default function RendimientoPage() {
       return;
     }
 
-    setUser(session.user);
+    // setUser(session.user); // No es necesario - el contexto maneja el estado automáticamente
     fetchBots();
   };
 

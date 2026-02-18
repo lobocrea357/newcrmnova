@@ -124,7 +124,7 @@ El tono debe ser profesional y directo.`);
       return;
     }
 
-    setUser(session.user);
+    // setUser(session.user); // No es necesario - el contexto maneja el estado automáticamente
     setSessionToken(session.access_token || null);
     fetchData();
   };
