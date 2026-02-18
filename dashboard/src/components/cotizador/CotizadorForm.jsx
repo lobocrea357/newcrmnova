@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Calculator, DollarSign, Percent, CreditCard, TrendingUp, RefreshCw, Download } from 'lucide-react'
+import { Calculator, DollarSign, Percent, CreditCard, TrendingUp, RefreshCw, Download, ArrowRightLeft } from 'lucide-react'
 import html2canvas from 'html2canvas-pro'
 import jsPDF from 'jspdf'
 import { supabase } from '@/lib/supabase'
@@ -184,6 +184,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   const [feeAgencia, setFeeAgencia] = useState('')
   const [metodoPago, setMetodoPago] = useState('')
   const [moneda, setMoneda] = useState('')
+  const [monedaOrigen, setMonedaOrigen] = useState('USD') // Para conversiones VES
   const [tasaCambio, setTasaCambio] = useState('')
   const [total, setTotal] = useState(0)
   const [desglose, setDesglose] = useState(null)
@@ -240,6 +241,36 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     'Bizum (España)'
   ]
 
+  // Mapeo de métodos de pago por moneda
+  const metodosPorMoneda = {
+    'USD': [
+      'Depósitos en dólares (BNC USD)',
+      'Zelle',
+      'Banesco Panamá (ViajesNova)',
+      'Chase Bank (Estados Unidos)',
+      'Arcadia Service'
+    ],
+    'EUR': [
+      'Cuenta en Euros',
+      'Depósito oficina Europa (efectivo)',
+      'Bizum (España)',
+      'Scalapay'
+    ],
+    'VES': [
+      'BNC - Transferencia en Bs',
+      'Pago móvil',
+      'Depósito oficina Venezuela (efectivo)'
+    ],
+    'COP': [
+      'Bancacolombia',
+      'Davivienda',
+      'Depósito oficina Colombia (efectivo)'
+    ],
+    'USDT': [
+      'Binance (USDT)'
+    ]
+  }
+
   const monedas = [
     { value: 'USD', label: 'Dólares (USD)', symbol: '$' },
     { value: 'VES', label: 'Bolívares (VES)', symbol: 'Bs.' },
@@ -280,63 +311,58 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     }
   }
 
-  // Manejar cambio de método de pago (Reglas de Moneda implícita)
+  // Función para detectar moneda según método de pago
+  const detectarMonedaPorMetodo = (metodo) => {
+    for (const [moneda, metodos] of Object.entries(metodosPorMoneda)) {
+      if (metodos.includes(metodo)) {
+        return moneda
+      }
+    }
+    return null
+  }
+
+  // Manejar cambio de método de pago con detección automática
   useEffect(() => {
     if (!metodoPago) {
       setMoneda('')
       return
     }
 
-    // Pesos Colombianos
-    if (metodoPago === 'Davivienda' || metodoPago === 'Bancacolombia' || metodoPago === 'Depósito oficina Colombia (efectivo)') {
-      setMoneda('COP')
-      return
-    }
+    const monedaDetectada = detectarMonedaPorMetodo(metodoPago)
+    if (monedaDetectada) {
+      setMoneda(monedaDetectada)
 
-    // Dólares
-    if (
-      metodoPago === 'Depósitos en dólares (BNC USD)' ||
-      metodoPago === 'Binance (USDT)' ||
-      metodoPago === 'Zelle' ||
-      metodoPago === 'Arcadia Service' ||
-      metodoPago === 'Banesco Panamá (ViajesNova)' ||
-      metodoPago === 'Depósito oficina Venezuela (efectivo)' ||
-      metodoPago === 'Chase Bank (Estados Unidos)'
-    ) {
-      setMoneda('USD')
-      return
-    }
-
-    // Euros
-    if (metodoPago === 'Cuenta en Euros' || metodoPago === 'Scalapay' || metodoPago === 'Depósito oficina Europa (efectivo)' || metodoPago === 'Bizum (España)') {
-      setMoneda('EUR')
-      return
-    }
-
-    // Bolívares
-    if (
-      metodoPago === 'Pago móvil' ||
-      metodoPago === 'BNC - Transferencia en Bs'
-    ) {
-      setMoneda('VES')
-      return
+      // Para VES, mantener la moneda de origen por defecto
+      if (monedaDetectada === 'VES') {
+        // La tasa se establecerá según la moneda de origen
+        actualizarTasaParaVES()
+      } else {
+        // Para otras monedas, la tasa es 1.0
+        setTasaCambio('1.0')
+      }
     }
   }, [metodoPago])
 
-  // Actualizar tasa cuando se cambia la moneda
+  // Función para actualizar tasa según moneda de origen en VES
+  const actualizarTasaParaVES = () => {
+    const tasa = tasasDb[monedaOrigen] || '1.0'
+    setTasaCambio(tasa)
+  }
+
+  // Actualizar tasa cuando cambia la moneda de origen (solo para VES)
   useEffect(() => {
-    if (moneda) {
-      // Si existe en DB, usar esa. Si no, usar 1 o mantener la actual
-      const tasaDb = tasasDb[moneda]
-      if (tasaDb) {
-        setTasaCambio(tasaDb.toString())
-      } else {
-        // Valores por defecto si no hay DB
-        if (moneda === 'USD' || moneda === 'USDT') setTasaCambio('1')
-        else setTasaCambio('')
-      }
+    if (moneda === 'VES' && monedaOrigen) {
+      actualizarTasaParaVES()
     }
-  }, [moneda, tasasDb])
+  }, [monedaOrigen, moneda])
+
+  // Actualizar tasa cuando se cambia la moneda (solo para no VES)
+  useEffect(() => {
+    if (moneda && moneda !== 'VES') {
+      // Para monedas que no son VES, la tasa es siempre 1.0
+      setTasaCambio('1.0')
+    }
+  }, [moneda])
 
   // Recalcular cuando cambian los inputs
   useEffect(() => {
@@ -408,24 +434,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
   const monedaSeleccionada = monedas.find(m => m.value === moneda)
   const simboloMoneda = monedaSeleccionada?.symbol || '$'
-
-  const monedaForzada =
-    metodoPago === 'Arcadia Service' ||
-    metodoPago === 'BNC - Transferencia en Bs' ||
-    metodoPago === 'Depósitos en dólares (BNC USD)' ||
-    metodoPago === 'Binance (USDT)' ||
-    metodoPago === 'Zelle' ||
-    metodoPago === 'Banesco Panamá (ViajesNova)' ||
-    metodoPago === 'Davivienda' ||
-    metodoPago === 'Bancacolombia' ||
-    metodoPago === 'Cuenta en Euros' ||
-    metodoPago === 'Scalapay' ||
-    metodoPago === 'Pago móvil' ||
-    metodoPago === 'Depósito oficina Venezuela (efectivo)' ||
-    metodoPago === 'Depósito oficina Colombia (efectivo)' ||
-    metodoPago === 'Depósito oficina Europa (efectivo)' ||
-    metodoPago === 'Chase Bank (Estados Unidos)' ||
-    metodoPago === 'Bizum (España)'
 
   const formatearMonto = (valor) => {
     if (!valor && valor !== 0) return '0.00'
@@ -958,17 +966,35 @@ export default function CotizadorForm({ isAuthenticated = false }) {
             </select>
             {metodoPago === 'Depósitos en dólares (BNC USD)' && (
               <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">
-                Moneda forzada a USD (+3.5% comisión depósito)
+                Cotización en USD (+3.5% comisión depósito)
               </p>
             )}
             {metodoPago === 'Arcadia Service' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Moneda forzada a USD (+5.6% + $10)</p>
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en USD (+5.6% + $10)</p>
             )}
             {metodoPago === 'BNC - Transferencia en Bs' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Moneda forzada a VES</p>
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Bolívares (VES)</p>
+            )}
+            {metodoPago === 'Pago móvil' && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Bolívares (VES)</p>
+            )}
+            {metodoPago === 'Depósito oficina Venezuela (efectivo)' && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Bolívares (VES)</p>
+            )}
+            {(metodoPago === 'Davivienda' || metodoPago === 'Bancacolombia' || metodoPago === 'Depósito oficina Colombia (efectivo)') && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Pesos Colombianos (COP)</p>
+            )}
+            {(metodoPago === 'Cuenta en Euros' || metodoPago === 'Depósito oficina Europa (efectivo)' || metodoPago === 'Bizum (España)') && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Euros (EUR)</p>
+            )}
+            {(metodoPago === 'Zelle' || metodoPago === 'Banesco Panamá (ViajesNova)' || metodoPago === 'Chase Bank (Estados Unidos)') && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Dólares (USD)</p>
+            )}
+            {metodoPago === 'Binance (USDT)' && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en USDT</p>
             )}
             {metodoPago === 'Scalapay' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Recargo de +9.3% aplicado</p>
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Euros (EUR) +9.3% recargo</p>
             )}
           </div>
 
@@ -981,27 +1007,46 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <div>
                 <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4" />
-                  Moneda a Convertir
+                  Moneda de Cotización
                 </label>
-                <select
-                  value={moneda}
-                  onChange={(e) => setMoneda(e.target.value)}
-                  disabled={monedaForzada}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white disabled:bg-gray-100 disabled:text-gray-500"
-                >
-                  <option value="">Seleccionar moneda</option>
-                  {monedas.map((mon) => (
-                    <option key={mon.value} value={mon.value}>
-                      {mon.label} - {tasasDb[mon.value] ? `(Tasa: ${tasasDb[mon.value]})` : ''}
-                    </option>
-                  ))}
-                </select>
+                <div className="px-4 py-3 border border-slate-300 rounded-lg bg-gray-50">
+                  <p className="font-medium text-gray-700">
+                    {moneda ? monedas.find(m => m.value === moneda)?.label : '---'}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {moneda === 'VES'
+                      ? `Convertir desde ${monedas.find(m => m.value === monedaOrigen)?.label}`
+                      : 'Moneda directa (tasa: 1.0)'
+                    }
+                  </p>
+                </div>
               </div>
+
+              {moneda === 'VES' && (
+                <div>
+                  <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
+                    <ArrowRightLeft className="w-4 h-4" />
+                    Convertir desde
+                  </label>
+                  <select
+                    value={monedaOrigen}
+                    onChange={(e) => setMonedaOrigen(e.target.value)}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white"
+                  >
+                    <option value="USD">Dólares (USD)</option>
+                    <option value="EUR">Euros (EUR)</option>
+                    <option value="COP">Pesos Colombianos (COP)</option>
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
                   <Percent className="w-4 h-4" />
-                  Tasa de Cambio {moneda && `(${moneda})`}
+                  {moneda === 'VES'
+                    ? `Tasa de Conversión (${monedaOrigen} → VES)`
+                    : `Tasa de Cambio (${moneda})`
+                  }
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -1010,12 +1055,22 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                     value={tasaCambio}
                     readOnly={true}
                     className="flex-1 px-4 py-3 border border-slate-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed focus:ring-0"
-                    title="La tasa se gestiona desde la pestaña 'Gestionar Tasas'"
+                    title={moneda === 'VES'
+                      ? `Tasa de ${monedaOrigen} a VES`
+                      : 'Tasa fija en 1.0'
+                    }
                   />
                 </div>
+                {moneda === 'VES' && (
+                  <p className="text-xs text-orange-600 mt-2 ml-2">
+                    {monedaOrigen === 'USD' && '1 USD = ' + tasaCambio + ' Bs'}
+                    {monedaOrigen === 'EUR' && '1 EUR = ' + tasaCambio + ' Bs'}
+                    {monedaOrigen === 'COP' && '1 COP = ' + tasaCambio + ' Bs'}
+                  </p>
+                )}
                 {isAuthenticated && (
                   <p className="mt-1 text-xs text-slate-500">
-                    Para cambiar la tasa, ve a la pestaña "Gestionar Tasas"
+                    Para cambiar las tasas, ve a la pestaña "Gestionar Tasas"
                   </p>
                 )}
               </div>
@@ -1184,7 +1239,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                       )}
                     </div>
                     )}
-
                     {/* Escalas */}
                     {haceEscala && (
                       <div className="py-3 px-4 bg-orange-50 rounded-lg border border-orange-100">
@@ -1196,7 +1250,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                           </div>
                           <div className="text-right">
                             <p className="text-[10px] text-slate-400 uppercase">Duración</p>
-                            <p className="text-xs font-bold text-slate-700">{tiempoEscala1 || '---'}</p>
+                            <p className="text-xs font-bold text-slate-700">{tiempoEscala1 ? `${tiempoEscala1} h` : '---'}</p>
                           </div>
                           {haceSegundaEscala && (
                             <>
@@ -1206,7 +1260,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                               </div>
                               <div className="text-right">
                                 <p className="text-[10px] text-slate-400 uppercase">Duración</p>
-                                <p className="text-xs font-bold text-slate-700">{tiempoEscala2 || '---'}</p>
+                                <p className="text-xs font-bold text-slate-700">{tiempoEscala2 ? `${tiempoEscala2} h` : '---'}</p>
                               </div>
                             </>
                           )}
@@ -1482,6 +1536,16 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                 <p className="text-sm opacity-80">
                   {monedaSeleccionada.label}
                 </p>
+              )}
+              {moneda === 'VES' && (
+                <div className="mt-2 p-2 bg-white/10 rounded-lg">
+                  <p className="text-xs opacity-90">
+                    <span className="font-semibold">Reconversión:</span> {monedaOrigen} → VES
+                  </p>
+                  <p className="text-xs opacity-80 mt-1">
+                    Tasa: 1 {monedaOrigen} = {tasaCambio} Bs
+                  </p>
+                </div>
               )}
             </div>
             <div className="flex md:flex-col gap-3">
