@@ -196,6 +196,12 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   const [idaVuelta, setIdaVuelta] = useState(false)
   const [finesMigratorios, setFinesMigratorios] = useState(false)
   const [soloIda, setSoloIda] = useState(false)
+
+  // Estados para fines migratorios
+  const [fechaSalidaMigratorio, setFechaSalidaMigratorio] = useState('')
+  const [horaSalidaMigratorio, setHoraSalidaMigratorio] = useState('')
+  const [horaLlegadaMigratorio, setHoraLlegadaMigratorio] = useState('')
+
   const [fechaRegreso, setFechaRegreso] = useState('')
   const [horaSalidaRegreso, setHoraSalidaRegreso] = useState('')
   const [horaLlegadaRegreso, setHoraLlegadaRegreso] = useState('')
@@ -702,6 +708,52 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               FINES MIGRATORIOS
             </button>
           </div>
+
+          {/* Campos para Fines Migratorios */}
+          {finesMigratorios && (
+            <div className="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
+              <h4 className="text-sm font-bold text-amber-700 mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
+                Información para Fines Migratorios
+              </h4>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                    Fecha Salida
+                  </label>
+                  <input
+                    type="date"
+                    value={fechaSalidaMigratorio}
+                    onChange={(e) => setFechaSalidaMigratorio(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                    Hora Salida
+                  </label>
+                  <input
+                    type="time"
+                    value={horaSalidaMigratorio}
+                    onChange={(e) => setHoraSalidaMigratorio(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                    Hora Llegada
+                  </label>
+                  <input
+                    type="time"
+                    value={horaLlegadaMigratorio}
+                    onChange={(e) => setHoraLlegadaMigratorio(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
@@ -1271,6 +1323,33 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                       )}
                     </div>
                     )}
+
+                    {/* Fines Migratorios */}
+                    {finesMigratorios && (
+                      <div className="py-3 px-4 bg-amber-50 rounded-lg border border-amber-100">
+                        <p className="text-[10px] font-bold text-amber-600 uppercase mb-2">Fines Migratorios</p>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div>
+                            <p className="text-[10px] text-slate-400 uppercase">Fecha Salida</p>
+                            <p className="text-xs font-bold text-slate-700">
+                              {fechaSalidaMigratorio ? (() => {
+                                const [year, month, day] = fechaSalidaMigratorio.split('-')
+                                return `${day}/${month}/${year}`
+                              })() : '---'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-slate-400 uppercase">Hora Salida</p>
+                            <p className="text-xs font-bold text-slate-700">{horaSalidaMigratorio || '--:--'}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] text-slate-400 uppercase">Hora Llegada</p>
+                            <p className="text-xs font-bold text-slate-700">{horaLlegadaMigratorio || '--:--'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Escalas */}
                     {haceEscala && (
                       <div className="py-3 px-4 bg-orange-50 rounded-lg border border-orange-100">
