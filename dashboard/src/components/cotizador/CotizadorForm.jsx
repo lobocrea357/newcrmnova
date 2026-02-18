@@ -194,6 +194,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   const [destino, setDestino] = useState('')
   const [idaVuelta, setIdaVuelta] = useState(false)
   const [finesMigratorios, setFinesMigratorios] = useState(false)
+  const [soloIda, setSoloIda] = useState(false)
   const [fechaRegreso, setFechaRegreso] = useState('')
   const [horaSalidaRegreso, setHoraSalidaRegreso] = useState('')
   const [horaLlegadaRegreso, setHoraLlegadaRegreso] = useState('')
@@ -357,10 +358,10 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
     // Reglas de Métodos de Pago
     if (metodoPago === 'Scalapay') {
-      // +10.3%
-      const recargo = totalCalculado * 0.103
+      // +9.3%
+      const recargo = totalCalculado * 0.093
       totalConRecargo = totalCalculado + recargo
-      recargoDescripcion = `+10.3% Scalapay (${formatearMonto(recargo)} ${monedas.find(m => m.value === moneda)?.symbol})`
+      recargoDescripcion = `+9.3% Scalapay (${formatearMonto(recargo)} ${monedas.find(m => m.value === moneda)?.symbol})`
     } else if (metodoPago === 'Arcadia Service') {
       // +5.6% + 10 USD (Asumiendo moneda es USD)
       const porcentaje = totalCalculado * 0.056
@@ -450,6 +451,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     setDestino('')
     setIdaVuelta(false)
     setFinesMigratorios(false)
+    setSoloIda(false)
     setFechaRegreso('')
     setHoraSalidaRegreso('')
     setHoraLlegadaRegreso('')
@@ -476,6 +478,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     setHoraSalidaRegreso('')
     setHoraLlegadaRegreso('')
     setAerolinea('')
+    setSoloIda(false)
     setHaceEscala(false)
     setCiudadEscala1('')
     setTiempoEscala1('')
@@ -617,13 +620,14 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-100 rounded-xl border border-slate-200">
+          <div className="grid grid-cols-3 gap-3 p-1.5 bg-slate-100 rounded-xl border border-slate-200">
             <button
               type="button"
               onClick={() => {
                 const newValue = !idaVuelta
                 if (newValue) {
                   setFinesMigratorios(false)
+                  setSoloIda(false)
                   limpiarDetallesVuelo()
                 } else {
                   limpiarDetallesVuelo()
@@ -641,9 +645,31 @@ export default function CotizadorForm({ isAuthenticated = false }) {
             <button
               type="button"
               onClick={() => {
+                const newValue = !soloIda
+                if (newValue) {
+                  setIdaVuelta(false)
+                  setFinesMigratorios(false)
+                  limpiarDetallesVuelo()
+                } else {
+                  limpiarDetallesVuelo()
+                }
+                setSoloIda(newValue)
+              }}
+              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${soloIda
+                ? 'bg-green-600 text-white shadow-md'
+                : 'bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+            >
+              <div className={`w-2 h-2 rounded-full ${soloIda ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
+              SOLO IDA
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 const newValue = !finesMigratorios
                 if (newValue) {
                   setIdaVuelta(false)
+                  setSoloIda(false)
                   limpiarDetallesVuelo()
                 } else {
                   limpiarDetallesVuelo()
@@ -697,38 +723,40 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
             />
           </div>
-          <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-4">
-            <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-widest px-1">Vuelo de Ida</h4>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">FECHA</label>
-                <input
-                  type="date"
-                  value={fechaSalida}
-                  onChange={(e) => setFechaSalida(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">SALIDA</label>
-                <input
-                  type="time"
-                  value={horaSalida}
-                  onChange={(e) => setHoraSalida(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">LLEGADA</label>
-                <input
-                  type="time"
-                  value={horaLlegada}
-                  onChange={(e) => setHoraLlegada(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
-                />
+          {(idaVuelta || soloIda) && (
+            <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-4">
+              <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-widest px-1">Vuelo de Ida</h4>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">FECHA</label>
+                  <input
+                    type="date"
+                    value={fechaSalida}
+                    onChange={(e) => setFechaSalida(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">SALIDA</label>
+                  <input
+                    type="time"
+                    value={horaSalida}
+                    onChange={(e) => setHoraSalida(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">LLEGADA</label>
+                  <input
+                    type="time"
+                    value={horaLlegada}
+                    onChange={(e) => setHoraLlegada(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
           {idaVuelta && (
             <div className="p-4 bg-purple-50/50 rounded-xl border border-purple-100 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
               <h4 className="text-xs font-bold text-purple-700 uppercase tracking-widest px-1">Vuelo de Vuelta</h4>
@@ -802,15 +830,19 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   <div>
                     <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">DURACIÓN DE ESCALA</label>
                     <input
-                      type="number"
-                      min="0"
-                      max="18"
-                      step="0.5"
+                      type="text"
                       value={tiempoEscala1}
-                      onChange={(e) => setTiempoEscala1(e.target.value)}
-                      placeholder="Horas (máx. 18)"
+                      onChange={(e) => {
+                        const value = e.target.value
+                        // Validar formato HH:MM, HH.MM o número decimal (permitir entrada progresiva)
+                        if (value === '' || /^\d{0,2}([.:]\d{0,2})?$/.test(value)) {
+                          setTiempoEscala1(value)
+                        }
+                      }}
+                      placeholder="Ej: 5:30 o 5.5"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
                     />
+                    <p className="text-xs text-slate-500 mt-1">Formato: 5:30 (5h 30min) o 5.5</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -846,15 +878,19 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                     <div>
                       <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">DURACIÓN 2ª ESCALA</label>
                       <input
-                        type="number"
-                        min="0"
-                        max="18"
-                        step="0.5"
+                        type="text"
                         value={tiempoEscala2}
-                        onChange={(e) => setTiempoEscala2(e.target.value)}
-                        placeholder="Horas (máx. 18)"
+                        onChange={(e) => {
+                          const value = e.target.value
+                          // Validar formato HH:MM, HH.MM o número decimal (permitir entrada progresiva)
+                          if (value === '' || /^\d{0,2}([.:]\d{0,2})?$/.test(value)) {
+                            setTiempoEscala2(value)
+                          }
+                        }}
+                        placeholder="Ej: 2:15 o 2.25"
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
                       />
+                      <p className="text-xs text-slate-500 mt-1">Formato: 2:15 (2h 15min) o 2.25</p>
                     </div>
                   </div>
                 )}
@@ -932,7 +968,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Moneda forzada a VES</p>
             )}
             {metodoPago === 'Scalapay' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Recargo de +10.3% aplicado</p>
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Recargo de +9.3% aplicado</p>
             )}
           </div>
 
@@ -1034,7 +1070,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                     {new Date().toLocaleDateString('es-ES', {
                       day: '2-digit',
                       month: '2-digit',
-                      year: 'numeric'
+                      year: 'numeric',
+                      timeZone: 'America/Caracas'
                     })}
                   </p>
                 </div>
@@ -1051,6 +1088,11 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                       {idaVuelta && (
                         <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded-full border border-indigo-100">
                           IDA Y VUELTA
+                        </span>
+                      )}
+                      {soloIda && (
+                        <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded-full border border-green-100">
+                          SOLO IDA
                         </span>
                       )}
                       {finesMigratorios && (
@@ -1077,6 +1119,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                       </div>
                     </div>
 
+                    {(idaVuelta || soloIda) && (
                     <div className="grid grid-cols-2 gap-8">
                       {/* Bloque Ida */}
                       <div className="space-y-3">
@@ -1085,11 +1128,10 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                           <div>
                             <p className="text-[10px] text-slate-400 uppercase">Fecha</p>
                             <p className="text-xs font-bold text-slate-700">
-                              {fechaSalida ? new Date(fechaSalida).toLocaleDateString('es-ES', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric'
-                              }) : '---'}
+                                {fechaSalida ? (() => {
+                                  const [year, month, day] = fechaSalida.split('-')
+                                  return `${day}/${month}/${year}`
+                                })() : '---'}
                             </p>
                           </div>
                           <div className="text-right">
@@ -1115,11 +1157,10 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                             <div>
                               <p className="text-[10px] text-slate-400 uppercase">Fecha</p>
                               <p className="text-xs font-bold text-slate-700">
-                                {fechaRegreso ? new Date(fechaRegreso).toLocaleDateString('es-ES', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric'
-                                }) : '---'}
+                                  {fechaRegreso ? (() => {
+                                    const [year, month, day] = fechaRegreso.split('-')
+                                    return `${day}/${month}/${year}`
+                                  })() : '---'}
                               </p>
                             </div>
                             <div className="text-right">
@@ -1142,6 +1183,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                         </div>
                       )}
                     </div>
+                    )}
 
                     {/* Escalas */}
                     {haceEscala && (
@@ -1154,7 +1196,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                           </div>
                           <div className="text-right">
                             <p className="text-[10px] text-slate-400 uppercase">Duración</p>
-                            <p className="text-xs font-bold text-slate-700">{tiempoEscala1 ? `${tiempoEscala1} h` : '---'}</p>
+                            <p className="text-xs font-bold text-slate-700">{tiempoEscala1 || '---'}</p>
                           </div>
                           {haceSegundaEscala && (
                             <>
@@ -1164,7 +1206,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                               </div>
                               <div className="text-right">
                                 <p className="text-[10px] text-slate-400 uppercase">Duración</p>
-                                <p className="text-xs font-bold text-slate-700">{tiempoEscala2 ? `${tiempoEscala2} h` : '---'}</p>
+                                <p className="text-xs font-bold text-slate-700">{tiempoEscala2 || '---'}</p>
                               </div>
                             </>
                           )}
