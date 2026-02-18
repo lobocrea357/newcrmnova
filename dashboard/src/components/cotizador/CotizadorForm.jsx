@@ -1239,7 +1239,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                       )}
                     </div>
                     )}
-
                     {/* Escalas */}
                     {haceEscala && (
                       <div className="py-3 px-4 bg-orange-50 rounded-lg border border-orange-100">
