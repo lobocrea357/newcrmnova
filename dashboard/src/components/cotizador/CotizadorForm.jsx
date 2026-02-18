@@ -258,8 +258,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     ],
     'VES': [
       'BNC - Transferencia en Bs',
-      'Pago móvil',
-      'Depósito oficina Venezuela (efectivo)'
+      'Pago móvil'
     ],
     'COP': [
       'Bancacolombia',
@@ -268,6 +267,9 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     ],
     'USDT': [
       'Binance (USDT)'
+    ],
+    'FLEXIBLE': [
+      'Depósito oficina Venezuela (efectivo)'
     ]
   }
 
@@ -330,6 +332,13 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
     const monedaDetectada = detectarMonedaPorMetodo(metodoPago)
     if (monedaDetectada) {
+      // Si es FLEXIBLE, no establecer moneda automáticamente
+      if (monedaDetectada === 'FLEXIBLE') {
+        setMoneda('') // Dejar vacío para selección manual
+        setTasaCambio('') // No establecer tasa hasta que se seleccione moneda
+        return
+      }
+
       setMoneda(monedaDetectada)
 
       // Para VES, mantener la moneda de origen por defecto
@@ -979,7 +988,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Bolívares (VES)</p>
             )}
             {metodoPago === 'Depósito oficina Venezuela (efectivo)' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Bolívares (VES)</p>
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Pago en efectivo USD - Seleccione moneda de cotización</p>
             )}
             {(metodoPago === 'Davivienda' || metodoPago === 'Bancacolombia' || metodoPago === 'Depósito oficina Colombia (efectivo)') && (
               <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Pesos Colombianos (COP)</p>
@@ -1009,17 +1018,40 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   <TrendingUp className="w-4 h-4" />
                   Moneda de Cotización
                 </label>
-                <div className="px-4 py-3 border border-slate-300 rounded-lg bg-gray-50">
-                  <p className="font-medium text-gray-700">
-                    {moneda ? monedas.find(m => m.value === moneda)?.label : '---'}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {moneda === 'VES'
-                      ? `Convertir desde ${monedas.find(m => m.value === monedaOrigen)?.label}`
-                      : 'Moneda directa (tasa: 1.0)'
-                    }
-                  </p>
-                </div>
+                {metodoPago && detectarMonedaPorMetodo(metodoPago) === 'FLEXIBLE' ? (
+                  <select
+                    value={moneda}
+                    onChange={(e) => {
+                      const nuevaMoneda = e.target.value
+                      setMoneda(nuevaMoneda)
+                      if (nuevaMoneda === 'VES') {
+                        actualizarTasaParaVES()
+                      } else {
+                        setTasaCambio('1.0')
+                      }
+                    }}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white"
+                  >
+                    <option value="">Seleccionar moneda</option>
+                    {monedas.map((mon) => (
+                      <option key={mon.value} value={mon.value}>
+                        {mon.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                    <div className="px-4 py-3 border border-slate-300 rounded-lg bg-gray-50">
+                      <p className="font-medium text-gray-700">
+                        {moneda ? monedas.find(m => m.value === moneda)?.label : '---'}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {moneda === 'VES'
+                          ? `Convertir desde ${monedas.find(m => m.value === monedaOrigen)?.label}`
+                          : 'Moneda directa (tasa: 1.0)'
+                        }
+                      </p>
+                    </div>
+                )}
               </div>
 
               {moneda === 'VES' && (
