@@ -1,9 +1,10 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Calculator, DollarSign, Percent, CreditCard, TrendingUp, RefreshCw, Download, ArrowRightLeft } from 'lucide-react'
+import { Calculator, DollarSign, Percent, CreditCard, TrendingUp, RefreshCw, Download, ArrowRightLeft, Plane, Calendar, MapPin, Luggage, Users } from 'lucide-react'
 import html2canvas from 'html2canvas-pro'
 import jsPDF from 'jspdf'
 import { supabase } from '@/lib/supabase'
+import CollapsibleSection from '@/components/ui/CollapsibleSection'
 import {
   calcularConversionInteligente,
   getMonedasCotizacion,
@@ -199,6 +200,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   // Variables legacy (mantener para compatibilidad)
   const [moneda, setMoneda] = useState('')
   const [monedaOrigen, setMonedaOrigen] = useState('USD')
+  const [monedaBaseSeleccionada, setMonedaBaseSeleccionada] = useState('USD') // Nueva: USD o EUR
+  const [monedaCotizacionSeleccionada, setMonedaCotizacionSeleccionada] = useState('COP') // Nueva: Moneda de cotización
   const [total, setTotal] = useState(0)
   const [desglose, setDesglose] = useState(null)
   const [fechaSalida, setFechaSalida] = useState('')
@@ -298,6 +301,21 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     { value: 'USDT', label: 'USDT', symbol: '₮' },
     { value: 'EUR', label: 'Euros (EUR)', symbol: '€' },
     { value: 'COP', label: 'Pesos Colombianos (COP)', symbol: '$' }
+  ]
+
+  // Opciones para moneda base (solo USD y EUR)
+  const monedasBase = [
+    { value: 'USD', label: 'Dólares Americanos (USD)', symbol: '$' },
+    { value: 'EUR', label: 'Euros (EUR)', symbol: '€' }
+  ]
+
+  // Opciones para moneda de cotización (todas las disponibles)
+  const monedasCotizacion = [
+    { value: 'USD', label: 'Dólares Americanos (USD)', symbol: '$' },
+    { value: 'EUR', label: 'Euros (EUR)', symbol: '€' },
+    { value: 'COP', label: 'Pesos Colombianos (COP)', symbol: '$' },
+    { value: 'VES', label: 'Bolívares (VES)', symbol: 'Bs.' },
+    { value: 'USDT', label: 'USDT', symbol: '₮' }
   ]
 
   // Cargar tasas al iniciar
@@ -602,7 +620,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   return (
     <div className="grid lg:grid-cols-2 gap-8">
       <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
-        {/* Selector de Agencia (Relocalizado y más compacto) */}
+        {/* Selector de Agencia */}
         <div className="mb-6 pb-6 border-b border-slate-100">
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
             AGENCIA
@@ -632,8 +650,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold text-slate-800 flex items-center gap-2">
-            <DollarSign className="w-6 h-6 text-indigo-600" />
-            Datos de Cotización
+            <Calculator className="w-6 h-6 text-indigo-600" />
+            Calculadora de Cotizaciones
           </h2>
           {isAuthenticated && (
             <button
@@ -647,48 +665,102 @@ export default function CotizadorForm({ isAuthenticated = false }) {
           )}
         </div>
 
-        <div className="space-y-5">
-          <div>
-            <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-              Precio de Pantalla
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={precioBase}
-              onChange={(e) => setPrecioBase(e.target.value)}
-              placeholder="0.00"
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+        {/* Sección de Precios y Monedas */}
+        <CollapsibleSection
+          title="Precios y Monedas"
+          icon={DollarSign}
+          defaultExpanded={true}
+        >
+          <div className="space-y-4">
+            {/* Precio de Pantalla */}
             <div>
               <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                Fee Emisión
+                Precio de Pantalla
               </label>
               <input
                 type="number"
                 step="0.01"
-                value={feeEmision}
-                onChange={(e) => setFeeEmision(e.target.value)}
+                value={precioBase}
+                onChange={(e) => setPrecioBase(e.target.value)}
                 placeholder="0.00"
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               />
             </div>
+
+            {/* Selección de Moneda Base */}
             <div>
               <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                Fee Agencia
+                ¿El precio introducido está en:
               </label>
-              <input
-                type="number"
-                step="0.01"
-                value={feeAgencia}
-                onChange={(e) => setFeeAgencia(e.target.value)}
-                placeholder="0.00"
+              <select
+                value={monedaBaseSeleccionada}
+                onChange={(e) => setMonedaBaseSeleccionada(e.target.value)}
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              />
+              >
+                {monedasBase.map(moneda => (
+                  <option key={moneda.value} value={moneda.value}>
+                    {moneda.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Selección de Moneda de Cotización */}
+            <div>
+              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                ¿En qué moneda deseas cotizar?
+              </label>
+              <select
+                value={monedaCotizacionSeleccionada}
+                onChange={(e) => setMonedaCotizacionSeleccionada(e.target.value)}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              >
+                {monedasCotizacion.map(moneda => (
+                  <option key={moneda.value} value={moneda.value}>
+                    {moneda.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Fees */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                  Fee Emisión
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={feeEmision}
+                  onChange={(e) => setFeeEmision(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                  Fee Agencia
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={feeAgencia}
+                  onChange={(e) => setFeeAgencia(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                />
+              </div>
             </div>
           </div>
+        </CollapsibleSection>
+
+        {/* Sección de Tipo de Vuelo */}
+        <CollapsibleSection
+          title="Tipo de Vuelo"
+          icon={Plane}
+          defaultExpanded={true}
+        >
           <div className="grid grid-cols-3 gap-3 p-1.5 bg-slate-100 rounded-xl border border-slate-200">
             <button
               type="button"
@@ -1054,6 +1126,14 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               </label>
             </div>
           </div>
+        </CollapsibleSection>
+
+        {/* Sección de Método de Pago */}
+        <CollapsibleSection
+          title="Método de Pago"
+          icon={CreditCard}
+          defaultExpanded={true}
+        >
           <div>
             <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
               <CreditCard className="w-4 h-4" />
@@ -1104,127 +1184,30 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Euros (EUR) +9.3% recargo</p>
             )}
           </div>
+        </CollapsibleSection>
 
-          <div className="pt-4 border-t border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
-              Configuración de Moneda Inteligente
-            </h3>
-
-            <div className="space-y-4">
-              {/* Moneda del Precio Base */}
-              <div>
-                <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
-                  <DollarSign className="w-4 h-4" />
-                  Moneda del Precio Base
-                </label>
-                <select
-                  value={monedaPrecio}
-                  onChange={(e) => setMonedaPrecio(e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white"
-                >
-                  {getMonedasBase().map((moneda) => (
-                    <option key={moneda.value} value={moneda.value}>
-                      {moneda.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-slate-500 mt-1">
-                  El precio que introduces está en esta moneda
-                </p>
-              </div>
-
-              {/* Moneda de Cotización */}
-              <div>
-                <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  Moneda de Cotización
-                </label>
-                <select
-                  value={monedaCotizacion}
-                  onChange={(e) => setMonedaCotizacion(e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white"
-                >
-                  {getMonedasCotizacion().map((moneda) => (
-                    <option key={moneda.value} value={moneda.value}>
-                      {moneda.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-slate-500 mt-1">
-                  Moneda en la que se mostrará el resultado al cliente
-                </p>
-              </div>
-
-              {/* Tasa de Conversión */}
-              <div>
-                <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
-                  <Percent className="w-4 h-4" />
-                  Tasa de Conversión
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    step="0.0001"
-                    value={tasaCambio}
-                    readOnly={true}
-                    className="flex-1 px-4 py-3 border border-slate-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed focus:ring-0"
-                    title={`Tasa automática de ${monedaPrecio} a ${monedaCotizacion}`}
-                  />
-                </div>
-                <p className="text-xs text-indigo-600 mt-2 ml-2 font-medium">
-                  {resultadoConversion?.descripcionConversion || `1 ${monedaPrecio} = ${tasaCambio} ${monedaCotizacion}`}
-                </p>
-
-                {/* Desglose de conversión */}
-                {resultadoConversion && (
-                  <div className="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
-                    <p className="text-xs font-semibold text-indigo-900 mb-2">Desglose de Conversión:</p>
-                    <div className="space-y-1">
-                      {resultadoConversion.desglose.map((item, index) => (
-                        <div key={index} className="flex justify-between text-xs text-indigo-800">
-                          <span>{item.concepto}:</span>
-                          <span className="font-mono">
-                            {item.moneda} {new Intl.NumberFormat('es-ES', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2
-                            }).format(item.monto)}
-                          </span>
-                        </div>
-                      ))}
-                      <div className="flex justify-between text-xs font-bold text-indigo-900 pt-2 border-t border-indigo-300">
-                        <span>Total:</span>
-                        <span className="font-mono">
-                          {resultadoConversion.monedaCotizacion} {new Intl.NumberFormat('es-ES', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                          }).format(resultadoConversion.total)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {isAuthenticated && (
-                  <p className="mt-2 text-xs text-slate-500">
-                    Para cambiar las tasas, ve a la pestaña "Gestionar Tasas"
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-4 flex justify-end">
-            <button
-              type="button"
-              onClick={handleLimpiar}
-              className="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              Limpiar calculadora
-            </button>
-          </div>
+        {/* Botones de Acción */}
+        <div className="flex gap-3 pt-4 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={calcularCotizacion}
+            className="flex-1 bg-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <Calculator className="w-5 h-5" />
+            Calcular Cotización
+          </button>
+          <button
+            type="button"
+            onClick={handleLimpiar}
+            className="px-6 py-3 border border-slate-300 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+          >
+            <RefreshCw className="w-5 h-5" />
+            Limpiar
+          </button>
         </div>
       </div>
 
+      {/* Panel de Resultados */}
       <div className="space-y-6">
         <div className="sticky top-6 space-y-6">
           {/* Tarjeta elegante SOLO para el PDF (oculta visualmente, usada para generar la imagen) */}
