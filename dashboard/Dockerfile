@@ -9,7 +9,7 @@ ENV NPM_CONFIG_REGISTRY="https://registry.npmjs.org/" \
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev --legacy-peer-deps
 
 # Etapa 2: Construcción de la aplicación
 FROM node:20-alpine AS builder
@@ -21,7 +21,7 @@ ENV NPM_CONFIG_REGISTRY="https://registry.npmjs.org/" \
     NPM_CONFIG_FETCH_TIMEOUT=120000
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm install --legacy-peer-deps
 COPY . .
 
 # Variables de entorno necesarias para el build

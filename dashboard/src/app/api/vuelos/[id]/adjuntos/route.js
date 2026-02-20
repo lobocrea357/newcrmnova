@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Usar Service Role Key para operaciones del servidor (bypasea RLS)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
 );
 
 export async function GET(request, { params }) {
@@ -37,11 +44,27 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   try {
     const { id } = params;
+    
+    console.log('📎 POST /api/vuelos/[id]/adjuntos - Params:', params);
+    console.log('📎 Vuelo ID recibido:', id);
+    
+    // Validar que el ID sea un UUID válido
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!id || !uuidRegex.test(id)) {
+      console.error('❌ ID de vuelo inválido:', id);
+      return NextResponse.json(
+        { error: 'ID de vuelo inválido', receivedId: id },
+        { status: 400 }
+      );
+    }
+    
     const formData = await request.formData();
     
     const file = formData.get('file');
     const tipo_adjunto = formData.get('tipo_adjunto');
     const uploaded_by = formData.get('uploaded_by');
+
+    console.log('📎 Archivo:', file?.name, 'Tipo:', tipo_adjunto, 'Tamaño:', file?.size);
 
     if (!file) {
       return NextResponse.json(
@@ -92,6 +115,13 @@ export async function POST(request, { params }) {
       uploaded_by,
     };
 
+    console.log('💾 Insertando adjunto en BD:', {
+      vuelo_id: id,
+      tipo_adjunto,
+      nombre_archivo: file.name,
+      uploaded_by
+    });
+
     const { data: adjunto, error: dbError } = await supabase
       .from('vuelos_adjuntos')
       .insert([adjuntoData])
@@ -99,16 +129,20 @@ export async function POST(request, { params }) {
       .single();
 
     if (dbError) {
+      console.error('❌ Error creating adjunto record:', dbError);
+      
+      // Eliminar archivo del storage si falla la BD
       await supabase.storage
         .from('vuelos-adjuntos')
         .remove([path]);
 
-      console.error('Error creating adjunto record:', dbError);
       return NextResponse.json(
-        { error: 'Error al guardar adjunto', details: dbError.message },
+        { error: 'Error al guardar adjunto', details: dbError.message, code: dbError.code },
         { status: 500 }
       );
     }
+
+    console.log('✅ Adjunto guardado exitosamente en BD:', adjunto.id);
 
     return NextResponse.json(
       { adjunto, message: 'Adjunto subido exitosamente' },

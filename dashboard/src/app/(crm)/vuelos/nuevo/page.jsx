@@ -56,45 +56,89 @@ export default function NuevoVueloPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
+        console.error('Error response:', errorData)
         throw new Error(errorData.error || 'Error al crear vuelo')
       }
 
-      const { vuelo } = await response.json()
+      const responseData = await response.json()
+      console.log('✅ Response data completa:', JSON.stringify(responseData, null, 2))
+      
+      const vuelo = responseData.vuelo
+      
+      if (!vuelo) {
+        console.error('❌ No se encontró el objeto vuelo en la respuesta:', responseData)
+        throw new Error('La respuesta del servidor no contiene el vuelo creado')
+      }
+      
+      if (!vuelo.id) {
+        console.error('❌ El vuelo no tiene ID:', vuelo)
+        throw new Error('El vuelo se creó pero no tiene ID válido')
+      }
+      
+      console.log('✅ Vuelo creado exitosamente con ID:', vuelo.id)
 
-      if (formData.comprobantes.length > 0 || formData.pasaportes.length > 0) {
+      // Subir archivos solo si el vuelo tiene un ID válido
+      if ((formData.comprobantes?.length > 0 || formData.pasaportes?.length > 0) && vuelo.id) {
+        console.log(`📎 Subiendo ${formData.comprobantes?.length || 0} comprobantes y ${formData.pasaportes?.length || 0} pasaportes...`)
+        
         const uploadPromises = []
 
-        for (const file of formData.comprobantes) {
-          const formDataUpload = new FormData()
-          formDataUpload.append('file', file)
-          formDataUpload.append('tipo_adjunto', 'COMPROBANTE_PAGO')
-          formDataUpload.append('uploaded_by', user.id)
+        if (formData.comprobantes) {
+          for (const file of formData.comprobantes) {
+            const formDataUpload = new FormData()
+            formDataUpload.append('file', file)
+            formDataUpload.append('tipo_adjunto', 'COMPROBANTE_PAGO')
+            formDataUpload.append('uploaded_by', user.id)
 
-          uploadPromises.push(
-            fetch(`/api/vuelos/${vuelo.id}/adjuntos`, {
-              method: 'POST',
-              body: formDataUpload,
-            })
-          )
+            uploadPromises.push(
+              fetch(`/api/vuelos/${vuelo.id}/adjuntos`, {
+                method: 'POST',
+                body: formDataUpload,
+              }).then(res => {
+                if (!res.ok) {
+                  console.error('❌ Error al subir comprobante:', file.name)
+                  return res.json().then(err => console.error('Detalles:', err))
+                }
+                console.log('✅ Comprobante subido:', file.name)
+                return res.json()
+              })
+            )
+          }
         }
 
-        for (const file of formData.pasaportes) {
-          const formDataUpload = new FormData()
-          formDataUpload.append('file', file)
-          formDataUpload.append('tipo_adjunto', 'PASAPORTE')
-          formDataUpload.append('uploaded_by', user.id)
+        if (formData.pasaportes) {
+          for (const file of formData.pasaportes) {
+            const formDataUpload = new FormData()
+            formDataUpload.append('file', file)
+            formDataUpload.append('tipo_adjunto', 'PASAPORTE')
+            formDataUpload.append('uploaded_by', user.id)
 
-          uploadPromises.push(
-            fetch(`/api/vuelos/${vuelo.id}/adjuntos`, {
-              method: 'POST',
-              body: formDataUpload,
-            })
-          )
+            uploadPromises.push(
+              fetch(`/api/vuelos/${vuelo.id}/adjuntos`, {
+                method: 'POST',
+                body: formDataUpload,
+              }).then(res => {
+                if (!res.ok) {
+                  console.error('❌ Error al subir pasaporte:', file.name)
+                  return res.json().then(err => console.error('Detalles:', err))
+                }
+                console.log('✅ Pasaporte subido:', file.name)
+                return res.json()
+              })
+            )
+          }
         }
 
-        await Promise.all(uploadPromises)
+        try {
+          await Promise.all(uploadPromises)
+          console.log('✅ Todos los archivos subidos correctamente')
+        } catch (uploadError) {
+          console.error('⚠️ Error al subir algunos archivos:', uploadError)
+          // No lanzamos error, permitimos continuar
+        }
       }
 
+      console.log('🔄 Redirigiendo a:', `/vuelos/${vuelo.id}`)
       router.push(`/vuelos/${vuelo.id}`)
     } catch (err) {
       console.error('Error creating vuelo:', err)
