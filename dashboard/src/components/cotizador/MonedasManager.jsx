@@ -7,6 +7,7 @@ import { useUserProfile } from '@/hooks/useUserProfile'
 import Swal from 'sweetalert2'
 import toast from 'react-hot-toast'
 import EditableCell from '@/components/ui/EditableCell'
+import TutorialSection from '@/components/ui/TutorialSection'
 import { useDebouncedCallback, useLoadingAlert } from '@/hooks/useDebounce'
 
 export default function MonedasManager() {
@@ -90,11 +91,16 @@ export default function MonedasManager() {
     })
 
     if (result.isConfirmed) {
+      // Mostrar SweetAlert con loading durante la eliminación
+      showLoadingAlert('Eliminando moneda...', 'Eliminando moneda y todas sus tasas asociadas...')
+
       try {
         await eliminarMoneda(id)
+        closeLoadingAlert()
         toast.success('Moneda eliminada correctamente')
         await fetchMonedas()
       } catch (error) {
+        closeLoadingAlert()
         console.error('Error deleting moneda:', error)
         toast.error('Error al eliminar moneda: ' + error.message)
       }
@@ -135,22 +141,65 @@ export default function MonedasManager() {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 border border-slate-200">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">Monedas Disponibles</h2>
-          <p className="text-sm text-slate-600 mt-1">
-            Gestiona las monedas disponibles para conversión
-          </p>
+    <>
+      {/* Tutorial de Gestión de Monedas */}
+      <TutorialSection
+        title="📊 Gestión de Monedas"
+        subtitle="Aprende a administrar las monedas del sistema"
+        mode="description"
+        description={`
+          <div class="space-y-4">
+            <div class="bg-white/10 rounded-lg p-4 border border-white/20">
+              <h3 class="text-lg font-semibold text-white mb-2">🔍 ¿Qué puedes hacer aquí?</h3>
+              <p class="text-indigo-100 mb-3">En esta sección puedes administrar todas las monedas disponibles para el sistema de cotizaciones:</p>
+              <ul class="text-indigo-100 space-y-2 ml-4">
+                <li>• <strong>Ver monedas existentes</strong>: Lista completa con código, nombre y símbolo</li>
+                <li>• <strong>Editar monedas</strong>: Click en cualquier celda para modificar información</li>
+                <li>• <strong>Crear nuevas monedas</strong>: Botón "Nueva Moneda" para agregar al sistema</li>
+                <li>• <strong>Eliminar monedas</strong>: Botón rojo para eliminar con confirmación</li>
+              </ul>
+            </div>
+            
+            <div class="bg-white/10 rounded-lg p-4 border border-white/20">
+              <h3 class="text-lg font-semibold text-white mb-2">⚙️ ¿Cómo funciona?</h3>
+              <div class="text-indigo-100 space-y-2">
+                <p><strong>Para editar:</strong> Click en cualquier celda → Modifica el valor → Click en ✓ para guardar</p>
+                <p><strong>Para crear:</strong> Click en "Nueva Moneda" → Completa formulario → Click en "Agregar"</p>
+                <p><strong>Para eliminar:</strong> Click en 🗑️ → Confirma en el diálogo → Espera confirmación</p>
+              </div>
+            </div>
+            
+            <div class="bg-white/10 rounded-lg p-4 border border-white/20">
+              <h3 class="text-lg font-semibold text-white mb-2">💡 Tips importantes</h3>
+              <ul class="text-indigo-100 space-y-2 ml-4">
+                <li>• Las monedas eliminadas <strong>borrarán todas sus tasas asociadas</strong></li>
+                <li>• Los cambios se guardan <strong>automáticamente</strong> con SweetAlert de confirmación</li>
+                <li>• Usa <strong>ESC</strong> para cancelar edición o click en ✗</li>
+                <li>• Los códigos deben ser <strong>3 letras</strong> (ej: USD, EUR, COP)</li>
+              </ul>
+            </div>
+          </div>
+        `}
+        gradient="from-emerald-600 via-teal-600 to-emerald-700"
+        defaultExpanded={false}
+      />
+
+      <div className="bg-white rounded-xl shadow-lg p-6 border border-slate-200">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Monedas Disponibles</h2>
+            <p className="text-sm text-slate-600 mt-1">
+              Gestiona las monedas disponibles para conversión
+            </p>
+          </div>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <Plus size={20} />
+            Nueva Moneda
+          </button>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-        >
-          <Plus size={20} />
-          Nueva Moneda
-        </button>
-      </div>
 
       {/* Formulario para agregar moneda */}
       {showForm && (
@@ -291,5 +340,6 @@ export default function MonedasManager() {
         )}
       </div>
     </div>
+    </>
   )
 }

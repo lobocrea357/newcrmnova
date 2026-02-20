@@ -6,6 +6,8 @@ export default function TutorialSection({
   title,
   subtitle,
   steps,
+  description = null,
+  mode = "steps", // "steps" o "description"
   gradient = "from-indigo-600 via-purple-600 to-indigo-700",
   className = "",
   defaultExpanded = true
@@ -46,27 +48,40 @@ export default function TutorialSection({
         </button>
       </div>
 
-      {/* Contenido de pasos (solo si está expandido) */}
+      {/* Contenido (solo si está expandido) */}
       {isExpanded && (
         <div className="mt-6 animate-in slide-in-from-top-2 duration-300">
-          <div className={`grid grid-cols-1 md:grid-cols-${steps.length} gap-6`}>
-            {steps.map((step, index) => (
-              <div key={index} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="flex items-center justify-center w-8 h-8 bg-white/20 rounded-lg">
-                    <span className="text-white font-bold text-sm">{index + 1}</span>
+          {mode === "steps" && steps && (
+            <div className={`grid grid-cols-1 md:grid-cols-${steps.length} gap-6`}>
+              {steps.map((step, index) => (
+                <div key={index} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="flex items-center justify-center w-8 h-8 bg-white/20 rounded-lg">
+                      <span className="text-white font-bold text-sm">{index + 1}</span>
+                    </div>
+                    {step.icon && (
+                      <step.icon className="w-5 h-5 text-white" />
+                    )}
                   </div>
-                  {step.icon && (
-                    <step.icon className="w-5 h-5 text-white" />
-                  )}
+                  <h3 className="font-semibold text-white mb-1">{step.title}</h3>
+                  <p className="text-indigo-100 text-xs">
+                    {step.description}
+                  </p>
                 </div>
-                <h3 className="font-semibold text-white mb-1">{step.title}</h3>
-                <p className="text-indigo-100 text-xs">
-                  {step.description}
-                </p>
+              ))}
+            </div>
+          )}
+
+          {mode === "description" && description && (
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+              <div className="prose prose-invert max-w-none">
+                <div
+                  className="text-white leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: description }}
+                />
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>

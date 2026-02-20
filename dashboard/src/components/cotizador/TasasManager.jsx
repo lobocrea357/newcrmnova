@@ -9,6 +9,7 @@ import { useLoadingAlert } from '@/hooks/useDebounce'
 import Swal from 'sweetalert2'
 import toast from 'react-hot-toast'
 import EditableCell from '@/components/ui/EditableCell'
+import TutorialSection from '@/components/ui/TutorialSection'
 
 export default function TasasManager() {
   const { user } = useAuth()
@@ -93,11 +94,16 @@ export default function TasasManager() {
     })
 
     if (result.isConfirmed) {
+      // Mostrar SweetAlert con loading durante la eliminación
+      showLoadingAlert('Eliminando tasa...', 'Eliminando tasa de conversión...')
+
       try {
         await eliminarConversion(id, profile?.id)
+        closeLoadingAlert()
         toast.success('Tasa eliminada correctamente')
         setTasas(tasas.filter(t => t.id !== id))
       } catch (error) {
+        closeLoadingAlert()
         console.error('Error deleting rate:', error)
         toast.error('Error al eliminar: ' + error.message)
       }
@@ -148,27 +154,73 @@ export default function TasasManager() {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-gray-800">Gestionar Tasas de Cambio</h2>
-        <div className="flex gap-2">
-          {isAdmin && (
-            <button 
-              onClick={() => setShowHistorial(true)}
-              className="flex items-center gap-2 px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+    <>
+      {/* Tutorial de Gestión de Tasas */}
+      <TutorialSection
+        title="💱 Gestión de Tasas de Cambio"
+        subtitle="Aprende a administrar las tasas de conversión del sistema"
+        mode="description"
+        description={`
+          <div class="space-y-4">
+            <div class="bg-white/10 rounded-lg p-4 border border-white/20">
+              <h3 class="text-lg font-semibold text-white mb-2">🔍 ¿Qué puedes hacer aquí?</h3>
+              <p class="text-indigo-100 mb-3">En esta sección puedes administrar todas las tasas de conversión entre monedas:</p>
+              <ul class="text-indigo-100 space-y-2 ml-4">
+                <li>• <strong>Ver tasas existentes</strong>: Lista completa con conversiones y valores actuales</li>
+                <li>• <strong>Editar tasas</strong>: Click en cualquier tasa para modificar su valor</li>
+                <li>• <strong>Crear nuevas tasas</strong>: Formulario para agregar nuevas conversiones</li>
+                <li>• <strong>Eliminar tasas</strong>: Botón rojo para eliminar con confirmación</li>
+                <li>• <strong>Ver historial</strong>: Acceso al registro de cambios (solo administradores)</li>
+              </ul>
+            </div>
+            
+            <div class="bg-white/10 rounded-lg p-4 border border-white/20">
+              <h3 class="text-lg font-semibold text-white mb-2">⚙️ ¿Cómo funciona?</h3>
+              <div class="text-indigo-100 space-y-2">
+                <p><strong>Para editar:</strong> Click en una tasa → Modifica el valor → Click en ✓ para guardar</p>
+                <p><strong>Para crear:</strong> Selecciona monedas → Ingresa tasa → Click en "Agregar"</p>
+                <p><strong>Para eliminar:</strong> Click en 🗑️ → Confirma en el diálogo → Espera confirmación</p>
+                <p><strong>Para historial:</strong> Click en "Ver Historial" → Explora cambios pasados</p>
+              </div>
+            </div>
+            
+            <div class="bg-white/10 rounded-lg p-4 border border-white/20">
+              <h3 class="text-lg font-semibold text-white mb-2">💡 Tips importantes</h3>
+              <ul class="text-indigo-100 space-y-2 ml-4">
+                <li>• Las tasas se usan para <strong>calcular conversiones</strong> en el cotizador</li>
+                <li>• Los cambios se guardan <strong>automáticamente</strong> con SweetAlert de confirmación</li>
+                <li>• Usa <strong>4 decimales</strong> para mayor precisión (ej: 0.1234)</li>
+                <li>• El historial registra <strong>todos los cambios</strong> con fecha y usuario</li>
+                <li>• No puedes crear conversiones <strong>de una moneda a sí misma</strong></li>
+              </ul>
+            </div>
+          </div>
+        `}
+        gradient="from-blue-600 via-indigo-600 to-blue-700"
+        defaultExpanded={false}
+      />
+
+      <div className="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-gray-800">Gestionar Tasas de Cambio</h2>
+          <div className="flex gap-2">
+            {isAdmin && (
+              <button
+                onClick={() => setShowHistorial(true)}
+                className="flex items-center gap-2 px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+              >
+                <History className="w-4 h-4" />
+                Ver Historial
+              </button>
+            )}
+            <button
+              onClick={fetchData}
+              className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-full transition-colors"
             >
-              <History className="w-4 h-4" />
-              Ver Historial
+              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
             </button>
-          )}
-          <button
-            onClick={fetchData}
-            className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+          </div>
         </div>
-      </div>
 
       {/* Formulario para agregar nueva conversión */}
       <form onSubmit={handleAdd} className="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -273,5 +325,6 @@ export default function TasasManager() {
         </table>
       </div>
     </div>
+    </>
   )
 }

@@ -12,6 +12,7 @@ import {
   getMonedaInfo,
   esMonedaBase
 } from '@/lib/conversorInteligente'
+import { obtenerMonedas, obtenerTasasConversion } from '@/lib/tasasHelpers'
 
 const AGENCY_NAME = 'Viajes Nova'
 const AGENCY_LOGO_URL = '/logo-morado.png' // Coloca aquí el logo en la carpeta /public
@@ -197,11 +198,16 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   const [tasaCambio, setTasaCambio] = useState('1.0')
   const [resultadoConversion, setResultadoConversion] = useState(null)
 
+  // Estados para monedas dinámicas desde la base de datos
+  const [monedasDB, setMonedasDB] = useState([]) // Todas las monedas registradas
+  const [tasasDB, setTasasDB] = useState([]) // Todas las tasas de conversión
+  const [loadingMonedas, setLoadingMonedas] = useState(true)
+
   // Variables legacy (mantener para compatibilidad)
   const [moneda, setMoneda] = useState('')
   const [monedaOrigen, setMonedaOrigen] = useState('USD')
   const [monedaBaseSeleccionada, setMonedaBaseSeleccionada] = useState('USD') // Nueva: USD o EUR
-  const [monedaCotizacionSeleccionada, setMonedaCotizacionSeleccionada] = useState('COP') // Nueva: Moneda de cotización
+  const [monedaCotizacionSeleccionada, setMonedaCotizacionSeleccionada] = useState('') // Nueva: Moneda de cotización
   const [total, setTotal] = useState(0)
   const [desglose, setDesglose] = useState(null)
   const [fechaSalida, setFechaSalida] = useState('')
@@ -243,6 +249,28 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   // Estado para tasas dinámicas
   const [tasasDb, setTasasDb] = useState({})
   const [loadingTasas, setLoadingTasas] = useState(true)
+
+  // Cargar monedas y tasas desde la base de datos
+  useEffect(() => {
+    const cargarDatos = async () => {
+      try {
+        setLoadingMonedas(true)
+        const [monedasData, tasasData] = await Promise.all([
+          obtenerMonedas(),
+          obtenerTasasConversion()
+        ])
+
+        setMonedasDB(monedasData.filter(m => m.activa)) // Solo monedas activas
+        setTasasDB(tasasData)
+        setLoadingMonedas(false)
+      } catch (error) {
+        console.error('Error cargando datos:', error)
+        setLoadingMonedas(false)
+      }
+    }
+
+    cargarDatos()
+  }, [])
 
   const metodosPago = [
     'Scalapay',
@@ -295,28 +323,54 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     ]
   }
 
-  const monedas = [
-    { value: 'USD', label: 'Dólares (USD)', symbol: '$' },
-    { value: 'VES', label: 'Bolívares (VES)', symbol: 'Bs.' },
-    { value: 'USDT', label: 'USDT', symbol: '₮' },
-    { value: 'EUR', label: 'Euros (EUR)', symbol: '€' },
-    { value: 'COP', label: 'Pesos Colombianos (COP)', symbol: '$' }
-  ]
+  // Funciones dinámicas para obtener monedas desde la base de datos
+  const getMonedasDisponibles = () => {
+    if (loadingMonedas || monedasDB.length === 0) {
+      // Fallback a monedas hardcoded si está cargando
+      return [
+        { value: 'USD', label: 'Dólares (USD)', symbol: '$' },
+        { value: 'VES', label: 'Bolívares (VES)', symbol: 'Bs.' },
+        { value: 'USDT', label: 'USDT', symbol: '₮' },
+        { value: 'EUR', label: 'Euros (EUR)', symbol: '€' },
+        { value: 'COP', label: 'Pesos Colombianos (COP)', symbol: '$' }
+      ]
+    }
 
-  // Opciones para moneda base (solo USD y EUR)
+    return monedasDB.map(moneda => ({
+      value: moneda.codigo,
+      label: `${moneda.nombre} (${moneda.codigo})`,
+      symbol: moneda.simbolo
+    }))
+  }
+
+  // Opciones para moneda base (SIEMPRE FIJO: USD y EUR)
   const monedasBase = [
     { value: 'USD', label: 'Dólares Americanos (USD)', symbol: '$' },
     { value: 'EUR', label: 'Euros (EUR)', symbol: '€' }
   ]
 
-  // Opciones para moneda de cotización (todas las disponibles)
-  const monedasCotizacion = [
-    { value: 'USD', label: 'Dólares Americanos (USD)', symbol: '$' },
-    { value: 'EUR', label: 'Euros (EUR)', symbol: '€' },
-    { value: 'COP', label: 'Pesos Colombianos (COP)', symbol: '$' },
-    { value: 'VES', label: 'Bolívares (VES)', symbol: 'Bs.' },
-    { value: 'USDT', label: 'USDT', symbol: '₮' }
-  ]
+  // Opciones para moneda de cotización (todas las monedas registradas)
+  const getMonedasCotizacion = () => {
+    return getMonedasDisponibles()
+  }
+
+  // Opciones para moneda destino (solo monedas con tasas de conversión)
+  const getMonedasConTasas = () => {
+    if (loadingMonedas || tasasDB.length === 0) {
+      return getMonedasDisponibles() // Fallback
+    }
+
+    // Obtener monedas que tienen tasas de conversión
+    const monedasConTasas = new Set()
+    tasasDB.forEach(tasa => {
+      monedasConTasas.add(tasa.moneda_destino.codigo)
+      monedasConTasas.add(tasa.moneda_origen.codigo)
+    })
+
+    return getMonedasDisponibles().filter(moneda =>
+      monedasConTasas.has(moneda.value)
+    )
+  }
 
   // Filtrar métodos de pago según moneda de cotización
   const metodosPagoFiltrados = monedaCotizacionSeleccionada
@@ -458,10 +512,21 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     setMonedaCotizacion(monedaCotizacionSeleccionada)
   }, [monedaCotizacionSeleccionada])
 
-  // Recalcular cuando cambian los inputs
+  // Recalcular cuando cambian los inputs (con debounce para evitar demasiadas llamadas)
   useEffect(() => {
     if ((precioBase || feeEmision || feeAgencia) && monedaPrecio && monedaCotizacion) {
-      calcularCotizacion()
+      const timeoutId = setTimeout(() => {
+        const calcular = async () => {
+          try {
+            await calcularCotizacion()
+          } catch (error) {
+            console.error('❌ Error en cálculo automático:', error)
+          }
+        }
+        calcular()
+      }, 300) // 300ms de debounce
+
+      return () => clearTimeout(timeoutId)
     }
   }, [precioBase, feeEmision, feeAgencia, monedaPrecio, monedaCotizacion, metodoPago])
 
@@ -528,7 +593,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     }
   }
 
-  const monedaSeleccionada = monedas.find(m => m.value === moneda)
+  const monedaSeleccionada = getMonedasDisponibles().find(m => m.value === moneda)
   const simboloMoneda = monedaSeleccionada?.symbol || '$'
 
   const formatearMonto = (valor) => {
@@ -548,7 +613,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
     // Variables nuevas
     setMonedaBaseSeleccionada('USD')
-    setMonedaCotizacionSeleccionada('COP')
+    setMonedaCotizacionSeleccionada('')
 
     // Variables legacy
     setPrecioBase('')
@@ -681,16 +746,27 @@ export default function CotizadorForm({ isAuthenticated = false }) {
             <Calculator className="w-6 h-6 text-indigo-600" />
             Calculadora de Cotizaciones
           </h2>
-          {isAuthenticated && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={fetchTasas}
-              disabled={loadingTasas}
-              className="p-2 text-slate-400 hover:text-indigo-600 transition-colors rounded-full hover:bg-slate-50"
-              title="Actualizar tasas"
+              type="button"
+              onClick={handleLimpiar}
+              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 text-sm"
+              title="Limpiar formulario"
             >
-              <RefreshCw className={`w-5 h-5 ${loadingTasas ? 'animate-spin' : ''}`} />
+              <RefreshCw className="w-4 h-4" />
+              Limpiar
             </button>
-          )}
+            {isAuthenticated && (
+              <button
+                onClick={fetchTasas}
+                disabled={loadingTasas}
+                className="p-2 text-slate-400 hover:text-indigo-600 transition-colors rounded-full hover:bg-slate-50"
+                title="Actualizar tasas"
+              >
+                <RefreshCw className={`w-5 h-5 ${loadingTasas ? 'animate-spin' : ''}`} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Sección de Precios y Monedas */}
@@ -743,7 +819,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                 onChange={(e) => setMonedaCotizacionSeleccionada(e.target.value)}
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               >
-                {monedasCotizacion.map(moneda => (
+                <option value="">Seleccione la moneda en la que desea cotizar</option>
+                {getMonedasConTasas().map(moneda => (
                   <option key={moneda.value} value={moneda.value}>
                     {moneda.label}
                   </option>
@@ -1224,25 +1301,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
           </div>
         </CollapsibleSection>
 
-        {/* Botones de Acción */}
-        <div className="flex gap-3 pt-4 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={calcularCotizacion}
-            className="flex-1 bg-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
-          >
-            <Calculator className="w-5 h-5" />
-            Calcular Cotización
-          </button>
-          <button
-            type="button"
-            onClick={handleLimpiar}
-            className="px-6 py-3 border border-slate-300 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
-          >
-            <RefreshCw className="w-5 h-5" />
-            Limpiar
-          </button>
-        </div>
       </div>
 
       {/* Panel de Resultados */}
