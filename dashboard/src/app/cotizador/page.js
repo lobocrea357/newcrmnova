@@ -1,18 +1,19 @@
 'use client'
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { Calculator, ArrowLeft, Settings } from 'lucide-react'
+import { Calculator, ArrowLeft, Settings, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import Navbar from '@/components/layout/Navbar'
 import Sidebar from '@/components/layout/Sidebar'
 import CotizadorForm from '@/components/cotizador/CotizadorForm'
 import TasasManager from '@/components/cotizador/TasasManager'
+import MonedasManager from '@/components/cotizador/MonedasManager'
 
 export default function CotizadorPage() {
   const { user, session, loading: authLoading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [activeTab, setActiveTab] = useState('calculadora') // 'calculadora' | 'tasas'
+  const [activeTab, setActiveTab] = useState('calculadora') // 'calculadora' | 'tasas' | 'monedas'
   
   const isAuthenticated = !!user && !!session
 
@@ -57,12 +58,15 @@ export default function CotizadorPage() {
                     </div>
                     <div>
                       <h1 className="text-3xl font-bold text-slate-800">
-                        {activeTab === 'calculadora' ? 'Calculadora de Cotizaciones' : 'Gestión de Tasas'}
+                        {activeTab === 'calculadora' ? 'Calculadora de Cotizaciones' : 
+                         activeTab === 'tasas' ? 'Gestión de Tasas' : 'Gestión de Monedas'}
                       </h1>
                       <p className="text-slate-600">
                         {activeTab === 'calculadora' 
                           ? 'Calcula tus cotizaciones de forma rápida y precisa'
-                          : 'Administra las monedas y tasas de cambio del sistema'
+                          : activeTab === 'tasas'
+                          ? 'Administra las tasas de conversión entre monedas'
+                          : 'Administra el catálogo de monedas disponibles'
                         }
                       </p>
                     </div>
@@ -97,6 +101,19 @@ export default function CotizadorPage() {
                     <Settings className="w-4 h-4" />
                     Gestionar Tasas
                   </button>
+                  <button
+                    onClick={() => setActiveTab('monedas')}
+                    className={`
+                      flex items-center gap-2 px-4 py-2.5 text-sm font-medium leading-5 rounded-lg transition-all duration-200
+                      ${activeTab === 'monedas'
+                        ? 'bg-white text-indigo-700 shadow'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-300'
+                      }
+                    `}
+                  >
+                    <TrendingUp className="w-4 h-4" />
+                    Gestionar Monedas
+                  </button>
                 </div>
               </div>
 
@@ -104,8 +121,10 @@ export default function CotizadorPage() {
               <div className="transition-all duration-300 ease-in-out">
                 {activeTab === 'calculadora' ? (
                   <CotizadorForm isAuthenticated={isAuthenticated} />
-                ) : (
+                ) : activeTab === 'tasas' ? (
                   <TasasManager />
+                ) : (
+                  <MonedasManager />
                 )}
               </div>
             </div>
