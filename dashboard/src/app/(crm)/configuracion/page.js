@@ -29,7 +29,7 @@ export default function ConfiguracionPage() {
       available: true,
       path: "/configuracion/usuarios",
     },
-    {
+        {
       id: "roles",
       title: "Roles y Permisos",
       description: "Configure roles y asigne permisos específicos",
@@ -193,6 +193,9 @@ export default function ConfiguracionPage() {
                   disponibles en futuras actualizaciones. Actualmente puedes
                   gestionar usuarios y sus roles desde la sección de{" "}
                   <span className="font-semibold">Gestión de Usuarios</span>.
+                  Para gestionar tasas y monedas, ve a la sección de{" "}
+                  <span className="font-semibold">Cotizador</span> donde encontrarás
+                  las herramientas de configuración.
                 </p>
               </div>
             </div>

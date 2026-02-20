@@ -20,6 +20,7 @@ import diagnosticsRoutes from './routes/diagnostics.js';
 import rendimientoRoutes from './routes/rendimiento.js';
 import usersRoutes from './routes/users.js';
 import rolesRoutes from './routes/roles.js';
+import tasasRoutes from './routes/tasas.js';
 
 // Importar servicio de auto-sincronización
 import autoSyncService from './services/autoSyncService.js';
@@ -52,6 +53,7 @@ app.use('/api/diagnostics', diagnosticsRoutes);
 app.use('/api/rendimiento', rendimientoRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
+app.use('/api/tasas', tasasRoutes);
 
 // Ruta de health check
 app.get('/health', (req, res) => {

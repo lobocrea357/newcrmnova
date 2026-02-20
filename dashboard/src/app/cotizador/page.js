@@ -1,18 +1,20 @@
 'use client'
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { Calculator, ArrowLeft, Settings } from 'lucide-react'
+import { Calculator, ArrowLeft, Settings, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import Navbar from '@/components/layout/Navbar'
 import Sidebar from '@/components/layout/Sidebar'
 import CotizadorForm from '@/components/cotizador/CotizadorForm'
 import TasasManager from '@/components/cotizador/TasasManager'
+import MonedasManager from '@/components/cotizador/MonedasManager'
+import HeroTutorial from '@/components/cotizador/HeroTutorial'
 
 export default function CotizadorPage() {
   const { user, session, loading: authLoading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [activeTab, setActiveTab] = useState('calculadora') // 'calculadora' | 'tasas'
+  const [activeTab, setActiveTab] = useState('calculadora') // 'calculadora' | 'tasas' | 'monedas'
   
   const isAuthenticated = !!user && !!session
 
@@ -50,25 +52,6 @@ export default function CotizadorPage() {
           <main className="p-6">
             <div className="max-w-6xl mx-auto">
               <div className="mb-6">
-                <div className="flex justify-between items-center mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg">
-                      <Calculator className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h1 className="text-3xl font-bold text-slate-800">
-                        {activeTab === 'calculadora' ? 'Calculadora de Cotizaciones' : 'Gestión de Tasas'}
-                      </h1>
-                      <p className="text-slate-600">
-                        {activeTab === 'calculadora' 
-                          ? 'Calcula tus cotizaciones de forma rápida y precisa'
-                          : 'Administra las monedas y tasas de cambio del sistema'
-                        }
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Tabs */}
                 <div className="flex space-x-1 rounded-xl bg-gray-200 p-1 w-fit mb-6">
                   <button
@@ -97,15 +80,33 @@ export default function CotizadorPage() {
                     <Settings className="w-4 h-4" />
                     Gestionar Tasas
                   </button>
+                  <button
+                    onClick={() => setActiveTab('monedas')}
+                    className={`
+                      flex items-center gap-2 px-4 py-2.5 text-sm font-medium leading-5 rounded-lg transition-all duration-200
+                      ${activeTab === 'monedas'
+                        ? 'bg-white text-indigo-700 shadow'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-300'
+                      }
+                    `}
+                  >
+                    <TrendingUp className="w-4 h-4" />
+                    Gestionar Monedas
+                  </button>
                 </div>
               </div>
 
               {/* Content */}
               <div className="transition-all duration-300 ease-in-out">
                 {activeTab === 'calculadora' ? (
-                  <CotizadorForm isAuthenticated={isAuthenticated} />
-                ) : (
+                  <>
+                    <HeroTutorial />
+                    <CotizadorForm isAuthenticated={isAuthenticated} />
+                  </>
+                ) : activeTab === 'tasas' ? (
                   <TasasManager />
+                ) : (
+                  <MonedasManager />
                 )}
               </div>
             </div>
@@ -139,6 +140,7 @@ export default function CotizadorPage() {
           </p>
         </div>
 
+        <HeroTutorial />
         <CotizadorForm isAuthenticated={false} />
       </div>
     </div>

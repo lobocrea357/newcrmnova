@@ -1,9 +1,17 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Calculator, DollarSign, Percent, CreditCard, TrendingUp, RefreshCw, Download, ArrowRightLeft } from 'lucide-react'
+import { Calculator, DollarSign, Percent, CreditCard, TrendingUp, RefreshCw, Download, ArrowRightLeft, Plane, Calendar, MapPin, Luggage, Users } from 'lucide-react'
 import html2canvas from 'html2canvas-pro'
 import jsPDF from 'jspdf'
 import { supabase } from '@/lib/supabase'
+import CollapsibleSection from '@/components/ui/CollapsibleSection'
+import {
+  calcularConversionInteligente,
+  getMonedasCotizacion,
+  getMonedasBase,
+  getMonedaInfo,
+  esMonedaBase
+} from '@/lib/conversorInteligente'
 
 const AGENCY_NAME = 'Viajes Nova'
 const AGENCY_LOGO_URL = '/logo-morado.png' // Coloca aquí el logo en la carpeta /public
@@ -183,9 +191,17 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   const [feeEmision, setFeeEmision] = useState('')
   const [feeAgencia, setFeeAgencia] = useState('')
   const [metodoPago, setMetodoPago] = useState('')
+  // Sistema de conversión inteligente
+  const [monedaPrecio, setMonedaPrecio] = useState('USD') // Moneda del precio base
+  const [monedaCotizacion, setMonedaCotizacion] = useState('USD') // Moneda de cotización
+  const [tasaCambio, setTasaCambio] = useState('1.0')
+  const [resultadoConversion, setResultadoConversion] = useState(null)
+
+  // Variables legacy (mantener para compatibilidad)
   const [moneda, setMoneda] = useState('')
-  const [monedaOrigen, setMonedaOrigen] = useState('USD') // Para conversiones VES
-  const [tasaCambio, setTasaCambio] = useState('')
+  const [monedaOrigen, setMonedaOrigen] = useState('USD')
+  const [monedaBaseSeleccionada, setMonedaBaseSeleccionada] = useState('USD') // Nueva: USD o EUR
+  const [monedaCotizacionSeleccionada, setMonedaCotizacionSeleccionada] = useState('COP') // Nueva: Moneda de cotización
   const [total, setTotal] = useState(0)
   const [desglose, setDesglose] = useState(null)
   const [fechaSalida, setFechaSalida] = useState('')
@@ -287,6 +303,21 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     { value: 'COP', label: 'Pesos Colombianos (COP)', symbol: '$' }
   ]
 
+  // Opciones para moneda base (solo USD y EUR)
+  const monedasBase = [
+    { value: 'USD', label: 'Dólares Americanos (USD)', symbol: '$' },
+    { value: 'EUR', label: 'Euros (EUR)', symbol: '€' }
+  ]
+
+  // Opciones para moneda de cotización (todas las disponibles)
+  const monedasCotizacion = [
+    { value: 'USD', label: 'Dólares Americanos (USD)', symbol: '$' },
+    { value: 'EUR', label: 'Euros (EUR)', symbol: '€' },
+    { value: 'COP', label: 'Pesos Colombianos (COP)', symbol: '$' },
+    { value: 'VES', label: 'Bolívares (VES)', symbol: 'Bs.' },
+    { value: 'USDT', label: 'USDT', symbol: '₮' }
+  ]
+
   // Cargar tasas al iniciar
   useEffect(() => {
     fetchTasas()
@@ -296,8 +327,13 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     try {
       setLoadingTasas(true)
       const { data, error } = await supabase
-        .from('tasas_monedas')
-        .select('moneda_codigo, tasa_conversion')
+        .from('tasas_conversion')
+        .select(`
+          *,
+          moneda_origen:monedas!tasas_conversion_moneda_origen_id_fkey(codigo),
+          moneda_destino:monedas!tasas_conversion_moneda_destino_id_fkey(codigo)
+        `)
+        .eq('activa', true)
 
       if (error) {
         console.error('Error fetching rates:', error)
@@ -305,9 +341,15 @@ export default function CotizadorForm({ isAuthenticated = false }) {
       }
 
       if (data) {
+        // Crear un mapa de conversiones para acceso rápido
         const tasasMap = {}
         data.forEach(t => {
-          tasasMap[t.moneda_codigo] = t.tasa_conversion
+          const origen = t.moneda_origen?.codigo
+          const destino = t.moneda_destino?.codigo
+          if (origen && destino) {
+            if (!tasasMap[origen]) tasasMap[origen] = {}
+            tasasMap[origen][destino] = t.tasa
+          }
         })
         setTasasDb(tasasMap)
         console.log('Tasas cargadas:', tasasMap)
@@ -358,10 +400,23 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     }
   }, [metodoPago])
 
-  // Función para actualizar tasa según moneda de origen en VES
+  // Función para actualizar tasa según moneda de origen y destino
   const actualizarTasaParaVES = () => {
-    const tasa = tasasDb[monedaOrigen] || '1.0'
-    setTasaCambio(tasa)
+    if (!monedaOrigen || !moneda) {
+      setTasaCambio('1.0')
+      return
+    }
+
+    // Buscar tasa directa: origen → destino
+    let tasa = tasasDb[monedaOrigen]?.[moneda]
+
+    // Si no existe, buscar tasa inversa: destino → origen
+    if (!tasa && tasasDb[moneda]?.[monedaOrigen]) {
+      tasa = 1.0 / tasasDb[moneda][monedaOrigen]
+    }
+
+    setTasaCambio(tasa ? String(tasa) : '1.0')
+    console.log(`Tasa ${monedaOrigen} → ${moneda}:`, tasa || '1.0')
   }
 
   // Actualizar tasa cuando cambia la moneda de origen (solo para VES)
@@ -369,7 +424,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     if (moneda === 'VES' && monedaOrigen) {
       actualizarTasaParaVES()
     }
-  }, [monedaOrigen, moneda])
+  }, [monedaOrigen, moneda, tasasDb])
 
   // Actualizar tasa cuando se cambia la moneda (solo para no VES)
   useEffect(() => {
@@ -381,70 +436,72 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
   // Recalcular cuando cambian los inputs
   useEffect(() => {
-    if ((precioBase || feeEmision || feeAgencia) && tasaCambio) {
+    if ((precioBase || feeEmision || feeAgencia) && monedaPrecio && monedaCotizacion) {
       calcularCotizacion()
     }
-  }, [precioBase, feeEmision, feeAgencia, tasaCambio, metodoPago])
+  }, [precioBase, feeEmision, feeAgencia, monedaPrecio, monedaCotizacion, metodoPago])
 
-  const calcularCotizacion = () => {
+  const calcularCotizacion = async () => {
     const precio = parseFloat(precioBase) || 0
     const emision = parseFloat(feeEmision) || 0
     const agencia = parseFloat(feeAgencia) || 0
-    const tasa = parseFloat(tasaCambio) || 1
 
-    const subtotal = precio + emision + agencia
-    let totalCalculado = subtotal * tasa
-    let recargoDescripcion = ''
-    let totalConRecargo = totalCalculado
+    // Calcular base (precio + fees)
+    const base = precio + emision + agencia
 
-    // Reglas de Métodos de Pago
-    if (metodoPago === 'Scalapay') {
-      // +9.3%
-      const recargo = totalCalculado * 0.093
-      totalConRecargo = totalCalculado + recargo
-      recargoDescripcion = `+9.3% Scalapay (${formatearMonto(recargo)} ${monedas.find(m => m.value === moneda)?.symbol})`
-    } else if (metodoPago === 'Arcadia Service') {
-      // +5.6% + 10 USD (Asumiendo moneda es USD)
-      const porcentaje = totalCalculado * 0.056
-      const fijo = 10
-      totalConRecargo = totalCalculado + porcentaje + fijo
-      recargoDescripcion = `+5.6% + $10 Arcadia (${formatearMonto(porcentaje + fijo)} USD)`
-    } else if (metodoPago === 'Depósitos en dólares (BNC USD)') {
-      // +3.5% solo para Depósitos en dólares
-      const recargo = totalCalculado * 0.035
-      totalConRecargo = totalCalculado + recargo
-      const simbolo = monedas.find(m => m.value === moneda)?.symbol || '$'
-      recargoDescripcion = `+3.5% Depósito en dólares (${simbolo} ${formatearMonto(recargo)})`
+    try {
+      // Usar sistema inteligente de conversión
+      const resultado = await calcularConversionInteligente({
+        base,
+        monedaBase: monedaPrecio,
+        monedaCotizacion: monedaCotizacion,
+        metodoPago
+      })
+
+      // Actualizar estado con resultado
+      setResultadoConversion(resultado)
+      setTotal(resultado.total)
+      setTasaCambio(resultado.tasaConversion.toString())
+
+      // Mantener compatibilidad con formato legacy
+      setDesglose({
+        precioBase: precio,
+        feeEmision: emision,
+        feeAgencia: agencia,
+        subtotal: base,
+        tasaCambio: resultado.tasaConversion,
+        totalPrevio: resultado.baseConvertida,
+        recargoDescripcion: resultado.descripcionRecargos,
+        totalAntesImpuestoGobierno: resultado.baseConvertida + resultado.recargos,
+        impuestoGobierno: resultado.impuestos,
+        totalFinal: resultado.total
+      })
+
+      // Actualizar variables legacy para compatibilidad
+      setMoneda(monedaCotizacion)
+
+      console.log('✅ Cotización calculada con sistema inteligente:', resultado)
+
+    } catch (error) {
+      console.error('❌ Error en cálculo inteligente:', error)
+
+      // Fallback a cálculo simple si hay error
+      const tasa = parseFloat(tasaCambio) || 1
+      const subtotal = base * tasa
+      setTotal(subtotal)
+      setDesglose({
+        precioBase: precio,
+        feeEmision: emision,
+        feeAgencia: agencia,
+        subtotal: base,
+        tasaCambio: tasa,
+        totalPrevio: subtotal,
+        recargoDescripcion: 'Error en conversión',
+        totalAntesImpuestoGobierno: subtotal,
+        impuestoGobierno: 0,
+        totalFinal: subtotal
+      })
     }
-
-    // Impuesto gobierno Colombia: por cada 1000 COP se suman 4 COP
-    let impuestoGobierno = 0
-    const totalAntesImpuestoGobierno = totalConRecargo
-
-    if (moneda === 'COP') {
-      // Impuesto 4x1000 = 0.4% del monto total, redondeado al peso más cercano
-      impuestoGobierno = Math.round(totalConRecargo * 0.004)
-      totalConRecargo = totalConRecargo + impuestoGobierno
-    }
-
-    console.log('Impuesto gobierno (COP):', impuestoGobierno)
-    console.log('Total antes impuesto gobierno (COP):', totalAntesImpuestoGobierno)
-    console.log('Total final con impuesto gobierno (COP):', totalConRecargo)
-
-    setDesglose({
-      precioBase: precio,
-      feeEmision: emision,
-      feeAgencia: agencia,
-      subtotal: subtotal,
-      tasaCambio: tasa,
-      totalPrevio: totalCalculado, // Total antes de recargos
-      recargoDescripcion: recargoDescripcion,
-      totalAntesImpuestoGobierno,
-      impuestoGobierno,
-      totalFinal: totalConRecargo
-    })
-
-    setTotal(totalConRecargo)
   }
 
   const monedaSeleccionada = monedas.find(m => m.value === moneda)
@@ -459,12 +516,19 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   }
 
   const handleLimpiar = () => {
+    // Sistema inteligente
+    setMonedaPrecio('USD')
+    setMonedaCotizacion('USD')
+    setTasaCambio('1.0')
+    setResultadoConversion(null)
+
+    // Variables legacy
     setPrecioBase('')
     setFeeEmision('')
     setFeeAgencia('')
     setMetodoPago('')
     setMoneda('')
-    setTasaCambio('')
+    setMonedaOrigen('USD')
     setTotal(0)
     setDesglose(null)
     setFechaSalida('')
@@ -556,7 +620,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   return (
     <div className="grid lg:grid-cols-2 gap-8">
       <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
-        {/* Selector de Agencia (Relocalizado y más compacto) */}
+        {/* Selector de Agencia */}
         <div className="mb-6 pb-6 border-b border-slate-100">
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
             AGENCIA
@@ -586,8 +650,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold text-slate-800 flex items-center gap-2">
-            <DollarSign className="w-6 h-6 text-indigo-600" />
-            Datos de Cotización
+            <Calculator className="w-6 h-6 text-indigo-600" />
+            Calculadora de Cotizaciones
           </h2>
           {isAuthenticated && (
             <button
@@ -601,48 +665,102 @@ export default function CotizadorForm({ isAuthenticated = false }) {
           )}
         </div>
 
-        <div className="space-y-5">
-          <div>
-            <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-              Precio de Pantalla
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={precioBase}
-              onChange={(e) => setPrecioBase(e.target.value)}
-              placeholder="0.00"
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+        {/* Sección de Precios y Monedas */}
+        <CollapsibleSection
+          title="Precios y Monedas"
+          icon={DollarSign}
+          defaultExpanded={true}
+        >
+          <div className="space-y-4">
+            {/* Precio de Pantalla */}
             <div>
               <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                Fee Emisión
+                Precio de Pantalla
               </label>
               <input
                 type="number"
                 step="0.01"
-                value={feeEmision}
-                onChange={(e) => setFeeEmision(e.target.value)}
+                value={precioBase}
+                onChange={(e) => setPrecioBase(e.target.value)}
                 placeholder="0.00"
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               />
             </div>
+
+            {/* Selección de Moneda Base */}
             <div>
               <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                Fee Agencia
+                ¿El precio introducido está en:
               </label>
-              <input
-                type="number"
-                step="0.01"
-                value={feeAgencia}
-                onChange={(e) => setFeeAgencia(e.target.value)}
-                placeholder="0.00"
+              <select
+                value={monedaBaseSeleccionada}
+                onChange={(e) => setMonedaBaseSeleccionada(e.target.value)}
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              />
+              >
+                {monedasBase.map(moneda => (
+                  <option key={moneda.value} value={moneda.value}>
+                    {moneda.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Selección de Moneda de Cotización */}
+            <div>
+              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                ¿En qué moneda deseas cotizar?
+              </label>
+              <select
+                value={monedaCotizacionSeleccionada}
+                onChange={(e) => setMonedaCotizacionSeleccionada(e.target.value)}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              >
+                {monedasCotizacion.map(moneda => (
+                  <option key={moneda.value} value={moneda.value}>
+                    {moneda.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Fees */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                  Fee Emisión
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={feeEmision}
+                  onChange={(e) => setFeeEmision(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                  Fee Agencia
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={feeAgencia}
+                  onChange={(e) => setFeeAgencia(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                />
+              </div>
             </div>
           </div>
+        </CollapsibleSection>
+
+        {/* Sección de Tipo de Vuelo */}
+        <CollapsibleSection
+          title="Tipo de Vuelo"
+          icon={Plane}
+          defaultExpanded={true}
+        >
           <div className="grid grid-cols-3 gap-3 p-1.5 bg-slate-100 rounded-xl border border-slate-200">
             <button
               type="button"
@@ -1008,6 +1126,14 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               </label>
             </div>
           </div>
+        </CollapsibleSection>
+
+        {/* Sección de Método de Pago */}
+        <CollapsibleSection
+          title="Método de Pago"
+          icon={CreditCard}
+          defaultExpanded={true}
+        >
           <div>
             <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
               <CreditCard className="w-4 h-4" />
@@ -1058,121 +1184,30 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Euros (EUR) +9.3% recargo</p>
             )}
           </div>
+        </CollapsibleSection>
 
-          <div className="pt-4 border-t border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
-              Configuración de Moneda
-            </h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  Moneda de Cotización
-                </label>
-                {metodoPago && detectarMonedaPorMetodo(metodoPago) === 'FLEXIBLE' ? (
-                  <select
-                    value={moneda}
-                    onChange={(e) => {
-                      const nuevaMoneda = e.target.value
-                      setMoneda(nuevaMoneda)
-                      if (nuevaMoneda === 'VES') {
-                        actualizarTasaParaVES()
-                      } else {
-                        setTasaCambio('1.0')
-                      }
-                    }}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white"
-                  >
-                    <option value="">Seleccionar moneda</option>
-                    {monedas.map((mon) => (
-                      <option key={mon.value} value={mon.value}>
-                        {mon.label}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                    <div className="px-4 py-3 border border-slate-300 rounded-lg bg-gray-50">
-                      <p className="font-medium text-gray-700">
-                        {moneda ? monedas.find(m => m.value === moneda)?.label : '---'}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {moneda === 'VES'
-                          ? `Convertir desde ${monedas.find(m => m.value === monedaOrigen)?.label}`
-                          : 'Moneda directa (tasa: 1.0)'
-                        }
-                      </p>
-                    </div>
-                )}
-              </div>
-
-              {moneda === 'VES' && (
-                <div>
-                  <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
-                    <ArrowRightLeft className="w-4 h-4" />
-                    Convertir desde
-                  </label>
-                  <select
-                    value={monedaOrigen}
-                    onChange={(e) => setMonedaOrigen(e.target.value)}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white"
-                  >
-                    <option value="USD">Dólares (USD)</option>
-                    <option value="EUR">Euros (EUR)</option>
-                    <option value="COP">Pesos Colombianos (COP)</option>
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
-                  <Percent className="w-4 h-4" />
-                  {moneda === 'VES'
-                    ? `Tasa de Conversión (${monedaOrigen} → VES)`
-                    : `Tasa de Cambio (${moneda})`
-                  }
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    step="0.0001"
-                    value={tasaCambio}
-                    readOnly={true}
-                    className="flex-1 px-4 py-3 border border-slate-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed focus:ring-0"
-                    title={moneda === 'VES'
-                      ? `Tasa de ${monedaOrigen} a VES`
-                      : 'Tasa fija en 1.0'
-                    }
-                  />
-                </div>
-                {moneda === 'VES' && (
-                  <p className="text-xs text-orange-600 mt-2 ml-2">
-                    {monedaOrigen === 'USD' && '1 USD = ' + tasaCambio + ' Bs'}
-                    {monedaOrigen === 'EUR' && '1 EUR = ' + tasaCambio + ' Bs'}
-                    {monedaOrigen === 'COP' && '1 COP = ' + tasaCambio + ' Bs'}
-                  </p>
-                )}
-                {isAuthenticated && (
-                  <p className="mt-1 text-xs text-slate-500">
-                    Para cambiar las tasas, ve a la pestaña "Gestionar Tasas"
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-4 flex justify-end">
-            <button
-              type="button"
-              onClick={handleLimpiar}
-              className="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              Limpiar calculadora
-            </button>
-          </div>
+        {/* Botones de Acción */}
+        <div className="flex gap-3 pt-4 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={calcularCotizacion}
+            className="flex-1 bg-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <Calculator className="w-5 h-5" />
+            Calcular Cotización
+          </button>
+          <button
+            type="button"
+            onClick={handleLimpiar}
+            className="px-6 py-3 border border-slate-300 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+          >
+            <RefreshCw className="w-5 h-5" />
+            Limpiar
+          </button>
         </div>
       </div>
 
+      {/* Panel de Resultados */}
       <div className="space-y-6">
         <div className="sticky top-6 space-y-6">
           {/* Tarjeta elegante SOLO para el PDF (oculta visualmente, usada para generar la imagen) */}

@@ -1,6 +1,27 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.anulables (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  vuelo_id uuid,
+  pax_nombre text NOT NULL,
+  contacto_nombre text,
+  contacto_telefono text,
+  fecha_vuelo date,
+  ruta text,
+  localizador text,
+  estado_anulacion text DEFAULT 'PENDIENTE'::text CHECK (estado_anulacion = ANY (ARRAY['PENDIENTE'::text, 'ANULADO'::text, 'NO_ANULADO'::text])),
+  fecha_limite date,
+  fecha_anulacion date,
+  monto_recuperado numeric,
+  motivo_anulacion text,
+  observaciones text,
+  asignado_a uuid,
+  CONSTRAINT anulables_pkey PRIMARY KEY (id),
+  CONSTRAINT anulables_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id)
+);
 CREATE TABLE public.bookings (
   loc text NOT NULL,
   fecha_registro_venta timestamp with time zone,
@@ -243,6 +264,16 @@ CREATE TABLE public.messages (
   CONSTRAINT messages_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id),
   CONSTRAINT messages_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(id)
 );
+CREATE TABLE public.monedas (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  codigo text NOT NULL UNIQUE,
+  nombre text NOT NULL,
+  simbolo text NOT NULL,
+  activa boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT monedas_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.performance_analyses (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   analysis_name text NOT NULL,
@@ -368,7 +399,38 @@ CREATE TABLE public.tags (
   CONSTRAINT tags_pkey PRIMARY KEY (id),
   CONSTRAINT tags_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id)
 );
-CREATE TABLE public.tasas_monedas (
+CREATE TABLE public.tasas_conversion (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  moneda_origen_id uuid NOT NULL,
+  moneda_destino_id uuid NOT NULL,
+  tasa numeric NOT NULL,
+  descripcion text,
+  activa boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  actualizado_por uuid,
+  CONSTRAINT tasas_conversion_pkey PRIMARY KEY (id),
+  CONSTRAINT tasas_conversion_moneda_origen_id_fkey FOREIGN KEY (moneda_origen_id) REFERENCES public.monedas(id),
+  CONSTRAINT tasas_conversion_moneda_destino_id_fkey FOREIGN KEY (moneda_destino_id) REFERENCES public.monedas(id),
+  CONSTRAINT tasas_conversion_actualizado_por_fkey FOREIGN KEY (actualizado_por) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.tasas_historial (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  tasa_conversion_id uuid NOT NULL,
+  moneda_origen_id uuid NOT NULL,
+  moneda_destino_id uuid NOT NULL,
+  tasa_anterior numeric,
+  tasa_nueva numeric,
+  motivo text,
+  modificado_por uuid NOT NULL,
+  fecha_cambio timestamp with time zone DEFAULT now(),
+  CONSTRAINT tasas_historial_pkey PRIMARY KEY (id),
+  CONSTRAINT tasas_historial_tasa_conversion_id_fkey FOREIGN KEY (tasa_conversion_id) REFERENCES public.tasas_conversion(id),
+  CONSTRAINT tasas_historial_moneda_origen_id_fkey FOREIGN KEY (moneda_origen_id) REFERENCES public.monedas(id),
+  CONSTRAINT tasas_historial_moneda_destino_id_fkey FOREIGN KEY (moneda_destino_id) REFERENCES public.monedas(id),
+  CONSTRAINT tasas_historial_modificado_por_fkey FOREIGN KEY (modificado_por) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.tasas_monedas_deprecated (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   moneda_codigo text NOT NULL UNIQUE,
   moneda_nombre text NOT NULL,
@@ -376,8 +438,51 @@ CREATE TABLE public.tasas_monedas (
   tasa_conversion numeric NOT NULL DEFAULT 1.0,
   updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
   updated_by uuid,
-  CONSTRAINT tasas_monedas_pkey PRIMARY KEY (id),
+  CONSTRAINT tasas_monedas_deprecated_pkey PRIMARY KEY (id),
   CONSTRAINT tasas_monedas_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
+);
+CREATE TABLE public.vuelos (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  created_by uuid NOT NULL,
+  pax_nombre text NOT NULL,
+  num_adultos integer DEFAULT 0 CHECK (num_adultos >= 0),
+  num_ninos integer DEFAULT 0 CHECK (num_ninos >= 0),
+  num_infantes integer DEFAULT 0 CHECK (num_infantes >= 0),
+  contacto_nombre text NOT NULL,
+  contacto_telefono text NOT NULL,
+  fecha_vuelo date NOT NULL,
+  ruta text NOT NULL,
+  horario time without time zone,
+  aerolinea_codigo text,
+  aerolinea_nombre text,
+  localizador text NOT NULL UNIQUE,
+  proveedor text NOT NULL,
+  monto_venta numeric NOT NULL CHECK (monto_venta >= 0::numeric),
+  monto_sabre numeric CHECK (monto_sabre >= 0::numeric),
+  monto_expedia numeric CHECK (monto_expedia >= 0::numeric),
+  monto_emision numeric CHECK (monto_emision >= 0::numeric),
+  monto_fee numeric,
+  metodo_pago text,
+  tipo_vuelo text NOT NULL CHECK (tipo_vuelo = ANY (ARRAY['MIGRACION'::text, 'TURISMO'::text, 'NEGOCIOS'::text, 'OTRO'::text])),
+  requiere_anulable boolean DEFAULT false,
+  anulable_id uuid,
+  observaciones text,
+  CONSTRAINT vuelos_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.vuelos_adjuntos (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  vuelo_id uuid NOT NULL,
+  tipo_adjunto text NOT NULL CHECK (tipo_adjunto = ANY (ARRAY['COMPROBANTE_PAGO'::text, 'PASAPORTE'::text])),
+  nombre_archivo text NOT NULL,
+  url_storage text NOT NULL,
+  mime_type text,
+  tamano_bytes integer,
+  uploaded_at timestamp with time zone DEFAULT now(),
+  uploaded_by uuid NOT NULL,
+  CONSTRAINT vuelos_adjuntos_pkey PRIMARY KEY (id),
+  CONSTRAINT vuelos_adjuntos_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id)
 );
 CREATE TABLE public.webhook_events (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
