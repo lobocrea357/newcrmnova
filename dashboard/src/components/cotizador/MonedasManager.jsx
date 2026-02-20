@@ -1,13 +1,18 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { obtenerMonedas, crearMoneda } from '@/lib/tasasHelpers'
+import { obtenerMonedas, crearMoneda, actualizarMoneda, eliminarMoneda } from '@/lib/tasasHelpers'
 import { Plus, Trash2, RefreshCw } from 'lucide-react'
 import { useUserProfile } from '@/hooks/useUserProfile'
+import Swal from 'sweetalert2'
+import toast from 'react-hot-toast'
+import EditableCell from '@/components/ui/EditableCell'
+import { useDebouncedCallback, useLoadingAlert } from '@/hooks/useDebounce'
 
 export default function MonedasManager() {
   const { user } = useAuth()
   const { profile, isAdmin } = useUserProfile()
+  const { showLoadingAlert, closeLoadingAlert } = useLoadingAlert()
   const [monedas, setMonedas] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -28,27 +33,95 @@ export default function MonedasManager() {
       setMonedas(data)
     } catch (error) {
       console.error('Error fetching monedas:', error)
-      alert('Error al cargar monedas: ' + error.message)
+      toast.error('Error al cargar monedas: ' + error.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleUpdate = async (id, field, value) => {
+    // Actualizar estado local inmediatamente
+    setMonedas(prev => prev.map(moneda =>
+      moneda.id === id ? { ...moneda, [field]: value } : moneda
+    ))
+
+    // Mostrar SweetAlert con spinner INMEDIATAMENTE (sin debounce)
+    showLoadingAlert('Actualizando moneda...', 'Guardando cambios en la base de datos...')
+
+    try {
+      const moneda = monedas.find(m => m.id === id)
+      if (!moneda) return
+
+      await actualizarMoneda(id, moneda.codigo, moneda.nombre, moneda.simbolo)
+      await fetchMonedas() // Refrescar datos
+
+      closeLoadingAlert()
+      toast.success('Moneda actualizada correctamente')
+    } catch (error) {
+      closeLoadingAlert()
+      console.error('Error updating moneda:', error)
+      toast.error('Error al actualizar moneda: ' + error.message)
+
+      // Revertir valor original
+      setMonedas(prev => prev.map(moneda => {
+        if (moneda.id === id) {
+          const originalMoneda = monedas.find(m => m.id === id)
+          return originalMoneda || moneda
+        }
+        return moneda
+      }))
+    }
+  }
+
+  const handleDelete = async (id) => {
+    const moneda = monedas.find(m => m.id === id)
+    if (!moneda) return
+
+    const result = await Swal.fire({
+      title: '¿Eliminar moneda?',
+      html: `Estás por eliminar <strong>${moneda.codigo} - ${moneda.nombre}</strong><br><br>Esto también eliminará todas las tasas de conversión asociadas.<br><span class="text-red-600">Esta acción no se puede deshacer.</span>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true
+    })
+
+    if (result.isConfirmed) {
+      try {
+        await eliminarMoneda(id)
+        toast.success('Moneda eliminada correctamente')
+        await fetchMonedas()
+      } catch (error) {
+        console.error('Error deleting moneda:', error)
+        toast.error('Error al eliminar moneda: ' + error.message)
+      }
     }
   }
 
   const handleAdd = async (e) => {
     e.preventDefault()
     if (!newMoneda.codigo || !newMoneda.nombre || !newMoneda.simbolo) {
-      alert('Por favor complete todos los campos')
+      toast.error('Por favor complete todos los campos')
       return
     }
 
+    // Mostrar SweetAlert con spinner inmediatamente
+    showLoadingAlert('Creando moneda...', 'Guardando nueva moneda en la base de datos...')
+
     try {
       await crearMoneda(newMoneda.codigo, newMoneda.nombre, newMoneda.simbolo)
+      closeLoadingAlert()
+      toast.success('Moneda creada correctamente')
       setNewMoneda({ codigo: '', nombre: '', simbolo: '' })
       setShowForm(false)
       fetchMonedas()
     } catch (error) {
+      closeLoadingAlert()
       console.error('Error adding moneda:', error)
-      alert('Error al agregar moneda: ' + error.message)
+      toast.error('Error al agregar moneda: ' + error.message)
     }
   }
 
@@ -154,21 +227,36 @@ export default function MonedasManager() {
               <th className="text-left py-3 px-4 font-semibold text-slate-900">Símbolo</th>
               <th className="text-left py-3 px-4 font-semibold text-slate-900">Estado</th>
               <th className="text-left py-3 px-4 font-semibold text-slate-900">Creada</th>
+              <th className="text-left py-3 px-4 font-semibold text-slate-900">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {monedas.map((moneda) => (
               <tr key={moneda.id} className="border-b border-slate-100 hover:bg-slate-50">
                 <td className="py-3 px-4">
-                  <span className="font-mono font-semibold text-slate-900">
-                    {moneda.codigo}
-                  </span>
+                  <EditableCell
+                    value={moneda.codigo}
+                    onSave={(value) => handleUpdate(moneda.id, 'codigo', value.toUpperCase())}
+                    placeholder="USD"
+                    className="font-mono font-semibold"
+                    maxLength={3}
+                  />
                 </td>
-                <td className="py-3 px-4 text-slate-700">{moneda.nombre}</td>
                 <td className="py-3 px-4">
-                  <span className="text-lg font-semibold text-slate-900">
-                    {moneda.simbolo}
-                  </span>
+                  <EditableCell
+                    value={moneda.nombre}
+                    onSave={(value) => handleUpdate(moneda.id, 'nombre', value)}
+                    placeholder="Nombre completo"
+                  />
+                </td>
+                <td className="py-3 px-4">
+                  <EditableCell
+                    value={moneda.simbolo}
+                    onSave={(value) => handleUpdate(moneda.id, 'simbolo', value)}
+                    placeholder="$"
+                    className="text-lg font-semibold"
+                    maxLength={3}
+                  />
                 </td>
                 <td className="py-3 px-4">
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -181,6 +269,15 @@ export default function MonedasManager() {
                 </td>
                 <td className="py-3 px-4 text-sm text-slate-600">
                   {new Date(moneda.created_at).toLocaleDateString()}
+                </td>
+                <td className="py-3 px-4">
+                  <button
+                    onClick={() => handleDelete(moneda.id)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Eliminar moneda"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </td>
               </tr>
             ))}

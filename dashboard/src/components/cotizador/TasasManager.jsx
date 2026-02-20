@@ -5,10 +5,15 @@ import { obtenerMonedas, obtenerTasasConversion, crearConversion, actualizarTasa
 import { Plus, Trash2, RefreshCw, History } from 'lucide-react'
 import HistorialTasas from './HistorialTasas'
 import { useUserProfile } from '@/hooks/useUserProfile'
+import { useLoadingAlert } from '@/hooks/useDebounce'
+import Swal from 'sweetalert2'
+import toast from 'react-hot-toast'
+import EditableCell from '@/components/ui/EditableCell'
 
 export default function TasasManager() {
   const { user } = useAuth()
   const { profile, isAdmin } = useUserProfile()
+  const { showLoadingAlert, closeLoadingAlert } = useLoadingAlert()
   const [tasas, setTasas] = useState([])
   const [monedas, setMonedas] = useState([])
   const [loading, setLoading] = useState(true)
@@ -35,45 +40,84 @@ export default function TasasManager() {
       setTasas(tasasData)
     } catch (error) {
       console.error('Error fetching data:', error)
-      alert('Error al cargar datos: ' + error.message)
+      toast.error('Error al cargar datos: ' + error.message)
     } finally {
       setLoading(false)
     }
   }
 
   const handleUpdateTasa = async (id, nuevaTasa) => {
+    // Actualizar estado local inmediatamente
+    setTasas(prev => prev.map(tasa =>
+      tasa.id === id ? { ...tasa, tasa: parseFloat(nuevaTasa) } : tasa
+    ))
+
+    // Mostrar SweetAlert con spinner INMEDIATAMENTE (sin debounce)
+    showLoadingAlert('Actualizando tasa...', 'Guardando cambios en la base de datos...')
+
     try {
       await actualizarTasa(id, nuevaTasa, profile?.id)
+      closeLoadingAlert()
+      toast.success('Tasa actualizada correctamente')
       await fetchData()
     } catch (error) {
+      closeLoadingAlert()
       console.error('Error updating rate:', error)
-      alert('Error al actualizar: ' + error.message)
+      toast.error('Error al actualizar: ' + error.message)
+
+      // Revertir valor original
+      setTasas(prev => prev.map(tasa => {
+        if (tasa.id === id) {
+          const originalTasa = tasas.find(t => t.id === id)
+          return originalTasa || tasa
+        }
+        return tasa
+      }))
     }
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar esta conversión?')) return
+    const tasa = tasas.find(t => t.id === id)
+    if (!tasa) return
 
-    try {
-      await eliminarConversion(id, profile?.id)
-      setTasas(tasas.filter(t => t.id !== id))
-    } catch (error) {
-      console.error('Error deleting rate:', error)
-      alert('Error al eliminar: ' + error.message)
+    const result = await Swal.fire({
+      title: '¿Eliminar tasa de conversión?',
+      html: `Estás por eliminar <strong>${tasa.moneda_origen?.codigo} → ${tasa.moneda_destino?.codigo}</strong><br><span class="text-red-600">Esta acción no se puede deshacer.</span>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true
+    })
+
+    if (result.isConfirmed) {
+      try {
+        await eliminarConversion(id, profile?.id)
+        toast.success('Tasa eliminada correctamente')
+        setTasas(tasas.filter(t => t.id !== id))
+      } catch (error) {
+        console.error('Error deleting rate:', error)
+        toast.error('Error al eliminar: ' + error.message)
+      }
     }
   }
 
   const handleAdd = async (e) => {
     e.preventDefault()
     if (!newConversion.monedaOrigenId || !newConversion.monedaDestinoId || !newConversion.tasa) {
-      alert('Por favor completa todos los campos')
+      toast.error('Por favor completa todos los campos')
       return
     }
 
     if (newConversion.monedaOrigenId === newConversion.monedaDestinoId) {
-      alert('No puedes crear una conversión de una moneda a sí misma')
+      toast.error('No puedes crear una conversión de una moneda a sí misma')
       return
     }
+
+    // Mostrar SweetAlert con spinner inmediatamente
+    showLoadingAlert('Creando conversión...', 'Guardando nueva tasa de conversión...')
 
     try {
       const origen = monedas.find(m => m.id === newConversion.monedaOrigenId)
@@ -88,11 +132,14 @@ export default function TasasManager() {
         profile?.id
       )
       
+      closeLoadingAlert()
+      toast.success('Conversión creada correctamente')
       await fetchData()
       setNewConversion({ monedaOrigenId: '', monedaDestinoId: '', tasa: '' })
     } catch (error) {
+      closeLoadingAlert()
       console.error('Error adding conversion:', error)
-      alert('Error al agregar conversión: ' + error.message)
+      toast.error('Error al agregar conversión: ' + error.message)
     }
   }
 
@@ -196,12 +243,13 @@ export default function TasasManager() {
                   {tasa.descripcion}
                 </td>
                 <td className="px-4 py-3 font-bold text-indigo-600">
-                  <input
+                  <EditableCell
+                    value={tasa.tasa.toString()}
+                    onSave={(value) => handleUpdateTasa(tasa.id, value)}
+                    placeholder="0.0000"
                     type="number"
                     step="0.0001"
-                    defaultValue={tasa.tasa}
-                    className="bg-transparent border border-transparent hover:border-gray-200 focus:border-indigo-500 rounded px-2 py-1 w-32"
-                    onBlur={(e) => handleUpdateTasa(tasa.id, parseFloat(e.target.value))}
+                    className="w-32 text-right"
                   />
                 </td>
                 <td className="px-4 py-3 text-right">

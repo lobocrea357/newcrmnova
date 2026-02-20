@@ -166,7 +166,20 @@ class TasasService {
         motivo
       );
 
-      // 3. Eliminar conversión
+      // 3. Eliminar historial asociado PRIMERO (respetar llave foránea)
+      console.log(`[TasasService] Eliminando historial asociado`);
+      const { error: errorHistorial } = await supabase
+        .from('tasas_historial')
+        .delete()
+        .eq('tasa_conversion_id', id);
+
+      if (errorHistorial) {
+        console.error('[TasasService] Error eliminando historial:', errorHistorial);
+        // No lanzar error, continuar con eliminación principal
+      }
+
+      // 4. Eliminar conversión
+      console.log(`[TasasService] Eliminando conversión principal`);
       const { error: errorDelete } = await supabase
         .from('tasas_conversion')
         .delete()
@@ -243,6 +256,114 @@ class TasasService {
 
     } catch (error) {
       console.error('[TasasService] Error en crearMoneda:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Actualizar moneda existente
+   */
+  async actualizarMoneda(id, codigo, nombre, simbolo) {
+    try {
+      console.log(`[TasasService] Actualizando moneda ${id}`);
+
+      const { data, error } = await supabase
+        .from('monedas')
+        .update({
+          codigo: codigo.toUpperCase(),
+          nombre,
+          simbolo,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[TasasService] Error actualizando moneda:', error);
+        throw error;
+      }
+
+      return data;
+
+    } catch (error) {
+      console.error('[TasasService] Error en actualizarMoneda:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Eliminar moneda con eliminación en cascada
+   */
+  async eliminarMoneda(id) {
+    try {
+      console.log(`[TasasService] Eliminando moneda ${id} con cascada`);
+
+      // 1. Obtener tasas de conversión asociadas
+      const { data: tasasAsociadas, error: errorTasas } = await supabase
+        .from('tasas_conversion')
+        .select('id')
+        .or(`moneda_origen_id.eq.${id},moneda_destino_id.eq.${id}`);
+
+      if (errorTasas) {
+        console.error('[TasasService] Error obteniendo tasas asociadas:', errorTasas);
+        throw errorTasas;
+      }
+
+      // 2. Eliminar historial de tasas asociadas PRIMERO
+      if (tasasAsociadas && tasasAsociadas.length > 0) {
+        console.log(`[TasasService] Eliminando historial de ${tasasAsociadas.length} tasas asociadas`);
+        
+        const tasaIds = tasasAsociadas.map(t => t.id);
+        
+        const { error: errorHistorial } = await supabase
+          .from('tasas_historial')
+          .delete()
+          .in('tasa_conversion_id', tasaIds);
+
+        if (errorHistorial) {
+          console.error('[TasasService] Error eliminando historial en cascada:', errorHistorial);
+          // Continuar aunque falle el historial
+        }
+      }
+
+      // 3. Eliminar tasas de conversión asociadas
+      if (tasasAsociadas && tasasAsociadas.length > 0) {
+        console.log(`[TasasService] Eliminando ${tasasAsociadas.length} tasas de conversión asociadas`);
+        
+        const { error: errorTasasDelete } = await supabase
+          .from('tasas_conversion')
+          .delete()
+          .or(`moneda_origen_id.eq.${id},moneda_destino_id.eq.${id}`);
+
+        if (errorTasasDelete) {
+          console.error('[TasasService] Error eliminando tasas en cascada:', errorTasasDelete);
+          throw errorTasasDelete;
+        }
+      }
+
+      // 4. Desactivar moneda
+      console.log(`[TasasService] Desactivando moneda principal`);
+      const { data, error } = await supabase
+        .from('monedas')
+        .update({ 
+          activa: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[TasasService] Error desactivando moneda:', error);
+        throw error;
+      }
+
+      console.log(`[TasasService] Moneda eliminada exitosamente con ${tasasAsociadas?.length || 0} tasas asociadas`);
+      return data;
+
+    } catch (error) {
+      console.error('[TasasService] Error en eliminarMoneda:', error);
       throw error;
     }
   }

@@ -318,6 +318,21 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     { value: 'USDT', label: 'USDT', symbol: '₮' }
   ]
 
+  // Filtrar métodos de pago según moneda de cotización
+  const metodosPagoFiltrados = monedaCotizacionSeleccionada
+    ? (metodosPorMoneda[monedaCotizacionSeleccionada] || [])
+    : []
+
+  // Limpiar método de pago si no está disponible para la moneda seleccionada
+  useEffect(() => {
+    if (monedaCotizacionSeleccionada && metodoPago) {
+      const metodosDisponibles = metodosPorMoneda[monedaCotizacionSeleccionada] || []
+      if (!metodosDisponibles.includes(metodoPago)) {
+        setMetodoPago('')
+      }
+    }
+  }, [monedaCotizacionSeleccionada])
+
   // Cargar tasas al iniciar
   useEffect(() => {
     fetchTasas()
@@ -434,6 +449,15 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     }
   }, [moneda])
 
+  // Sincronizar variables de moneda nuevas con las del sistema inteligente
+  useEffect(() => {
+    setMonedaPrecio(monedaBaseSeleccionada)
+  }, [monedaBaseSeleccionada])
+
+  useEffect(() => {
+    setMonedaCotizacion(monedaCotizacionSeleccionada)
+  }, [monedaCotizacionSeleccionada])
+
   // Recalcular cuando cambian los inputs
   useEffect(() => {
     if ((precioBase || feeEmision || feeAgencia) && monedaPrecio && monedaCotizacion) {
@@ -521,6 +545,10 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     setMonedaCotizacion('USD')
     setTasaCambio('1.0')
     setResultadoConversion(null)
+
+    // Variables nuevas
+    setMonedaBaseSeleccionada('USD')
+    setMonedaCotizacionSeleccionada('COP')
 
     // Variables legacy
     setPrecioBase('')
@@ -752,6 +780,74 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                 />
               </div>
             </div>
+          </div>
+        </CollapsibleSection>
+
+        {/* Sección de Método de Pago */}
+        <CollapsibleSection
+          title="Método de Pago"
+          icon={CreditCard}
+          defaultExpanded={true}
+        >
+          <div>
+            <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
+              <CreditCard className="w-4 h-4" />
+              Método de Pago
+            </label>
+            <select
+              value={metodoPago}
+              onChange={(e) => setMetodoPago(e.target.value)}
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white"
+              disabled={!monedaCotizacionSeleccionada}
+            >
+              <option value="">
+                {monedaCotizacionSeleccionada
+                  ? 'Seleccionar método'
+                  : 'Primero selecciona una moneda de cotización'}
+              </option>
+              {metodosPagoFiltrados.map((metodo) => (
+                <option key={metodo} value={metodo}>
+                  {metodo}
+                </option>
+              ))}
+            </select>
+            {!monedaCotizacionSeleccionada && (
+              <p className="text-xs text-amber-600 mt-1 ml-2 font-medium">
+                💡 Selecciona primero la moneda de cotización para ver los métodos de pago disponibles
+              </p>
+            )}
+            {metodoPago === 'Depósitos en dólares (BNC USD)' && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">
+                Cotización en USD (+3.5% comisión depósito)
+              </p>
+            )}
+            {metodoPago === 'Arcadia Service' && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en USD (+5.6% + $10)</p>
+            )}
+            {metodoPago === 'BNC - Transferencia en Bs' && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Bolívares (VES)</p>
+            )}
+            {metodoPago === 'Pago móvil' && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Bolívares (VES)</p>
+            )}
+            {metodoPago === 'Depósito oficina Venezuela (efectivo)' && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Pago en efectivo USD - Seleccione moneda de cotización</p>
+            )}
+            {(metodoPago === 'Davivienda' || metodoPago === 'Bancacolombia' || metodoPago === 'Depósito oficina Colombia (efectivo)') && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Pesos Colombianos (COP)</p>
+            )}
+            {(metodoPago === 'Cuenta en Euros' || metodoPago === 'Depósito oficina Europa (efectivo)' || metodoPago === 'Bizum (España)') && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Euros (EUR)</p>
+            )}
+            {(metodoPago === 'Zelle' || metodoPago === 'Banesco Panamá (ViajesNova)' || metodoPago === 'Chase Bank (Estados Unidos)') && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Dólares (USD)</p>
+            )}
+            {metodoPago === 'Binance (USDT)' && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en USDT</p>
+            )}
+            {metodoPago === 'Scalapay' && (
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Euros (EUR) +9.3% recargo</p>
+            )}
           </div>
         </CollapsibleSection>
 
@@ -1125,64 +1221,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                 </div>
               </label>
             </div>
-          </div>
-        </CollapsibleSection>
-
-        {/* Sección de Método de Pago */}
-        <CollapsibleSection
-          title="Método de Pago"
-          icon={CreditCard}
-          defaultExpanded={true}
-        >
-          <div>
-            <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
-              <CreditCard className="w-4 h-4" />
-              Método de Pago
-            </label>
-            <select
-              value={metodoPago}
-              onChange={(e) => setMetodoPago(e.target.value)}
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white"
-            >
-              <option value="">Seleccionar método</option>
-              {metodosPago.map((metodo) => (
-                <option key={metodo} value={metodo}>
-                  {metodo}
-                </option>
-              ))}
-            </select>
-            {metodoPago === 'Depósitos en dólares (BNC USD)' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">
-                Cotización en USD (+3.5% comisión depósito)
-              </p>
-            )}
-            {metodoPago === 'Arcadia Service' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en USD (+5.6% + $10)</p>
-            )}
-            {metodoPago === 'BNC - Transferencia en Bs' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Bolívares (VES)</p>
-            )}
-            {metodoPago === 'Pago móvil' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Bolívares (VES)</p>
-            )}
-            {metodoPago === 'Depósito oficina Venezuela (efectivo)' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Pago en efectivo USD - Seleccione moneda de cotización</p>
-            )}
-            {(metodoPago === 'Davivienda' || metodoPago === 'Bancacolombia' || metodoPago === 'Depósito oficina Colombia (efectivo)') && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Pesos Colombianos (COP)</p>
-            )}
-            {(metodoPago === 'Cuenta en Euros' || metodoPago === 'Depósito oficina Europa (efectivo)' || metodoPago === 'Bizum (España)') && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Euros (EUR)</p>
-            )}
-            {(metodoPago === 'Zelle' || metodoPago === 'Banesco Panamá (ViajesNova)' || metodoPago === 'Chase Bank (Estados Unidos)') && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Dólares (USD)</p>
-            )}
-            {metodoPago === 'Binance (USDT)' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en USDT</p>
-            )}
-            {metodoPago === 'Scalapay' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Euros (EUR) +9.3% recargo</p>
-            )}
           </div>
         </CollapsibleSection>
 

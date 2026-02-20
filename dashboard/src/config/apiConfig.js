@@ -52,7 +52,9 @@ export const TASAS_API = {
   crear: buildApiUrl('/api/tasas/crear'),
   actualizar: buildApiUrl('/api/tasas/actualizar'),
   eliminar: (id) => buildApiUrl(`/api/tasas/eliminar/${id}`),
-  crearMoneda: buildApiUrl('/api/tasas/crear-moneda')
+  crearMoneda: buildApiUrl('/api/tasas/crear-moneda'),
+  actualizarMoneda: buildApiUrl('/api/tasas/actualizar-moneda'),
+  eliminarMoneda: (id) => buildApiUrl(`/api/tasas/eliminar-moneda/${id}`)
 }
 
 console.log('🔧 API Config:', {

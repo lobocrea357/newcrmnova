@@ -8,15 +8,7 @@ import { obtenerTasa } from './tasasHelpers'
 // Monedas base para precios
 const MONEDAS_BASE = ['USD', 'EUR']
 
-// Impuestos especiales por país
-const IMPUESTOS_PAIS = {
-  'COP': 0.19, // 19% IVA Colombia
-  'VES': 0.16, // 16% IVA Venezuela (si aplica)
-  'EUR': 0.21, // 21% IVA España
-  'GBP': 0.20, // 20% VAT UK
-  'CAD': 0.05, // 5% GST Canada
-  'AUD': 0.10, // 10% GST Australia
-}
+// Nota: Solo COP tiene impuesto 4x1000 aplicado DESPUÉS de recargos
 
 /**
  * Obtener tasa de conversión entre monedas
@@ -71,17 +63,7 @@ export async function calcularConversionInteligente({
     // 2. Calcular monto en moneda de cotización
     let montoConvertido = base * tasaConversion
     
-    // 3. Aplicar impuestos según país si aplica
-    let impuestos = 0
-    let descripcionImpuestos = ''
-    
-    if (IMPUESTOS_PAIS[monedaCotizacion]) {
-      impuestos = montoConvertido * IMPUESTOS_PAIS[monedaCotizacion]
-      descripcionImpuestos = `+${(IMPUESTOS_PAIS[monedaCotizacion] * 100).toFixed(1)}% Impuestos ${monedaCotizacion}`
-      montoConvertido += impuestos
-    }
-    
-    // 4. Aplicar recargos específicos por método de pago
+    // 3. Aplicar recargos específicos por método de pago
     let recargos = 0
     let descripcionRecargos = ''
     
@@ -99,6 +81,17 @@ export async function calcularConversionInteligente({
       recargos = montoConvertido * 0.035 // 3.5%
       descripcionRecargos = `+3.5% Depósito en dólares`
       montoConvertido += recargos
+    }
+    
+    // 4. Aplicar impuesto 4x1000 SOLO para COP (DESPUÉS de recargos)
+    let impuestos = 0
+    let descripcionImpuestos = ''
+    
+    if (monedaCotizacion === 'COP') {
+      // Impuesto 4x1000 = 0.4% del monto total, redondeado al peso más cercano
+      impuestos = Math.round(montoConvertido * 0.004)
+      descripcionImpuestos = `Impuesto gobierno (4 COP por cada 1000)`
+      montoConvertido += impuestos
     }
     
     // 5. Retornar resultado completo
@@ -139,7 +132,8 @@ export async function calcularConversionInteligente({
         concepto: 'Impuestos',
         monto: impuestos,
         moneda: monedaCotizacion,
-        porcentaje: IMPUESTOS_PAIS[monedaCotizacion] * 100
+        porcentaje: 0.4,
+        descripcion: '4 COP por cada 1000'
       })
     }
     

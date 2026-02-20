@@ -134,6 +134,68 @@ router.post('/crear-moneda', async (req, res) => {
   }
 });
 
+/**
+ * PUT /api/tasas/actualizar-moneda
+ * Actualizar moneda existente
+ */
+router.put('/actualizar-moneda', async (req, res) => {
+  try {
+    const { id, codigo, nombre, simbolo } = req.body;
+
+    if (!id || !codigo || !nombre || !simbolo) {
+      return res.status(400).json({ 
+        error: 'Faltan parámetros requeridos: id, codigo, nombre, simbolo' 
+      });
+    }
+
+    const updated = await tasasService.actualizarMoneda(id, codigo, nombre, simbolo);
+
+    res.json({ 
+      success: true, 
+      data: updated,
+      message: 'Moneda actualizada exitosamente'
+    });
+
+  } catch (error) {
+    console.error('[Tasas API] Error actualizando moneda:', error);
+    res.status(500).json({ 
+      error: error.message || 'Error al actualizar moneda',
+      details: error.toString()
+    });
+  }
+});
+
+/**
+ * DELETE /api/tasas/eliminar-moneda/:id
+ * Eliminar (desactivar) moneda
+ */
+router.delete('/eliminar-moneda/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ 
+        error: 'Falta parámetro requerido: id' 
+      });
+    }
+
+    const deleted = await tasasService.eliminarMoneda(id);
+
+    res.json({ 
+      success: true, 
+      data: deleted,
+      message: 'Moneda desactivada exitosamente'
+    });
+
+  } catch (error) {
+    console.error('[Tasas API] Error eliminando moneda:', error);
+    res.status(500).json({ 
+      error: error.message || 'Error al eliminar moneda',
+      details: error.toString()
+    });
+  }
+});
+
 // Endpoint temporal para obtener monedas (debug)
 router.get('/monedas-debug', async (req, res) => {
   try {
