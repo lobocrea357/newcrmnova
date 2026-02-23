@@ -1,16 +1,62 @@
-# Dashboard CRM WhatsApp
+# 📚 Documentación del Dashboard
 
-Dashboard web para gestión de bots de WhatsApp utilizando WAHA (WhatsApp HTTP API) y Supabase.
+Esta carpeta contiene toda la documentación específica del frontend del Dashboard CRM WhatsApp, desarrollado con Next.js.
 
-## 🚀 Características
+## 🗂️ Estructura de Documentación
 
-- **Autenticación**: Sistema de login con Supabase Auth
-- **Gestión de Workers**: Visualización de trabajadores y sus bots asignados
-- **Gestión de Bots**: Monitoreo de sesiones de WhatsApp
-- **Conversaciones**: Vista detallada de chats y mensajes
-- **Multimedia**: Soporte para imágenes, videos, audios y documentos
-- **Tiempo Real**: Actualización automática de mensajes con Supabase Realtime
-- **Roles y Permisos**: Sistema de permisos basado en roles (admin, worker, viewer)
+### **01-instalacion/** - Configuración del Dashboard
+- `CREATE_USER.md` - Creación de usuarios en Supabase
+- `INSTALL_DEPENDENCIES.md` - Instalación de dependencias
+- `PRODUCCION_BUILD.md` - Build para producción
+
+### **02-configuracion/** - Configuración Específica
+- Configuración de variables de entorno
+- Configuración de Supabase para el dashboard
+- Configuración de autenticación
+
+### **03-analisis-ia/** - Análisis con IA
+- Documentación sobre análisis de conversaciones
+- Configuración de IA para el dashboard
+
+### **03-caracteristicas** - Características del Frontend
+- Funcionalidades específicas del dashboard
+- Componentes UI y sus características
+
+### **03-estados/** - Gestión de Estados
+- Documentación sobre estado de la aplicación
+- Gestión de estado global
+
+### **04-base-de-datos/** - Base de Datos del Dashboard
+- `scripts/` - Scripts SQL para el dashboard
+- `emergency/` - Scripts de emergencia
+
+### **05-legacy/** - Documentación Heredada
+- Documentación antigua del dashboard
+- Archivos obsoletos pero referenciales
+
+### **05-ventas/** - Módulo de Ventas
+- `CREATE_COTIZACIONES_TABLE.sql` - Tabla de cotizaciones
+- `SALES_DATABASE_MIGRATION.sql` - Migración de ventas
+- `SQL_ADD_REPORT_DATA_FIELD.sql` - Campos adicionales
+
+### **06-scripts/** - Scripts del Dashboard
+- Scripts de instalación y verificación
+
+### **07-finanzas** - Módulo Financiero
+- Sistema de cotización y monedas
+- Gestión de tasas de cambio
+
+### **07-modulos/** - Módulos Específicos
+- `BLUEPRINT_SISTEMA_COMPLETO_VUELOS.md` - Sistema de vuelos
+- `PLAN_RENDIMIENTO.md` - Plan de rendimiento
+- `SISTEMA_COTIZADOR_COMPLETO.md` - Cotizador completo
+
+## 📄 Documentación Principal
+
+- `AUTENTICACION_COMPLETA.md` - Sistema completo de autenticación
+- `DASHBOARD_SETUP.md` - Configuración completa del dashboard
+- `DOCKER_DASHBOARD.md` - Docker para el dashboard
+- `README.md` - Este archivo
 
 ## 📋 Requisitos Previos
 

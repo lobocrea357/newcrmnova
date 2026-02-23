@@ -80,7 +80,7 @@ cp .env.example .env
 nano .env
 
 # 2. Configurar base de datos en Supabase
-# Ejecutar SCHEMA_COMPLETO_LIMPIO.sql en Supabase SQL Editor
+# Ejecutar esquemalocal.sql en Supabase SQL Editor
 
 # 3. Iniciar todos los servicios
 docker-compose up -d
@@ -105,7 +105,7 @@ npm install
 
 1. Ve a tu proyecto en Supabase
 2. Abre el SQL Editor
-3. Ejecuta el contenido del archivo `supabase-schema.sql`
+3. Ejecuta el contenido del archivo `esquemalocal.sql`
 4. Verifica que todas las tablas se hayan creado correctamente
 
 ### 3. Configurar variables de entorno

@@ -20,7 +20,7 @@ Asegúrate de tener:
 ### 1.2 Ejecutar el Schema
 
 1. En tu proyecto de Supabase, ve a **SQL Editor**
-2. Abre el archivo `SCHEMA_COMPLETO_LIMPIO.sql` de este repositorio
+2. Abre el archivo `docs/05-base-de-datos/esquemalocal.sql` de este repositorio
 3. Copia todo el contenido
 4. Pégalo en el SQL Editor de Supabase
 5. Haz clic en **Run** (▶️)
@@ -198,8 +198,9 @@ Ahora que tu CRM está funcionando, puedes:
 
 ## 📚 Documentación Adicional
 
-- 📖 [ARQUITECTURA.md](./ARQUITECTURA.md) - Entiende cómo funciona el sistema
-- 🔧 [README.md](./README.md) - Documentación completa
+- 📖 [docs/README.md](./docs/README.md) - Centro de documentación completo
+- 🏗️ [docs/02-arquitectura/ARQUITECTURA.md](./docs/02-arquitectura/ARQUITECTURA.md) - Entiende cómo funciona el sistema
+- 🔧 [docs/01-instalacion/README.md](./docs/01-instalacion/README.md) - Guía de instalación completa
 - 🐳 [DOCKER-GUIDE.md](./DOCKER-GUIDE.md) - Guía avanzada de Docker
 - 🚀 [DEPLOY_VPS.md](./DEPLOY_VPS.md) - Despliegue en producción
 

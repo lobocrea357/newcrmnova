@@ -923,7 +923,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en USDT</p>
             )}
             {metodoPago === 'Scalapay' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Euros (EUR) +9.3% recargo</p>
+              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Euros (EUR) +10.5% recargo</p>
             )}
           </div>
         </CollapsibleSection>

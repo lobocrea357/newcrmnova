@@ -39,7 +39,7 @@ Un **CRM completo para WhatsApp** que funciona con Docker. Todo se inicia con un
 ```bash
 1. Crear cuenta en supabase.com
 2. Crear nuevo proyecto
-3. Ejecutar SCHEMA_COMPLETO_LIMPIO.sql en SQL Editor
+3. Ejecutar docs/05-base-de-datos/esquemalocal.sql en SQL Editor
 4. Copiar credenciales (URL, Service Role Key, Anon Key)
 ```
 
@@ -74,10 +74,10 @@ docker-compose up -d
 
 | Archivo | Descripción |
 |---------|-------------|
-| **INICIO-RAPIDO.md** | Guía paso a paso detallada (10 min) |
-| **RESUMEN-ARQUITECTURA.md** | Resumen técnico de la arquitectura |
-| **ARQUITECTURA.md** | Documentación completa del sistema |
-| **README.md** | Documentación general y API |
+| **docs/README.md** | Centro de documentación completo |
+| **docs/01-instalacion/INICIO-RAPIDO.md** | Guía paso a paso detallada (10 min) |
+| **docs/02-arquitectura/ARQUITECTURA.md** | Documentación completa del sistema |
+| **GUIA-RAPIDA.md** | Guía rápida de instalación y uso |
 | **.env.example** | Todas las variables de entorno explicadas |
 
 ## 🔑 Variables Críticas en .env
@@ -190,9 +190,9 @@ docker-compose restart nombre-servicio
 ## 📞 Soporte
 
 Si tienes problemas:
-1. Lee **INICIO-RAPIDO.md** para guía detallada
-2. Revisa **ARQUITECTURA.md** para entender el sistema
-3. Consulta **TROUBLESHOOTING.md** para problemas comunes
+1. Lee **docs/01-instalacion/INICIO-RAPIDO.md** para guía detallada
+2. Revisa **docs/02-arquitectura/ARQUITECTURA.md** para entender el sistema
+3. Consulta **docs/06-mantenimiento/TROUBLESHOOTING.md** para problemas comunes
 4. Revisa los logs: `docker-compose logs -f`
 
 ## 🎓 Conceptos Clave
@@ -227,4 +227,4 @@ nano .env
 
 ---
 
-📖 **Siguiente paso**: Lee [INICIO-RAPIDO.md](./INICIO-RAPIDO.md) para una guía detallada paso a paso.
+📖 **Siguiente paso**: Lee [docs/01-instalacion/INICIO-RAPIDO.md](./docs/01-instalacion/INICIO-RAPIDO.md) para una guía detallada paso a paso.

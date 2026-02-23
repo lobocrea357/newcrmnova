@@ -6,7 +6,7 @@ Esta guía te muestra cómo levantar todo el sistema CRM WhatsApp con un solo co
 
 1. **Docker Desktop** instalado y corriendo
 2. **Archivo `.env`** configurado con tus credenciales de Supabase
-3. **Base de datos en Supabase** creada con el schema (`supabase-schema.sql`)
+3. **Base de datos en Supabase** creada con el schema (`docs/05-base-de-datos/esquemalocal.sql`)
 
 ## 🚀 Inicio Rápido
 
@@ -23,7 +23,7 @@ Si aún no lo has hecho:
 
 1. Ve a [Supabase](https://supabase.com) y abre tu proyecto
 2. Ve a **SQL Editor**
-3. Ejecuta el contenido de `supabase-schema.sql`
+3. Ejecuta el contenido de `docs/05-base-de-datos/esquemalocal.sql`
 
 ### 3. Levantar todos los servicios
 

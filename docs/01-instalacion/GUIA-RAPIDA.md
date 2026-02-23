@@ -6,7 +6,7 @@
 
 1. Ve a [Supabase](https://supabase.com) y abre tu proyecto
 2. Ve a **SQL Editor** en el menú lateral
-3. Copia todo el contenido del archivo `supabase-schema.sql`
+3. Copia todo el contenido del archivo `docs/05-base-de-datos/esquemalocal.sql`
 4. Pégalo en el editor y haz clic en **Run**
 5. Verifica que aparezca el mensaje de éxito
 
@@ -23,8 +23,10 @@ docker-compose up -d
 **¡Listo!** 🎉 Todo está corriendo:
 - WAHA en http://localhost:3000
 - Express API en http://localhost:4000
+- Dashboard en http://localhost:3001
 
 📖 **Ver guía completa de Docker:** [DOCKER-GUIDE.md](./DOCKER-GUIDE.md)
+📚 **Ver documentación completa:** [docs/README.md](./docs/README.md)
 
 ---
 
@@ -34,7 +36,7 @@ docker-compose up -d
 
 1. Ve a [Supabase](https://supabase.com) y abre tu proyecto
 2. Ve a **SQL Editor** en el menú lateral
-3. Copia todo el contenido del archivo `supabase-schema.sql`
+3. Copia todo el contenido del archivo `docs/05-base-de-datos/esquemalocal.sql`
 4. Pégalo en el editor y haz clic en **Run**
 5. Verifica que aparezca el mensaje de éxito
 
