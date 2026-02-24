@@ -354,19 +354,200 @@ fetch(NUEVO_API.listar, options)
 
 ---
 
+## 🔄 **SISTEMA DE MANTENIMIENTO INTELIGENTE**
+
+### **📊 Meta-datos del Contexto**
+```yaml
+meta:
+  creado: "2026-02-24"
+  ultima_revision_humana: "2026-02-24"
+  ultima_actualizacion_ia: "2026-02-24"
+  version_proyecto: "v1.0.0"
+  patrones_documentados: 47
+  patrones_obsoletos: 0
+  ultima_validacion: "2026-02-24"
+```
+
+### **🤖 Tareas Automáticas (IA) - Cada Uso**
+- ✅ **Detectar nuevos patrones** y agregarlos automáticamente
+- ✅ **Actualizar ejemplos** con código real encontrado
+- ✅ **Marcar uso reciente** de patrones existentes
+- ✅ **Actualizar timestamp** de última actualización
+- ✅ **Validar consistencia** básica
+
+### **🔄 Tareas Semiautomáticas (IA) - Mensuales**
+- 🔄 **Revisar patrones no usados** en último mes
+- 🔄 **Marcar como "potencialmente obsoleto"** si no hay uso reciente
+- 🔄 **Detectar contradicciones** entre secciones
+- 🔄 **Generar reporte** de estado del contexto
+
+### **👤 Tareas Humanas - Trimestrales**
+- 📋 **Validar visión general** del proyecto
+- 📋 **Eliminar información obsoleta** confirmada
+- 📋 **Reestructurar secciones** si es necesario
+- 📋 **Actualizar meta-datos** de versión
+
+---
+
+## 🧹 **REGLAS DE LIMPIEZA Y VALIDACIÓN**
+
+### **⏰ Ciclo de Vida de Patrones**
+
+| Estado | Duración | Acción |
+|--------|----------|--------|
+| **Activo** | Uso reciente | Mantener como está |
+| **Potencialmente Obsoleto** | 3 meses sin uso | Marcar con advertencia |
+| **Legacy** | 6 meses sin uso | Mover a sección "Legacy" |
+| **Eliminado** | 9 meses sin uso | Eliminar del archivo |
+
+### **🔍 Validación Automática**
+
+**Antes de cada actualización, la IA debe verificar:**
+```markdown
+### ✅ Checklist de Validación:
+- [ ] ¿El nuevo patrón tiene ejemplos de código real?
+- [ ] ¿No contradice información existente?
+- [ ] ¿Sigue las convenciones del proyecto?
+- [ ] ¿Es relevante para el contexto actual?
+- [ ] ¿Se actualizó el contador de patrones?
+```
+
+### **📈 Métricas de Salud del Contexto**
+
+**Indicadores que la IA debe monitorear:**
+- **Patrones activos vs obsoletos**: Mínimo 80% activos
+- **Ejemplos por patrón**: Mínimo 1 ejemplo real
+- **Actualizaciones mensuales**: Mínimo 2 actualizaciones/mes
+- **Consistencia interna**: Cero contradicciones
+
+---
+
+## 🔄 **PROCESO DE ACTUALIZACIÓN ESTÁNDAR**
+
+### **🤖 Para Agentes IA**
+
+**Paso 1: Detectar Cambio**
+```javascript
+// La IA detecta un nuevo patrón
+const nuevoPatron = {
+  nombre: "useApiCache",
+  tipo: "Hook personalizado",
+  descripcion: "Cache para llamadas API",
+  ejemplos: ["en /cotizador/CotizadorForm.jsx"]
+}
+```
+
+**Paso 2: Validar y Documentar**
+```markdown
+### **Hooks Personalizados**
+- **useApiCache**: Cache para llamadas API (detectado 2026-02-24)
+  - Uso: Optimizar fetch repetitivos
+  - Ejemplo: `const { data, loading } = useApiCache(url)`
+  - Archivos: `/cotizador/CotizadorForm.jsx`
+```
+
+**Paso 3: Actualizar Meta-datos**
+```yaml
+ultima_actualizacion_ia: "2026-02-24"
+patrones_documentados: 48
+```
+
+### **👤 Para Desarrolladores Humanos**
+
+**Revisión Trimestral Estándar:**
+1. **Leer reporte de IA** sobre estado del contexto
+2. **Validar patrones marcados como obsoletos**
+3. **Confirmar eliminación** de información irrelevante
+4. **Actualizar visión general** si cambió el proyecto
+5. **Firmar revisión** en meta-datos
+
+---
+
+## 🚨 **SISTEMA DE ALERTAS**
+
+### **⚠️ Alertas Automáticas**
+
+**La IA debe generar alertas cuando:**
+- **Patrones obsoletos > 20%** del total
+- **Sin actualizaciones por 30 días**
+- **Contradicciones detectadas**
+- **Ejemplos sin código real**
+
+**Formato de alerta:**
+```markdown
+## 🚨 ALERTA DE MANTENIMIENTO - 2026-05-24
+
+### Problemas Detectados:
+- ⚠️ 15 patrones marcados como "potencialmente obsoletos"
+- ⚠️ Sin actualizaciones en los últimos 45 días
+- ⚠️ 3 contradicciones en sección de "Roles"
+
+### Acciones Recomendadas:
+- Revisar uso de patrones obsoletos
+- Actualizar ejemplos con código reciente
+- Validar consistencia de roles
+```
+
+---
+
+## 📋 **REPORTES DE MANTENIMIENTO**
+
+### **📊 Reporte Mensual Automático**
+
+```markdown
+## 📊 Reporte de Mantenimiento - Febrero 2026
+
+### 📈 Estadísticas:
+- **Patrones totales**: 48 (+3 este mes)
+- **Patrones activos**: 45 (93.7%)
+- **Patrones obsoletos**: 3 (6.3%)
+- **Actualizaciones**: 7 este mes
+
+### 🔄 Cambios Este Mes:
+- ✅ Nuevo: `useApiCache` hook
+- ✅ Actualizado: Ejemplos de fetch con manejo de errores
+- ✅ Obsoleto: `formatDateLegacy` (reemplazado)
+
+### 🎯 Salud del Contexto: ✅ EXCELENTE
+```
+
+---
+
+## 🔄 **CÓMPLICAMENTE DEL MANTENIMIENTO**
+
+### **🤖 Responsabilidades de la IA**
+1. **Mantener contexto actualizado** con patrones reales
+2. **Validar calidad** de la información
+3. **Generar alertas** cuando sea necesario
+4. **Optimizar estructura** para legibilidad
+
+### **👤 Responsabilidades Humanas**
+1. **Revisión trimestral** del estado general
+2. **Decisión final** sobre eliminación de contenido
+3. **Actualización estratégica** de visión del proyecto
+4. **Validación de cambios** importantes
+
+### **🎯 Objetivo a Largo Plazo**
+- **8 meses**: 85-95% de información relevante
+- **12 meses**: 75-85% de información relevante
+- **18 meses**: 65-75% de información relevante
+
+---
+
 ## 🔄 **CÓMO MANTENER ESTE ARCHIVO ACTUALIZADO**
 
 ### **Para Agentes de IA**
 Si durante el desarrollo encuentras:
-- **Nuevos patrones**: Agrega aquí
-- **Cambios en arquitectura**: Actualiza las secciones correspondientes
-- **Nuevas prohibiciones**: Agrega a la sección de "Cosas que nunca hacer"
-- **Errores comunes**: Agrega a la sección de "Errores comunes a evitar"
+- **Nuevos patrones**: Agrega aquí con fecha y ejemplos
+- **Cambios en arquitectura**: Actualiza secciones y meta-datos
+- **Patrones sin uso**: Marcar como potencialmente obsoleto
+- **Contradicciones**: Generar alerta para revisión humana
 
 ### **Para Desarrolladores Humanos**
-- Revisa este archivo periódicamente
-- Actualízalo cuando hagas cambios significativos
-- Usa este archivo como referencia en code reviews
+- **Revisar reportes mensuales** de mantenimiento
+- **Validar cambios trimestrales**
+- **Actualizar visión general** cuando el proyecto evolucione
+- **Firmar revisiones** en meta-datos
 
 ---
 

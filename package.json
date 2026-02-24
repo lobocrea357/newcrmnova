@@ -7,7 +7,11 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "context:validate": "node scripts/context-maintenance.js --validate",
+    "context:report": "node scripts/context-maintenance.js --report",
+    "context:update": "node scripts/context-maintenance.js --update",
+    "context:maintenance": "node scripts/context-maintenance.js"
   },
   "keywords": [
     "whatsapp",
