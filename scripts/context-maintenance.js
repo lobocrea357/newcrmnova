@@ -65,7 +65,7 @@ class ContextMaintenance {
     const patterns = []
     
     // Escanear hooks
-    const hookFiles = await this.findFiles(DASHBOARD_SRC, 'use*.js')
+    const hookFiles = await this.findFiles(DASHBOARD_SRC, /^use.*\.js$/)
     hookFiles.forEach(file => {
       const content = fs.readFileSync(file, 'utf8')
       const hookMatches = content.match(/export\s+(?:const|function)\s+(use\w+)/g)
@@ -83,7 +83,7 @@ class ContextMaintenance {
     })
     
     // Escanear componentes
-    const componentFiles = await this.findFiles(DASHBOARD_SRC, '*[A-Z]*.js*')
+    const componentFiles = await this.findFiles(DASHBOARD_SRC, /^[A-Z].*\.js.*$/)
     componentFiles.forEach(file => {
       const content = fs.readFileSync(file, 'utf8')
       const componentMatches = content.match(/export\s+(?:default\s+)?function\s+([A-Z]\w+)/g)
@@ -118,7 +118,7 @@ class ContextMaintenance {
         
         if (stat.isDirectory() && !item.startsWith('.') && item !== 'node_modules') {
           scanDirectory(fullPath)
-        } else if (stat.isFile() && item.match(pattern)) {
+        } else if (stat.isFile() && item.match(new RegExp(pattern))) {
           files.push(fullPath)
         }
       }
@@ -225,6 +225,8 @@ ${this.generateRecommendations()}
     // Verificar que estamos en entorno de desarrollo
     const nodeEnv = process.env.NODE_ENV || 'development'
     
+    console.log(`🔍 NODE_ENV: ${nodeEnv}`)
+    
     if (nodeEnv === 'production') {
       console.error('❌ ERROR: Este script solo debe ejecutarse en entorno de desarrollo')
       console.error('🚫 No es seguro ejecutar mantenimiento de contexto en producción')
@@ -301,9 +303,7 @@ ${this.generateRecommendations()}
 }
 
 // Ejecutar script
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const maintenance = new ContextMaintenance()
-  maintenance.run(process.argv.slice(2)).catch(console.error)
-}
+const maintenance = new ContextMaintenance()
+maintenance.run(process.argv.slice(2)).catch(console.error)
 
 export default ContextMaintenance

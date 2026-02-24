@@ -363,8 +363,8 @@ meta:
   ultima_revision_humana: "2026-02-24"
   ultima_actualizacion_ia: "2026-02-24"
   version_proyecto: "v1.0.0"
-  patrones_documentados: 47
-  patrones_obsoletos: 0
+  patrones_documentados: "56"
+  patrones_obsoletos: "0"
   ultima_validacion: "2026-02-24"
 ```
 
