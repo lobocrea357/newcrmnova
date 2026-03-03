@@ -49,7 +49,9 @@ export default function PasajerosManager({
   monedaCotizacion = 'USD',
   monedasBase = [],
   monedasCotizacion = [],
-  loadingMonedas = false
+  loadingMonedas = false,
+  onMonedaPrecioChange,
+  onMonedaCotizacionChange
 }) {
   const [pasajeros, setPasajeros] = useState({
     adultos: [],
@@ -62,21 +64,41 @@ export default function PasajerosManager({
     infantes: false
   })
 
+  // Estados locales para los selects (sincronizados con props)
+  const [monedaPrecioLocal, setMonedaPrecioLocal] = useState(monedaPrecio)
+  const [monedaCotizacionLocal, setMonedaCotizacionLocal] = useState(monedaCotizacion)
+
   // Ref para evitar loop infinito en sincronización
   const isInternalUpdate = useRef(false)
 
-  // Debug: Mostrar props recibidas
+  // BUG FIX: Sincronizar monedas del padre con estado interno de pasajeros
   useEffect(() => {
-    console.log('PasajerosManager - Props recibidas:', {
-      monedaPrecio,
-      monedaCotizacion,
-      monedasBase,
-      monedasCotizacion,
-      loadingMonedas,
-      monedasBaseLength: monedasBase?.length,
-      monedasCotizacionLength: monedasCotizacion?.length
-    })
-  }, [monedaPrecio, monedaCotizacion, monedasBase, monedasCotizacion, loadingMonedas])
+    // Solo actualizar si hay cambios reales en las monedas
+    const actualizarMonedasPasajeros = () => {
+      const pasajerosActualizados = { ...pasajeros }
+      let huboCambios = false
+
+      Object.keys(pasajerosActualizados).forEach(categoria => {
+        pasajerosActualizados[categoria] = pasajerosActualizados[categoria].map(pasajero => {
+          if (pasajero.monedaPrecio !== monedaPrecio || pasajero.monedaCotizacion !== monedaCotizacion) {
+            huboCambios = true
+            return {
+              ...pasajero,
+              monedaPrecio,
+              monedaCotizacion
+            }
+          }
+          return pasajero
+        })
+      })
+
+      if (huboCambios) {
+        setPasajeros(pasajerosActualizados)
+      }
+    }
+
+    actualizarMonedasPasajeros()
+  }, [monedaPrecio, monedaCotizacion])
 
   // Inicializar con valores recibidos
   useEffect(() => {
@@ -315,15 +337,15 @@ export default function PasajerosManager({
                 ¿El precio introducido está en:
               </label>
               <select
-                value={monedaPrecio}
+                value={monedaPrecioLocal}
                 onChange={(e) => {
-                  // Actualizar todos los pasajeros con la nueva moneda
-                  const nuevaMoneda = e.target.value
-                  Object.keys(pasajeros).forEach(categoria => {
-                    pasajeros[categoria].forEach(pasajero => {
-                      actualizarPasajero(categoria, pasajero.id, 'monedaPrecio', nuevaMoneda)
-                    })
-                  })
+                  const nuevoValor = e.target.value
+                  // Actualizar estado local inmediatamente para UI responsiva
+                  setMonedaPrecioLocal(nuevoValor)
+                  // Notificar al padre
+                  if (onMonedaPrecioChange) {
+                    onMonedaPrecioChange(nuevoValor)
+                  }
                 }}
                 disabled={readonly || loadingMonedas}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
@@ -350,15 +372,15 @@ export default function PasajerosManager({
                 ¿En qué moneda deseas cotizar?
               </label>
               <select
-                value={monedaCotizacion}
+                value={monedaCotizacionLocal}
                 onChange={(e) => {
-                  // Actualizar todos los pasajeros con la nueva moneda
-                  const nuevaMoneda = e.target.value
-                  Object.keys(pasajeros).forEach(categoria => {
-                    pasajeros[categoria].forEach(pasajero => {
-                      actualizarPasajero(categoria, pasajero.id, 'monedaCotizacion', nuevaMoneda)
-                    })
-                  })
+                  const nuevoValor = e.target.value
+                  // Actualizar estado local inmediatamente para UI responsiva
+                  setMonedaCotizacionLocal(nuevoValor)
+                  // Notificar al padre
+                  if (onMonedaCotizacionChange) {
+                    onMonedaCotizacionChange(nuevoValor)
+                  }
                 }}
                 disabled={readonly || loadingMonedas}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent"

@@ -5,9 +5,6 @@ import { obtenerTasa } from './tasasHelpers'
  * Maneja la lógica de conversión según moneda de origen y destino
  */
 
-// Monedas base para precios
-const MONEDAS_BASE = ['USD', 'EUR']
-
 // Nota: Solo COP tiene impuesto 4x1000 aplicado DESPUÉS de recargos
 
 /**
@@ -154,52 +151,4 @@ export async function calcularConversionInteligente({
     console.error('❌ Error en conversión inteligente:', error)
     throw error
   }
-}
-
-/**
- * Obtener lista de monedas disponibles para cotización
- * @returns {Array} Lista de monedas con información
- */
-export function getMonedasCotizacion() {
-  return [
-    { value: 'USD', label: 'Dólares Americanos (USD)', symbol: '$', base: true },
-    { value: 'EUR', label: 'Euros (EUR)', symbol: '€', base: true },
-    { value: 'VES', label: 'Bolívares (VES)', symbol: 'Bs.', base: false },
-    { value: 'COP', label: 'Pesos Colombianos (COP)', symbol: '$', base: false },
-    { value: 'USDT', label: 'USDT (Tether)', symbol: '₮', base: false },
-    { value: 'GBP', label: 'Libras Esterlinas (GBP)', symbol: '£', base: false },
-    { value: 'CAD', label: 'Dólares Canadienses (CAD)', symbol: 'C$', base: false },
-    { value: 'AUD', label: 'Dólares Australianos (AUD)', symbol: 'A$', base: false },
-    { value: 'JPY', label: 'Yenes Japoneses (JPY)', symbol: '¥', base: false },
-    { value: 'CHF', label: 'Francos Suizos (CHF)', symbol: 'Fr', base: false }
-  ]
-}
-
-/**
- * Obtener monedas base para precios
- * @returns {Array} Lista de monedas base
- */
-export function getMonedasBase() {
-  return MONEDAS_BASE.map(codigo => {
-    const moneda = getMonedasCotizacion().find(m => m.value === codigo)
-    return moneda
-  })
-}
-
-/**
- * Validar si una moneda es base para precios
- * @param {string} codigo - Código de moneda
- * @returns {boolean}
- */
-export function esMonedaBase(codigo) {
-  return MONEDAS_BASE.includes(codigo)
-}
-
-/**
- * Obtener información de una moneda
- * @param {string} codigo - Código de moneda
- * @returns {Object|null} Información de la moneda
- */
-export function getMonedaInfo(codigo) {
-  return getMonedasCotizacion().find(m => m.value === codigo) || null
 }

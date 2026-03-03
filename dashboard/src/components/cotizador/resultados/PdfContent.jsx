@@ -25,12 +25,8 @@ const PdfContent = forwardRef(({
   fechaSalidaMigratorio,
   horaSalidaMigratorio,
   horaLlegadaMigratorio,
-  haceEscala,
-  ciudadEscala1,
-  tiempoEscala1,
-  haceSegundaEscala,
-  ciudadEscala2,
-  tiempoEscala2,
+  escalas = [],
+  equipaje = [],
   pasajeros,
   tienePasajerosConfigurados,
   calcularTotalPasajeros,
@@ -41,8 +37,22 @@ const PdfContent = forwardRef(({
   equipajeMediano,
   equipajeLigero,
   monedaCotizacion,
-  metodoPago
+  metodoPago,
+  total,
+  desglose,
+  simboloMoneda
 }, ref) => {
+  // Compatibilidad con legacy equipaje (individual checkboxes)
+  const tieneEquipaje = (tipo) => {
+    if (equipaje && equipaje.length > 0) {
+      return equipaje.includes(tipo)
+    }
+    // Fallback a props legacy
+    if (tipo === 'completo') return equipajeCompleto
+    if (tipo === 'mediano') return equipajeMediano
+    if (tipo === 'ligero') return equipajeLigero
+    return false
+  }
   return (
     <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '800px' }}>
       <div ref={ref} className="bg-white p-8">
@@ -215,7 +225,26 @@ const PdfContent = forwardRef(({
               )}
 
               {/* Escalas */}
-              {haceEscala && (
+              {escalas && escalas.length > 0 && (
+                <div className="py-3 px-4 bg-orange-50 rounded-lg border border-orange-100">
+                  <p className="text-[10px] font-bold text-orange-600 uppercase mb-2">Escalas</p>
+                  {escalas.map((escala, index) => (
+                    <div key={index} className="grid grid-cols-2 gap-4 mb-2">
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase">{index + 1}ª Escala</p>
+                        <p className="text-xs font-bold text-slate-700">{escala.ciudad || '---'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] text-slate-400 uppercase">Duración</p>
+                        <p className="text-xs font-bold text-slate-700">{escala.duracion || '---'}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Escalas LEGACY (compatibilidad) */}
+              {!escalas && haceEscala && (
                 <div className="py-3 px-4 bg-orange-50 rounded-lg border border-orange-100">
                   <p className="text-[10px] font-bold text-orange-600 uppercase mb-2">Escalas</p>
                   <div className="grid grid-cols-2 gap-4">
@@ -368,26 +397,26 @@ const PdfContent = forwardRef(({
                   </div>
                 </div>
 
-                {(equipajeCompleto || equipajeMediano || equipajeLigero) && (
+                {(tieneEquipaje('completo') || tieneEquipaje('mediano') || tieneEquipaje('ligero')) && (
                   <div className="mb-4 pb-4 border-b border-gray-200">
                     <div className="flex items-center gap-3 mb-2">
                       <Luggage className="w-5 h-5 text-green-600" />
                       <p className="font-bold text-gray-800 text-sm">Equipaje seleccionado:</p>
                     </div>
                     <div className="space-y-1">
-                      {equipajeCompleto && (
+                      {tieneEquipaje('completo') && (
                         <div className="flex items-center gap-2 text-xs">
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                           <span className="text-gray-600">Equipaje completo (23 Kg + 8 Kg + artículo personal)</span>
                         </div>
                       )}
-                      {equipajeMediano && (
+                      {tieneEquipaje('mediano') && (
                         <div className="flex items-center gap-2 text-xs">
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                           <span className="text-gray-600">Equipaje mediano (23 Kg + artículo personal)</span>
                         </div>
                       )}
-                      {equipajeLigero && (
+                      {tieneEquipaje('ligero') && (
                         <div className="flex items-center gap-2 text-xs">
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                           <span className="text-gray-600">Equipaje ligero (10 Kg + artículo personal)</span>
@@ -409,7 +438,7 @@ const PdfContent = forwardRef(({
                     </div>
                     <div className="text-right">
                       <span className="text-2xl font-bold text-green-900">
-                        ${(parseFloat(precioBase || 0) + parseFloat(feeEmision || 0) + parseFloat(feeAgencia || 0)).toFixed(2)}
+                        {simboloMoneda} {total ? total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
                       </span>
                       <p className="text-xs text-green-600 mt-1">
                         {monedaCotizacion === 'USD' ? 'USD' :

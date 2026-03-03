@@ -12,21 +12,31 @@ import { supabase } from '@/lib/supabase'
 
 // Componentes
 import CollapsibleSection from '@/components/ui/CollapsibleSection'
-import PasajerosManager from './PasajerosManager'
-import PdfContent from './PdfContent'
+import PasajerosManager from './pasajeros/PasajerosManager'
+import PdfContent from './resultados/PdfContent'
 
 // Helpers
-import { confirmAlert } from '@/helpers/sweetAlerts'
+import { confirmAlert, toastSuccess, toastError } from '@/helpers/sweetAlerts'
+
+// Hooks
+import { useVueloInfo } from '@/hooks/cotizador/useVueloInfo'
+import { useEscalas } from '@/hooks/cotizador/useEscalas'
+import { useEquipaje } from '@/hooks/cotizador/useEquipaje'
+import { useMonedas } from '@/hooks/cotizador/useMonedas'
+
+// Servicios
+import { calcularCotizacionIndividual } from '@/services/cotizador/cotizacionService'
+import { exportarCotizacionPDF } from '@/services/cotizador/pdfService'
 
 // Lógica de negocio
+import { calcularConversionInteligente } from '@/lib/cotizador/conversorInteligente'
 import {
-  calcularConversionInteligente,
   getMonedasCotizacion,
   getMonedasBase,
   getMonedaInfo,
-  esMonedaBase
-} from '@/lib/conversorInteligente'
-import { obtenerMonedas, obtenerTasasConversion } from '@/lib/tasasHelpers'
+  getSimboloMoneda
+} from '@/lib/cotizador/monedasConfig'
+import { obtenerMonedas, obtenerTasasConversion } from '@/lib/cotizador/tasasHelpers'
 
 // Configuración
 import {
@@ -56,32 +66,29 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   const [feeEmision, setFeeEmision] = useState('')
   const [feeAgencia, setFeeAgencia] = useState('')
   const [metodoPago, setMetodoPago] = useState('')
-  // Sistema de conversión inteligente
-  const [monedaPrecio, setMonedaPrecio] = useState('USD') // Moneda del precio base
-  const [monedaCotizacion, setMonedaCotizacion] = useState('USD') // Moneda de cotización
-  const [tasaCambio, setTasaCambio] = useState('1.0')
+  // Sistema de conversión inteligente (LEGACY - mantener por compatibilidad temporal)
+  const [monedaPrecio, setMonedaPrecio] = useState('USD')
+  const [monedaCotizacion, setMonedaCotizacion] = useState('USD')
   const [resultadoConversion, setResultadoConversion] = useState(null)
 
-  // Estados para monedas dinámicas desde la base de datos
-  const [monedasDB, setMonedasDB] = useState([]) // Todas las monedas registradas
-  const [tasasDB, setTasasDB] = useState([]) // Todas las tasas de conversión
-  const [loadingMonedas, setLoadingMonedas] = useState(true)
+  // Hook: Monedas (8+ estados → 1)
+  const {
+    monedaBase: monedaBaseSeleccionada,
+    monedaCotizacion: monedaCotizacionSeleccionada,
+    tasaCambio,
+    monedasDB,
+    tasasDB: tasasDb,
+    loading: loadingMonedas,
+    setMonedaBase: setMonedaBaseSeleccionada,
+    setMonedaCotizacion: setMonedaCotizacionSeleccionada,
+    setTasaCambio
+  } = useMonedas()
 
-  // Variables legacy (mantener para compatibilidad)
-  const [moneda, setMoneda] = useState('')
-  const [monedaOrigen, setMonedaOrigen] = useState('USD')
-  const [monedaBaseSeleccionada, setMonedaBaseSeleccionada] = useState('USD') // Nueva: USD o EUR
-  const [monedaCotizacionSeleccionada, setMonedaCotizacionSeleccionada] = useState('') // Nueva: Moneda de cotización
   const [total, setTotal] = useState(0)
   const [desglose, setDesglose] = useState(null)
-  const [fechaSalida, setFechaSalida] = useState('')
-  const [horaSalida, setHoraSalida] = useState('')
-  const [horaLlegada, setHoraLlegada] = useState('')
-  const [origen, setOrigen] = useState('')
-  const [destino, setDestino] = useState('')
-  const [idaVuelta, setIdaVuelta] = useState(false)
-  const [finesMigratorios, setFinesMigratorios] = useState(false)
-  const [soloIda, setSoloIda] = useState(false)
+
+  // Hook: Información del vuelo (9 estados → 1)
+  const { vueloInfo, updateVueloInfo, resetVueloInfo } = useVueloInfo()
 
   // Estados para fines migratorios
   const [fechaSalidaMigratorio, setFechaSalidaMigratorio] = useState('')
@@ -94,18 +101,11 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   const [aerolinea, setAerolinea] = useState('')
   const [agencia, setAgencia] = useState(null) // 'nova', 'colombia', 'apolo'
 
-  // Escalas
-  const [haceEscala, setHaceEscala] = useState(false)
-  const [ciudadEscala1, setCiudadEscala1] = useState('')
-  const [tiempoEscala1, setTiempoEscala1] = useState('')
-  const [haceSegundaEscala, setHaceSegundaEscala] = useState(false)
-  const [ciudadEscala2, setCiudadEscala2] = useState('')
-  const [tiempoEscala2, setTiempoEscala2] = useState('')
+  // Hook: Escalas (6 estados → 1)
+  const { escalas, agregarEscala, actualizarEscala, eliminarEscala, resetEscalas, tieneEscalas } = useEscalas(2)
 
-  // Equipaje
-  const [equipajeCompleto, setEquipajeCompleto] = useState(false)
-  const [equipajeMediano, setEquipajeMediano] = useState(false)
-  const [equipajeLigero, setEquipajeLigero] = useState(false)
+  // Hook: Equipaje (3 estados → 1)
+  const { equipajeSeleccionado, toggleEquipaje, tieneEquipaje, resetEquipaje } = useEquipaje()
 
   // Estado para pasajeros (nueva funcionalidad)
   const [pasajeros, setPasajeros] = useState({
@@ -116,30 +116,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
   const [exportingPdf, setExportingPdf] = useState(false)
   const pdfContentRef = useRef(null)
-
-  // Estado para tasas dinámicas
-  const [tasasDb, setTasasDb] = useState({})
-  const [loadingTasas, setLoadingTasas] = useState(true)
-
-  // Cargar monedas y tasas desde la base de datos
-  useEffect(() => {
-    const cargarDatos = async () => {
-      try {
-        setLoadingMonedas(true)
-        const [monedasData, tasasData] = await Promise.all([
-          obtenerMonedas(),
-          obtenerTasasConversion()
-        ])
-        setMonedasDB(monedasData)
-        setTasasDB(tasasData)
-      } catch (error) {
-        console.error('Error cargando datos:', error)
-      } finally {
-        setLoadingMonedas(false)
-      }
-    }
-    cargarDatos()
-  }, [])
 
   // SweetAlert inicial para primera vez
   useEffect(() => {
@@ -186,20 +162,18 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     setMonedaCotizacion('USD')
     setTasaCambio('1.0')
     setResultadoConversion(null)
-    setMoneda('')
-    setMonedaOrigen('USD')
     setMonedaBaseSeleccionada('USD')
     setMonedaCotizacionSeleccionada('')
     setTotal(0)
     setDesglose(null)
-    setFechaSalida('')
-    setHoraSalida('')
-    setHoraLlegada('')
-    setOrigen('')
-    setDestino('')
-    setIdaVuelta(false)
-    setFinesMigratorios(false)
-    setSoloIda(false)
+    updateVueloInfo('fechaSalida', '')
+    updateVueloInfo('horaSalida', '')
+    updateVueloInfo('horaLlegada', '')
+    updateVueloInfo('origen', '')
+    updateVueloInfo('destino', '')
+    updateVueloInfo('idaVuelta', false)
+    updateVueloInfo('finesMigratorios', false)
+    updateVueloInfo('soloIda', false)
     setFechaSalidaMigratorio('')
     setHoraSalidaMigratorio('')
     setHoraLlegadaMigratorio('')
@@ -208,15 +182,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     setHoraLlegadaRegreso('')
     setAerolinea('')
     setAgencia(null)
-    setHaceEscala(false)
-    setCiudadEscala1('')
-    setTiempoEscala1('')
-    setHaceSegundaEscala(false)
-    setCiudadEscala2('')
-    setTiempoEscala2('')
-    setEquipajeCompleto(false)
-    setEquipajeMediano(false)
-    setEquipajeLigero(false)
+    resetEscalas()
+    resetEquipaje()
     setPasajeros({
       adultos: [],
       niños: [],
@@ -228,48 +195,22 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   const metodosPago = ALL_PAYMENT_METHODS
   const metodosPorMoneda = METHODS_BY_CURRENCY
 
-  // Funciones dinámicas para obtener monedas desde la base de datos
-  const getMonedasDisponibles = () => {
-    if (loadingMonedas || monedasDB.length === 0) {
-      // Fallback a monedas hardcoded si está cargando
-      return [
-        { value: 'USD', label: 'Dólares (USD)', symbol: '$' },
-        { value: 'VES', label: 'Bolívares (VES)', symbol: 'Bs.' },
-        { value: 'USDT', label: 'USDT', symbol: '₮' },
-        { value: 'EUR', label: 'Euros (EUR)', symbol: '€' },
-        { value: 'COP', label: 'Pesos Colombianos (COP)', symbol: '$' }
-      ]
-    }
-
-    return monedasDB.map(moneda => ({
-      value: moneda.codigo,
-      label: `${moneda.nombre} (${moneda.codigo})`,
-      symbol: moneda.simbolo
-    }))
-  }
-
-  // Opciones para moneda base (SIEMPRE FIJO: USD y EUR)
-  const monedasBase = [
-    { value: 'USD', label: 'Dólares Americanos (USD)', symbol: '$' },
-    { value: 'EUR', label: 'Euros (EUR)', symbol: '€' }
-  ]
-
-  // Opciones para moneda de cotización (todas las monedas registradas)
-  const getMonedasCotizacion = () => {
-    return getMonedasDisponibles()
-  }
+  // Usar funciones centralizadas de monedasConfig
+  const monedasBase = getMonedasBase()
 
   // Opciones para moneda destino (solo monedas con tasas de conversión)
   const getMonedasConTasas = () => {
-    if (loadingMonedas || tasasDB.length === 0) {
+    if (loadingMonedas || !tasasDb || Object.keys(tasasDb).length === 0) {
       return getMonedasDisponibles() // Fallback
     }
 
-    // Obtener monedas que tienen tasas de conversión
+    // Obtener monedas que tienen tasas de conversión (tasasDb es objeto no array)
     const monedasConTasas = new Set()
-    tasasDB.forEach(tasa => {
-      monedasConTasas.add(tasa.moneda_destino.codigo)
-      monedasConTasas.add(tasa.moneda_origen.codigo)
+    Object.keys(tasasDb).forEach(origen => {
+      monedasConTasas.add(origen)
+      Object.keys(tasasDb[origen]).forEach(destino => {
+        monedasConTasas.add(destino)
+      })
     })
 
     return getMonedasDisponibles().filter(moneda =>
@@ -292,48 +233,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     }
   }, [monedaCotizacionSeleccionada])
 
-  // Cargar tasas al iniciar
-  useEffect(() => {
-    fetchTasas()
-  }, [])
-
-  const fetchTasas = async () => {
-    try {
-      setLoadingTasas(true)
-      const { data, error } = await supabase
-        .from('tasas_conversion')
-        .select(`
-          *,
-          moneda_origen:monedas!tasas_conversion_moneda_origen_id_fkey(codigo),
-          moneda_destino:monedas!tasas_conversion_moneda_destino_id_fkey(codigo)
-        `)
-        .eq('activa', true)
-
-      if (error) {
-        console.error('Error fetching rates:', error)
-        return
-      }
-
-      if (data) {
-        // Crear un mapa de conversiones para acceso rápido
-        const tasasMap = {}
-        data.forEach(t => {
-          const origen = t.moneda_origen?.codigo
-          const destino = t.moneda_destino?.codigo
-          if (origen && destino) {
-            if (!tasasMap[origen]) tasasMap[origen] = {}
-            tasasMap[origen][destino] = t.tasa
-          }
-        })
-        setTasasDb(tasasMap)
-        console.log('Tasas cargadas:', tasasMap)
-      }
-    } catch (err) {
-      console.error('Error en fetchTasas:', err)
-    } finally {
-      setLoadingTasas(false)
-    }
-  }
+  // NOTA: useMonedas ya carga las tasas automáticamente al iniciar
 
   // ============================================
   // FUNCIONES AUXILIARES
@@ -354,7 +254,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   // Manejar cambio de método de pago con detección automática
   useEffect(() => {
     if (!metodoPago) {
-      setMoneda('')
+      setMonedaCotizacionSeleccionada('')
       return
     }
 
@@ -362,12 +262,12 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     if (monedaDetectada) {
       // Si es FLEXIBLE, no establecer moneda automáticamente
       if (monedaDetectada === 'FLEXIBLE') {
-        setMoneda('') // Dejar vacío para selección manual
+        setMonedaCotizacionSeleccionada('') // Dejar vacío para selección manual
         setTasaCambio('') // No establecer tasa hasta que se seleccione moneda
         return
       }
 
-      setMoneda(monedaDetectada)
+      setMonedaCotizacionSeleccionada(monedaDetectada)
 
       // Para VES, mantener la moneda de origen por defecto
       if (monedaDetectada === 'VES') {
@@ -380,39 +280,42 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     }
   }, [metodoPago])
 
-  // Función para actualizar tasa según moneda de origen y destino
+  /**
+   * Actualizar tasa de cambio para VES
+   * Busca la tasa de conversión desde la moneda base (USD/EUR) hacia VES
+   */
   const actualizarTasaParaVES = () => {
-    if (!monedaOrigen || !moneda) {
+    if (!monedaBaseSeleccionada || !monedaCotizacionSeleccionada) {
       setTasaCambio('1.0')
       return
     }
 
-    // Buscar tasa directa: origen → destino
-    let tasa = tasasDb[monedaOrigen]?.[moneda]
+    // Buscar tasa directa: base → cotización
+    let tasa = tasasDb[monedaBaseSeleccionada]?.[monedaCotizacionSeleccionada]
 
-    // Si no existe, buscar tasa inversa: destino → origen
-    if (!tasa && tasasDb[moneda]?.[monedaOrigen]) {
-      tasa = 1.0 / tasasDb[moneda][monedaOrigen]
+    // Si no existe, buscar tasa inversa: cotización → base
+    if (!tasa && tasasDb[monedaCotizacionSeleccionada]?.[monedaBaseSeleccionada]) {
+      tasa = 1.0 / tasasDb[monedaCotizacionSeleccionada][monedaBaseSeleccionada]
     }
 
     setTasaCambio(tasa ? String(tasa) : '1.0')
-    console.log(`Tasa ${monedaOrigen} → ${moneda}:`, tasa || '1.0')
+    console.log(`Tasa ${monedaBaseSeleccionada} → ${monedaCotizacionSeleccionada}:`, tasa || '1.0')
   }
 
-  // Actualizar tasa cuando cambia la moneda de origen (solo para VES)
+  // Actualizar tasa cuando cambia la moneda base o cotización (solo para VES)
   useEffect(() => {
-    if (moneda === 'VES' && monedaOrigen) {
+    if (monedaCotizacionSeleccionada === 'VES' && monedaBaseSeleccionada) {
       actualizarTasaParaVES()
     }
-  }, [monedaOrigen, moneda, tasasDb])
+  }, [monedaBaseSeleccionada, monedaCotizacionSeleccionada, tasasDb])
 
-  // Actualizar tasa cuando se cambia la moneda (solo para no VES)
+  // Actualizar tasa cuando se cambia la moneda de cotización (solo para no VES)
   useEffect(() => {
-    if (moneda && moneda !== 'VES') {
+    if (monedaCotizacionSeleccionada && monedaCotizacionSeleccionada !== 'VES') {
       // Para monedas que no son VES, la tasa es siempre 1.0
       setTasaCambio('1.0')
     }
-  }, [moneda])
+  }, [monedaCotizacionSeleccionada])
 
   // Sincronizar variables de moneda nuevas con las del sistema inteligente
   useEffect(() => {
@@ -505,9 +408,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
         totalFinal: resultado.total
       })
 
-      // Actualizar variables legacy para compatibilidad
-      setMoneda(monedaCotizacion)
-
       console.log('✅ Cotización calculada con sistema inteligente:', resultado)
 
     } catch (error) {
@@ -532,8 +432,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     }
   }
 
-  const monedaSeleccionada = getMonedasDisponibles().find(m => m.value === moneda)
-  const simboloMoneda = monedaSeleccionada?.symbol || '$'
+  const simboloMoneda = getSimboloMoneda(monedaCotizacionSeleccionada)
+  const monedaSeleccionada = getMonedasCotizacion().find(m => m.value === monedaCotizacionSeleccionada)
 
   const formatearMonto = (valor) => {
     if (!valor && valor !== 0) return '0.00'
@@ -547,44 +447,32 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     // Sistema inteligente
     setMonedaPrecio('USD')
     setMonedaCotizacion('USD')
-    setTasaCambio('1.0')
     setResultadoConversion(null)
 
-    // Variables nuevas
+    // Monedas (hook)
     setMonedaBaseSeleccionada('USD')
     setMonedaCotizacionSeleccionada('')
+    setTasaCambio('1.0')
 
     // Variables legacy
     setPrecioBase('')
     setFeeEmision('')
     setFeeAgencia('')
     setMetodoPago('')
-    setMoneda('')
-    setMonedaOrigen('USD')
     setTotal(0)
     setDesglose(null)
-    setFechaSalida('')
-    setHoraSalida('')
-    setHoraLlegada('')
-    setOrigen('')
-    setDestino('')
-    setIdaVuelta(false)
-    setFinesMigratorios(false)
-    setSoloIda(false)
+
+    // Hooks reset
+    resetVueloInfo()
+    resetEscalas()
+    resetEquipaje()
+
+    // Estados individuales restantes
     setFechaRegreso('')
     setHoraSalidaRegreso('')
     setHoraLlegadaRegreso('')
     setAerolinea('')
     setAgencia(null)
-    setHaceEscala(false)
-    setCiudadEscala1('')
-    setTiempoEscala1('')
-    setHaceSegundaEscala(false)
-    setCiudadEscala2('')
-    setTiempoEscala2('')
-    setEquipajeCompleto(false)
-    setEquipajeMediano(false)
-    setEquipajeLigero(false)
 
     // Resetear pasajeros
     setPasajeros({
@@ -595,22 +483,12 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   }
 
   const limpiarDetallesVuelo = () => {
-    setFechaSalida('')
-    setHoraSalida('')
-    setHoraLlegada('')
-    setOrigen('')
-    setDestino('')
+    resetVueloInfo()
+    resetEscalas()
     setFechaRegreso('')
     setHoraSalidaRegreso('')
     setHoraLlegadaRegreso('')
     setAerolinea('')
-    setSoloIda(false)
-    setHaceEscala(false)
-    setCiudadEscala1('')
-    setTiempoEscala1('')
-    setHaceSegundaEscala(false)
-    setCiudadEscala2('')
-    setTiempoEscala2('')
   }
 
   const handleExportarPdf = async () => {
@@ -702,16 +580,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <RefreshCw className="w-4 h-4" />
               Limpiar
             </button>
-            {isAuthenticated && (
-              <button
-                onClick={fetchTasas}
-                disabled={loadingTasas}
-                className="p-2 text-slate-400 hover:text-indigo-600 transition-colors rounded-full hover:bg-slate-50"
-                title="Actualizar tasas"
-              >
-                <RefreshCw className={`w-5 h-5 ${loadingTasas ? 'animate-spin' : ''}`} />
-              </button>
-            )}
           </div>
         </div>
 
@@ -814,6 +682,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   onChange={(e) => setMonedaCotizacionSeleccionada(e.target.value)}
                   className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 >
+                  <option value="">Seleccionar moneda de cotización</option>
                   {getMonedasCotizacion().map(moneda => (
                     <option key={moneda.value} value={moneda.value}>
                       {moneda.label}
@@ -872,6 +741,13 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <PasajerosManager
                 value={pasajeros}
                 onChange={setPasajeros}
+                  monedaPrecio={monedaBaseSeleccionada}
+                  monedaCotizacion={monedaCotizacionSeleccionada}
+                  monedasBase={monedasBase}
+                  monedasCotizacion={getMonedasCotizacion()}
+                  loadingMonedas={loadingMonedas}
+                  onMonedaPrecioChange={setMonedaBaseSeleccionada}
+                  onMonedaCotizacionChange={setMonedaCotizacionSeleccionada}
               />
               </div>
           )}
@@ -955,70 +831,70 @@ export default function CotizadorForm({ isAuthenticated = false }) {
             <button
               type="button"
               onClick={() => {
-                const newValue = !idaVuelta
+                const newValue = !vueloInfo.idaVuelta
                 if (newValue) {
-                  setFinesMigratorios(false)
-                  setSoloIda(false)
+                  updateVueloInfo('finesMigratorios', false)
+                  updateVueloInfo('soloIda', false)
                   limpiarDetallesVuelo()
                 } else {
                   limpiarDetallesVuelo()
                 }
-                setIdaVuelta(newValue)
+                updateVueloInfo('idaVuelta', newValue)
               }}
-              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${idaVuelta
+              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${vueloInfo.idaVuelta
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'bg-white text-slate-600 hover:bg-slate-50'
                 }`}
             >
-              <div className={`w-2 h-2 rounded-full ${idaVuelta ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
+              <div className={`w-2 h-2 rounded-full ${vueloInfo.idaVuelta ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
               IDA Y VUELTA
             </button>
             <button
               type="button"
               onClick={() => {
-                const newValue = !soloIda
+                const newValue = !vueloInfo.soloIda
                 if (newValue) {
-                  setIdaVuelta(false)
-                  setFinesMigratorios(false)
+                  updateVueloInfo('idaVuelta', false)
+                  updateVueloInfo('finesMigratorios', false)
                   limpiarDetallesVuelo()
                 } else {
                   limpiarDetallesVuelo()
                 }
-                setSoloIda(newValue)
+                updateVueloInfo('soloIda', newValue)
               }}
-              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${soloIda
+              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${vueloInfo.soloIda
                 ? 'bg-green-600 text-white shadow-md'
                 : 'bg-white text-slate-600 hover:bg-slate-50'
                 }`}
             >
-              <div className={`w-2 h-2 rounded-full ${soloIda ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
+              <div className={`w-2 h-2 rounded-full ${vueloInfo.soloIda ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
               SOLO IDA
             </button>
             <button
               type="button"
               onClick={() => {
-                const newValue = !finesMigratorios
+                const newValue = !vueloInfo.finesMigratorios
                 if (newValue) {
-                  setIdaVuelta(false)
-                  setSoloIda(false)
+                  updateVueloInfo('idaVuelta', false)
+                  updateVueloInfo('soloIda', false)
                   limpiarDetallesVuelo()
                 } else {
                   limpiarDetallesVuelo()
                 }
-                setFinesMigratorios(newValue)
+                updateVueloInfo('finesMigratorios', newValue)
               }}
-              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${finesMigratorios
+              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${vueloInfo.finesMigratorios
                   ? 'bg-amber-500 text-white shadow-md'
                   : 'bg-white text-slate-600 hover:bg-slate-50'
                 }`}
             >
-              <div className={`w-2 h-2 rounded-full ${finesMigratorios ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
+              <div className={`w-2 h-2 rounded-full ${vueloInfo.finesMigratorios ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
               FINES MIGRATORIOS
             </button>
           </div>
 
           {/* Campos para Fines Migratorios */}
-          {finesMigratorios && (
+          {vueloInfo.finesMigratorios && (
             <div className="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
               <h4 className="text-sm font-bold text-amber-700 mb-4 flex items-center gap-2">
                 <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
@@ -1069,8 +945,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               </label>
               <input
                 type="text"
-                value={origen}
-                onChange={(e) => setOrigen(e.target.value)}
+                value={vueloInfo.origen}
+                onChange={(e) => updateVueloInfo('origen', e.target.value)}
                 placeholder="Ej: CCS"
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               />
@@ -1081,8 +957,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               </label>
               <input
                 type="text"
-                value={destino}
-                onChange={(e) => setDestino(e.target.value)}
+                value={vueloInfo.destino}
+                onChange={(e) => updateVueloInfo('destino', e.target.value)}
                 placeholder="Ej: MAD"
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               />
@@ -1100,7 +976,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
             />
           </div>
-          {(idaVuelta || soloIda) && (
+          {(vueloInfo.idaVuelta || vueloInfo.soloIda) && (
             <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-4">
               <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-widest px-1">Vuelo de Ida</h4>
               <div className="grid grid-cols-3 gap-4">
@@ -1108,8 +984,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">FECHA</label>
                   <input
                     type="date"
-                    value={fechaSalida}
-                    onChange={(e) => setFechaSalida(e.target.value)}
+                    value={vueloInfo.fechaSalida}
+                    onChange={(e) => updateVueloInfo('fechaSalida', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
                   />
                 </div>
@@ -1117,8 +993,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">SALIDA</label>
                   <input
                     type="time"
-                    value={horaSalida}
-                    onChange={(e) => setHoraSalida(e.target.value)}
+                    value={vueloInfo.horaSalida}
+                    onChange={(e) => updateVueloInfo('horaSalida', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
                   />
                 </div>
@@ -1126,15 +1002,15 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">LLEGADA</label>
                   <input
                     type="time"
-                    value={horaLlegada}
-                    onChange={(e) => setHoraLlegada(e.target.value)}
+                    value={vueloInfo.horaLlegada}
+                    onChange={(e) => updateVueloInfo('horaLlegada', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
                   />
                 </div>
               </div>
             </div>
           )}
-          {idaVuelta && (
+          {vueloInfo.idaVuelta && (
             <div className="p-4 bg-purple-50/50 rounded-xl border border-purple-100 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
               <h4 className="text-xs font-bold text-purple-700 uppercase tracking-widest px-1">Vuelo de Vuelta</h4>
               <div className="grid grid-cols-3 gap-4">
@@ -1170,108 +1046,51 @@ export default function CotizadorForm({ isAuthenticated = false }) {
           )}
           {/* Escalas */}
           <div className="p-4 bg-orange-50/50 rounded-xl border border-orange-100 space-y-4">
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="haceEscala"
-                checked={haceEscala}
-                onChange={(e) => {
-                  setHaceEscala(e.target.checked)
-                  if (!e.target.checked) {
-                    setCiudadEscala1('')
-                    setTiempoEscala1('')
-                    setHaceSegundaEscala(false)
-                    setCiudadEscala2('')
-                    setTiempoEscala2('')
-                  }
-                }}
-                className="w-4 h-4 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
-              />
-              <label htmlFor="haceEscala" className="text-xs font-bold text-orange-700 uppercase tracking-widest cursor-pointer">
-                ¿El vuelo hace escala?
-              </label>
-            </div>
-            {haceEscala && (
-              <div className="space-y-4">
+            <h4 className="text-xs font-bold text-orange-700 uppercase tracking-widest px-1">Escalas</h4>
+            {escalas.map((escala, index) => (
+              <div key={index} className="space-y-3 p-3 bg-white rounded-lg border border-orange-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-orange-600">Escala {index + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => eliminarEscala(index)}
+                    className="text-red-500 hover:text-red-700 text-xs font-bold"
+                  >
+                    Eliminar
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">CIUDAD DE ESCALA</label>
+                    <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">CIUDAD</label>
                     <input
                       type="text"
-                      value={ciudadEscala1}
-                      onChange={(e) => setCiudadEscala1(e.target.value)}
+                      value={escala.ciudad}
+                      onChange={(e) => actualizarEscala(index, 'ciudad', e.target.value)}
                       placeholder="Ej: Bogotá"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">DURACIÓN DE ESCALA</label>
+                    <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">DURACIÓN</label>
                     <input
                       type="text"
-                      value={tiempoEscala1}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        // Validar formato HH:MM, HH.MM o número decimal (permitir entrada progresiva)
-                        if (value === '' || /^\d{0,2}([.:]\d{0,2})?$/.test(value)) {
-                          setTiempoEscala1(value)
-                        }
-                      }}
+                      value={escala.duracion}
+                      onChange={(e) => actualizarEscala(index, 'duracion', e.target.value)}
                       placeholder="Ej: 5:30 o 5.5"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm"
                     />
-                    <p className="text-xs text-slate-500 mt-1">Formato: 5:30 (5h 30min) o 5.5</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="haceSegundaEscala"
-                    checked={haceSegundaEscala}
-                    onChange={(e) => {
-                      setHaceSegundaEscala(e.target.checked)
-                      if (!e.target.checked) {
-                        setCiudadEscala2('')
-                        setTiempoEscala2('')
-                      }
-                    }}
-                    className="w-4 h-4 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
-                  />
-                  <label htmlFor="haceSegundaEscala" className="text-xs font-bold text-orange-600 cursor-pointer">
-                    ¿Segunda escala?
-                  </label>
-                </div>
-                {haceSegundaEscala && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">CIUDAD 2ª ESCALA</label>
-                      <input
-                        type="text"
-                        value={ciudadEscala2}
-                        onChange={(e) => setCiudadEscala2(e.target.value)}
-                        placeholder="Ej: Panamá"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">DURACIÓN 2ª ESCALA</label>
-                      <input
-                        type="text"
-                        value={tiempoEscala2}
-                        onChange={(e) => {
-                          const value = e.target.value
-                          // Validar formato HH:MM, HH.MM o número decimal (permitir entrada progresiva)
-                          if (value === '' || /^\d{0,2}([.:]\d{0,2})?$/.test(value)) {
-                            setTiempoEscala2(value)
-                          }
-                        }}
-                        placeholder="Ej: 2:15 o 2.25"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
-                      />
-                      <p className="text-xs text-slate-500 mt-1">Formato: 2:15 (2h 15min) o 2.25</p>
-                    </div>
-                  </div>
-                )}
               </div>
+            ))}
+            {escalas.length < 2 && (
+              <button
+                type="button"
+                onClick={agregarEscala}
+                className="w-full py-2 px-4 border-2 border-dashed border-orange-300 rounded-lg text-orange-600 hover:bg-orange-50 transition-colors text-sm font-bold"
+              >
+                + Agregar Escala
+              </button>
             )}
           </div>
           {/* Equipaje */}
@@ -1281,8 +1100,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-emerald-50 transition-colors">
                 <input
                   type="checkbox"
-                  checked={equipajeCompleto}
-                  onChange={(e) => setEquipajeCompleto(e.target.checked)}
+                  checked={tieneEquipaje('completo')}
+                  onChange={() => toggleEquipaje('completo')}
                   className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                 />
                 <div>
@@ -1293,8 +1112,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-emerald-50 transition-colors">
                 <input
                   type="checkbox"
-                  checked={equipajeMediano}
-                  onChange={(e) => setEquipajeMediano(e.target.checked)}
+                  checked={tieneEquipaje('mediano')}
+                  onChange={() => toggleEquipaje('mediano')}
                   className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                 />
                 <div>
@@ -1305,8 +1124,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-emerald-50 transition-colors">
                 <input
                   type="checkbox"
-                  checked={equipajeLigero}
-                  onChange={(e) => setEquipajeLigero(e.target.checked)}
+                  checked={tieneEquipaje('ligero')}
+                  onChange={() => toggleEquipaje('ligero')}
                   className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                 />
                 <div>
@@ -1337,6 +1156,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               monedasBase={monedasBase}
               monedasCotizacion={monedasCotizacionData}
               loadingMonedas={loadingMonedas}
+              onMonedaPrecioChange={setMonedaBaseSeleccionada}
+              onMonedaCotizacionChange={setMonedaCotizacionSeleccionada}
             />
           )
         })()}
@@ -1352,14 +1173,14 @@ export default function CotizadorForm({ isAuthenticated = false }) {
             agencia={agencia}
             vistaCotizacion={vistaCotizacion}
             tipoPasajeroIndividual={tipoPasajeroIndividual}
-            origen={origen}
-            destino={destino}
-            idaVuelta={idaVuelta}
-            soloIda={soloIda}
-            finesMigratorios={finesMigratorios}
-            fechaSalida={fechaSalida}
-            horaSalida={horaSalida}
-            horaLlegada={horaLlegada}
+            origen={vueloInfo.origen}
+            destino={vueloInfo.destino}
+            idaVuelta={vueloInfo.idaVuelta}
+            soloIda={vueloInfo.soloIda}
+            finesMigratorios={vueloInfo.finesMigratorios}
+            fechaSalida={vueloInfo.fechaSalida}
+            horaSalida={vueloInfo.horaSalida}
+            horaLlegada={vueloInfo.horaLlegada}
             aerolinea={aerolinea}
             fechaRegreso={fechaRegreso}
             horaSalidaRegreso={horaSalidaRegreso}
@@ -1367,23 +1188,19 @@ export default function CotizadorForm({ isAuthenticated = false }) {
             fechaSalidaMigratorio={fechaSalidaMigratorio}
             horaSalidaMigratorio={horaSalidaMigratorio}
             horaLlegadaMigratorio={horaLlegadaMigratorio}
-            haceEscala={haceEscala}
-            ciudadEscala1={ciudadEscala1}
-            tiempoEscala1={tiempoEscala1}
-            haceSegundaEscala={haceSegundaEscala}
-            ciudadEscala2={ciudadEscala2}
-            tiempoEscala2={tiempoEscala2}
+            escalas={escalas}
+            equipaje={equipajeSeleccionado}
             pasajeros={pasajeros}
             tienePasajerosConfigurados={tienePasajerosConfigurados}
             calcularTotalPasajeros={calcularTotalPasajeros}
             precioBase={precioBase}
             feeEmision={feeEmision}
             feeAgencia={feeAgencia}
-            equipajeCompleto={equipajeCompleto}
-            equipajeMediano={equipajeMediano}
-            equipajeLigero={equipajeLigero}
             monedaCotizacion={monedaCotizacionSeleccionada}
             metodoPago={metodoPago}
+            total={total}
+            desglose={desglose}
+            simboloMoneda={simboloMoneda}
           />
 
           {/* Bloque interno solo para el asesor (desglose) */}
@@ -1425,7 +1242,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                 {/* Mostrar subtotal convertido si hay recargos */}
                 {desglose.recargoDescripcion && (
                   <div className="flex justify-between items-center pt-2 text-sm">
-                    <span className="text-slate-500">Subtotal ({moneda})</span>
+                    <span className="text-slate-500">Subtotal ({monedaCotizacionSeleccionada})</span>
                     <span className="font-medium text-slate-600">
                       {simboloMoneda} {formatearMonto(desglose.totalPrevio)}
                     </span>
@@ -1433,7 +1250,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                 )}
 
                 {/* Impuesto del gobierno de Colombia (solo si aplica) */}
-                {moneda === 'COP' && desglose.impuestoGobierno > 0 && (
+                {monedaCotizacionSeleccionada === 'COP' && desglose.impuestoGobierno > 0 && (
                   <div className="flex justify-between items-center pt-2 text-sm">
                     <span className="text-slate-500">Impuesto gobierno (4 COP por cada 1000)</span>
                     <span className="font-medium text-slate-600">
@@ -1480,13 +1297,13 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   {monedaSeleccionada.label}
                 </p>
               )}
-              {moneda === 'VES' && (
+              {monedaCotizacionSeleccionada === 'VES' && (
                 <div className="mt-2 p-2 bg-white/10 rounded-lg">
                   <p className="text-xs opacity-90">
-                    <span className="font-semibold">Reconversión:</span> {monedaOrigen} → VES
+                    <span className="font-semibold">Reconversión:</span> {monedaBaseSeleccionada} → VES
                   </p>
                   <p className="text-xs opacity-80 mt-1">
-                    Tasa: 1 {monedaOrigen} = {tasaCambio} Bs
+                    Tasa: 1 {monedaBaseSeleccionada} = {tasaCambio} Bs
                   </p>
                 </div>
               )}
