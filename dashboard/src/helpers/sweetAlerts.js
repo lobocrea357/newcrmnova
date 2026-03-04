@@ -63,5 +63,3 @@ export const warningAlert = (message, options = {}) =>
 
 export const confirmAlert = (message, options = {}) => 
   showAlert("confirm", message, options);
-// Re-exports para compatibilidad con imports legacy
-export { toastSuccessHelper as toastSuccess, toastErrorHelper as toastError };

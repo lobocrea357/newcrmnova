@@ -30,7 +30,7 @@ export const TASAS_API = {
 // Exportar URL base para otros servicios
 export { BACKEND_URL }
 
-console.log('🔧 API Config:', {
-  backend: BACKEND_URL,
-  tasasApi: TASAS_API
-})
+// console.log('🔧 API Config:', {
+//   backend: BACKEND_URL,
+//   tasasApi: TASAS_API
+// })

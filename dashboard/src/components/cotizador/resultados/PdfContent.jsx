@@ -92,7 +92,7 @@ const PdfContent = forwardRef(({
 
         <div className="grid grid-cols-1 gap-6">
           {/* 1. Información del Vuelo */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4" style={{ pageBreakInside: 'avoid' }}>
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-sm font-bold uppercase tracking-widest text-indigo-700">
                 Información del Vuelo
@@ -276,7 +276,7 @@ const PdfContent = forwardRef(({
 
           {/* 3. Desglose de Pasajeros (Vista Múltiple) */}
           {(vistaCotizacion === 'multiple' && tienePasajerosConfigurados()) ? (
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 space-y-4">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 space-y-4" style={{ pageBreakInside: 'avoid' }}>
               <div className="flex items-center justify-between border-b border-blue-100 pb-3">
                 <h3 className="text-sm font-bold uppercase tracking-widest text-blue-700">
                   Desglose de Pasajeros
@@ -299,7 +299,7 @@ const PdfContent = forwardRef(({
                   }[categoriaKey]
 
                   return (
-                    <div key={categoriaKey} className={`bg-white rounded-lg border border-${categoriaConfig.color}-200 p-4`}>
+                    <div key={categoriaKey} className={`bg-white rounded-lg border border-${categoriaConfig.color}-200 p-4`} style={{ pageBreakInside: 'avoid' }}>
                       <div className="flex items-center justify-between mb-3">
                         <h4 className={`text-sm font-bold text-${categoriaConfig.color}-700 uppercase`}>
                           {categoriaConfig.nombre} ({categoriaPasajeros.length})
@@ -371,7 +371,7 @@ const PdfContent = forwardRef(({
               </div>
             </div>
           ) : vistaCotizacion === 'individual' && (
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200 p-6 space-y-4">
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200 p-6 space-y-4" style={{ pageBreakInside: 'avoid' }}>
               <div className="flex items-center justify-between border-b border-green-100 pb-3">
                 <h3 className="text-sm font-bold uppercase tracking-widest text-green-700">
                   Información del Pasajero y Cotización
@@ -455,7 +455,7 @@ const PdfContent = forwardRef(({
 
           {/* 4. Servicios Incluidos (Solo para fines migratorios) */}
           {finesMigratorios && (
-            <div className="bg-amber-50 rounded-xl border border-amber-200 p-6 space-y-3">
+            <div className="bg-amber-50 rounded-xl border border-amber-200 p-6 space-y-3" style={{ pageBreakInside: 'avoid' }}>
               <h3 className="text-sm font-bold uppercase tracking-widest text-amber-700 border-b border-amber-200 pb-2">
                 Servicios Incluidos
               </h3>
@@ -478,7 +478,7 @@ const PdfContent = forwardRef(({
 
           {/* 3. Total principal (Solo para múltiples pasajeros) */}
           {vistaCotizacion === 'multiple' && (
-            <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4" style={{ pageBreakInside: 'avoid' }}>
               <div>
                 <p className="text-xs uppercase tracking-widest text-slate-500">
                   Monto total de la cotización
@@ -502,7 +502,7 @@ const PdfContent = forwardRef(({
           )}
 
           {/* Método de pago + datos de pago */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4" style={{ pageBreakInside: 'avoid' }}>
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-widest text-slate-500">

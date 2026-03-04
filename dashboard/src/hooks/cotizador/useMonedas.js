@@ -30,10 +30,15 @@ export const useMonedas = () => {
         // Procesar tasas en formato objeto anidado
         const tasasObj = {}
         tasas.forEach(tasa => {
-          if (!tasasObj[tasa.moneda_origen]) {
-            tasasObj[tasa.moneda_origen] = {}
+          const origen = tasa.moneda_origen?.codigo
+          const destino = tasa.moneda_destino?.codigo
+          
+          if (origen && destino) {
+            if (!tasasObj[origen]) {
+              tasasObj[origen] = {}
+            }
+            tasasObj[origen][destino] = tasa.tasa
           }
-          tasasObj[tasa.moneda_origen][tasa.moneda_destino] = tasa.tasa
         })
         
         setEstado(prev => ({

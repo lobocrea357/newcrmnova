@@ -16,7 +16,8 @@ import PasajerosManager from './pasajeros/PasajerosManager'
 import PdfContent from './resultados/PdfContent'
 
 // Helpers
-import { confirmAlert, toastSuccess, toastError } from '@/helpers/sweetAlerts'
+import { confirmAlert } from '@/helpers/sweetAlerts'
+import { toastSuccess, toastError } from '@/helpers/toasts'
 
 // Hooks
 import { useVueloInfo } from '@/hooks/cotizador/useVueloInfo'
@@ -198,22 +199,29 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   // Usar funciones centralizadas de monedasConfig
   const monedasBase = getMonedasBase()
 
-  // Opciones para moneda destino (solo monedas con tasas de conversión)
+  // Opciones para moneda de cotización (solo monedas que tengan tasas creadas en DB)
   const getMonedasConTasas = () => {
-    if (loadingMonedas || !tasasDb || Object.keys(tasasDb).length === 0) {
-      return getMonedasDisponibles() // Fallback
+    if (!tasasDb || Object.keys(tasasDb).length === 0) {
+      return getMonedasCotizacion()
     }
 
-    // Obtener monedas que tienen tasas de conversión (tasasDb es objeto no array)
+    // Extraer TODAS las monedas que aparecen en tasasDB (como origen o destino)
     const monedasConTasas = new Set()
-    Object.keys(tasasDb).forEach(origen => {
-      monedasConTasas.add(origen)
-      Object.keys(tasasDb[origen]).forEach(destino => {
-        monedasConTasas.add(destino)
-      })
+
+    // tasasDb tiene estructura: { monedaOrigen: { monedaDestino: tasa } }
+    Object.keys(tasasDb).forEach(monedaOrigen => {
+      monedasConTasas.add(monedaOrigen)
+
+      const destinosObj = tasasDb[monedaOrigen]
+      if (destinosObj && typeof destinosObj === 'object') {
+        Object.keys(destinosObj).forEach(monedaDestino => {
+          monedasConTasas.add(monedaDestino)
+        })
+      }
     })
 
-    return getMonedasDisponibles().filter(moneda =>
+    // Filtrar solo las monedas que existen en tasasDB
+    return getMonedasCotizacion().filter(moneda =>
       monedasConTasas.has(moneda.value)
     )
   }
@@ -328,7 +336,15 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
   // Recalcular cuando cambian los inputs (con debounce para evitar demasiadas llamadas)
   useEffect(() => {
-    if ((precioBase || feeEmision || feeAgencia) && monedaPrecio && monedaCotizacion) {
+    // Vista individual: requiere precioBase, feeEmision o feeAgencia
+    const debeCalcularIndividual = vistaCotizacion === 'individual' &&
+      (precioBase || feeEmision || feeAgencia) && monedaPrecio && monedaCotizacion
+
+    // Vista múltiple: requiere al menos 1 pasajero configurado
+    const debeCalcularMultiple = vistaCotizacion === 'multiple' &&
+      tienePasajerosConfigurados() && monedaPrecio && monedaCotizacion
+
+    if (debeCalcularIndividual || debeCalcularMultiple) {
       const timeoutId = setTimeout(() => {
         const calcular = async () => {
           try {
@@ -342,7 +358,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
       return () => clearTimeout(timeoutId)
     }
-  }, [precioBase, feeEmision, feeAgencia, pasajeros, monedaPrecio, monedaCotizacion, metodoPago])
+  }, [vistaCotizacion, precioBase, feeEmision, feeAgencia, pasajeros, monedaPrecio, monedaCotizacion, metodoPago])
 
   // Calcular total de pasajeros
   const calcularTotalPasajeros = () => {
@@ -504,28 +520,10 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
     try {
       setExportingPdf(true)
-      const element = pdfContentRef.current
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#f1f5f9'
+      await exportarCotizacionPDF(pdfContentRef.current, {
+        origen: vueloInfo.origen,
+        destino: vueloInfo.destino
       })
-
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = pdf.internal.pageSize.getHeight()
-      const marginX = 12
-      const marginTop = 6
-      const usableWidth = pdfWidth - marginX * 2
-      const imgHeight = (canvas.height * usableWidth) / canvas.width
-      const startY = marginTop
-
-      pdf.addImage(imgData, 'PNG', marginX, startY, usableWidth, imgHeight)
-
-      const fecha = new Date().toISOString().split('T')[0]
-      pdf.save(`cotizacion_${fecha}.pdf`)
     } catch (error) {
       console.error('Error exportando PDF de cotización:', error)
       alert('Ocurrió un error al generar el PDF. Intenta nuevamente.')
@@ -681,14 +679,22 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   value={monedaCotizacionSeleccionada}
                   onChange={(e) => setMonedaCotizacionSeleccionada(e.target.value)}
                   className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  disabled={loadingMonedas}
                 >
-                  <option value="">Seleccionar moneda de cotización</option>
-                  {getMonedasCotizacion().map(moneda => (
+                  <option value="">
+                    {loadingMonedas ? 'Cargando tasas...' : 'Seleccionar moneda de cotización'}
+                  </option>
+                  {getMonedasConTasas().map(moneda => (
                     <option key={moneda.value} value={moneda.value}>
                       {moneda.label}
                     </option>
                   ))}
                 </select>
+                {loadingMonedas && (
+                  <p className="text-xs text-blue-600 mt-1 ml-2 font-medium">
+                    ⏳ Cargando tasas de conversión desde la base de datos...
+                  </p>
+                )}
               </div>
 
               {/* Fee Emisión */}
@@ -744,7 +750,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   monedaPrecio={monedaBaseSeleccionada}
                   monedaCotizacion={monedaCotizacionSeleccionada}
                   monedasBase={monedasBase}
-                  monedasCotizacion={getMonedasCotizacion()}
+                  monedasCotizacion={getMonedasConTasas()}
                   loadingMonedas={loadingMonedas}
                   onMonedaPrecioChange={setMonedaBaseSeleccionada}
                   onMonedaCotizacionChange={setMonedaCotizacionSeleccionada}
@@ -1137,31 +1143,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
           </div>
         </CollapsibleSection>
 
-        {/* Sección de Pasajeros (SOLO para vista múltiple) */}
-        {vistaCotizacion === 'multiple' && (() => {
-          const monedasCotizacionData = getMonedasCotizacion()
-          console.log('CotizadorForm - Pasando a PasajerosManager:', {
-            monedaBaseSeleccionada,
-            monedaCotizacionSeleccionada,
-            monedasBase,
-            monedasCotizacionData,
-            loadingMonedas
-          })
-          return (
-            <PasajerosManager
-              value={pasajeros}
-              onChange={setPasajeros}
-              monedaPrecio={monedaBaseSeleccionada}
-              monedaCotizacion={monedaCotizacionSeleccionada}
-              monedasBase={monedasBase}
-              monedasCotizacion={monedasCotizacionData}
-              loadingMonedas={loadingMonedas}
-              onMonedaPrecioChange={setMonedaBaseSeleccionada}
-              onMonedaCotizacionChange={setMonedaCotizacionSeleccionada}
-            />
-          )
-        })()}
-
       </div>
 
       {/* Panel de Resultados */}
@@ -1204,7 +1185,135 @@ export default function CotizadorForm({ isAuthenticated = false }) {
           />
 
           {/* Bloque interno solo para el asesor (desglose) */}
-          {desglose ? (
+          {vistaCotizacion === 'multiple' && tienePasajerosConfigurados() ? (
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
+              <h3 className="text-xl font-semibold text-slate-800 mb-6">
+                Desglose de Pasajeros
+              </h3>
+
+              <div className="space-y-6">
+                {Object.entries(pasajeros).map(([categoriaKey, categoriaPasajeros]) => {
+                  if (categoriaPasajeros.length === 0) return null
+
+                  const categoriaConfig = {
+                    adultos: { nombre: 'Adultos', color: 'blue' },
+                    niños: { nombre: 'Niños', color: 'green' },
+                    infantes: { nombre: 'Infantes', color: 'purple' }
+                  }[categoriaKey]
+
+                  return (
+                    <div key={categoriaKey} className="border border-slate-200 rounded-lg p-4">
+                      <h4 className={`text-sm font-bold text-${categoriaConfig.color}-600 mb-3 uppercase`}>
+                        {categoriaConfig.nombre} ({categoriaPasajeros.length})
+                      </h4>
+
+                      <div className="space-y-3">
+                        {categoriaPasajeros.map((pasajero, index) => {
+                          const precioPantalla = parseFloat(pasajero.precioPantalla || 0)
+                          const feeEmision = parseFloat(pasajero.feeEmision || 0)
+                          const feeAgencia = parseFloat(pasajero.feeAgencia || 0)
+                          const totalBoleto = precioPantalla + feeEmision + feeAgencia
+
+                          return (
+                            <div key={pasajero.id} className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-medium text-slate-700">Pasajero #{index + 1}</span>
+                                <span className="text-lg font-bold text-slate-900">
+                                  ${totalBoleto.toFixed(2)}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-2 text-xs">
+                                <div>
+                                  <p className="text-slate-500">Precio Pantalla</p>
+                                  <p className="font-semibold text-slate-700">${precioPantalla.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Fee Emisión</p>
+                                  <p className="font-semibold text-slate-700">${feeEmision.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Fee Agencia</p>
+                                  <p className="font-semibold text-slate-700">${feeAgencia.toFixed(2)}</p>
+                                </div>
+                              </div>
+
+                              {categoriaKey !== 'infantes' && (
+                                <div className="mt-2 text-xs text-slate-600">
+                                  <span className="font-medium">Equipaje: </span>
+                                  {pasajero.equipajeCompleto && <span className="text-green-600">Completo • </span>}
+                                  {pasajero.equipajeMediano && <span className="text-blue-600">Mediano • </span>}
+                                  {pasajero.equipajeLigero && <span className="text-orange-600">Ligero</span>}
+                                  {!pasajero.equipajeCompleto && !pasajero.equipajeMediano && !pasajero.equipajeLigero && (
+                                    <span className="text-slate-400 italic">Sin equipaje</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      <div className="mt-3 pt-3 border-t border-slate-300 flex justify-between items-center">
+                        <span className="text-sm font-semibold text-slate-700">Subtotal {categoriaConfig.nombre}</span>
+                        <span className="text-lg font-bold text-slate-900">
+                          ${categoriaPasajeros.reduce((sum, p) =>
+                            sum + parseFloat(p.precioPantalla || 0) + parseFloat(p.feeEmision || 0) + parseFloat(p.feeAgencia || 0), 0
+                          ).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Total General */}
+                <div className="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm text-indigo-700 font-medium">Total Base (USD)</p>
+                      <p className="text-xs text-indigo-600 mt-1">
+                        {Object.values(pasajeros).reduce((sum, cat) => sum + cat.length, 0)} pasajeros
+                      </p>
+                    </div>
+                    <span className="text-3xl font-bold text-indigo-900">
+                      ${calcularTotalPasajeros().toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Información de conversión si aplica */}
+                {desglose && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-600">Tasa de Cambio</span>
+                      <span className="font-semibold text-indigo-600">
+                        × {formatearMonto(desglose.tasaCambio)}
+                      </span>
+                    </div>
+
+                    {desglose.recargoDescripcion && (
+                      <div className="p-3 bg-orange-50 rounded-lg border border-orange-100">
+                        <p className="text-sm text-orange-700 font-medium">
+                          {desglose.recargoDescripcion}
+                        </p>
+                      </div>
+                    )}
+
+                    {metodoPago && (
+                      <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                        <p className="text-sm text-slate-700">
+                          <span className="font-medium">Método de pago:</span>
+                          <span className="ml-2 text-indigo-700 font-semibold">
+                            {metodoPago}
+                          </span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : desglose ? (
             <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
               <h3 className="text-xl font-semibold text-slate-800 mb-6">
                 Desglose de Cotización 
@@ -1276,13 +1385,20 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                 )}
               </div>
             </div>
-          ) : (
+            ) : vistaCotizacion === 'individual' ? (
             <div className="bg-slate-50 rounded-2xl p-8 text-center border border-slate-200">
               <Calculator className="w-12 h-12 text-slate-400 mx-auto mb-3" />
               <p className="text-slate-600">
                 Completa los campos para ver el desglose
               </p>
             </div>
+              ) : (
+                <div className="bg-slate-50 rounded-2xl p-8 text-center border border-slate-200">
+                  <Users className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                  <p className="text-slate-600">
+                    Agrega pasajeros para ver el desglose
+                  </p>
+                </div>
           )}
 
           {/* Total + botón de exportación */}
@@ -1312,7 +1428,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <button
                 type="button"
                 onClick={handleExportarPdf}
-                disabled={!desglose || exportingPdf}
+                disabled={(vistaCotizacion === 'individual' && !desglose) || (vistaCotizacion === 'multiple' && !tienePasajerosConfigurados()) || exportingPdf}
                 className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white text-indigo-700 font-medium text-sm shadow-sm hover:bg-slate-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {exportingPdf ? (

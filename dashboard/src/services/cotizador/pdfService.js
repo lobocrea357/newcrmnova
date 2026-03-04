@@ -3,17 +3,25 @@ import jsPDF from 'jspdf'
 
 /**
  * Configuración por defecto para html2canvas
+ * scale: 3 para mayor calidad en PDFs profesionales
  */
 const CANVAS_CONFIG = {
-  scale: 2,
+  scale: 3,
   useCORS: true,
   logging: false,
   backgroundColor: '#ffffff',
-  windowWidth: 1200
+  windowWidth: 1200,
+  allowTaint: false,
+  imageTimeout: 15000
 }
 
 /**
- * Generar PDF desde un elemento DOM
+ * Generar PDF desde un elemento DOM con manejo elegante de múltiples páginas
+ * 
+ * Estrategia:
+ * - Captura el contenido completo como imagen de alta calidad
+ * - Divide en páginas A4 respetando el diseño original
+ * - Mantiene márgenes consistentes en todas las páginas
  */
 export async function generarPdfDesdeElemento(elemento, opciones = {}) {
   if (!elemento) {
@@ -27,30 +35,46 @@ export async function generarPdfDesdeElemento(elemento, opciones = {}) {
     ...opciones.canvasConfig
   }
 
-  // Generar canvas
+  // Generar canvas de alta calidad
   const canvas = await html2canvas(elemento, canvasConfig)
 
-  // Dimensiones del PDF
-  const imgWidth = 210 // A4 width en mm
+  // Dimensiones del PDF (A4: 210mm x 297mm)
+  const PDF_WIDTH = 210
+  const PDF_HEIGHT = 297
+  const MARGIN = 15 // Margen de 15mm para evitar cortes en los bordes
+  
+  const contentWidth = PDF_WIDTH - (MARGIN * 2)
+  const contentHeight = PDF_HEIGHT - (MARGIN * 2)
+  
+  // Calcular proporciones
+  const imgWidth = contentWidth
   const imgHeight = (canvas.height * imgWidth) / canvas.width
-  const imgData = canvas.toDataURL('image/png')
+  
+  // Convertir canvas a imagen
+  const imgData = canvas.toDataURL('image/png', 1.0)
 
   // Crear PDF
-  const pdf = new jsPDF('p', 'mm', 'a4')
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+    compress: true
+  })
   
-  // Manejar páginas múltiples
+  // Variables para paginación
   let heightLeft = imgHeight
-  let position = 0
-  const pageHeight = 297 // A4 height en mm
+  let position = MARGIN
 
-  pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-  heightLeft -= pageHeight
+  // Primera página - mostrar desde el inicio
+  pdf.addImage(imgData, 'PNG', MARGIN, position, imgWidth, imgHeight, undefined, 'FAST')
+  heightLeft -= contentHeight
 
-  while (heightLeft >= 0) {
-    position = heightLeft - imgHeight
+  // Páginas adicionales - desplazar imagen hacia arriba para mostrar siguiente sección
+  while (heightLeft > 0) {
+    position -= contentHeight
     pdf.addPage()
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-    heightLeft -= pageHeight
+    pdf.addImage(imgData, 'PNG', MARGIN, position, imgWidth, imgHeight, undefined, 'FAST')
+    heightLeft -= contentHeight
   }
 
   return pdf

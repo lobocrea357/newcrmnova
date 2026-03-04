@@ -39,16 +39,16 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
             setUser(user)
             const info = getUserInfo(user?.email)
             setUserInfo(info)
-            console.log('🔐 Usuario loggeado (Sidebar):', {
-                id: user?.id,
-                email: user?.email,
-                fullName: user?.user_metadata?.full_name,
-                metadata: user?.user_metadata,
-                role: user?.role,
-                appMetadata: user?.app_metadata,
-                fullPayload: user,
-                customInfo: info
-            })
+            // console.log('🔐 Usuario loggeado (Sidebar):', {
+            //     id: user?.id,
+            //     email: user?.email,
+            //     fullName: user?.user_metadata?.full_name,
+            //     metadata: user?.user_metadata,
+            //     role: user?.role,
+            //     appMetadata: user?.app_metadata,
+            //     fullPayload: user,
+            //     customInfo: info
+            // })
         } finally {
             setLoading(false)
         }

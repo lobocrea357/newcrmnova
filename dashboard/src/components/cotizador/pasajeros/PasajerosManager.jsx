@@ -388,13 +388,7 @@ export default function PasajerosManager({
                 {loadingMonedas ? (
                   <option value="">Cargando monedas...</option>
                 ) : monedasCotizacion.length === 0 ? (
-                  <>
-                    <option value="USD">USD - Dólares</option>
-                    <option value="EUR">EUR - Euros</option>
-                    <option value="VES">VES - Bolívares</option>
-                    <option value="COP">COP - Pesos</option>
-                    <option value="USDT">USDT - Tether</option>
-                  </>
+                    <option value="">No hay monedas con tasas disponibles</option>
                 ) : (
                   monedasCotizacion.map(moneda => (
                     <option key={moneda.value} value={moneda.value}>
