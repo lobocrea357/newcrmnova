@@ -27,6 +27,15 @@ export const TASAS_API = {
   eliminarMoneda: (id) => buildApiUrl(`/api/tasas/eliminar-moneda/${id}`)
 }
 
+// URLs específicas para APIs de cotizaciones
+export const COTIZACIONES_API = {
+  crear: buildApiUrl('/api/cotizaciones'),
+  obtener: (id) => buildApiUrl(`/api/cotizaciones/${id}`),
+  actualizar: (id) => buildApiUrl(`/api/cotizaciones/${id}`),
+  eliminar: (id) => buildApiUrl(`/api/cotizaciones/${id}`),
+  cambiarEstado: (id) => buildApiUrl(`/api/cotizaciones/${id}/estado`)
+}
+
 // Exportar URL base para otros servicios
 export { BACKEND_URL }
 

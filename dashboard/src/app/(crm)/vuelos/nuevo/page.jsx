@@ -1,14 +1,82 @@
 'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import VueloForm from '@/components/vuelos/VueloForm'
 import { supabase } from '@/lib/supabase'
+import { toastInfo } from '@/helpers/toasts'
 
 export default function NuevoVueloPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [loadingCotizacion, setLoadingCotizacion] = useState(false)
+  const [initialFormData, setInitialFormData] = useState(null)
+  const [cotizacion, setCotizacion] = useState(null)
+
+  // Cargar cotización si viene del parámetro
+  useEffect(() => {
+    const cotizacionId = searchParams.get('cotizacion_id')
+    if (cotizacionId) {
+      loadCotizacion(cotizacionId)
+    }
+  }, [searchParams])
+
+  const loadCotizacion = async (cotizacionId) => {
+    try {
+      setLoadingCotizacion(true)
+
+      const { data, error } = await supabase
+        .from('cotizaciones')
+        .select('*')
+        .eq('id', cotizacionId)
+        .single()
+
+      if (error) throw error
+
+      if (data.estado !== 'APROBADA') {
+        toastInfo('Esta cotización no está aprobada')
+      }
+
+      setCotizacion(data)
+
+      // Mapear cotización a formato de VueloForm
+      const mappedData = {
+        pax_nombre: data.nombre_cliente,
+        contacto_nombre: data.nombre_cliente,
+        ruta: `${data.origen} - ${data.destino}`,
+        fecha_vuelo: data.fecha_salida,
+        horario: data.hora_salida || '',
+        aerolinea_nombre: data.aerolinea || '',
+        monto_venta: data.precio_final_cotizacion || '',
+        metodo_pago: data.metodo_pago || '',
+        tipo_vuelo: data.tipo_vuelo === 'migratorio' ? 'MIGRACION' : 'TURISMO',
+        observaciones: `Creado desde cotización #${data.id}\n\nTipo: ${data.tipo_vista}\nMoneda cotización: ${data.moneda_cotizacion}\nPrecio base: ${data.precio_base} ${data.moneda_precio}`,
+        // Campos que el asesor debe completar manualmente
+        num_adultos: 1,
+        num_ninos: 0,
+        num_infantes: 0,
+        contacto_telefono: '',
+        localizador: '', // IMPORTANTE: debe llenarlo el asesor
+        proveedor: '',
+        monto_sabre: '',
+        monto_expedia: '',
+        monto_emision: '',
+        aerolinea_codigo: '',
+        requiere_anulable: false
+      }
+
+      setInitialFormData(mappedData)
+      toastInfo('Datos pre-llenados desde cotización aprobada')
+
+    } catch (error) {
+      console.error('Error cargando cotización:', error)
+      setError('Error al cargar la cotización: ' + error.message)
+    } finally {
+      setLoadingCotizacion(false)
+    }
+  }
 
   const handleSubmit = async (formData) => {
     setIsLoading(true)
@@ -165,6 +233,21 @@ export default function NuevoVueloPage() {
           </p>
         </div>
 
+        {cotizacion && (
+          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-blue-800 font-medium flex items-center gap-2">
+              <Loader2 className="w-4 h-4" />
+              Pre-llenando desde cotización aprobada
+            </p>
+            <p className="text-blue-600 text-sm mt-1">
+              Cliente: {cotizacion.nombre_cliente} • Ruta: {cotizacion.origen} → {cotizacion.destino}
+            </p>
+            <p className="text-blue-700 text-xs mt-2 font-medium">
+              ⚠️ Completa los campos faltantes: localizador, teléfono, pasajeros, proveedor y adjuntos
+            </p>
+          </div>
+        )}
+
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-800 font-medium">Error al crear vuelo</p>
@@ -172,7 +255,20 @@ export default function NuevoVueloPage() {
           </div>
         )}
 
-        <VueloForm onSubmit={handleSubmit} isLoading={isLoading} />
+        {loadingCotizacion ? (
+          <div className="flex items-center justify-center h-64 bg-white rounded-lg shadow-sm">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
+              <p className="text-gray-600">Cargando cotización...</p>
+            </div>
+          </div>
+        ) : (
+          <VueloForm
+            initialData={initialFormData}
+            onSubmit={handleSubmit}
+            isLoading={isLoading}
+          />
+        )}
       </div>
     </div>
   )

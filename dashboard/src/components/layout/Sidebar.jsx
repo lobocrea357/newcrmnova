@@ -20,6 +20,7 @@ import {
     Plane,
     PlaneTakeoff,
     Calculator,
+    ClipboardList,
     X
 } from 'lucide-react'
 
@@ -61,6 +62,7 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         { href: '/rendimiento', label: 'Rendimiento', icon: TrendingUp },
         { href: '/manual-ventas', label: 'Manual de Ventas', icon: BookOpen },
         { href: '/cotizador', label: 'Cotizador', icon: Calculator },
+        { href: '/cotizaciones', label: 'Cotizaciones', icon: ClipboardList },
         { href: '/vuelos', label: 'Vuelos', icon: PlaneTakeoff },
         { href: '/anulables', label: 'Anulables', icon: XCircle },
         { href: '/reportes', label: 'Reportes', icon: FileText },

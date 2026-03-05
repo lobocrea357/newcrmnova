@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 
 // Librerías externas
-import { Calculator, DollarSign, Percent, CreditCard, TrendingUp, RefreshCw, Download, ArrowRightLeft, Plane, Calendar, MapPin, Luggage, Users } from 'lucide-react'
+import { Calculator, DollarSign, Percent, CreditCard, TrendingUp, RefreshCw, Download, ArrowRightLeft, Plane, Calendar, MapPin, Luggage, Users, Save } from 'lucide-react'
 import html2canvas from 'html2canvas-pro'
 import jsPDF from 'jspdf'
 
@@ -48,6 +48,7 @@ import {
   ALL_PAYMENT_METHODS,
   getPaymentData
 } from '@/lib/cotizador/paymentConfig'
+import { COTIZACIONES_API } from '@/config/apiConfig'
 
 /**
  * Componente principal del cotizador de vuelos
@@ -114,6 +115,9 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     niños: [],
     infantes: []
   })
+
+  const [nombreCliente, setNombreCliente] = useState('')
+  const [savingCotizacion, setSavingCotizacion] = useState(false)
 
   const [exportingPdf, setExportingPdf] = useState(false)
   const pdfContentRef = useRef(null)
@@ -496,6 +500,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
       niños: [],
       infantes: []
     })
+    setNombreCliente('')
   }
 
   const limpiarDetallesVuelo = () => {
@@ -505,6 +510,129 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     setHoraSalidaRegreso('')
     setHoraLlegadaRegreso('')
     setAerolinea('')
+  }
+
+  const handleGuardarCotizacion = async () => {
+    // Validaciones
+    if (!nombreCliente.trim()) {
+      toastError('Ingresa el nombre del cliente')
+      return
+    }
+    if (!vueloInfo.origen || !vueloInfo.destino) {
+      toastError('Ingresa origen y destino del vuelo')
+      return
+    }
+    if (!desglose) {
+      toastError('Primero calcula la cotización antes de guardarla')
+      return
+    }
+
+    // Determinar tipo de vuelo
+    let tipoVuelo = 'solo_ida'
+    if (vueloInfo.idaVuelta) tipoVuelo = 'ida_vuelta'
+    else if (vueloInfo.finesMigratorios) tipoVuelo = 'migratorio'
+
+    // Determinar fecha de salida según tipo de vuelo
+    const fechaSalidaFinal = vueloInfo.finesMigratorios
+      ? fechaSalidaMigratorio
+      : vueloInfo.fechaSalida
+
+    const horaSalidaFinal = vueloInfo.finesMigratorios
+      ? horaSalidaMigratorio
+      : vueloInfo.horaSalida
+
+    const horaLlegadaFinal = vueloInfo.finesMigratorios
+      ? horaLlegadaMigratorio
+      : vueloInfo.horaLlegada
+
+    if (!fechaSalidaFinal) {
+      toastError('Ingresa la fecha de salida del vuelo')
+      return
+    }
+
+    try {
+      setSavingCotizacion(true)
+
+      // Obtener usuario actual
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        toastError('Error de autenticación. Inicia sesión nuevamente.')
+        return
+      }
+
+      // Construir objeto de cotización
+      const cotizacionData = {
+        created_by: user.id,
+        nombre_cliente: nombreCliente.trim(),
+        tipo_vista: vistaCotizacion,
+        tipo_vuelo: tipoVuelo,
+        origen: vueloInfo.origen,
+        destino: vueloInfo.destino,
+        aerolinea: aerolinea || null,
+        fecha_salida: fechaSalidaFinal,
+        hora_salida: horaSalidaFinal || null,
+        hora_llegada: horaLlegadaFinal || null,
+        tiene_escala: escalas.length > 0,
+        escala_1_ciudad: escalas[0]?.ciudad || null,
+        escala_1_duracion: escalas[0]?.duracion || null,
+        tiene_segunda_escala: escalas.length > 1,
+        escala_2_ciudad: escalas[1]?.ciudad || null,
+        escala_2_duracion: escalas[1]?.duracion || null,
+        precio_base: parseFloat(precioBase) || 0,
+        fee_emision: parseFloat(feeEmision) || 0,
+        fee_agencia: parseFloat(feeAgencia) || 0,
+        total_cotizacion: desglose.subtotal || 0,
+        moneda_precio: monedaBaseSeleccionada,
+        moneda_cotizacion: monedaCotizacionSeleccionada,
+        precio_final_cotizacion: total,
+        tasa_cambio: parseFloat(tasaCambio) || 1,
+        metodo_pago: metodoPago || null
+      }
+
+      // Construir pasajeros si es vista múltiple
+      let pasajerosData = []
+      if (vistaCotizacion === 'multiple' && tienePasajerosConfigurados()) {
+        Object.entries(pasajeros).forEach(([categoriaKey, categoriaPasajeros]) => {
+          const tipoMap = { adultos: 'ADULTO', niños: 'NINO', infantes: 'INFANTE' }
+          categoriaPasajeros.forEach((p, index) => {
+            pasajerosData.push({
+              tipo: tipoMap[categoriaKey],
+              orden: index + 1,
+              precio_pantalla: parseFloat(p.precioPantalla) || 0,
+              fee_emision: parseFloat(p.feeEmision) || 0,
+              fee_agencia: parseFloat(p.feeAgencia) || 0,
+              equipaje_completo: p.equipajeCompleto || false,
+              equipaje_mediano: p.equipajeMediano || false,
+              equipaje_ligero: p.equipajeLigero || false
+            })
+          })
+        })
+      }
+
+      const response = await fetch(COTIZACIONES_API.crear, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cotizacion: cotizacionData,
+          pasajeros: pasajerosData
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al guardar la cotización')
+      }
+
+      toastSuccess('Cotización guardada exitosamente')
+      console.log('✅ Cotización guardada:', result.data)
+
+    } catch (error) {
+      console.error('Error guardando cotización:', error)
+      toastError(error.message || 'Error al guardar la cotización')
+    } finally {
+      setSavingCotizacion(false)
+    }
   }
 
   const handleExportarPdf = async () => {
@@ -561,6 +689,20 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Nombre del Cliente */}
+        <div className="mb-6 pb-6 border-b border-slate-100">
+          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+            NOMBRE DEL CLIENTE
+          </label>
+          <input
+            type="text"
+            value={nombreCliente}
+            onChange={(e) => setNombreCliente(e.target.value)}
+            placeholder="Ej: Juan Pérez"
+            className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+          />
         </div>
 
         <div className="flex justify-between items-center mb-6">
@@ -1443,6 +1585,26 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   </>
                 )}
               </button>
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={handleGuardarCotizacion}
+                  disabled={!desglose || savingCotizacion}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 text-white font-medium text-sm shadow-sm hover:bg-emerald-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {savingCotizacion ? (
+                    <>
+                      <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      Guardar Cotización
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -326,12 +326,6 @@ const PdfContent = forwardRef(({
                                 </span>
                               </div>
 
-                              <div className="grid grid-cols-3 gap-2 text-xs text-gray-600 mb-2">
-                                <span>Tarifa: ${parseFloat(pasajero.precioPantalla || 0).toFixed(2)}</span>
-                                <span>Fee Emisión: ${parseFloat(pasajero.feeEmision || 0).toFixed(2)}</span>
-                                <span>Fee Agencia: ${parseFloat(pasajero.feeAgencia || 0).toFixed(2)}</span>
-                              </div>
-
                               {categoriaKey !== 'infantes' && (
                                 <div className="flex items-center gap-2 text-xs">
                                   <Luggage className="w-3 h-3 text-gray-400" />
@@ -362,10 +356,23 @@ const PdfContent = forwardRef(({
 
                 <div className="bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg border border-blue-300 p-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-bold text-blue-800 uppercase">Total Pasajeros:</span>
-                    <span className="text-lg font-bold text-blue-900">
-                      ${calcularTotalPasajeros().toFixed(2)}
-                    </span>
+                    <div>
+                      <span className="text-sm font-bold text-blue-800 uppercase">Total Pasajeros:</span>
+                      <p className="text-xs text-blue-600 mt-0.5">
+                        ({Object.values(pasajeros).reduce((sum, categoria) => sum + categoria.length, 0)} pasajeros)
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-2xl font-bold text-blue-900">
+                        {simboloMoneda}{(calcularTotalPasajeros() * (desglose?.tasaCambio || 1)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      <p className="text-xs text-blue-600 mt-0.5">
+                        {monedaCotizacion === 'USD' ? 'USD' :
+                          monedaCotizacion === 'EUR' ? 'EUR' :
+                            monedaCotizacion === 'VES' ? 'VES' :
+                              monedaCotizacion === 'COP' ? 'COP' : 'USDT'}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -476,30 +483,6 @@ const PdfContent = forwardRef(({
             </div>
           )}
 
-          {/* 3. Total principal (Solo para múltiples pasajeros) */}
-          {vistaCotizacion === 'multiple' && (
-            <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4" style={{ pageBreakInside: 'avoid' }}>
-              <div>
-                <p className="text-xs uppercase tracking-widest text-slate-500">
-                  Monto total de la cotización
-                </p>
-                <p className="text-xs text-slate-400 mt-1">
-                  ({Object.values(pasajeros).reduce((sum, categoria) => sum + categoria.length, 0)} pasajeros)
-                </p>
-              </div>
-              <div className="text-right">
-                <span className="text-3xl font-bold text-slate-900">
-                  ${calcularTotalPasajeros().toFixed(2)}
-                </span>
-                <p className="text-sm text-slate-500 mt-1">
-                  {monedaCotizacion === 'USD' ? 'USD' :
-                    monedaCotizacion === 'EUR' ? 'EUR' :
-                      monedaCotizacion === 'VES' ? 'VES' :
-                        monedaCotizacion === 'COP' ? 'COP' : 'USDT'}
-                </p>
-              </div>
-            </div>
-          )}
 
           {/* Método de pago + datos de pago */}
           <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4" style={{ pageBreakInside: 'avoid' }}>
