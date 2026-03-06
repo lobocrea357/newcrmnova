@@ -1,9 +1,10 @@
 'use client'
 // React
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 
 // Librerías externas
-import { Calculator, DollarSign, Percent, CreditCard, TrendingUp, RefreshCw, Download, ArrowRightLeft, Plane, Calendar, MapPin, Luggage, Users, Save } from 'lucide-react'
+import { Calculator, DollarSign, Percent, CreditCard, TrendingUp, RefreshCw, Download, ArrowRightLeft, Plane, Calendar, MapPin, Luggage, Users, Save, CheckCircle, Eye, RotateCcw, X } from 'lucide-react'
 import html2canvas from 'html2canvas-pro'
 import jsPDF from 'jspdf'
 
@@ -55,6 +56,8 @@ import { COTIZACIONES_API } from '@/config/apiConfig'
  * Soporta cotización individual y múltiple con conversión inteligente de monedas
  */
 export default function CotizadorForm({ isAuthenticated = false }) {
+  const router = useRouter()
+
   // ============================================
   // ESTADO - Vista y Configuración
   // ============================================
@@ -118,6 +121,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
   const [nombreCliente, setNombreCliente] = useState('')
   const [savingCotizacion, setSavingCotizacion] = useState(false)
+  const [cotizacionGuardada, setCotizacionGuardada] = useState(false)
+  const [ultimaCotizacionId, setUltimaCotizacionId] = useState(null)
 
   const [exportingPdf, setExportingPdf] = useState(false)
   const pdfContentRef = useRef(null)
@@ -195,6 +200,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
       infantes: []
     })
     setTipoPasajeroIndividual('adulto')
+    setCotizacionGuardada(false)
+    setUltimaCotizacionId(null)
   }
 
   const metodosPago = ALL_PAYMENT_METHODS
@@ -627,6 +634,10 @@ export default function CotizadorForm({ isAuthenticated = false }) {
       toastSuccess('Cotización guardada exitosamente')
       console.log('✅ Cotización guardada:', result.data)
 
+      // Activar banner de cotización guardada
+      setCotizacionGuardada(true)
+      setUltimaCotizacionId(result.data.id)
+
     } catch (error) {
       console.error('Error guardando cotización:', error)
       toastError(error.message || 'Error al guardar la cotización')
@@ -722,6 +733,48 @@ export default function CotizadorForm({ isAuthenticated = false }) {
             </button>
           </div>
         </div>
+
+        {/* Banner de cotización guardada */}
+        {cotizacionGuardada && (
+          <div className="mb-6 bg-green-50 border-2 border-green-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 flex-1">
+                <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="text-sm font-bold text-green-800 mb-1">
+                    ¡Cotización guardada exitosamente!
+                  </h3>
+                  <p className="text-xs text-green-700 mb-3">
+                    Esta cotización ya existe en la base de datos. ¿Qué deseas hacer?
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => router.push('/cotizaciones')}
+                      className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition-colors flex items-center gap-1.5"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Ver todas las cotizaciones
+                    </button>
+                    <button
+                      onClick={limpiarFormularioCompleto}
+                      className="px-3 py-1.5 bg-white border border-green-300 text-green-700 rounded-lg text-xs font-semibold hover:bg-green-50 transition-colors flex items-center gap-1.5"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      Hacer otra cotización
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setCotizacionGuardada(false)}
+                className="text-green-600 hover:text-green-800 transition-colors flex-shrink-0"
+                title="Cerrar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tabs de Vista de Cotización */}
         <div className="mb-6 pb-6 border-b border-slate-100">
@@ -885,10 +938,11 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                 </p>
               </div>
 
-              {/* Componente de Pasajeros */}
-              <PasajerosManager
-                value={pasajeros}
-                onChange={setPasajeros}
+                {/* Componente de Pasajeros con scrollbar */}
+                <div className="max-h-[600px] overflow-y-auto pr-2">
+                  <PasajerosManager
+                    value={pasajeros}
+                    onChange={setPasajeros}
                   monedaPrecio={monedaBaseSeleccionada}
                   monedaCotizacion={monedaCotizacionSeleccionada}
                   monedasBase={monedasBase}
@@ -896,7 +950,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   loadingMonedas={loadingMonedas}
                   onMonedaPrecioChange={setMonedaBaseSeleccionada}
                   onMonedaCotizacionChange={setMonedaCotizacionSeleccionada}
-              />
+                  />
+              </div>
               </div>
           )}
         </CollapsibleSection>
@@ -1241,7 +1296,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               </button>
             )}
           </div>
-          {/* Equipaje */}
+          {/* Equipaje - Solo visible en vista individual */}
+          {vistaCotizacion === 'individual' && (
           <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-3">
             <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-widest px-1">Equipaje</h4>
             <div className="space-y-2">
@@ -1283,6 +1339,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               </label>
             </div>
           </div>
+          )}
         </CollapsibleSection>
 
       </div>

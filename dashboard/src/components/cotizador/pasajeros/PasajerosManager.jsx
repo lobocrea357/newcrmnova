@@ -42,7 +42,7 @@ const EQUIPAJE_OPTIONS = [
 ]
 
 export default function PasajerosManager({
-  value = {},
+  value = { adultos: [], niños: [], infantes: [] },
   onChange,
   readonly = false,
   monedaPrecio = 'USD',
@@ -53,11 +53,9 @@ export default function PasajerosManager({
   onMonedaPrecioChange,
   onMonedaCotizacionChange
 }) {
-  const [pasajeros, setPasajeros] = useState({
-    adultos: [],
-    niños: [],
-    infantes: []
-  })
+  // Usar directamente el value del padre (componente controlado)
+  const pasajeros = value
+
   const [expandedCategories, setExpandedCategories] = useState({
     adultos: false,
     niños: false,
@@ -68,63 +66,21 @@ export default function PasajerosManager({
   const [monedaPrecioLocal, setMonedaPrecioLocal] = useState(monedaPrecio)
   const [monedaCotizacionLocal, setMonedaCotizacionLocal] = useState(monedaCotizacion)
 
-  // Ref para evitar loop infinito en sincronización
-  const isInternalUpdate = useRef(false)
-
-  // BUG FIX: Sincronizar monedas del padre con estado interno de pasajeros
+  // Sincronizar estados locales cuando cambien los props del padre
   useEffect(() => {
-    // Solo actualizar si hay cambios reales en las monedas
-    const actualizarMonedasPasajeros = () => {
-      const pasajerosActualizados = { ...pasajeros }
-      let huboCambios = false
-
-      Object.keys(pasajerosActualizados).forEach(categoria => {
-        pasajerosActualizados[categoria] = pasajerosActualizados[categoria].map(pasajero => {
-          if (pasajero.monedaPrecio !== monedaPrecio || pasajero.monedaCotizacion !== monedaCotizacion) {
-            huboCambios = true
-            return {
-              ...pasajero,
-              monedaPrecio,
-              monedaCotizacion
-            }
-          }
-          return pasajero
-        })
-      })
-
-      if (huboCambios) {
-        setPasajeros(pasajerosActualizados)
-      }
-    }
-
-    actualizarMonedasPasajeros()
-  }, [monedaPrecio, monedaCotizacion])
-
-  // Inicializar con valores recibidos
-  useEffect(() => {
-    if (value && Object.keys(value).length > 0) {
-      console.log('PasajerosManager: Recibiendo valores del padre', value)
-      isInternalUpdate.current = true
-      setPasajeros(value)
-    }
-  }, [value])
-
-  // Sincronizar cambios con el componente padre (evitar loop con useRef)
+    setMonedaPrecioLocal(monedaPrecio)
+  }, [monedaPrecio])
 
   useEffect(() => {
-    if (onChange && !isInternalUpdate.current) {
-      console.log('PasajerosManager: Sincronizando con padre', pasajeros)
-      onChange(pasajeros)
-    }
-    isInternalUpdate.current = false
-  }, [pasajeros])
+    setMonedaCotizacionLocal(monedaCotizacion)
+  }, [monedaCotizacion])
 
   // Generar ID único para pasajeros
   const generarId = () => Date.now() + Math.random()
 
   // Agregar pasajero a una categoría
   const agregarPasajero = (categoria) => {
-    if (readonly) return
+    if (readonly || !onChange) return
 
     const config = CATEGORIAS_PASAJEROS[categoria]
     if (!config) {
@@ -148,14 +104,12 @@ export default function PasajerosManager({
 
     console.log('Nuevo pasajero:', nuevoPasajero)
 
-    setPasajeros(prev => {
-      const nuevosPasajeros = {
-        ...prev,
-        [categoria]: [...prev[categoria], nuevoPasajero]
-      }
-      console.log('Estado actualizado:', nuevosPasajeros)
-      return nuevosPasajeros
-    })
+    const nuevosPasajeros = {
+      ...pasajeros,
+      [categoria]: [...(pasajeros[categoria] || []), nuevoPasajero]
+    }
+    console.log('Enviando al padre:', nuevosPasajeros)
+    onChange(nuevosPasajeros)
 
     // Expandir automáticamente la categoría para mostrar el pasajero agregado
     setExpandedCategories(prev => ({
@@ -168,7 +122,7 @@ export default function PasajerosManager({
 
   // Eliminar pasajero
   const eliminarPasajero = async (categoria, pasajeroId) => {
-    if (readonly) return
+    if (readonly || !onChange) return
 
     const resultado = await confirmAlert(
       '¿Estás seguro de eliminar este pasajero?'
@@ -176,24 +130,26 @@ export default function PasajerosManager({
 
     if (!resultado.isConfirmed) return
 
-    setPasajeros(prev => ({
-      ...prev,
-      [categoria]: prev[categoria].filter(p => p.id !== pasajeroId)
-    }))
+    const nuevosPasajeros = {
+      ...pasajeros,
+      [categoria]: (pasajeros[categoria] || []).filter(p => p.id !== pasajeroId)
+    }
+    onChange(nuevosPasajeros)
 
     toastSuccess('Pasajero eliminado')
   }
 
   // Actualizar datos de un pasajero
   const actualizarPasajero = (categoria, pasajeroId, campo, valor) => {
-    if (readonly) return
+    if (readonly || !onChange) return
 
-    setPasajeros(prev => ({
-      ...prev,
-      [categoria]: prev[categoria].map(pasajero =>
+    const nuevosPasajeros = {
+      ...pasajeros,
+      [categoria]: (pasajeros[categoria] || []).map(pasajero =>
         pasajero.id === pasajeroId ? { ...pasajero, [campo]: valor } : pasajero
       )
-    }))
+    }
+    onChange(nuevosPasajeros)
   }
 
   // Calcular totales por categoría
@@ -390,11 +346,14 @@ export default function PasajerosManager({
                 ) : monedasCotizacion.length === 0 ? (
                     <option value="">No hay monedas con tasas disponibles</option>
                 ) : (
-                  monedasCotizacion.map(moneda => (
-                    <option key={moneda.value} value={moneda.value}>
-                      {moneda.label}
-                    </option>
-                  ))
+                      <>
+                        <option value="">Seleccionar moneda de cotización</option>
+                        {monedasCotizacion.map(moneda => (
+                          <option key={moneda.value} value={moneda.value}>
+                            {moneda.label}
+                          </option>
+                        ))}
+                      </>
                 )}
               </select>
             </div>

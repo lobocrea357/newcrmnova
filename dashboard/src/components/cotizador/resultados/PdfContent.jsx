@@ -577,7 +577,7 @@ const PdfContent = forwardRef(({
           </div>
 
           {/* Nota al cliente */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 leading-relaxed">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 leading-relaxed" style={{ pageBreakInside: 'avoid' }}>
             Esta cotización es referencial y puede estar sujeta a cambios según
             disponibilidad, variación de tasas de cambio o condiciones del proveedor.
             Confirma siempre con tu asesor antes de realizar cualquier pago.
