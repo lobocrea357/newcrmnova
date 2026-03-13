@@ -1,5 +1,5 @@
-import { supabase } from './supabase'
-import { TASAS_API } from '../config/apiConfig'
+import { supabase } from '../supabase'
+import { TASAS_API } from '../../config/apiConfig'
 
 /**
  * Obtener todas las monedas activas

@@ -127,7 +127,8 @@ export default function RendimientoPage() {
           {/* Breadcrumb */}
           <Breadcrumb items={[
             { label: "Dashboard", href: "/" },
-            { label: "Rendimiento", href: "/rendimiento" }
+            { label: "Análisis", href: "/analisis/rendimiento" },
+            { label: "Rendimiento", href: "/analisis/rendimiento" }
           ]} />
 
           {/* Header */}
@@ -174,7 +175,7 @@ export default function RendimientoPage() {
                 </select>
 
                 <button
-                  onClick={() => router.push("/rendimiento/muestra-analisis")}
+                  onClick={() => router.push("/analisis/rendimiento/muestra-analisis")}
                   className="px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-2"
                 >
                   <TrendingUp className="h-4 w-4" />
@@ -182,7 +183,7 @@ export default function RendimientoPage() {
                 </button>
 
                 <button
-                  onClick={() => router.push("/rendimiento/reportes")}
+                  onClick={() => router.push("/analisis/rendimiento/reportes")}
                   className="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors shadow-sm flex items-center gap-2"
                 >
                   <FileText className="h-4 w-4" />
@@ -282,7 +283,7 @@ export default function RendimientoPage() {
                 isRecentlyViewed={recentlyViewedId === advisor.id}
                 onClick={() => {
                   localStorage.setItem('lastViewedAdvisor', advisor.id);
-                  router.push(`/rendimiento/asesor/${advisor.id}`);
+                  router.push(`/analisis/rendimiento/asesor/${advisor.id}`);
                 }}
               />
             ))}

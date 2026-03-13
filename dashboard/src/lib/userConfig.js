@@ -9,7 +9,7 @@ export const USER_CONFIG = {
     role: 'Gerente',
     permissions: {
       canAccessAll: false,
-      hiddenRoutes: ['/rutas-riesgo', '/vuelos', '/manual-ventas', '/anulables', '/reportes']
+      hiddenRoutes: ['/rutas-riesgo', '/ventas/vuelos', '/manual-ventas', '/ventas/anulables', '/analisis/reportes']
     }
   },
   'rafaelvuelos.nova@gmail.com': {
@@ -17,7 +17,7 @@ export const USER_CONFIG = {
     role: 'Gerente',
     permissions: {
       canAccessAll: false,
-      hiddenRoutes: ['/rutas-riesgo', '/vuelos', '/manual-ventas', '/anulables', '/reportes']
+      hiddenRoutes: ['/rutas-riesgo', '/ventas/vuelos', '/manual-ventas', '/ventas/anulables', '/analisis/reportes']
     }
   },
   'iajosni012@gmail.com': {
@@ -25,7 +25,7 @@ export const USER_CONFIG = {
     role: 'Gerente',
     permissions: {
       canAccessAll: false,
-      hiddenRoutes: ['/rutas-riesgo', '/vuelos', '/manual-ventas', '/anulables', '/reportes']
+      hiddenRoutes: ['/rutas-riesgo', '/ventas/vuelos', '/manual-ventas', '/ventas/anulables', '/analisis/reportes']
     }
   },
   'admin@novapolointranet.xyz': {

@@ -1,223 +1,90 @@
 'use client'
+// React
 import { useState, useEffect, useRef } from 'react'
-import { Calculator, DollarSign, Percent, CreditCard, TrendingUp, RefreshCw, Download, ArrowRightLeft, Plane, Calendar, MapPin, Luggage, Users } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+
+// Librerías externas
+import { Calculator, DollarSign, Percent, CreditCard, TrendingUp, RefreshCw, Download, ArrowRightLeft, Plane, Calendar, MapPin, Luggage, Users, Save, CheckCircle, Eye, RotateCcw, X } from 'lucide-react'
 import html2canvas from 'html2canvas-pro'
 import jsPDF from 'jspdf'
+
+// Supabase
 import { supabase } from '@/lib/supabase'
+
+// Componentes
 import CollapsibleSection from '@/components/ui/CollapsibleSection'
+import PasajerosManager from './pasajeros/PasajerosManager'
+import PdfContent from './resultados/PdfContent'
+
+// Helpers
+import { confirmAlert } from '@/helpers/sweetAlerts'
+import { toastSuccess, toastError } from '@/helpers/toasts'
+
+// Hooks
+import { useVueloInfo } from '@/hooks/cotizador/useVueloInfo'
+import { useEscalas } from '@/hooks/cotizador/useEscalas'
+import { useEquipaje } from '@/hooks/cotizador/useEquipaje'
+import { useMonedas } from '@/hooks/cotizador/useMonedas'
+
+// Servicios
+import { calcularCotizacionIndividual } from '@/services/cotizador/cotizacionService'
+import { exportarCotizacionPDF } from '@/services/cotizador/pdfService'
+
+// Lógica de negocio
+import { calcularConversionInteligente } from '@/lib/cotizador/conversorInteligente'
 import {
-  calcularConversionInteligente,
   getMonedasCotizacion,
   getMonedasBase,
   getMonedaInfo,
-  esMonedaBase
-} from '@/lib/conversorInteligente'
-import { obtenerMonedas, obtenerTasasConversion } from '@/lib/tasasHelpers'
+  getSimboloMoneda
+} from '@/lib/cotizador/monedasConfig'
+import { obtenerMonedas, obtenerTasasConversion } from '@/lib/cotizador/tasasHelpers'
 
-const AGENCY_NAME = 'Viajes Nova'
-const AGENCY_LOGO_URL = '/logo-morado.png' // Coloca aquí el logo en la carpeta /public
+// Configuración
+import {
+  AGENCY_CONFIG,
+  PAYMENT_DATA,
+  PAYMENT_DATA_ZELLE_APOLO,
+  METHODS_BY_CURRENCY,
+  ALL_PAYMENT_METHODS,
+  getPaymentData
+} from '@/lib/cotizador/paymentConfig'
+import { COTIZACIONES_API } from '@/config/apiConfig'
 
-const DATOS_PAGO_POR_METODO = {
-  'Scalapay': {
-    titulo: 'Pago con Scalapay',
-    descripcion: 'Financiamiento en cuotas a través de Scalapay.',
-    detalles: [
-      'El enlace de pago será enviado por tu asesor.',
-      'La aprobación está sujeta a las políticas de Scalapay.'
-    ]
-  },
-  'Depósitos en dólares (BNC USD)': {
-    titulo: 'Depósito bancario en USD',
-    descripcion: 'Realiza un depósito/transferencia en dólares estadounidenses.',
-    detalles: [
-      'Banco: Banco Nacional de Crédito (BNC)',
-      'Titular: Josni Bonito',
-      'C.I.: 24.347.702',
-      'Nro. de cuenta: 0191-0022-72-2322002849',
-      'Transferencia nacional o depósito por taquilla.'
-    ]
-  },
-  'Binance (USDT)': {
-    titulo: 'Pago con Binance (USDT)',
-    descripcion: 'Transferencia en USDT a través de Binance.',
-    detalles: [
-      'Correo: pagosvuelosnova@gmail.com',
-      'ID de Usuario: 96985487',
-      'Verifica siempre el monto final antes de enviar.'
-    ]
-  },
-  'Arcadia Service': {
-    titulo: 'Pago con Arcadia Service',
-    descripcion: 'Servicio Arcadia con recargo adicional.',
-    detalles: [
-      'El enlace/usuario de Arcadia será compartido por tu asesor.',
-      'Incluye comisión del 5.6% + $10 sobre el total.'
-    ]
-  },
-  'Zelle': {
-    titulo: 'Transferencia vía Zelle',
-    descripcion: 'Transferencia en USD por Zelle.',
-    detalles: [
-      'Titular: Viajes Nova LLC',
-      'Correo: Pagoagencianova@gmail.com',
-      'Concepto: Indicar nombre del cliente y número de cotización.'
-    ]
-  },
-  'Bancacolombia': {
-    titulo: 'Transferencia Bancacolombia (COP)',
-    descripcion: 'Transferencia en pesos colombianos a cuenta Bancacolombia.',
-    detalles: [
-      'Banco: Bancacolombia',
-      'Titular: Grupo Travel BA',
-      'Tipo de Cuenta: Cuenta de Ahorros',
-      'NIT: 901852156',
-      'Nro. de cuenta: 67300009010'
-    ]
-  },
-  'Davivienda': {
-    titulo: 'Transferencia Davivienda (COP)',
-    descripcion: 'Transferencia en pesos colombianos a cuenta Davivienda.',
-    detalles: [
-      'Banco: Davivienda',
-      'Titular: GRUPO TRAVEL BA S.A.S.',
-      'Número de Cuenta: 451500268151',
-      'NIT: 901.852.156-4']
-  },
-  'Cuenta en Euros': {
-    titulo: 'Transferencia a cuenta en Euros',
-    descripcion: 'Transferencia SEPA en Euros.',
-    detalles: [
-      '--- OPCIÓN PRINCIPAL ---',
-      'Banco: BBVA',
-      'Titular: Grupo Travel BA',
-      'IBAN: ES2301821876830201934375',
-      '',
-      '--- OPCIÓN SECUNDARIA ---',
-      'Banco: Revolut',
-      'IBAN: ES5415830001169083916022',
-      'Titular: Gaddiel Montero Yepez'
-    ]
-  },
-  'Banesco Panamá (ViajesNova)': {
-    titulo: 'Transferencia Banesco Panamá (USD)',
-    descripcion: 'Transferencia internacional a cuenta en Panamá.',
-    detalles: [
-      'Banco: Banesco Panamá',
-      'Titular: Josni Bonito',
-      'Tipo de Cuenta: Cuenta Corriente',
-      'Número de Cuenta: 221022077418'
-    ]
-  },
-  'BNC - Transferencia en Bs': {
-    titulo: 'Transferencia BNC (VES)',
-    descripcion: 'Transferencia en bolívares a Banco Nacional de Crédito.',
-    detalles: [
-      'Banco: BNC (Banco Nacional de Crédito)',
-      'Tipo de Cuenta: Corriente',
-      'Nro. de cuenta: 0191-0022-78-2122023900',
-      'Titular: Bonito Alvarado Josni Gamaliet'
-    ]
-  },
-  'Pago móvil': {
-    titulo: 'Pago móvil (VES)',
-    descripcion: 'Pago móvil en bolívares.',
-    detalles: [
-      'Banco: Banco Nacional de Crédito (BNC)',
-      'Teléfono: 0414-436 14 40',
-      'Cédula: 24.347.702',
-      'Titular: Josni Bonito'
-    ]
-  },
-  'Depósito oficina Venezuela (efectivo)': {
-    titulo: 'Pago en efectivo - Oficinas Venezuela',
-    descripcion: 'Pago en dólares estadounidenses (USD) en efectivo en nuestras oficinas de Venezuela.',
-    detalles: [
-      'Oficinas disponibles:',
-      '• San Cristóbal',
-      '• Maracaibo',
-      '• Caracas',
-      '• Valencia (Parral)',
-      '• Valencia (Torre de Seguro Los Andes)',
-      'Consulta con tu asesor la dirección exacta de la oficina más cercana.'
-    ]
-  },
-  'Depósito oficina Colombia (efectivo)': {
-    titulo: 'Pago en efectivo - Oficina Colombia',
-    descripcion: 'Pago en pesos colombianos (COP) en efectivo en nuestra oficina de Colombia.',
-    detalles: [
-      'Oficina disponible:',
-      '• Medellín',
-      'Consulta con tu asesor la dirección exacta de la oficina.'
-    ]
-  },
-  'Depósito oficina Europa (efectivo)': {
-    titulo: 'Pago en efectivo - Oficina Europa',
-    descripcion: 'Pago en euros (EUR) en efectivo en nuestra oficina de Europa.',
-    detalles: [
-      'Oficina disponible:',
-      '• Madrid, España',
-      'Consulta con tu asesor la dirección exacta de la oficina.'
-    ]
-  },
-  'Chase Bank (Estados Unidos)': {
-    titulo: 'Transferencia Chase Bank (USD)',
-    descripcion: 'Transferencia internacional en dólares estadounidenses a cuenta Chase Bank.',
-    detalles: [
-      'Banco: Chase Bank',
-      'Número de cuenta: 900700953',
-      'Número de tránsito interbancario (Routing): 267084131'
-    ]
-  },
-  'Bizum (España)': {
-    titulo: 'Pago vía Bizum (EUR)',
-    descripcion: 'Transferencia en euros a través de Bizum.',
-    detalles: [
-      'Teléfono: +34 672 75 08 25'
-    ]
-  }
-}
-
-const DATOS_PAGO_ZELLE_APOLO = {
-  titulo: 'Transferencia vía Zelle',
-  descripcion: 'Transferencia en USD por Zelle.',
-  detalles: [
-    'Titular: A&D Finance Group LLC',
-    'Correo: grupoapoloviajes@gmail.com',
-    'Concepto: Indicar nombre del cliente y número de cotización.'
-  ]
-}
-
+/**
+ * Componente principal del cotizador de vuelos
+ * Soporta cotización individual y múltiple con conversión inteligente de monedas
+ */
 export default function CotizadorForm({ isAuthenticated = false }) {
-  const [precioBase, setPrecioBase] = useState('')
-  const [feeEmision, setFeeEmision] = useState('')
-  const [feeAgencia, setFeeAgencia] = useState('')
+  const router = useRouter()
+
+  // ============================================
+  // ESTADO - Configuración
+  // ============================================
   const [metodoPago, setMetodoPago] = useState('')
-  // Sistema de conversión inteligente
-  const [monedaPrecio, setMonedaPrecio] = useState('USD') // Moneda del precio base
-  const [monedaCotizacion, setMonedaCotizacion] = useState('USD') // Moneda de cotización
-  const [tasaCambio, setTasaCambio] = useState('1.0')
+  // Sistema de conversión inteligente (LEGACY - mantener por compatibilidad temporal)
+  const [monedaPrecio, setMonedaPrecio] = useState('USD')
+  const [monedaCotizacion, setMonedaCotizacion] = useState('USD')
   const [resultadoConversion, setResultadoConversion] = useState(null)
 
-  // Estados para monedas dinámicas desde la base de datos
-  const [monedasDB, setMonedasDB] = useState([]) // Todas las monedas registradas
-  const [tasasDB, setTasasDB] = useState([]) // Todas las tasas de conversión
-  const [loadingMonedas, setLoadingMonedas] = useState(true)
+  // Hook: Monedas (8+ estados → 1)
+  const {
+    monedaBase: monedaBaseSeleccionada,
+    monedaCotizacion: monedaCotizacionSeleccionada,
+    tasaCambio,
+    monedasDB,
+    tasasDB: tasasDb,
+    loading: loadingMonedas,
+    setMonedaBase: setMonedaBaseSeleccionada,
+    setMonedaCotizacion: setMonedaCotizacionSeleccionada,
+    setTasaCambio
+  } = useMonedas()
 
-  // Variables legacy (mantener para compatibilidad)
-  const [moneda, setMoneda] = useState('')
-  const [monedaOrigen, setMonedaOrigen] = useState('USD')
-  const [monedaBaseSeleccionada, setMonedaBaseSeleccionada] = useState('USD') // Nueva: USD o EUR
-  const [monedaCotizacionSeleccionada, setMonedaCotizacionSeleccionada] = useState('') // Nueva: Moneda de cotización
   const [total, setTotal] = useState(0)
   const [desglose, setDesglose] = useState(null)
-  const [fechaSalida, setFechaSalida] = useState('')
-  const [horaSalida, setHoraSalida] = useState('')
-  const [horaLlegada, setHoraLlegada] = useState('')
-  const [origen, setOrigen] = useState('')
-  const [destino, setDestino] = useState('')
-  const [idaVuelta, setIdaVuelta] = useState(false)
-  const [finesMigratorios, setFinesMigratorios] = useState(false)
-  const [soloIda, setSoloIda] = useState(false)
+
+  // Hook: Información del vuelo (9 estados → 1)
+  const { vueloInfo, updateVueloInfo, resetVueloInfo } = useVueloInfo()
 
   // Estados para fines migratorios
   const [fechaSalidaMigratorio, setFechaSalidaMigratorio] = useState('')
@@ -230,144 +97,98 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   const [aerolinea, setAerolinea] = useState('')
   const [agencia, setAgencia] = useState(null) // 'nova', 'colombia', 'apolo'
 
-  // Escalas
-  const [haceEscala, setHaceEscala] = useState(false)
-  const [ciudadEscala1, setCiudadEscala1] = useState('')
-  const [tiempoEscala1, setTiempoEscala1] = useState('')
-  const [haceSegundaEscala, setHaceSegundaEscala] = useState(false)
-  const [ciudadEscala2, setCiudadEscala2] = useState('')
-  const [tiempoEscala2, setTiempoEscala2] = useState('')
+  // Hook: Escalas (6 estados → 1)
+  const { escalas, agregarEscala, actualizarEscala, eliminarEscala, resetEscalas, tieneEscalas } = useEscalas(2)
 
-  // Equipaje
-  const [equipajeCompleto, setEquipajeCompleto] = useState(false)
-  const [equipajeMediano, setEquipajeMediano] = useState(false)
-  const [equipajeLigero, setEquipajeLigero] = useState(false)
+  // Hook: Equipaje (3 estados → 1)
+  const { equipajeSeleccionado, toggleEquipaje, tieneEquipaje, resetEquipaje } = useEquipaje()
+
+  // Estado para pasajeros (nueva funcionalidad)
+  const [pasajeros, setPasajeros] = useState({
+    adultos: [],
+    niños: [],
+    infantes: []
+  })
+
+  const [nombreCliente, setNombreCliente] = useState('')
+  const [savingCotizacion, setSavingCotizacion] = useState(false)
+  const [cotizacionGuardada, setCotizacionGuardada] = useState(false)
+  const [ultimaCotizacionId, setUltimaCotizacionId] = useState(null)
 
   const [exportingPdf, setExportingPdf] = useState(false)
   const pdfContentRef = useRef(null)
 
-  // Estado para tasas dinámicas
-  const [tasasDb, setTasasDb] = useState({})
-  const [loadingTasas, setLoadingTasas] = useState(true)
+  // SweetAlert inicial eliminado - ya no se pregunta por tipo de vista
 
-  // Cargar monedas y tasas desde la base de datos
-  useEffect(() => {
-    const cargarDatos = async () => {
-      try {
-        setLoadingMonedas(true)
-        const [monedasData, tasasData] = await Promise.all([
-          obtenerMonedas(),
-          obtenerTasasConversion()
-        ])
+  // Función cambiarVista eliminada - ya no hay alternancia de vistas
 
-        setMonedasDB(monedasData.filter(m => m.activa)) // Solo monedas activas
-        setTasasDB(tasasData)
-        setLoadingMonedas(false)
-      } catch (error) {
-        console.error('Error cargando datos:', error)
-        setLoadingMonedas(false)
-      }
-    }
-
-    cargarDatos()
-  }, [])
-
-  const metodosPago = [
-    'Scalapay',
-    'Depósitos en dólares (BNC USD)',
-    'Binance (USDT)',
-    'Arcadia Service',
-    'Zelle',
-    'Bancacolombia',
-    'Davivienda',
-    'Cuenta en Euros',
-    'Banesco Panamá (ViajesNova)',
-    'BNC - Transferencia en Bs',
-    'Pago móvil',
-    'Depósito oficina Venezuela (efectivo)',
-    'Depósito oficina Colombia (efectivo)',
-    'Depósito oficina Europa (efectivo)',
-    'Chase Bank (Estados Unidos)',
-    'Bizum (España)'
-  ]
-
-  // Mapeo de métodos de pago por moneda
-  const metodosPorMoneda = {
-    'USD': [
-      'Depósitos en dólares (BNC USD)',
-      'Zelle',
-      'Banesco Panamá (ViajesNova)',
-      'Chase Bank (Estados Unidos)',
-      'Arcadia Service'
-    ],
-    'EUR': [
-      'Cuenta en Euros',
-      'Depósito oficina Europa (efectivo)',
-      'Bizum (España)',
-      'Scalapay'
-    ],
-    'VES': [
-      'BNC - Transferencia en Bs',
-      'Pago móvil'
-    ],
-    'COP': [
-      'Bancacolombia',
-      'Davivienda',
-      'Depósito oficina Colombia (efectivo)'
-    ],
-    'USDT': [
-      'Binance (USDT)'
-    ],
-    'FLEXIBLE': [
-      'Depósito oficina Venezuela (efectivo)'
-    ]
+  // Función para reset completo del formulario
+  const limpiarFormularioCompleto = () => {
+    // Resetear todos los estados
+    setMetodoPago('')
+    setMonedaPrecio('USD')
+    setMonedaCotizacion('USD')
+    setResultadoConversion(null)
+    setMonedaBaseSeleccionada('USD')
+    setMonedaCotizacionSeleccionada('')
+    setTotal(0)
+    setDesglose(null)
+    updateVueloInfo('fechaSalida', '')
+    updateVueloInfo('horaSalida', '')
+    updateVueloInfo('horaLlegada', '')
+    updateVueloInfo('origen', '')
+    updateVueloInfo('destino', '')
+    updateVueloInfo('idaVuelta', false)
+    updateVueloInfo('finesMigratorios', false)
+    updateVueloInfo('soloIda', false)
+    setFechaSalidaMigratorio('')
+    setHoraSalidaMigratorio('')
+    setHoraLlegadaMigratorio('')
+    setFechaRegreso('')
+    setHoraSalidaRegreso('')
+    setHoraLlegadaRegreso('')
+    setAerolinea('')
+    setAgencia(null)
+    resetEscalas()
+    resetEquipaje()
+    setPasajeros({
+      adultos: [],
+      niños: [],
+      infantes: []
+    })
+    setCotizacionGuardada(false)
+    setUltimaCotizacionId(null)
   }
 
-  // Funciones dinámicas para obtener monedas desde la base de datos
-  const getMonedasDisponibles = () => {
-    if (loadingMonedas || monedasDB.length === 0) {
-      // Fallback a monedas hardcoded si está cargando
-      return [
-        { value: 'USD', label: 'Dólares (USD)', symbol: '$' },
-        { value: 'VES', label: 'Bolívares (VES)', symbol: 'Bs.' },
-        { value: 'USDT', label: 'USDT', symbol: '₮' },
-        { value: 'EUR', label: 'Euros (EUR)', symbol: '€' },
-        { value: 'COP', label: 'Pesos Colombianos (COP)', symbol: '$' }
-      ]
-    }
+  const metodosPago = ALL_PAYMENT_METHODS
+  const metodosPorMoneda = METHODS_BY_CURRENCY
 
-    return monedasDB.map(moneda => ({
-      value: moneda.codigo,
-      label: `${moneda.nombre} (${moneda.codigo})`,
-      symbol: moneda.simbolo
-    }))
-  }
+  // Usar funciones centralizadas de monedasConfig
+  const monedasBase = getMonedasBase()
 
-  // Opciones para moneda base (SIEMPRE FIJO: USD y EUR)
-  const monedasBase = [
-    { value: 'USD', label: 'Dólares Americanos (USD)', symbol: '$' },
-    { value: 'EUR', label: 'Euros (EUR)', symbol: '€' }
-  ]
-
-  // Opciones para moneda de cotización (todas las monedas registradas)
-  const getMonedasCotizacion = () => {
-    return getMonedasDisponibles()
-  }
-
-  // Opciones para moneda destino (solo monedas con tasas de conversión)
+  // Opciones para moneda de cotización (solo monedas que tengan tasas creadas en DB)
   const getMonedasConTasas = () => {
-    if (loadingMonedas || tasasDB.length === 0) {
-      return getMonedasDisponibles() // Fallback
+    if (!tasasDb || Object.keys(tasasDb).length === 0) {
+      return getMonedasCotizacion()
     }
 
-    // Obtener monedas que tienen tasas de conversión
+    // Extraer TODAS las monedas que aparecen en tasasDB (como origen o destino)
     const monedasConTasas = new Set()
-    tasasDB.forEach(tasa => {
-      monedasConTasas.add(tasa.moneda_destino.codigo)
-      monedasConTasas.add(tasa.moneda_origen.codigo)
+
+    // tasasDb tiene estructura: { monedaOrigen: { monedaDestino: tasa } }
+    Object.keys(tasasDb).forEach(monedaOrigen => {
+      monedasConTasas.add(monedaOrigen)
+
+      const destinosObj = tasasDb[monedaOrigen]
+      if (destinosObj && typeof destinosObj === 'object') {
+        Object.keys(destinosObj).forEach(monedaDestino => {
+          monedasConTasas.add(monedaDestino)
+        })
+      }
     })
 
-    return getMonedasDisponibles().filter(moneda =>
+    // Filtrar solo las monedas que existen en tasasDB
+    return getMonedasCotizacion().filter(moneda =>
       monedasConTasas.has(moneda.value)
     )
   }
@@ -387,50 +208,15 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     }
   }, [monedaCotizacionSeleccionada])
 
-  // Cargar tasas al iniciar
-  useEffect(() => {
-    fetchTasas()
-  }, [])
+  // NOTA: useMonedas ya carga las tasas automáticamente al iniciar
 
-  const fetchTasas = async () => {
-    try {
-      setLoadingTasas(true)
-      const { data, error } = await supabase
-        .from('tasas_conversion')
-        .select(`
-          *,
-          moneda_origen:monedas!tasas_conversion_moneda_origen_id_fkey(codigo),
-          moneda_destino:monedas!tasas_conversion_moneda_destino_id_fkey(codigo)
-        `)
-        .eq('activa', true)
+  // ============================================
+  // FUNCIONES AUXILIARES
+  // ============================================
 
-      if (error) {
-        console.error('Error fetching rates:', error)
-        return
-      }
-
-      if (data) {
-        // Crear un mapa de conversiones para acceso rápido
-        const tasasMap = {}
-        data.forEach(t => {
-          const origen = t.moneda_origen?.codigo
-          const destino = t.moneda_destino?.codigo
-          if (origen && destino) {
-            if (!tasasMap[origen]) tasasMap[origen] = {}
-            tasasMap[origen][destino] = t.tasa
-          }
-        })
-        setTasasDb(tasasMap)
-        console.log('Tasas cargadas:', tasasMap)
-      }
-    } catch (err) {
-      console.error('Error en fetchTasas:', err)
-    } finally {
-      setLoadingTasas(false)
-    }
-  }
-
-  // Función para detectar moneda según método de pago
+  /**
+   * Detecta la moneda asociada a un método de pago
+   */
   const detectarMonedaPorMetodo = (metodo) => {
     for (const [moneda, metodos] of Object.entries(metodosPorMoneda)) {
       if (metodos.includes(metodo)) {
@@ -443,7 +229,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   // Manejar cambio de método de pago con detección automática
   useEffect(() => {
     if (!metodoPago) {
-      setMoneda('')
+      setMonedaCotizacionSeleccionada('')
       return
     }
 
@@ -451,12 +237,12 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     if (monedaDetectada) {
       // Si es FLEXIBLE, no establecer moneda automáticamente
       if (monedaDetectada === 'FLEXIBLE') {
-        setMoneda('') // Dejar vacío para selección manual
+        setMonedaCotizacionSeleccionada('') // Dejar vacío para selección manual
         setTasaCambio('') // No establecer tasa hasta que se seleccione moneda
         return
       }
 
-      setMoneda(monedaDetectada)
+      setMonedaCotizacionSeleccionada(monedaDetectada)
 
       // Para VES, mantener la moneda de origen por defecto
       if (monedaDetectada === 'VES') {
@@ -469,39 +255,42 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     }
   }, [metodoPago])
 
-  // Función para actualizar tasa según moneda de origen y destino
+  /**
+   * Actualizar tasa de cambio para VES
+   * Busca la tasa de conversión desde la moneda base (USD/EUR) hacia VES
+   */
   const actualizarTasaParaVES = () => {
-    if (!monedaOrigen || !moneda) {
+    if (!monedaBaseSeleccionada || !monedaCotizacionSeleccionada) {
       setTasaCambio('1.0')
       return
     }
 
-    // Buscar tasa directa: origen → destino
-    let tasa = tasasDb[monedaOrigen]?.[moneda]
+    // Buscar tasa directa: base → cotización
+    let tasa = tasasDb[monedaBaseSeleccionada]?.[monedaCotizacionSeleccionada]
 
-    // Si no existe, buscar tasa inversa: destino → origen
-    if (!tasa && tasasDb[moneda]?.[monedaOrigen]) {
-      tasa = 1.0 / tasasDb[moneda][monedaOrigen]
+    // Si no existe, buscar tasa inversa: cotización → base
+    if (!tasa && tasasDb[monedaCotizacionSeleccionada]?.[monedaBaseSeleccionada]) {
+      tasa = 1.0 / tasasDb[monedaCotizacionSeleccionada][monedaBaseSeleccionada]
     }
 
     setTasaCambio(tasa ? String(tasa) : '1.0')
-    console.log(`Tasa ${monedaOrigen} → ${moneda}:`, tasa || '1.0')
+    console.log(`Tasa ${monedaBaseSeleccionada} → ${monedaCotizacionSeleccionada}:`, tasa || '1.0')
   }
 
-  // Actualizar tasa cuando cambia la moneda de origen (solo para VES)
+  // Actualizar tasa cuando cambia la moneda base o cotización (solo para VES)
   useEffect(() => {
-    if (moneda === 'VES' && monedaOrigen) {
+    if (monedaCotizacionSeleccionada === 'VES' && monedaBaseSeleccionada) {
       actualizarTasaParaVES()
     }
-  }, [monedaOrigen, moneda, tasasDb])
+  }, [monedaBaseSeleccionada, monedaCotizacionSeleccionada, tasasDb])
 
-  // Actualizar tasa cuando se cambia la moneda (solo para no VES)
+  // Actualizar tasa cuando se cambia la moneda de cotización (solo para no VES)
   useEffect(() => {
-    if (moneda && moneda !== 'VES') {
+    if (monedaCotizacionSeleccionada && monedaCotizacionSeleccionada !== 'VES') {
       // Para monedas que no son VES, la tasa es siempre 1.0
       setTasaCambio('1.0')
     }
-  }, [moneda])
+  }, [monedaCotizacionSeleccionada])
 
   // Sincronizar variables de moneda nuevas con las del sistema inteligente
   useEffect(() => {
@@ -514,7 +303,10 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
   // Recalcular cuando cambian los inputs (con debounce para evitar demasiadas llamadas)
   useEffect(() => {
-    if ((precioBase || feeEmision || feeAgencia) && monedaPrecio && monedaCotizacion) {
+    // Requiere al menos 1 pasajero configurado
+    const debeCalcular = tienePasajerosConfigurados() && monedaPrecio && monedaCotizacion
+
+    if (debeCalcular) {
       const timeoutId = setTimeout(() => {
         const calcular = async () => {
           try {
@@ -528,15 +320,32 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
       return () => clearTimeout(timeoutId)
     }
-  }, [precioBase, feeEmision, feeAgencia, monedaPrecio, monedaCotizacion, metodoPago])
+  }, [pasajeros, monedaPrecio, monedaCotizacion, metodoPago])
+
+  // Calcular total de pasajeros
+  const calcularTotalPasajeros = () => {
+    let total = 0
+    Object.values(pasajeros).forEach(categoriaPasajeros => {
+      total += categoriaPasajeros.reduce((sum, pasajero) => {
+        return sum + parseFloat(pasajero.precioPantalla || 0) +
+          parseFloat(pasajero.feeEmision || 0) +
+          parseFloat(pasajero.feeAgencia || 0)
+      }, 0)
+    })
+    return total
+  }
+
+  // Verificar si hay pasajeros configurados
+  const tienePasajerosConfigurados = () => {
+    return Object.values(pasajeros).some(categoria => categoria.length > 0)
+  }
 
   const calcularCotizacion = async () => {
-    const precio = parseFloat(precioBase) || 0
-    const emision = parseFloat(feeEmision) || 0
-    const agencia = parseFloat(feeAgencia) || 0
-
-    // Calcular base (precio + fees)
-    const base = precio + emision + agencia
+    // Usar sistema de pasajeros (vista única)
+    const base = calcularTotalPasajeros()
+    const precio = base
+    const emision = 0
+    const agencia = 0
 
     try {
       // Usar sistema inteligente de conversión
@@ -566,9 +375,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
         totalFinal: resultado.total
       })
 
-      // Actualizar variables legacy para compatibilidad
-      setMoneda(monedaCotizacion)
-
       console.log('✅ Cotización calculada con sistema inteligente:', resultado)
 
     } catch (error) {
@@ -593,8 +399,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     }
   }
 
-  const monedaSeleccionada = getMonedasDisponibles().find(m => m.value === moneda)
-  const simboloMoneda = monedaSeleccionada?.symbol || '$'
+  const simboloMoneda = getSimboloMoneda(monedaCotizacionSeleccionada)
+  const monedaSeleccionada = getMonedasCotizacion().find(m => m.value === monedaCotizacionSeleccionada)
 
   const formatearMonto = (valor) => {
     if (!valor && valor !== 0) return '0.00'
@@ -608,63 +414,180 @@ export default function CotizadorForm({ isAuthenticated = false }) {
     // Sistema inteligente
     setMonedaPrecio('USD')
     setMonedaCotizacion('USD')
-    setTasaCambio('1.0')
     setResultadoConversion(null)
 
-    // Variables nuevas
+    // Monedas (hook)
     setMonedaBaseSeleccionada('USD')
     setMonedaCotizacionSeleccionada('')
+    setTasaCambio('1.0')
 
     // Variables legacy
     setPrecioBase('')
     setFeeEmision('')
     setFeeAgencia('')
     setMetodoPago('')
-    setMoneda('')
-    setMonedaOrigen('USD')
     setTotal(0)
     setDesglose(null)
-    setFechaSalida('')
-    setHoraSalida('')
-    setHoraLlegada('')
-    setOrigen('')
-    setDestino('')
-    setIdaVuelta(false)
-    setFinesMigratorios(false)
-    setSoloIda(false)
+
+    // Hooks reset
+    resetVueloInfo()
+    resetEscalas()
+    resetEquipaje()
+
+    // Estados individuales restantes
     setFechaRegreso('')
     setHoraSalidaRegreso('')
     setHoraLlegadaRegreso('')
     setAerolinea('')
     setAgencia(null)
-    setHaceEscala(false)
-    setCiudadEscala1('')
-    setTiempoEscala1('')
-    setHaceSegundaEscala(false)
-    setCiudadEscala2('')
-    setTiempoEscala2('')
-    setEquipajeCompleto(false)
-    setEquipajeMediano(false)
-    setEquipajeLigero(false)
+
+    // Resetear pasajeros
+    setPasajeros({
+      adultos: [],
+      niños: [],
+      infantes: []
+    })
+    setNombreCliente('')
   }
 
   const limpiarDetallesVuelo = () => {
-    setFechaSalida('')
-    setHoraSalida('')
-    setHoraLlegada('')
-    setOrigen('')
-    setDestino('')
+    resetVueloInfo()
+    resetEscalas()
     setFechaRegreso('')
     setHoraSalidaRegreso('')
     setHoraLlegadaRegreso('')
     setAerolinea('')
-    setSoloIda(false)
-    setHaceEscala(false)
-    setCiudadEscala1('')
-    setTiempoEscala1('')
-    setHaceSegundaEscala(false)
-    setCiudadEscala2('')
-    setTiempoEscala2('')
+  }
+
+  const handleGuardarCotizacion = async () => {
+    // Validaciones
+    if (!nombreCliente.trim()) {
+      toastError('Ingresa el nombre del cliente')
+      return
+    }
+    if (!vueloInfo.origen || !vueloInfo.destino) {
+      toastError('Ingresa origen y destino del vuelo')
+      return
+    }
+    if (!desglose) {
+      toastError('Primero calcula la cotización antes de guardarla')
+      return
+    }
+
+    // Determinar tipo de vuelo
+    let tipoVuelo = 'solo_ida'
+    if (vueloInfo.idaVuelta) tipoVuelo = 'ida_vuelta'
+    else if (vueloInfo.finesMigratorios) tipoVuelo = 'migratorio'
+
+    // Determinar fecha de salida según tipo de vuelo
+    const fechaSalidaFinal = vueloInfo.finesMigratorios
+      ? fechaSalidaMigratorio
+      : vueloInfo.fechaSalida
+
+    const horaSalidaFinal = vueloInfo.finesMigratorios
+      ? horaSalidaMigratorio
+      : vueloInfo.horaSalida
+
+    const horaLlegadaFinal = vueloInfo.finesMigratorios
+      ? horaLlegadaMigratorio
+      : vueloInfo.horaLlegada
+
+    if (!fechaSalidaFinal) {
+      toastError('Ingresa la fecha de salida del vuelo')
+      return
+    }
+
+    try {
+      setSavingCotizacion(true)
+
+      // Obtener usuario actual
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        toastError('Error de autenticación. Inicia sesión nuevamente.')
+        return
+      }
+
+      // Construir objeto de cotización
+      const cotizacionData = {
+        created_by: user.id,
+        nombre_cliente: nombreCliente.trim(),
+        tipo_vuelo: tipoVuelo,
+        origen: vueloInfo.origen,
+        destino: vueloInfo.destino,
+        aerolinea: aerolinea || null,
+        fecha_salida: fechaSalidaFinal,
+        hora_salida: horaSalidaFinal || null,
+        hora_llegada: horaLlegadaFinal || null,
+        tiene_escala: escalas.length > 0,
+        escala_1_ciudad: escalas[0]?.ciudad || null,
+        escala_1_duracion: escalas[0]?.duracion || null,
+        tiene_segunda_escala: escalas.length > 1,
+        escala_2_ciudad: escalas[1]?.ciudad || null,
+        escala_2_duracion: escalas[1]?.duracion || null,
+        precio_base: calcularTotalPasajeros(),
+        fee_emision: 0,
+        fee_agencia: 0,
+        total_cotizacion: calcularTotalPasajeros(),
+        moneda_precio: monedaBaseSeleccionada,
+        moneda_cotizacion: monedaCotizacionSeleccionada,
+        precio_final_cotizacion: total,
+        tasa_cambio: parseFloat(tasaCambio) || 1,
+        metodo_pago: metodoPago || null
+      }
+
+      // Validar que haya al menos 1 pasajero
+      if (!tienePasajerosConfigurados()) {
+        toastError('Debes agregar al menos un pasajero antes de guardar la cotización')
+        setSavingCotizacion(false)
+        return
+      }
+
+      // Construir pasajeros
+      const pasajerosData = []
+      Object.entries(pasajeros).forEach(([categoriaKey, categoriaPasajeros]) => {
+        const tipoMap = { adultos: 'ADULTO', niños: 'NINO', infantes: 'INFANTE' }
+        categoriaPasajeros.forEach((p, index) => {
+          pasajerosData.push({
+            tipo: tipoMap[categoriaKey],
+            orden: index + 1,
+            precio_pantalla: parseFloat(p.precioPantalla) || 0,
+            fee_emision: parseFloat(p.feeEmision) || 0,
+            fee_agencia: parseFloat(p.feeAgencia) || 0,
+            equipaje_completo: p.equipajeCompleto || false,
+            equipaje_mediano: p.equipajeMediano || false,
+            equipaje_ligero: p.equipajeLigero || false
+          })
+        })
+      })
+
+      const response = await fetch(COTIZACIONES_API.crear, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cotizacion: cotizacionData,
+          pasajeros: pasajerosData
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al guardar la cotización')
+      }
+
+      toastSuccess('Cotización guardada exitosamente')
+      console.log('✅ Cotización guardada:', result.data)
+
+      // Activar banner de cotización guardada
+      setCotizacionGuardada(true)
+      setUltimaCotizacionId(result.data.id)
+
+    } catch (error) {
+      console.error('Error guardando cotización:', error)
+      toastError(error.message || 'Error al guardar la cotización')
+    } finally {
+      setSavingCotizacion(false)
+    }
   }
 
   const handleExportarPdf = async () => {
@@ -680,28 +603,10 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
     try {
       setExportingPdf(true)
-      const element = pdfContentRef.current
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#f1f5f9'
+      await exportarCotizacionPDF(pdfContentRef.current, {
+        origen: vueloInfo.origen,
+        destino: vueloInfo.destino
       })
-
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = pdf.internal.pageSize.getHeight()
-      const marginX = 12
-      const marginTop = 6
-      const usableWidth = pdfWidth - marginX * 2
-      const imgHeight = (canvas.height * usableWidth) / canvas.width
-      const startY = marginTop
-
-      pdf.addImage(imgData, 'PNG', marginX, startY, usableWidth, imgHeight)
-
-      const fecha = new Date().toISOString().split('T')[0]
-      pdf.save(`cotizacion_${fecha}.pdf`)
     } catch (error) {
       console.error('Error exportando PDF de cotización:', error)
       alert('Ocurrió un error al generar el PDF. Intenta nuevamente.')
@@ -741,6 +646,20 @@ export default function CotizadorForm({ isAuthenticated = false }) {
           </div>
         </div>
 
+        {/* Nombre del Cliente */}
+        <div className="mb-6 pb-6 border-b border-slate-100">
+          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+            NOMBRE DEL CLIENTE
+          </label>
+          <input
+            type="text"
+            value={nombreCliente}
+            onChange={(e) => setNombreCliente(e.target.value)}
+            placeholder="Ej: Juan Pérez"
+            className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+          />
+        </div>
+
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold text-slate-800 flex items-center gap-2">
             <Calculator className="w-6 h-6 text-indigo-600" />
@@ -756,109 +675,81 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <RefreshCw className="w-4 h-4" />
               Limpiar
             </button>
-            {isAuthenticated && (
-              <button
-                onClick={fetchTasas}
-                disabled={loadingTasas}
-                className="p-2 text-slate-400 hover:text-indigo-600 transition-colors rounded-full hover:bg-slate-50"
-                title="Actualizar tasas"
-              >
-                <RefreshCw className={`w-5 h-5 ${loadingTasas ? 'animate-spin' : ''}`} />
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Sección de Precios y Monedas */}
-        <CollapsibleSection
-          title="Precios y Monedas"
-          icon={DollarSign}
-          defaultExpanded={true}
-        >
-          <div className="space-y-4">
-            {/* Precio de Pantalla */}
-            <div>
-              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                Precio de Pantalla
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={precioBase}
-                onChange={(e) => setPrecioBase(e.target.value)}
-                placeholder="0.00"
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              />
-            </div>
-
-            {/* Selección de Moneda Base */}
-            <div>
-              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                ¿El precio introducido está en:
-              </label>
-              <select
-                value={monedaBaseSeleccionada}
-                onChange={(e) => setMonedaBaseSeleccionada(e.target.value)}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              >
-                {monedasBase.map(moneda => (
-                  <option key={moneda.value} value={moneda.value}>
-                    {moneda.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Selección de Moneda de Cotización */}
-            <div>
-              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                ¿En qué moneda deseas cotizar?
-              </label>
-              <select
-                value={monedaCotizacionSeleccionada}
-                onChange={(e) => setMonedaCotizacionSeleccionada(e.target.value)}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              >
-                <option value="">Seleccione la moneda en la que desea cotizar</option>
-                {getMonedasConTasas().map(moneda => (
-                  <option key={moneda.value} value={moneda.value}>
-                    {moneda.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Fees */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                  Fee Emisión
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={feeEmision}
-                  onChange={(e) => setFeeEmision(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                />
+        {/* Banner de cotización guardada */}
+        {cotizacionGuardada && (
+          <div className="mb-6 bg-green-50 border-2 border-green-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 flex-1">
+                <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="text-sm font-bold text-green-800 mb-1">
+                    ¡Cotización guardada exitosamente!
+                  </h3>
+                  <p className="text-xs text-green-700 mb-3">
+                    Esta cotización ya existe en la base de datos. ¿Qué deseas hacer?
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => router.push('/cotizaciones')}
+                      className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition-colors flex items-center gap-1.5"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Ver todas las cotizaciones
+                    </button>
+                    <button
+                      onClick={limpiarFormularioCompleto}
+                      className="px-3 py-1.5 bg-white border border-green-300 text-green-700 rounded-lg text-xs font-semibold hover:bg-green-50 transition-colors flex items-center gap-1.5"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      Hacer otra cotización
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                  Fee Agencia
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={feeAgencia}
-                  onChange={(e) => setFeeAgencia(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                />
-              </div>
+              <button
+                onClick={() => setCotizacionGuardada(false)}
+                className="text-green-600 hover:text-green-800 transition-colors flex-shrink-0"
+                title="Cerrar"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
           </div>
-        </CollapsibleSection>
+        )}
+
+        {/* Tabs de Vista de Cotización */}
+        {/* Sección de Pasajeros - Vista única */}
+        <div className="space-y-4">
+              {/* Información de la vista múltiple */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="w-5 h-5 text-blue-600" />
+                  <h4 className="font-bold text-blue-800">Modo Múltiples Pasajeros</h4>
+                </div>
+                <p className="text-sm text-blue-700">
+                  Configura cada pasajero individualmente con sus precios, fees y equipaje.
+                  El total se calculará automáticamente sumando todos los pasajeros.
+                </p>
+              </div>
+
+                {/* Componente de Pasajeros con scrollbar */}
+                <div className="max-h-[600px] overflow-y-auto pr-2">
+                  <PasajerosManager
+                    value={pasajeros}
+                    onChange={setPasajeros}
+                  monedaPrecio={monedaBaseSeleccionada}
+                  monedaCotizacion={monedaCotizacionSeleccionada}
+                  monedasBase={monedasBase}
+                  monedasCotizacion={getMonedasConTasas()}
+                  loadingMonedas={loadingMonedas}
+                  onMonedaPrecioChange={setMonedaBaseSeleccionada}
+                  onMonedaCotizacionChange={setMonedaCotizacionSeleccionada}
+                  />
+              </div>
+        </div>
 
         {/* Sección de Método de Pago */}
         <CollapsibleSection
@@ -938,70 +829,70 @@ export default function CotizadorForm({ isAuthenticated = false }) {
             <button
               type="button"
               onClick={() => {
-                const newValue = !idaVuelta
+                const newValue = !vueloInfo.idaVuelta
                 if (newValue) {
-                  setFinesMigratorios(false)
-                  setSoloIda(false)
+                  updateVueloInfo('finesMigratorios', false)
+                  updateVueloInfo('soloIda', false)
                   limpiarDetallesVuelo()
                 } else {
                   limpiarDetallesVuelo()
                 }
-                setIdaVuelta(newValue)
+                updateVueloInfo('idaVuelta', newValue)
               }}
-              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${idaVuelta
+              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${vueloInfo.idaVuelta
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'bg-white text-slate-600 hover:bg-slate-50'
                 }`}
             >
-              <div className={`w-2 h-2 rounded-full ${idaVuelta ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
+              <div className={`w-2 h-2 rounded-full ${vueloInfo.idaVuelta ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
               IDA Y VUELTA
             </button>
             <button
               type="button"
               onClick={() => {
-                const newValue = !soloIda
+                const newValue = !vueloInfo.soloIda
                 if (newValue) {
-                  setIdaVuelta(false)
-                  setFinesMigratorios(false)
+                  updateVueloInfo('idaVuelta', false)
+                  updateVueloInfo('finesMigratorios', false)
                   limpiarDetallesVuelo()
                 } else {
                   limpiarDetallesVuelo()
                 }
-                setSoloIda(newValue)
+                updateVueloInfo('soloIda', newValue)
               }}
-              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${soloIda
+              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${vueloInfo.soloIda
                 ? 'bg-green-600 text-white shadow-md'
                 : 'bg-white text-slate-600 hover:bg-slate-50'
                 }`}
             >
-              <div className={`w-2 h-2 rounded-full ${soloIda ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
+              <div className={`w-2 h-2 rounded-full ${vueloInfo.soloIda ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
               SOLO IDA
             </button>
             <button
               type="button"
               onClick={() => {
-                const newValue = !finesMigratorios
+                const newValue = !vueloInfo.finesMigratorios
                 if (newValue) {
-                  setIdaVuelta(false)
-                  setSoloIda(false)
+                  updateVueloInfo('idaVuelta', false)
+                  updateVueloInfo('soloIda', false)
                   limpiarDetallesVuelo()
                 } else {
                   limpiarDetallesVuelo()
                 }
-                setFinesMigratorios(newValue)
+                updateVueloInfo('finesMigratorios', newValue)
               }}
-              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${finesMigratorios
+              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${vueloInfo.finesMigratorios
                   ? 'bg-amber-500 text-white shadow-md'
                   : 'bg-white text-slate-600 hover:bg-slate-50'
                 }`}
             >
-              <div className={`w-2 h-2 rounded-full ${finesMigratorios ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
+              <div className={`w-2 h-2 rounded-full ${vueloInfo.finesMigratorios ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
               FINES MIGRATORIOS
             </button>
           </div>
 
           {/* Campos para Fines Migratorios */}
-          {finesMigratorios && (
+          {vueloInfo.finesMigratorios && (
             <div className="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
               <h4 className="text-sm font-bold text-amber-700 mb-4 flex items-center gap-2">
                 <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
@@ -1052,8 +943,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               </label>
               <input
                 type="text"
-                value={origen}
-                onChange={(e) => setOrigen(e.target.value)}
+                value={vueloInfo.origen}
+                onChange={(e) => updateVueloInfo('origen', e.target.value)}
                 placeholder="Ej: CCS"
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               />
@@ -1064,8 +955,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               </label>
               <input
                 type="text"
-                value={destino}
-                onChange={(e) => setDestino(e.target.value)}
+                value={vueloInfo.destino}
+                onChange={(e) => updateVueloInfo('destino', e.target.value)}
                 placeholder="Ej: MAD"
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               />
@@ -1083,7 +974,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
             />
           </div>
-          {(idaVuelta || soloIda) && (
+          {(vueloInfo.idaVuelta || vueloInfo.soloIda) && (
             <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-4">
               <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-widest px-1">Vuelo de Ida</h4>
               <div className="grid grid-cols-3 gap-4">
@@ -1091,8 +982,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">FECHA</label>
                   <input
                     type="date"
-                    value={fechaSalida}
-                    onChange={(e) => setFechaSalida(e.target.value)}
+                    value={vueloInfo.fechaSalida}
+                    onChange={(e) => updateVueloInfo('fechaSalida', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
                   />
                 </div>
@@ -1100,8 +991,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">SALIDA</label>
                   <input
                     type="time"
-                    value={horaSalida}
-                    onChange={(e) => setHoraSalida(e.target.value)}
+                    value={vueloInfo.horaSalida}
+                    onChange={(e) => updateVueloInfo('horaSalida', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
                   />
                 </div>
@@ -1109,15 +1000,15 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">LLEGADA</label>
                   <input
                     type="time"
-                    value={horaLlegada}
-                    onChange={(e) => setHoraLlegada(e.target.value)}
+                    value={vueloInfo.horaLlegada}
+                    onChange={(e) => updateVueloInfo('horaLlegada', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
                   />
                 </div>
               </div>
             </div>
           )}
-          {idaVuelta && (
+          {vueloInfo.idaVuelta && (
             <div className="p-4 bg-purple-50/50 rounded-xl border border-purple-100 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
               <h4 className="text-xs font-bold text-purple-700 uppercase tracking-widest px-1">Vuelo de Vuelta</h4>
               <div className="grid grid-cols-3 gap-4">
@@ -1153,152 +1044,54 @@ export default function CotizadorForm({ isAuthenticated = false }) {
           )}
           {/* Escalas */}
           <div className="p-4 bg-orange-50/50 rounded-xl border border-orange-100 space-y-4">
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="haceEscala"
-                checked={haceEscala}
-                onChange={(e) => {
-                  setHaceEscala(e.target.checked)
-                  if (!e.target.checked) {
-                    setCiudadEscala1('')
-                    setTiempoEscala1('')
-                    setHaceSegundaEscala(false)
-                    setCiudadEscala2('')
-                    setTiempoEscala2('')
-                  }
-                }}
-                className="w-4 h-4 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
-              />
-              <label htmlFor="haceEscala" className="text-xs font-bold text-orange-700 uppercase tracking-widest cursor-pointer">
-                ¿El vuelo hace escala?
-              </label>
-            </div>
-            {haceEscala && (
-              <div className="space-y-4">
+            <h4 className="text-xs font-bold text-orange-700 uppercase tracking-widest px-1">Escalas</h4>
+            {escalas.map((escala, index) => (
+              <div key={index} className="space-y-3 p-3 bg-white rounded-lg border border-orange-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-orange-600">Escala {index + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => eliminarEscala(index)}
+                    className="text-red-500 hover:text-red-700 text-xs font-bold"
+                  >
+                    Eliminar
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">CIUDAD DE ESCALA</label>
+                    <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">CIUDAD</label>
                     <input
                       type="text"
-                      value={ciudadEscala1}
-                      onChange={(e) => setCiudadEscala1(e.target.value)}
+                      value={escala.ciudad}
+                      onChange={(e) => actualizarEscala(index, 'ciudad', e.target.value)}
                       placeholder="Ej: Bogotá"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">DURACIÓN DE ESCALA</label>
+                    <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">DURACIÓN</label>
                     <input
                       type="text"
-                      value={tiempoEscala1}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        // Validar formato HH:MM, HH.MM o número decimal (permitir entrada progresiva)
-                        if (value === '' || /^\d{0,2}([.:]\d{0,2})?$/.test(value)) {
-                          setTiempoEscala1(value)
-                        }
-                      }}
+                      value={escala.duracion}
+                      onChange={(e) => actualizarEscala(index, 'duracion', e.target.value)}
                       placeholder="Ej: 5:30 o 5.5"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm"
                     />
-                    <p className="text-xs text-slate-500 mt-1">Formato: 5:30 (5h 30min) o 5.5</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="haceSegundaEscala"
-                    checked={haceSegundaEscala}
-                    onChange={(e) => {
-                      setHaceSegundaEscala(e.target.checked)
-                      if (!e.target.checked) {
-                        setCiudadEscala2('')
-                        setTiempoEscala2('')
-                      }
-                    }}
-                    className="w-4 h-4 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
-                  />
-                  <label htmlFor="haceSegundaEscala" className="text-xs font-bold text-orange-600 cursor-pointer">
-                    ¿Segunda escala?
-                  </label>
-                </div>
-                {haceSegundaEscala && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">CIUDAD 2ª ESCALA</label>
-                      <input
-                        type="text"
-                        value={ciudadEscala2}
-                        onChange={(e) => setCiudadEscala2(e.target.value)}
-                        placeholder="Ej: Panamá"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">DURACIÓN 2ª ESCALA</label>
-                      <input
-                        type="text"
-                        value={tiempoEscala2}
-                        onChange={(e) => {
-                          const value = e.target.value
-                          // Validar formato HH:MM, HH.MM o número decimal (permitir entrada progresiva)
-                          if (value === '' || /^\d{0,2}([.:]\d{0,2})?$/.test(value)) {
-                            setTiempoEscala2(value)
-                          }
-                        }}
-                        placeholder="Ej: 2:15 o 2.25"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
-                      />
-                      <p className="text-xs text-slate-500 mt-1">Formato: 2:15 (2h 15min) o 2.25</p>
-                    </div>
-                  </div>
-                )}
               </div>
+            ))}
+            {escalas.length < 2 && (
+              <button
+                type="button"
+                onClick={agregarEscala}
+                className="w-full py-2 px-4 border-2 border-dashed border-orange-300 rounded-lg text-orange-600 hover:bg-orange-50 transition-colors text-sm font-bold"
+              >
+                + Agregar Escala
+              </button>
             )}
           </div>
-          {/* Equipaje */}
-          <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-3">
-            <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-widest px-1">Equipaje</h4>
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-emerald-50 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={equipajeCompleto}
-                  onChange={(e) => setEquipajeCompleto(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                <div>
-                  <p className="text-sm font-bold text-slate-700">Equipaje completo</p>
-                  <p className="text-[10px] text-slate-500">Maleta 23 Kg + Maleta 8 Kg + Artículo personal</p>
-                </div>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-emerald-50 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={equipajeMediano}
-                  onChange={(e) => setEquipajeMediano(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                <div>
-                  <p className="text-sm font-bold text-slate-700">Equipaje mediano</p>
-                  <p className="text-[10px] text-slate-500">Maleta 23 Kg + Artículo personal</p>
-                </div>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-emerald-50 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={equipajeLigero}
-                  onChange={(e) => setEquipajeLigero(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                <div>
-                  <p className="text-sm font-bold text-slate-700">Equipaje ligero</p>
-                  <p className="text-[10px] text-slate-500">Maleta 10 Kg + Artículo personal</p>
-                </div>
-              </label>
-            </div>
-          </div>
+          {/* Equipaje ahora es por pasajero en PasajerosManager */}
         </CollapsibleSection>
 
       </div>
@@ -1306,387 +1099,166 @@ export default function CotizadorForm({ isAuthenticated = false }) {
       {/* Panel de Resultados */}
       <div className="space-y-6">
         <div className="sticky top-6 space-y-6">
-          {/* Tarjeta elegante SOLO para el PDF (oculta visualmente, usada para generar la imagen) */}
-          <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '800px' }}>
-            <div
-              ref={pdfContentRef}
-              className="bg-white p-8" // Removed shadow and borders since it's for PDF
-            >
-              <div className="flex items-center justify-between mb-6 border-b border-slate-200 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-16 w-16 flex items-center justify-center overflow-hidden">
-                    {/* Logo de la agencia dinámico */}
-                    <img
-                      src={agencia === 'apolo' ? '/apolo-viajes-letras-azules.png' : '/viajes-nova-morado.png'}
-                      alt="Logo agencia"
-                      className="h-full w-full object-contain"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none'
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-slate-500">
-                      Cotización de Viaje
-                    </p>
-                    <h2 className="text-xl font-bold text-slate-900">
-                      {agencia === 'nova' ? 'Viajes Nova' : agencia === 'colombia' ? 'Viajes Nova Colombia' : 'Apolo Viajes'}
-                    </h2>
-                  </div>
-                </div>
-                <div className="text-right text-sm text-slate-500">
-                  <p className="font-medium">Fecha de Cotización</p>
-                  <p>
-                    {new Date().toLocaleDateString('es-ES', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                      timeZone: 'America/Caracas'
-                    })}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-6">
-                {/* 1. Información del Vuelo ([NEW]) */}
-                <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-indigo-700">
-                      Información del Vuelo
-                    </h3>
-                    <div className="flex gap-2">
-                      {idaVuelta && (
-                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded-full border border-indigo-100">
-                          IDA Y VUELTA
-                        </span>
-                      )}
-                      {soloIda && (
-                        <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded-full border border-green-100">
-                          SOLO IDA
-                        </span>
-                      )}
-                      {finesMigratorios && (
-                        <span className="px-2 py-0.5 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-full border border-amber-100">
-                          FINES MIGRATORIOS
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    {/* Trayecto General */}
-                    <div className="flex items-center gap-4 py-2 px-4 bg-slate-50 rounded-lg border border-slate-100">
-                      <div className="flex-1">
-                        <p className="text-[10px] text-slate-500 uppercase font-medium">Origen</p>
-                        <p className="text-lg font-bold text-slate-800">{origen || '---'}</p>
-                      </div>
-                      <div className="h-px flex-1 bg-slate-300 relative">
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-indigo-500 shadow-sm" />
-                      </div>
-                      <div className="flex-1 text-right">
-                        <p className="text-[10px] text-slate-500 uppercase font-medium">Destino</p>
-                        <p className="text-lg font-bold text-slate-800">{destino || '---'}</p>
-                      </div>
-                    </div>
-
-                    {(idaVuelta || soloIda) && (
-                    <div className="grid grid-cols-2 gap-8">
-                      {/* Bloque Ida */}
-                      <div className="space-y-3">
-                        <p className="text-[10px] font-bold text-indigo-600 uppercase border-b border-indigo-50 pb-1">Vuelo de Ida</p>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-[10px] text-slate-400 uppercase">Fecha</p>
-                            <p className="text-xs font-bold text-slate-700">
-                                {fechaSalida ? (() => {
-                                  const [year, month, day] = fechaSalida.split('-')
-                                  return `${day}/${month}/${year}`
-                                })() : '---'}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[10px] text-slate-400 uppercase">Aerolínea</p>
-                            <p className="text-xs font-bold text-slate-700">{aerolinea || '---'}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-slate-400 uppercase">Salida</p>
-                            <p className="text-xs font-bold text-slate-700">{horaSalida || '--:--'}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[10px] text-slate-400 uppercase">Llegada</p>
-                            <p className="text-xs font-bold text-slate-700">{horaLlegada || '--:--'}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Bloque Vuelta (Solo si aplica) */}
-                      {idaVuelta ? (
-                        <div className="space-y-3">
-                          <p className="text-[10px] font-bold text-purple-600 uppercase border-b border-purple-50 pb-1">Vuelo de Vuelta</p>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-[10px] text-slate-400 uppercase">Fecha</p>
-                              <p className="text-xs font-bold text-slate-700">
-                                  {fechaRegreso ? (() => {
-                                    const [year, month, day] = fechaRegreso.split('-')
-                                    return `${day}/${month}/${year}`
-                                  })() : '---'}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-[10px] text-slate-400 uppercase">Aerolínea</p>
-                              <p className="text-xs font-bold text-slate-700">{aerolinea || '---'}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-slate-400 uppercase">Salida</p>
-                              <p className="text-xs font-bold text-slate-700">{horaSalidaRegreso || '--:--'}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-[10px] text-slate-400 uppercase">Llegada</p>
-                              <p className="text-xs font-bold text-slate-700">{horaLlegadaRegreso || '--:--'}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center border border-dashed border-slate-200 rounded-lg bg-slate-50/50">
-                          <p className="text-[10px] text-slate-400 uppercase italic">Solo Ida</p>
-                        </div>
-                      )}
-                    </div>
-                    )}
-
-                    {/* Fines Migratorios */}
-                    {finesMigratorios && (
-                      <div className="py-3 px-4 bg-amber-50 rounded-lg border border-amber-100">
-                        <p className="text-[10px] font-bold text-amber-600 uppercase mb-2">Fines Migratorios</p>
-                        <div className="grid grid-cols-3 gap-4">
-                          <div>
-                            <p className="text-[10px] text-slate-400 uppercase">Fecha Salida</p>
-                            <p className="text-xs font-bold text-slate-700">
-                              {fechaSalidaMigratorio ? (() => {
-                                const [year, month, day] = fechaSalidaMigratorio.split('-')
-                                return `${day}/${month}/${year}`
-                              })() : '---'}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-slate-400 uppercase">Hora Salida</p>
-                            <p className="text-xs font-bold text-slate-700">{horaSalidaMigratorio || '--:--'}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[10px] text-slate-400 uppercase">Hora Llegada</p>
-                            <p className="text-xs font-bold text-slate-700">{horaLlegadaMigratorio || '--:--'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Escalas */}
-                    {haceEscala && (
-                      <div className="py-3 px-4 bg-orange-50 rounded-lg border border-orange-100">
-                        <p className="text-[10px] font-bold text-orange-600 uppercase mb-2">Escalas</p>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-[10px] text-slate-400 uppercase">1ª Escala</p>
-                            <p className="text-xs font-bold text-slate-700">{ciudadEscala1 || '---'}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[10px] text-slate-400 uppercase">Duración</p>
-                            <p className="text-xs font-bold text-slate-700">{tiempoEscala1 ? `${tiempoEscala1} h` : '---'}</p>
-                          </div>
-                          {haceSegundaEscala && (
-                            <>
-                              <div>
-                                <p className="text-[10px] text-slate-400 uppercase">2ª Escala</p>
-                                <p className="text-xs font-bold text-slate-700">{ciudadEscala2 || '---'}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-[10px] text-slate-400 uppercase">Duración</p>
-                                <p className="text-xs font-bold text-slate-700">{tiempoEscala2 ? `${tiempoEscala2} h` : '---'}</p>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 2. Servicios Incluidos */}
-                {(idaVuelta || finesMigratorios || equipajeCompleto || equipajeMediano || equipajeLigero) && (
-                  <div className="bg-amber-50 rounded-xl border border-amber-200 p-6 space-y-3">
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-amber-700 border-b border-amber-200 pb-2">
-                      Servicios Incluidos
-                    </h3>
-                    <div className="flex flex-wrap gap-x-6 gap-y-2">
-                      {finesMigratorios && (
-                        <>
-                          <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                            <p className="text-xs font-bold text-slate-700">Boleto de retorno</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                            <p className="text-xs font-bold text-slate-700">Seguro de viaje</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                            <p className="text-xs font-bold text-slate-700">Reserva de hotel</p>
-                          </div>
-                        </>
-                      )}
-                      {equipajeCompleto && (
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          <p className="text-xs font-bold text-slate-700">Equipaje completo (23 Kg + 8 Kg + artículo personal)</p>
-                        </div>
-                      )}
-                      {equipajeMediano && (
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          <p className="text-xs font-bold text-slate-700">Equipaje mediano (23 Kg + artículo personal)</p>
-                        </div>
-                      )}
-                      {equipajeLigero && (
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          <p className="text-xs font-bold text-slate-700">Equipaje ligero (10 Kg + artículo personal)</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* 3. Total principal */}
-                <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-slate-500">
-                      Monto total de la cotización
-                    </p>
-                    <p className="mt-2 text-3xl font-bold text-slate-900">
-                      {simboloMoneda} {formatearMonto(total)}
-                    </p>
-                    {monedaSeleccionada && (
-                      <p className="text-xs text-slate-500 mt-1">
-                        Moneda: {monedaSeleccionada.label}
-                      </p>
-                    )}
-                  </div>
-                  {/* Desglose eliminado del PDF según requerimiento */}
-                </div>
-
-                {/* Método de pago + datos de pago */}
-                <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-widest text-slate-500">
-                        Método de pago seleccionado
-                      </p>
-                      <p className="mt-1 text-base font-semibold text-slate-900">
-                        {metodoPago || 'Sin definir'}
-                      </p>
-                    </div>
-                    {/* Recargo descriptivo eliminado del PDF según requerimiento */}
-                  </div>
-
-                  <div className="h-px bg-slate-100" />
-
-                  <div className="space-y-2 text-sm">
-                    {(() => {
-                      const datos = (metodoPago === 'Zelle' && agencia === 'apolo') ? DATOS_PAGO_ZELLE_APOLO : DATOS_PAGO_POR_METODO[metodoPago]
-                      if (!datos) {
-                        return (
-                          <p className="text-slate-500">
-                            Los datos específicos de pago para este método aún no están configurados.
-                            Por favor, consulta con tu asesor para que te los comparta.
-                          </p>
-                        )
-                      }
-
-                      // No mostrar detalles de cuenta para Arcadia o Scalapay en el PDF
-                      if (metodoPago === 'Arcadia Service' || metodoPago === 'Scalapay') {
-                        return (
-                          <p className="text-slate-600 italic">
-                            El enlace de pago correspondiente será compartido por tu asesor de viaje una vez confirmada la cotización.
-                          </p>
-                        )
-                      }
-
-                      // Depósito oficina Venezuela - 2 columnas para ciudades
-                      if (metodoPago === 'Depósito oficina Venezuela (efectivo)') {
-                        return (
-                          <>
-                            <p className="font-semibold text-slate-800">{datos.titulo}</p>
-                            <p className="text-slate-600">{datos.descripcion}</p>
-                            <p className="mt-2 text-xs font-medium text-slate-500">Oficinas disponibles:</p>
-                            <div className="grid grid-cols-2 gap-x-6 gap-y-1 mt-1">
-                              {['San Cristóbal', 'Maracaibo', 'Caracas', 'Valencia (Parral)', 'Valencia (Torre de Seguro Los Andes)'].map((ciudad, idx) => (
-                                <div key={idx} className="flex items-center gap-1.5">
-                                  <div className="w-1 h-1 rounded-full bg-slate-400 shrink-0" />
-                                  <p className="text-slate-600">{ciudad}</p>
-                                </div>
-                              ))}
-                            </div>
-                            <p className="mt-2 text-slate-500 text-xs italic">Consulta con tu asesor la dirección exacta de la oficina más cercana.</p>
-                          </>
-                        )
-                      }
-
-                      // Cuenta en Euros - 2 columnas (BBVA + Revolut)
-                      if (metodoPago === 'Cuenta en Euros') {
-                        return (
-                          <>
-                            <p className="font-semibold text-slate-800">{datos.titulo}</p>
-                            <p className="text-slate-600">{datos.descripcion}</p>
-                            <div className="grid grid-cols-2 gap-4 mt-2">
-                              <div className="space-y-1">
-                                <p className="text-xs font-bold text-slate-700 uppercase">Opción Principal</p>
-                                <p className="text-slate-600">Banco: BBVA</p>
-                                <p className="text-slate-600">Titular: Grupo Travel BA</p>
-                                <p className="text-slate-600 text-xs break-all">IBAN: ES2301821876830201934375</p>
-                              </div>
-                              <div className="space-y-1">
-                                <p className="text-xs font-bold text-slate-700 uppercase">Opción Secundaria</p>
-                                <p className="text-slate-600">Banco: Revolut</p>
-                                <p className="text-slate-600">Titular: Gaddiel Montero Yepez</p>
-                                <p className="text-slate-600 text-xs break-all">IBAN: ES5415830001169083916022</p>
-                              </div>
-                            </div>
-                          </>
-                        )
-                      }
-
-                      return (
-                        <>
-                          <p className="font-semibold text-slate-800">
-                            {datos.titulo}
-                          </p>
-                          <p className="text-slate-600">
-                            {datos.descripcion}
-                          </p>
-                          <ul className="mt-2 list-disc list-inside space-y-1 text-slate-600">
-                            {datos.detalles.map((linea, idx) => (
-                              <li key={idx}>{linea}</li>
-                            ))}
-                          </ul>
-                        </>
-                      )
-                    })()}
-                  </div>
-                </div>
-
-                {/* Nota al cliente */}
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 leading-relaxed">
-                  Esta cotización es referencial y puede estar sujeta a cambios según
-                  disponibilidad, variación de tasas de cambio o condiciones del proveedor.
-                  Confirma siempre con tu asesor antes de realizar cualquier pago.
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Componente PDF (oculto visualmente, usado para generar la imagen) */}
+          <PdfContent
+            ref={pdfContentRef}
+            agencia={agencia}
+            origen={vueloInfo.origen}
+            destino={vueloInfo.destino}
+            idaVuelta={vueloInfo.idaVuelta}
+            soloIda={vueloInfo.soloIda}
+            finesMigratorios={vueloInfo.finesMigratorios}
+            fechaSalida={vueloInfo.fechaSalida}
+            horaSalida={vueloInfo.horaSalida}
+            horaLlegada={vueloInfo.horaLlegada}
+            aerolinea={aerolinea}
+            fechaRegreso={fechaRegreso}
+            horaSalidaRegreso={horaSalidaRegreso}
+            horaLlegadaRegreso={horaLlegadaRegreso}
+            fechaSalidaMigratorio={fechaSalidaMigratorio}
+            horaSalidaMigratorio={horaSalidaMigratorio}
+            horaLlegadaMigratorio={horaLlegadaMigratorio}
+            escalas={escalas}
+            pasajeros={pasajeros}
+            tienePasajerosConfigurados={tienePasajerosConfigurados}
+            calcularTotalPasajeros={calcularTotalPasajeros}
+            monedaCotizacion={monedaCotizacionSeleccionada}
+            metodoPago={metodoPago}
+            total={total}
+            desglose={desglose}
+            simboloMoneda={simboloMoneda}
+          />
 
           {/* Bloque interno solo para el asesor (desglose) */}
-          {desglose ? (
+          {tienePasajerosConfigurados() ? (
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
+              <h3 className="text-xl font-semibold text-slate-800 mb-6">
+                Desglose de Pasajeros
+              </h3>
+
+              <div className="space-y-6">
+                {Object.entries(pasajeros).map(([categoriaKey, categoriaPasajeros]) => {
+                  if (categoriaPasajeros.length === 0) return null
+
+                  const categoriaConfig = {
+                    adultos: { nombre: 'Adultos', color: 'blue' },
+                    niños: { nombre: 'Niños', color: 'green' },
+                    infantes: { nombre: 'Infantes', color: 'purple' }
+                  }[categoriaKey]
+
+                  return (
+                    <div key={categoriaKey} className="border border-slate-200 rounded-lg p-4">
+                      <h4 className={`text-sm font-bold text-${categoriaConfig.color}-600 mb-3 uppercase`}>
+                        {categoriaConfig.nombre} ({categoriaPasajeros.length})
+                      </h4>
+
+                      <div className="space-y-3">
+                        {categoriaPasajeros.map((pasajero, index) => {
+                          const precioPantalla = parseFloat(pasajero.precioPantalla || 0)
+                          const feeEmision = parseFloat(pasajero.feeEmision || 0)
+                          const feeAgencia = parseFloat(pasajero.feeAgencia || 0)
+                          const totalBoleto = precioPantalla + feeEmision + feeAgencia
+
+                          return (
+                            <div key={pasajero.id} className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-medium text-slate-700">Pasajero #{index + 1}</span>
+                                <span className="text-lg font-bold text-slate-900">
+                                  ${totalBoleto.toFixed(2)}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-2 text-xs">
+                                <div>
+                                  <p className="text-slate-500">Precio Pantalla</p>
+                                  <p className="font-semibold text-slate-700">${precioPantalla.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Fee Emisión</p>
+                                  <p className="font-semibold text-slate-700">${feeEmision.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Fee Agencia</p>
+                                  <p className="font-semibold text-slate-700">${feeAgencia.toFixed(2)}</p>
+                                </div>
+                              </div>
+
+                              {categoriaKey !== 'infantes' && (
+                                <div className="mt-2 text-xs text-slate-600">
+                                  <span className="font-medium">Equipaje: </span>
+                                  {pasajero.equipajeCompleto && <span className="text-green-600">Completo • </span>}
+                                  {pasajero.equipajeMediano && <span className="text-blue-600">Mediano • </span>}
+                                  {pasajero.equipajeLigero && <span className="text-orange-600">Ligero</span>}
+                                  {!pasajero.equipajeCompleto && !pasajero.equipajeMediano && !pasajero.equipajeLigero && (
+                                    <span className="text-slate-400 italic">Sin equipaje</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      <div className="mt-3 pt-3 border-t border-slate-300 flex justify-between items-center">
+                        <span className="text-sm font-semibold text-slate-700">Subtotal {categoriaConfig.nombre}</span>
+                        <span className="text-lg font-bold text-slate-900">
+                          ${categoriaPasajeros.reduce((sum, p) =>
+                            sum + parseFloat(p.precioPantalla || 0) + parseFloat(p.feeEmision || 0) + parseFloat(p.feeAgencia || 0), 0
+                          ).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Total General */}
+                <div className="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm text-indigo-700 font-medium">Total Base (USD)</p>
+                      <p className="text-xs text-indigo-600 mt-1">
+                        {Object.values(pasajeros).reduce((sum, cat) => sum + cat.length, 0)} pasajeros
+                      </p>
+                    </div>
+                    <span className="text-3xl font-bold text-indigo-900">
+                      ${calcularTotalPasajeros().toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Información de conversión si aplica */}
+                {desglose && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-600">Tasa de Cambio</span>
+                      <span className="font-semibold text-indigo-600">
+                        × {formatearMonto(desglose.tasaCambio)}
+                      </span>
+                    </div>
+
+                    {desglose.recargoDescripcion && (
+                      <div className="p-3 bg-orange-50 rounded-lg border border-orange-100">
+                        <p className="text-sm text-orange-700 font-medium">
+                          {desglose.recargoDescripcion}
+                        </p>
+                      </div>
+                    )}
+
+                    {metodoPago && (
+                      <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                        <p className="text-sm text-slate-700">
+                          <span className="font-medium">Método de pago:</span>
+                          <span className="ml-2 text-indigo-700 font-semibold">
+                            {metodoPago}
+                          </span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : desglose ? (
             <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
               <h3 className="text-xl font-semibold text-slate-800 mb-6">
                 Desglose de Cotización 
@@ -1724,7 +1296,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                 {/* Mostrar subtotal convertido si hay recargos */}
                 {desglose.recargoDescripcion && (
                   <div className="flex justify-between items-center pt-2 text-sm">
-                    <span className="text-slate-500">Subtotal ({moneda})</span>
+                    <span className="text-slate-500">Subtotal ({monedaCotizacionSeleccionada})</span>
                     <span className="font-medium text-slate-600">
                       {simboloMoneda} {formatearMonto(desglose.totalPrevio)}
                     </span>
@@ -1732,7 +1304,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                 )}
 
                 {/* Impuesto del gobierno de Colombia (solo si aplica) */}
-                {moneda === 'COP' && desglose.impuestoGobierno > 0 && (
+                {monedaCotizacionSeleccionada === 'COP' && desglose.impuestoGobierno > 0 && (
                   <div className="flex justify-between items-center pt-2 text-sm">
                     <span className="text-slate-500">Impuesto gobierno (4 COP por cada 1000)</span>
                     <span className="font-medium text-slate-600">
@@ -1757,14 +1329,14 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   </div>
                 )}
               </div>
-            </div>
-          ) : (
-            <div className="bg-slate-50 rounded-2xl p-8 text-center border border-slate-200">
-              <Calculator className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-              <p className="text-slate-600">
-                Completa los campos para ver el desglose
-              </p>
-            </div>
+              </div>
+            ) : (
+                <div className="bg-slate-50 rounded-2xl p-8 text-center border border-slate-200">
+                  <Users className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                  <p className="text-slate-600">
+                    Agrega pasajeros para ver el desglose
+                  </p>
+                </div>
           )}
 
           {/* Total + botón de exportación */}
@@ -1779,13 +1351,13 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   {monedaSeleccionada.label}
                 </p>
               )}
-              {moneda === 'VES' && (
+              {monedaCotizacionSeleccionada === 'VES' && (
                 <div className="mt-2 p-2 bg-white/10 rounded-lg">
                   <p className="text-xs opacity-90">
-                    <span className="font-semibold">Reconversión:</span> {monedaOrigen} → VES
+                    <span className="font-semibold">Reconversión:</span> {monedaBaseSeleccionada} → VES
                   </p>
                   <p className="text-xs opacity-80 mt-1">
-                    Tasa: 1 {monedaOrigen} = {tasaCambio} Bs
+                    Tasa: 1 {monedaBaseSeleccionada} = {tasaCambio} Bs
                   </p>
                 </div>
               )}
@@ -1794,7 +1366,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <button
                 type="button"
                 onClick={handleExportarPdf}
-                disabled={!desglose || exportingPdf}
+                disabled={!tienePasajerosConfigurados() || exportingPdf}
                 className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white text-indigo-700 font-medium text-sm shadow-sm hover:bg-slate-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {exportingPdf ? (
@@ -1809,6 +1381,26 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   </>
                 )}
               </button>
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={handleGuardarCotizacion}
+                  disabled={!desglose || savingCotizacion}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 text-white font-medium text-sm shadow-sm hover:bg-emerald-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {savingCotizacion ? (
+                    <>
+                      <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      Guardar Cotización
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>

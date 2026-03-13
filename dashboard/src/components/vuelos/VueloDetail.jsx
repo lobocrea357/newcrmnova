@@ -288,7 +288,7 @@ export default function VueloDetail({ vuelo }) {
               Caso de Anulación Asociado
             </h3>
             <a
-              href={`/anulables/${vuelo.anulable.id}`}
+              href={`/ventas/anulables/${vuelo.anulable.id}`}
               className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
             >
               Ver Anulable

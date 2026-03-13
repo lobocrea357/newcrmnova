@@ -354,6 +354,99 @@ fetch(NUEVO_API.listar, options)
 
 ---
 
+## 🎯 **MÓDULO DE COTIZADOR - PATRONES ESPECÍFICOS**
+
+### **Cálculo Automático en Vista Múltiple** (detectado 2026-03-03)
+El sistema de cotización tiene dos vistas: individual y múltiple pasajeros.
+
+**Patrón de cálculo automático:**
+```javascript
+// ✅ useEffect que detecta cuándo debe calcular automáticamente
+useEffect(() => {
+  // Vista individual: requiere precioBase, feeEmision o feeAgencia
+  const debeCalcularIndividual = vistaCotizacion === 'individual' && 
+    (precioBase || feeEmision || feeAgencia) && monedaPrecio && monedaCotizacion
+
+  // Vista múltiple: requiere al menos 1 pasajero configurado
+  const debeCalcularMultiple = vistaCotizacion === 'multiple' && 
+    tienePasajerosConfigurados() && monedaPrecio && monedaCotizacion
+
+  if (debeCalcularIndividual || debeCalcularMultiple) {
+    const timeoutId = setTimeout(() => {
+      calcularCotizacion()
+    }, 300) // Debounce de 300ms
+    return () => clearTimeout(timeoutId)
+  }
+}, [vistaCotizacion, precioBase, feeEmision, feeAgencia, pasajeros, monedaPrecio, monedaCotizacion, metodoPago])
+```
+
+**Archivos:** `/components/cotizador/CotizadorForm.jsx`
+
+### **Desglose de Pasajeros para Vista Múltiple** (detectado 2026-03-03)
+Panel específico que muestra el desglose detallado de cada pasajero.
+
+**Estructura del desglose:**
+- Agrupa por categoría (Adultos, Niños, Infantes)
+- Muestra cada pasajero individual con:
+  - Precio Pantalla
+  - Fee Emisión
+  - Fee Agencia
+  - Total por pasajero
+  - Equipaje seleccionado
+- Subtotal por categoría
+- Total general con tasa de cambio y recargos
+
+**Patrón de renderizado condicional:**
+```javascript
+// ✅ Renderizado diferenciado por vista
+{vistaCotizacion === 'multiple' && tienePasajerosConfigurados() ? (
+  <DesgloseMultiple pasajeros={pasajeros} />
+) : desglose ? (
+  <DesgloseIndividual desglose={desglose} />
+) : vistaCotizacion === 'individual' ? (
+  <MensajeVacio mensaje="Completa los campos para ver el desglose" />
+) : (
+  <MensajeVacio mensaje="Agrega pasajeros para ver el desglose" />
+)}
+```
+
+**Archivos:** `/components/cotizador/CotizadorForm.jsx`
+
+### **Gestión de PDF Multipágina** (actualizado 2026-03-03)
+Generación de PDFs con múltiples páginas respetando márgenes.
+
+**Configuración de márgenes:**
+```javascript
+// ✅ Márgenes aumentados para evitar cortes
+const PDF_WIDTH = 210  // A4: 210mm
+const PDF_HEIGHT = 297 // A4: 297mm
+const MARGIN = 15      // 15mm de margen (aumentado desde 10mm)
+
+const contentWidth = PDF_WIDTH - (MARGIN * 2)
+const contentHeight = PDF_HEIGHT - (MARGIN * 2)
+```
+
+**Limitación conocida:** `html2canvas` convierte el DOM en una imagen única, por lo que `page-break-inside: avoid` solo funciona en impresión real del navegador, no en la generación del PDF.
+
+**Archivos:** `/services/cotizador/pdfService.js`, `/components/cotizador/resultados/PdfContent.jsx`
+
+### **Validación de Botón PDF por Vista** (detectado 2026-03-03)
+Condiciones diferentes para habilitar el botón "Exportar PDF" según la vista.
+
+**Patrón de validación:**
+```javascript
+// ✅ Validación condicional por tipo de vista
+disabled={
+  (vistaCotizacion === 'individual' && !desglose) || 
+  (vistaCotizacion === 'multiple' && !tienePasajerosConfigurados()) || 
+  exportingPdf
+}
+```
+
+**Archivos:** `/components/cotizador/CotizadorForm.jsx`
+
+---
+
 ## 🔄 **SISTEMA DE MANTENIMIENTO INTELIGENTE**
 
 ### **📊 Meta-datos del Contexto**
@@ -361,11 +454,11 @@ fetch(NUEVO_API.listar, options)
 meta:
   creado: "2026-02-24"
   ultima_revision_humana: "2026-02-24"
-  ultima_actualizacion_ia: "2026-02-24"
+  ultima_actualizacion_ia: "2026-03-03"
   version_proyecto: "v1.0.0"
-  patrones_documentados: "56"
+  patrones_documentados: "58"
   patrones_obsoletos: "0"
-  ultima_validacion: "2026-02-24"
+  ultima_validacion: "2026-03-03"
 ```
 
 ### **🤖 Tareas Automáticas (IA) - Cada Uso**

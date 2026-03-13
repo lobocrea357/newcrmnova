@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { obtenerMonedas, crearMoneda, actualizarMoneda, eliminarMoneda } from '@/lib/tasasHelpers'
+import { obtenerMonedas, crearMoneda, actualizarMoneda, eliminarMoneda } from '@/lib/cotizador/tasasHelpers'
 import { Plus, Trash2, RefreshCw } from 'lucide-react'
 import { useUserProfile } from '@/hooks/useUserProfile'
 import Swal from 'sweetalert2'

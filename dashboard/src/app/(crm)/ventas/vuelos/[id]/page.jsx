@@ -20,7 +20,7 @@ export default function VueloDetailPage({ params }) {
 
     try {
       const response = await fetch(`/api/vuelos/${params.id}`)
-      
+
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('Vuelo no encontrado')
@@ -52,7 +52,7 @@ export default function VueloDetailPage({ params }) {
         throw new Error('Error al eliminar vuelo')
       }
 
-      router.push('/vuelos')
+      router.push('/ventas/vuelos')
     } catch (err) {
       console.error('Error deleting vuelo:', err)
       alert('Error al eliminar vuelo: ' + err.message)
@@ -75,7 +75,7 @@ export default function VueloDetailPage({ params }) {
             <h2 className="text-red-800 font-semibold mb-2">Error</h2>
             <p className="text-red-600">{error}</p>
             <button
-              onClick={() => router.push('/vuelos')}
+              onClick={() => router.push('/ventas/vuelos')}
               className="mt-4 text-red-700 hover:text-red-900 font-medium"
             >
               Volver a vuelos
@@ -95,7 +95,7 @@ export default function VueloDetailPage({ params }) {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6 flex items-center justify-between">
           <button
-            onClick={() => router.push('/vuelos')}
+            onClick={() => router.push('/ventas/vuelos')}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -104,7 +104,7 @@ export default function VueloDetailPage({ params }) {
 
           <div className="flex gap-3">
             <button
-              onClick={() => router.push(`/vuelos/${params.id}/editar`)}
+              onClick={() => router.push(`/ventas/vuelos/${params.id}/editar`)}
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
             >
               <Edit className="w-4 h-4" />

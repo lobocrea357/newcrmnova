@@ -21,7 +21,7 @@ export default function AnulableDetailPage({ params }) {
 
     try {
       const response = await fetch(`/api/anulables/${params.id}`)
-      
+
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('Anulable no encontrado')
@@ -53,7 +53,7 @@ export default function AnulableDetailPage({ params }) {
         throw new Error('Error al eliminar anulable')
       }
 
-      router.push('/anulables')
+      router.push('/ventas/anulables')
     } catch (err) {
       console.error('Error deleting anulable:', err)
       alert('Error al eliminar anulable: ' + err.message)
@@ -79,7 +79,7 @@ export default function AnulableDetailPage({ params }) {
               <h2 className="text-red-800 font-semibold mb-2">Error</h2>
               <p className="text-red-600">{error}</p>
               <button
-                onClick={() => router.push('/anulables')}
+                onClick={() => router.push('/ventas/anulables')}
                 className="mt-4 text-red-700 hover:text-red-900 font-medium"
               >
                 Volver a anulables
@@ -101,7 +101,7 @@ export default function AnulableDetailPage({ params }) {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-6 flex items-center justify-between">
             <button
-              onClick={() => router.push('/anulables')}
+              onClick={() => router.push('/ventas/anulables')}
               className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
             >
               <ArrowLeft className="w-5 h-5" />

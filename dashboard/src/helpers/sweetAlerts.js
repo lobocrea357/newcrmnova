@@ -1,4 +1,5 @@
 import Swal from "sweetalert2";
+import { toastSuccess as toastSuccessHelper, toastError as toastErrorHelper } from './toasts';
 
 // 1. Función base genérica (1 sola función para todo)
 const showAlert = (type, message, options = {}) => {

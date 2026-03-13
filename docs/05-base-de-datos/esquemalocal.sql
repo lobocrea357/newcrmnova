@@ -194,6 +194,66 @@ CREATE TABLE public.conversation_evaluations (
   CONSTRAINT conversation_evaluations_evaluated_by_fkey FOREIGN KEY (evaluated_by_user_id) REFERENCES public.profiles(id),
   CONSTRAINT conversation_evaluations_performance_analysis_id_fkey FOREIGN KEY (performance_analysis_id) REFERENCES public.performance_analyses(id)
 );
+CREATE TABLE public.cotizaciones (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  created_by uuid NOT NULL,
+  nombre_cliente text NOT NULL,
+  estado text NOT NULL DEFAULT 'PENDIENTE'::text CHECK (estado = ANY (ARRAY['PENDIENTE'::text, 'EN_REVISION'::text, 'APROBADA'::text, 'RECHAZADA'::text])),
+  razon_rechazo text,
+  tipo_vuelo text NOT NULL CHECK (tipo_vuelo = ANY (ARRAY['solo_ida'::text, 'ida_vuelta'::text, 'migratorio'::text])),
+  origen text NOT NULL,
+  destino text NOT NULL,
+  aerolinea text,
+  fecha_salida date NOT NULL,
+  hora_salida time without time zone,
+  hora_llegada time without time zone,
+  tiene_escala boolean DEFAULT false,
+  escala_1_ciudad text,
+  escala_1_duracion text,
+  tiene_segunda_escala boolean DEFAULT false,
+  escala_2_ciudad text,
+  escala_2_duracion text,
+  precio_base numeric,
+  fee_emision numeric,
+  fee_agencia numeric,
+  total_cotizacion numeric,
+  moneda_precio text NOT NULL,
+  moneda_cotizacion text NOT NULL,
+  precio_final_cotizacion numeric NOT NULL,
+  tasa_cambio numeric,
+  metodo_pago text,
+  reserva_id uuid,
+  CONSTRAINT cotizaciones_pkey PRIMARY KEY (id),
+  CONSTRAINT cotizaciones_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+);
+CREATE TABLE public.cotizaciones_historial (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  cotizacion_id uuid NOT NULL,
+  estado_anterior text,
+  estado_nuevo text NOT NULL,
+  changed_by uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT cotizaciones_historial_pkey PRIMARY KEY (id),
+  CONSTRAINT cotizaciones_historial_cotizacion_id_fkey FOREIGN KEY (cotizacion_id) REFERENCES public.cotizaciones(id),
+  CONSTRAINT cotizaciones_historial_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES auth.users(id)
+);
+CREATE TABLE public.cotizaciones_pasajeros (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  cotizacion_id uuid NOT NULL,
+  tipo text NOT NULL CHECK (tipo = ANY (ARRAY['ADULTO'::text, 'NINO'::text, 'INFANTE'::text])),
+  orden integer NOT NULL,
+  precio_pantalla numeric NOT NULL CHECK (precio_pantalla >= 0::numeric),
+  fee_emision numeric DEFAULT 0 CHECK (fee_emision >= 0::numeric),
+  fee_agencia numeric DEFAULT 0 CHECK (fee_agencia >= 0::numeric),
+  equipaje_completo boolean DEFAULT false,
+  equipaje_mediano boolean DEFAULT false,
+  equipaje_ligero boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT cotizaciones_pasajeros_pkey PRIMARY KEY (id),
+  CONSTRAINT cotizaciones_pasajeros_cotizacion_id_fkey FOREIGN KEY (cotizacion_id) REFERENCES public.cotizaciones(id)
+);
 CREATE TABLE public.daily_sales_reports (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   asesor_id uuid NOT NULL,

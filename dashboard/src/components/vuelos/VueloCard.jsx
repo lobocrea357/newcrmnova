@@ -35,7 +35,7 @@ export default function VueloCard({ vuelo }) {
   }
 
   return (
-    <Link href={`/vuelos/${vuelo.id}`}>
+    <Link href={`/ventas/vuelos/${vuelo.id}`}>
       <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">

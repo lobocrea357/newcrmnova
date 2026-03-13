@@ -19,13 +19,13 @@ export default function VuelosPage() {
     setIsLoading(true)
     try {
       const params = new URLSearchParams()
-      
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value) params.append(key, value)
       })
 
       const response = await fetch(`/api/vuelos?${params.toString()}`)
-      
+
       if (!response.ok) {
         throw new Error('Error al obtener vuelos')
       }
@@ -57,9 +57,9 @@ export default function VuelosPage() {
               Gestión de vuelos pagados y seguimiento de anulables
             </p>
           </div>
-          
+
           <button
-            onClick={() => router.push('/vuelos/nuevo')}
+            onClick={() => router.push('/ventas/vuelos/nuevo')}
             className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
           >
             <Plus className="w-5 h-5" />

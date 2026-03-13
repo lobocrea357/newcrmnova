@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { obtenerMonedas, obtenerTasasConversion, crearConversion, actualizarTasa, eliminarConversion } from '@/lib/tasasHelpers'
+import { obtenerMonedas, obtenerTasasConversion, crearConversion, actualizarTasa, eliminarConversion } from '@/lib/cotizador/tasasHelpers'
 import { Plus, Trash2, RefreshCw, History } from 'lucide-react'
 import HistorialTasas from './HistorialTasas'
 import { useUserProfile } from '@/hooks/useUserProfile'

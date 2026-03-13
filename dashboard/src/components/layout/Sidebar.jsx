@@ -20,6 +20,7 @@ import {
     Plane,
     PlaneTakeoff,
     Calculator,
+    ClipboardList,
     X
 } from 'lucide-react'
 
@@ -39,16 +40,16 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
             setUser(user)
             const info = getUserInfo(user?.email)
             setUserInfo(info)
-            console.log('🔐 Usuario loggeado (Sidebar):', {
-                id: user?.id,
-                email: user?.email,
-                fullName: user?.user_metadata?.full_name,
-                metadata: user?.user_metadata,
-                role: user?.role,
-                appMetadata: user?.app_metadata,
-                fullPayload: user,
-                customInfo: info
-            })
+            // console.log('🔐 Usuario loggeado (Sidebar):', {
+            //     id: user?.id,
+            //     email: user?.email,
+            //     fullName: user?.user_metadata?.full_name,
+            //     metadata: user?.user_metadata,
+            //     role: user?.role,
+            //     appMetadata: user?.app_metadata,
+            //     fullPayload: user,
+            //     customInfo: info
+            // })
         } finally {
             setLoading(false)
         }
@@ -58,12 +59,13 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         { href: '/', label: 'Dashboard', icon: LayoutDashboard },
         { href: '/conversaciones', label: 'Conversaciones', icon: MessageSquare },
         { href: '/rutas-riesgo', label: 'Rutas en Riesgo', icon: AlertTriangle },
-        { href: '/rendimiento', label: 'Rendimiento', icon: TrendingUp },
+        { href: '/analisis/rendimiento', label: 'Rendimiento', icon: TrendingUp },
         { href: '/manual-ventas', label: 'Manual de Ventas', icon: BookOpen },
         { href: '/cotizador', label: 'Cotizador', icon: Calculator },
-        { href: '/vuelos', label: 'Vuelos', icon: PlaneTakeoff },
-        { href: '/anulables', label: 'Anulables', icon: XCircle },
-        { href: '/reportes', label: 'Reportes', icon: FileText },
+        { href: '/ventas/cotizaciones', label: 'Cotizaciones', icon: ClipboardList },
+        { href: '/ventas/vuelos', label: 'Vuelos', icon: PlaneTakeoff },
+        { href: '/ventas/anulables', label: 'Anulables', icon: XCircle },
+        { href: '/analisis/reportes', label: 'Reportes', icon: FileText },
         { href: '/inteligencia-artificial', label: 'IA', icon: Brain },
         { href: '/configuracion', label: 'Configuración', icon: Settings },
     ]
@@ -178,21 +180,21 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
                             )}
                         </div>
                     ) : (
-                            <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
-                                <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                                    <span className="text-sm font-semibold text-white">
-                                        {(userInfo?.fullName || user?.user_metadata?.full_name || user?.email || 'U').charAt(0).toUpperCase()}
-                                    </span>
-                                </div>
-                                {!collapsed && (
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-white truncate">
-                                            {userInfo?.fullName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuario'}
-                                        </p>
-                                        <p className="text-xs text-gray-400">{userInfo?.role || 'Usuario'}</p>
-                                    </div>
-                                )}
+                        <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
+                            <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                                <span className="text-sm font-semibold text-white">
+                                    {(userInfo?.fullName || user?.user_metadata?.full_name || user?.email || 'U').charAt(0).toUpperCase()}
+                                </span>
                             </div>
+                            {!collapsed && (
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-white truncate">
+                                        {userInfo?.fullName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuario'}
+                                    </p>
+                                    <p className="text-xs text-gray-400">{userInfo?.role || 'Usuario'}</p>
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
             </aside>
