@@ -8,8 +8,6 @@ import { getPaymentData } from '@/lib/cotizador/paymentConfig'
  */
 const PdfContent = forwardRef(({
   agencia,
-  vistaCotizacion,
-  tipoPasajeroIndividual,
   origen,
   destino,
   idaVuelta,
@@ -26,33 +24,15 @@ const PdfContent = forwardRef(({
   horaSalidaMigratorio,
   horaLlegadaMigratorio,
   escalas = [],
-  equipaje = [],
   pasajeros,
   tienePasajerosConfigurados,
   calcularTotalPasajeros,
-  precioBase,
-  feeEmision,
-  feeAgencia,
-  equipajeCompleto,
-  equipajeMediano,
-  equipajeLigero,
   monedaCotizacion,
   metodoPago,
   total,
   desglose,
   simboloMoneda
 }, ref) => {
-  // Compatibilidad con legacy equipaje (individual checkboxes)
-  const tieneEquipaje = (tipo) => {
-    if (equipaje && equipaje.length > 0) {
-      return equipaje.includes(tipo)
-    }
-    // Fallback a props legacy
-    if (tipo === 'completo') return equipajeCompleto
-    if (tipo === 'mediano') return equipajeMediano
-    if (tipo === 'ligero') return equipajeLigero
-    return false
-  }
   return (
     <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '800px' }}>
       <div ref={ref} className="bg-white p-8">
@@ -235,7 +215,7 @@ const PdfContent = forwardRef(({
                         <p className="text-xs font-bold text-slate-700">{escala.ciudad || '---'}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] text-slate-400 uppercase">Duración</p>
+                        <p className="text-[10px] text-slate-400 uppercase">Duración de la escala</p>
                         <p className="text-xs font-bold text-slate-700">{escala.duracion || '---'}</p>
                       </div>
                     </div>
@@ -274,8 +254,8 @@ const PdfContent = forwardRef(({
             </div>
           </div>
 
-          {/* 3. Desglose de Pasajeros (Vista Múltiple) */}
-          {(vistaCotizacion === 'multiple' && tienePasajerosConfigurados()) ? (
+          {/* 3. Desglose de Pasajeros */}
+          {tienePasajerosConfigurados() ? (
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 space-y-4" style={{ pageBreakInside: 'avoid' }}>
               <div className="flex items-center justify-between border-b border-blue-100 pb-3">
                 <h3 className="text-sm font-bold uppercase tracking-widest text-blue-700">
@@ -377,86 +357,10 @@ const PdfContent = forwardRef(({
                 </div>
               </div>
             </div>
-          ) : vistaCotizacion === 'individual' && (
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200 p-6 space-y-4" style={{ pageBreakInside: 'avoid' }}>
-              <div className="flex items-center justify-between border-b border-green-100 pb-3">
-                <h3 className="text-sm font-bold uppercase tracking-widest text-green-700">
-                  Información del Pasajero y Cotización
-                </h3>
-                <div className="flex gap-2">
-                  <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded-full border border-green-200">
-                    {tipoPasajeroIndividual === 'adulto' ? 'Adulto' : tipoPasajeroIndividual === 'niño' ? 'Niño' : 'Infante'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg border border-green-200 p-4">
-                <div className="mb-4 pb-4 border-b border-gray-200">
-                  <div className="flex items-center gap-3">
-                    <Users className="w-5 h-5 text-green-600" />
-                    <div>
-                      <p className="text-xs text-gray-600">Tipo de pasajero:</p>
-                      <p className="font-bold text-gray-800">
-                        {tipoPasajeroIndividual === 'adulto' ? 'Adulto' :
-                          tipoPasajeroIndividual === 'niño' ? 'Niño' : 'Infante'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {(tieneEquipaje('completo') || tieneEquipaje('mediano') || tieneEquipaje('ligero')) && (
-                  <div className="mb-4 pb-4 border-b border-gray-200">
-                    <div className="flex items-center gap-3 mb-2">
-                      <Luggage className="w-5 h-5 text-green-600" />
-                      <p className="font-bold text-gray-800 text-sm">Equipaje seleccionado:</p>
-                    </div>
-                    <div className="space-y-1">
-                      {tieneEquipaje('completo') && (
-                        <div className="flex items-center gap-2 text-xs">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          <span className="text-gray-600">Equipaje completo (23 Kg + 8 Kg + artículo personal)</span>
-                        </div>
-                      )}
-                      {tieneEquipaje('mediano') && (
-                        <div className="flex items-center gap-2 text-xs">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          <span className="text-gray-600">Equipaje mediano (23 Kg + artículo personal)</span>
-                        </div>
-                      )}
-                      {tieneEquipaje('ligero') && (
-                        <div className="flex items-center gap-2 text-xs">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          <span className="text-gray-600">Equipaje ligero (10 Kg + artículo personal)</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div className="bg-gradient-to-r from-green-100 to-emerald-100 rounded-lg border border-green-300 p-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-xs uppercase tracking-widest text-green-700 font-bold">
-                        Monto total de la cotización
-                      </p>
-                      <p className="text-xs text-green-600 mt-1">
-                        (Un solo pasajero)
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-2xl font-bold text-green-900">
-                        {simboloMoneda} {total ? total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
-                      </span>
-                      <p className="text-xs text-green-600 mt-1">
-                        {monedaCotizacion === 'USD' ? 'USD' :
-                          monedaCotizacion === 'EUR' ? 'EUR' :
-                            monedaCotizacion === 'VES' ? 'VES' :
-                              monedaCotizacion === 'COP' ? 'COP' : 'USDT'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          ) : (
+            <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 text-center" style={{ pageBreakInside: 'avoid' }}>
+              <Users className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+              <p className="text-slate-600 font-medium">No hay información de pasajeros disponible</p>
             </div>
           )}
 

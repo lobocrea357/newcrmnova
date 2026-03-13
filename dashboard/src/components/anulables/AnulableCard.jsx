@@ -46,7 +46,7 @@ export default function AnulableCard({ anulable }) {
   }
 
   return (
-    <Link href={`/anulables/${anulable.id}`}>
+    <Link href={`/ventas/anulables/${anulable.id}`}>
       <div className={`bg-white border rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer ${
         isUrgente() ? 'border-red-300 bg-red-50' : 'border-gray-200'
       }`}>

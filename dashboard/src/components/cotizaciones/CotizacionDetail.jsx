@@ -2,12 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { 
-  User, 
-  Plane, 
-  Calendar, 
-  Clock, 
-  MapPin, 
+import {
+  User,
+  Plane,
+  Calendar,
+  Clock,
+  MapPin,
   DollarSign,
   CreditCard,
   Luggage,
@@ -91,14 +91,14 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
       razon = result.value
     } else {
       // Confirmación para aprobar o poner en revisión
-      const confirmText = nuevoEstado === 'APROBADA' 
-        ? '¿Aprobar esta cotización?' 
+      const confirmText = nuevoEstado === 'APROBADA'
+        ? '¿Aprobar esta cotización?'
         : '¿Marcar como en revisión?'
-      
+
       const result = await Swal.fire({
         title: confirmText,
-        text: nuevoEstado === 'APROBADA' 
-          ? 'El cliente aceptó la cotización' 
+        text: nuevoEstado === 'APROBADA'
+          ? 'El cliente aceptó la cotización'
           : 'Marca esta cotización para revisión',
         icon: 'question',
         showCancelButton: true,
@@ -141,8 +141,8 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
   }
 
   const handleCrearVenta = () => {
-    // Redirigir a /vuelos/nuevo con el ID de la cotización
-    router.push(`/vuelos/nuevo?cotizacion_id=${cotizacion.id}`)
+    // Redirigir a /ventas/vuelos/nuevo con el ID de la cotización
+    router.push(`/ventas/vuelos/nuevo?cotizacion_id=${cotizacion.id}`)
   }
 
   const formatTipoVuelo = (tipo) => {
@@ -183,13 +183,13 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
           <Plane className="w-5 h-5 text-indigo-600" />
           Información del Vuelo
         </h3>
-        
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Tipo de Vuelo</p>
             <p className="text-sm font-medium text-gray-900">{formatTipoVuelo(cotizacion.tipo_vuelo)}</p>
           </div>
-          
+
           <div>
             <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Aerolínea</p>
             <p className="text-sm font-medium text-gray-900">{cotizacion.aerolinea || 'No especificada'}</p>
@@ -266,33 +266,60 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
         </h3>
 
         <div className="space-y-3">
-          <div className="flex justify-between items-center pb-2 border-b border-gray-100">
-            <span className="text-sm text-gray-600">Precio Base</span>
-            <span className="font-semibold text-gray-900">
-              ${cotizacion.precio_base?.toFixed(2)} {cotizacion.moneda_precio}
-            </span>
-          </div>
+          {cotizacion.pasajeros && cotizacion.pasajeros.length > 0 ? (
+            // Mostrar desglose por pasajero
+            <>
+              {cotizacion.pasajeros.map((pasajero, index) => (
+                <div key={index} className="pb-3 border-b border-gray-100">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-semibold text-indigo-700">
+                      {pasajero.tipo} #{pasajero.orden}
+                    </span>
+                    <span className="font-bold text-indigo-600">
+                      ${(pasajero.precio_pantalla + pasajero.fee_emision + pasajero.fee_agencia).toFixed(2)} {cotizacion.moneda_precio}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div>
+                      <p className="text-gray-500">Precio Pantalla</p>
+                      <p className="font-semibold text-gray-900">${pasajero.precio_pantalla?.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Fee Emisión</p>
+                      <p className="font-semibold text-gray-900">${pasajero.fee_emision?.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Fee Agencia</p>
+                      <p className="font-semibold text-gray-900">${pasajero.fee_agencia?.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
 
-          <div className="flex justify-between items-center pb-2 border-b border-gray-100">
-            <span className="text-sm text-gray-600">Fee Emisión</span>
-            <span className="font-semibold text-gray-900">
-              ${cotizacion.fee_emision?.toFixed(2)} {cotizacion.moneda_precio}
-            </span>
-          </div>
-
-          <div className="flex justify-between items-center pb-2 border-b border-gray-100">
-            <span className="text-sm text-gray-600">Fee Agencia</span>
-            <span className="font-semibold text-gray-900">
-              ${cotizacion.fee_agencia?.toFixed(2)} {cotizacion.moneda_precio}
-            </span>
-          </div>
-
-          <div className="flex justify-between items-center pb-2 border-b-2 border-gray-300">
-            <span className="text-sm font-medium text-gray-700">Subtotal ({cotizacion.moneda_precio})</span>
-            <span className="font-semibold text-gray-900">
-              ${cotizacion.total_cotizacion?.toFixed(2)}
-            </span>
-          </div>
+              <div className="flex justify-between items-center pt-2 pb-2 border-b-2 border-gray-300">
+                <span className="text-sm font-medium text-gray-700">Subtotal ({cotizacion.moneda_precio})</span>
+                <span className="font-semibold text-gray-900">
+                  ${cotizacion.pasajeros.reduce((sum, p) => sum + p.precio_pantalla + p.fee_emision + p.fee_agencia, 0).toFixed(2)}
+                </span>
+              </div>
+            </>
+          ) : (
+            // Sin información de pasajeros - Fallback para cotizaciones antiguas
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
+              <p className="text-amber-700 font-medium text-sm">Sin información de pasajeros</p>
+              <p className="text-amber-600 text-xs mt-1">
+                Esta cotización fue creada antes de la actualización del sistema
+              </p>
+              <div className="mt-3 pt-3 border-t border-amber-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-700">Total Base:</span>
+                  <span className="font-semibold text-gray-900">
+                    ${cotizacion.precio_base?.toFixed(2) || '0.00'} {cotizacion.moneda_precio}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {cotizacion.tasa_cambio !== 1 && (
             <div className="flex justify-between items-center text-sm text-indigo-600">
@@ -325,8 +352,8 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
         </div>
       </div>
 
-      {/* Pasajeros (si es vista múltiple) */}
-      {cotizacion.tipo_vista === 'multiple' && cotizacion.pasajeros && cotizacion.pasajeros.length > 0 && (
+      {/* Pasajeros */}
+     {/*  {cotizacion.pasajeros && cotizacion.pasajeros.length > 0 && (
         <div className="bg-white rounded-xl p-6 border border-gray-200">
           <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
             <Users className="w-5 h-5 text-blue-600" />
@@ -375,7 +402,7 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
             ))}
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Motivo de Rechazo (si aplica) */}
       {cotizacion.estado === 'RECHAZADA' && cotizacion.razon_rechazo && (

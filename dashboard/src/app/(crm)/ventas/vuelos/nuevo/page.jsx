@@ -52,7 +52,7 @@ export default function NuevoVueloPage() {
         monto_venta: data.precio_final_cotizacion || '',
         metodo_pago: data.metodo_pago || '',
         tipo_vuelo: data.tipo_vuelo === 'migratorio' ? 'MIGRACION' : 'TURISMO',
-        observaciones: `Creado desde cotización #${data.id}\n\nTipo: ${data.tipo_vista}\nMoneda cotización: ${data.moneda_cotizacion}\nPrecio base: ${data.precio_base} ${data.moneda_precio}`,
+        observaciones: `Creado desde cotización #${data.id}\n\nMoneda cotización: ${data.moneda_cotizacion}\nPrecio base: ${data.precio_base} ${data.moneda_precio}\nPasajeros: ${data.pasajeros?.length || 0}`,
         // Campos que el asesor debe completar manualmente
         num_adultos: 1,
         num_ninos: 0,
@@ -84,7 +84,7 @@ export default function NuevoVueloPage() {
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      
+
       if (!user) {
         throw new Error('Usuario no autenticado')
       }
@@ -130,25 +130,25 @@ export default function NuevoVueloPage() {
 
       const responseData = await response.json()
       console.log('✅ Response data completa:', JSON.stringify(responseData, null, 2))
-      
+
       const vuelo = responseData.vuelo
-      
+
       if (!vuelo) {
         console.error('❌ No se encontró el objeto vuelo en la respuesta:', responseData)
         throw new Error('La respuesta del servidor no contiene el vuelo creado')
       }
-      
+
       if (!vuelo.id) {
         console.error('❌ El vuelo no tiene ID:', vuelo)
         throw new Error('El vuelo se creó pero no tiene ID válido')
       }
-      
+
       console.log('✅ Vuelo creado exitosamente con ID:', vuelo.id)
 
       // Subir archivos solo si el vuelo tiene un ID válido
       if ((formData.comprobantes?.length > 0 || formData.pasaportes?.length > 0) && vuelo.id) {
         console.log(`📎 Subiendo ${formData.comprobantes?.length || 0} comprobantes y ${formData.pasaportes?.length || 0} pasaportes...`)
-        
+
         const uploadPromises = []
 
         if (formData.comprobantes) {
@@ -206,8 +206,8 @@ export default function NuevoVueloPage() {
         }
       }
 
-      console.log('🔄 Redirigiendo a:', `/vuelos/${vuelo.id}`)
-      router.push(`/vuelos/${vuelo.id}`)
+      console.log('🔄 Redirigiendo a:', `/ventas/vuelos/${vuelo.id}`)
+      router.push(`/ventas/vuelos/${vuelo.id}`)
     } catch (err) {
       console.error('Error creating vuelo:', err)
       setError(err.message)

@@ -358,8 +358,9 @@ export default function ReportesPage() {
         <Breadcrumb
           items={[
             { label: "Dashboard", href: "/" },
-            { label: "Rendimiento", href: "/rendimiento" },
-            { label: "Reportes", href: "/rendimiento/reportes" },
+            { label: "Análisis", href: "/analisis/rendimiento" },
+            { label: "Rendimiento", href: "/analisis/rendimiento" },
+            { label: "Reportes", href: "/analisis/rendimiento/reportes" },
           ]}
         />
 
@@ -368,7 +369,7 @@ export default function ReportesPage() {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => router.push("/rendimiento")}
+                onClick={() => router.push("/analisis/rendimiento")}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 aria-label="Volver"
               >
@@ -497,7 +498,7 @@ export default function ReportesPage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
                 <button
-                  onClick={() => router.push("/rendimiento/new")}
+                  onClick={() => router.push("/analisis/rendimiento/new")}
                   className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-lg flex items-center gap-2"
                 >
                   <Sparkles className="h-5 w-5" />

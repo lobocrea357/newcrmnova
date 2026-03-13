@@ -172,8 +172,8 @@ export default function CotizacionesPage() {
                     key={estado}
                     onClick={() => setEstadoFilter(estado)}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${estadoFilter === estado
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                   >
                     {estado === 'all' ? 'Todas' : estado.replace('_', ' ')} ({estadosCount[estado]})
@@ -238,7 +238,7 @@ export default function CotizacionesPage() {
                     </div>
                   </div>
 
-                  {cotizacion.tipo_vista === 'multiple' && cotizacion.pasajeros?.length > 0 && (
+                  {cotizacion.pasajeros?.length > 0 && (
                     <div className="mt-2 text-xs text-gray-500">
                       {cotizacion.pasajeros.length} pasajero{cotizacion.pasajeros.length !== 1 ? 's' : ''}
                     </div>

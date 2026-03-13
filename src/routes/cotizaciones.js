@@ -18,7 +18,7 @@ router.post('/', async (req, res) => {
     }
 
     // Validaciones básicas
-    const camposRequeridos = ['created_by', 'nombre_cliente', 'tipo_vista', 'tipo_vuelo', 'origen', 'destino', 'fecha_salida', 'moneda_precio', 'moneda_cotizacion', 'precio_final_cotizacion'];
+    const camposRequeridos = ['created_by', 'nombre_cliente', 'tipo_vuelo', 'origen', 'destino', 'fecha_salida', 'moneda_precio', 'moneda_cotizacion', 'precio_final_cotizacion'];
     const faltantes = camposRequeridos.filter(campo => !cotizacion[campo] && cotizacion[campo] !== 0);
 
     if (faltantes.length > 0) {

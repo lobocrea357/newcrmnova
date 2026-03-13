@@ -59,17 +59,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   const router = useRouter()
 
   // ============================================
-  // ESTADO - Vista y Configuración
+  // ESTADO - Configuración
   // ============================================
-  const [vistaCotizacion, setVistaCotizacion] = useState('individual')
-  const [primerVez, setPrimerVez] = useState(true)
-
-  // Estado para tipo de pasajero individual
-  const [tipoPasajeroIndividual, setTipoPasajeroIndividual] = useState('adulto')
-
-  const [precioBase, setPrecioBase] = useState('')
-  const [feeEmision, setFeeEmision] = useState('')
-  const [feeAgencia, setFeeAgencia] = useState('')
   const [metodoPago, setMetodoPago] = useState('')
   // Sistema de conversión inteligente (LEGACY - mantener por compatibilidad temporal)
   const [monedaPrecio, setMonedaPrecio] = useState('USD')
@@ -127,50 +118,16 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   const [exportingPdf, setExportingPdf] = useState(false)
   const pdfContentRef = useRef(null)
 
-  // SweetAlert inicial para primera vez
-  useEffect(() => {
-    if (primerVez) {
-      confirmAlert(
-        'Por favor selecciona el tipo de cotización que deseas realizar',
-        {
-          title: '¿Para cuántos pasajeros es esta cotización?',
-          confirmButtonText: 'Un solo pasajero',
-          cancelButtonText: 'Múltiples pasajeros',
-          reverseButtons: true,
-          icon: 'question'
-        }
-      ).then((result) => {
-        if (result.isConfirmed) {
-          setVistaCotizacion('individual')
-        } else {
-          setVistaCotizacion('multiple')
-        }
-        setPrimerVez(false)
-      })
-    }
-  }, [primerVez])
+  // SweetAlert inicial eliminado - ya no se pregunta por tipo de vista
 
-  // Función para cambiar de vista con reset completo
-  const cambiarVista = (nuevaVista) => {
-    if (nuevaVista === vistaCotizacion) return // No hacer nada si es la misma vista
-
-    // Reset completo del formulario
-    limpiarFormularioCompleto()
-
-    // Cambiar vista
-    setVistaCotizacion(nuevaVista)
-  }
+  // Función cambiarVista eliminada - ya no hay alternancia de vistas
 
   // Función para reset completo del formulario
   const limpiarFormularioCompleto = () => {
     // Resetear todos los estados
-    setPrecioBase('')
-    setFeeEmision('')
-    setFeeAgencia('')
     setMetodoPago('')
     setMonedaPrecio('USD')
     setMonedaCotizacion('USD')
-    setTasaCambio('1.0')
     setResultadoConversion(null)
     setMonedaBaseSeleccionada('USD')
     setMonedaCotizacionSeleccionada('')
@@ -199,7 +156,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
       niños: [],
       infantes: []
     })
-    setTipoPasajeroIndividual('adulto')
     setCotizacionGuardada(false)
     setUltimaCotizacionId(null)
   }
@@ -347,15 +303,10 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
   // Recalcular cuando cambian los inputs (con debounce para evitar demasiadas llamadas)
   useEffect(() => {
-    // Vista individual: requiere precioBase, feeEmision o feeAgencia
-    const debeCalcularIndividual = vistaCotizacion === 'individual' &&
-      (precioBase || feeEmision || feeAgencia) && monedaPrecio && monedaCotizacion
+    // Requiere al menos 1 pasajero configurado
+    const debeCalcular = tienePasajerosConfigurados() && monedaPrecio && monedaCotizacion
 
-    // Vista múltiple: requiere al menos 1 pasajero configurado
-    const debeCalcularMultiple = vistaCotizacion === 'multiple' &&
-      tienePasajerosConfigurados() && monedaPrecio && monedaCotizacion
-
-    if (debeCalcularIndividual || debeCalcularMultiple) {
+    if (debeCalcular) {
       const timeoutId = setTimeout(() => {
         const calcular = async () => {
           try {
@@ -369,7 +320,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
 
       return () => clearTimeout(timeoutId)
     }
-  }, [vistaCotizacion, precioBase, feeEmision, feeAgencia, pasajeros, monedaPrecio, monedaCotizacion, metodoPago])
+  }, [pasajeros, monedaPrecio, monedaCotizacion, metodoPago])
 
   // Calcular total de pasajeros
   const calcularTotalPasajeros = () => {
@@ -390,22 +341,11 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   }
 
   const calcularCotizacion = async () => {
-    // Determinar base según vista de cotización
-    let base, precio, emision, agencia
-
-    if (vistaCotizacion === 'individual') {
-      // Vista individual: usar sistema legacy
-      precio = parseFloat(precioBase) || 0
-      emision = parseFloat(feeEmision) || 0
-      agencia = parseFloat(feeAgencia) || 0
-      base = precio + emision + agencia
-    } else {
-      // Vista múltiple: usar sistema de pasajeros
-      base = calcularTotalPasajeros()
-      precio = base // Para compatibilidad con el sistema existente
-      emision = 0
-      agencia = 0
-    }
+    // Usar sistema de pasajeros (vista única)
+    const base = calcularTotalPasajeros()
+    const precio = base
+    const emision = 0
+    const agencia = 0
 
     try {
       // Usar sistema inteligente de conversión
@@ -571,7 +511,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
       const cotizacionData = {
         created_by: user.id,
         nombre_cliente: nombreCliente.trim(),
-        tipo_vista: vistaCotizacion,
         tipo_vuelo: tipoVuelo,
         origen: vueloInfo.origen,
         destino: vueloInfo.destino,
@@ -585,10 +524,10 @@ export default function CotizadorForm({ isAuthenticated = false }) {
         tiene_segunda_escala: escalas.length > 1,
         escala_2_ciudad: escalas[1]?.ciudad || null,
         escala_2_duracion: escalas[1]?.duracion || null,
-        precio_base: parseFloat(precioBase) || 0,
-        fee_emision: parseFloat(feeEmision) || 0,
-        fee_agencia: parseFloat(feeAgencia) || 0,
-        total_cotizacion: desglose.subtotal || 0,
+        precio_base: calcularTotalPasajeros(),
+        fee_emision: 0,
+        fee_agencia: 0,
+        total_cotizacion: calcularTotalPasajeros(),
         moneda_precio: monedaBaseSeleccionada,
         moneda_cotizacion: monedaCotizacionSeleccionada,
         precio_final_cotizacion: total,
@@ -596,25 +535,30 @@ export default function CotizadorForm({ isAuthenticated = false }) {
         metodo_pago: metodoPago || null
       }
 
-      // Construir pasajeros si es vista múltiple
-      let pasajerosData = []
-      if (vistaCotizacion === 'multiple' && tienePasajerosConfigurados()) {
-        Object.entries(pasajeros).forEach(([categoriaKey, categoriaPasajeros]) => {
-          const tipoMap = { adultos: 'ADULTO', niños: 'NINO', infantes: 'INFANTE' }
-          categoriaPasajeros.forEach((p, index) => {
-            pasajerosData.push({
-              tipo: tipoMap[categoriaKey],
-              orden: index + 1,
-              precio_pantalla: parseFloat(p.precioPantalla) || 0,
-              fee_emision: parseFloat(p.feeEmision) || 0,
-              fee_agencia: parseFloat(p.feeAgencia) || 0,
-              equipaje_completo: p.equipajeCompleto || false,
-              equipaje_mediano: p.equipajeMediano || false,
-              equipaje_ligero: p.equipajeLigero || false
-            })
+      // Validar que haya al menos 1 pasajero
+      if (!tienePasajerosConfigurados()) {
+        toastError('Debes agregar al menos un pasajero antes de guardar la cotización')
+        setSavingCotizacion(false)
+        return
+      }
+
+      // Construir pasajeros
+      const pasajerosData = []
+      Object.entries(pasajeros).forEach(([categoriaKey, categoriaPasajeros]) => {
+        const tipoMap = { adultos: 'ADULTO', niños: 'NINO', infantes: 'INFANTE' }
+        categoriaPasajeros.forEach((p, index) => {
+          pasajerosData.push({
+            tipo: tipoMap[categoriaKey],
+            orden: index + 1,
+            precio_pantalla: parseFloat(p.precioPantalla) || 0,
+            fee_emision: parseFloat(p.feeEmision) || 0,
+            fee_agencia: parseFloat(p.feeAgencia) || 0,
+            equipaje_completo: p.equipajeCompleto || false,
+            equipaje_mediano: p.equipajeMediano || false,
+            equipaje_ligero: p.equipajeLigero || false
           })
         })
-      }
+      })
 
       const response = await fetch(COTIZACIONES_API.crear, {
         method: 'POST',
@@ -777,155 +721,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
         )}
 
         {/* Tabs de Vista de Cotización */}
-        <div className="mb-6 pb-6 border-b border-slate-100">
-          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-            TIPO DE COTIZACIÓN
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => cambiarVista('individual')}
-              className={`py-2 px-4 rounded-lg font-bold text-sm transition-all border-2 ${vistaCotizacion === 'individual'
-                ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                : 'bg-white border-slate-50 text-slate-400 hover:border-slate-100'
-                }`}
-            >
-              <Users className="w-4 h-4 inline mr-2" />
-              1 Pasajero
-            </button>
-            <button
-              type="button"
-              onClick={() => cambiarVista('multiple')}
-              className={`py-2 px-4 rounded-lg font-bold text-sm transition-all border-2 ${vistaCotizacion === 'multiple'
-                ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                : 'bg-white border-slate-50 text-slate-400 hover:border-slate-100'
-                }`}
-            >
-              <Users className="w-4 h-4 inline mr-2" />
-              Múltiples Pasajeros
-            </button>
-          </div>
-        </div>
-
-        {/* Sección de Precios y Monedas (CONDICIONAL) */}
-        <CollapsibleSection
-          title="Precios y Monedas"
-          icon={DollarSign}
-          defaultExpanded={true}
-        >
-          {vistaCotizacion === 'individual' ? (
-          // VISTA INDIVIDUAL - Sistema Legacy con selector de tipo de pasajero
-            <div className="space-y-4">
-              {/* Selector de Tipo de Pasajero Individual */}
-              <div>
-                <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                  Tipo de Pasajero
-                </label>
-                <select
-                  value={tipoPasajeroIndividual}
-                  onChange={(e) => setTipoPasajeroIndividual(e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white"
-                >
-                  <option value="adulto">Adulto</option>
-                  <option value="niño">Niño</option>
-                  <option value="infante">Infante</option>
-                </select>
-              </div>
-
-              {/* Precio de Pantalla */}
-              <div>
-                <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                  Precio de Pantalla
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={precioBase}
-                  onChange={(e) => setPrecioBase(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                />
-              </div>
-
-              {/* Selección de Moneda Base */}
-              <div>
-                <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                  ¿El precio introducido está en:
-                </label>
-                <select
-                  value={monedaBaseSeleccionada}
-                  onChange={(e) => setMonedaBaseSeleccionada(e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                >
-                  {monedasBase.map(moneda => (
-                    <option key={moneda.value} value={moneda.value}>
-                      {moneda.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Selección de Moneda de Cotización */}
-              <div>
-                <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                  ¿En qué moneda deseas cotizar?
-                </label>
-                <select
-                  value={monedaCotizacionSeleccionada}
-                  onChange={(e) => setMonedaCotizacionSeleccionada(e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                  disabled={loadingMonedas}
-                >
-                  <option value="">
-                    {loadingMonedas ? 'Cargando tasas...' : 'Seleccionar moneda de cotización'}
-                  </option>
-                  {getMonedasConTasas().map(moneda => (
-                    <option key={moneda.value} value={moneda.value}>
-                      {moneda.label}
-                    </option>
-                  ))}
-                </select>
-                {loadingMonedas && (
-                  <p className="text-xs text-blue-600 mt-1 ml-2 font-medium">
-                    ⏳ Cargando tasas de conversión desde la base de datos...
-                  </p>
-                )}
-              </div>
-
-              {/* Fee Emisión */}
-              <div>
-                <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                  Fee de Emisión
-                </label>
-                <select
-                  value={feeEmision === '15' ? 'normal' : feeEmision === '10' ? 'promo' : ''}
-                  onChange={(e) => setFeeEmision(e.target.value === 'normal' ? '15' : '10')}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white"
-                >
-                  <option value="">Seleccionar tipo</option>
-                  <option value="normal">Fee Normal ($15)</option>
-                  <option value="promo">Promo Stellar ($10)</option>
-                </select>
-              </div>
-
-              {/* Fee Agencia */}
-              <div>
-                <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                  Fee de Agencia
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={feeAgencia}
-                  onChange={(e) => setFeeAgencia(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                />
-              </div>
-            </div>
-          ) : (
-            // VISTA MÚLTIPLE - Sistema de Pasajeros
-            <div className="space-y-4">
+        {/* Sección de Pasajeros - Vista única */}
+        <div className="space-y-4">
               {/* Información de la vista múltiple */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -952,9 +749,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   onMonedaCotizacionChange={setMonedaCotizacionSeleccionada}
                   />
               </div>
-              </div>
-          )}
-        </CollapsibleSection>
+        </div>
 
         {/* Sección de Método de Pago */}
         <CollapsibleSection
@@ -1296,50 +1091,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               </button>
             )}
           </div>
-          {/* Equipaje - Solo visible en vista individual */}
-          {vistaCotizacion === 'individual' && (
-          <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-3">
-            <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-widest px-1">Equipaje</h4>
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-emerald-50 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={tieneEquipaje('completo')}
-                  onChange={() => toggleEquipaje('completo')}
-                  className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                <div>
-                  <p className="text-sm font-bold text-slate-700">Equipaje completo</p>
-                  <p className="text-[10px] text-slate-500">Maleta 23 Kg + Maleta 8 Kg + Artículo personal</p>
-                </div>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-emerald-50 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={tieneEquipaje('mediano')}
-                  onChange={() => toggleEquipaje('mediano')}
-                  className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                <div>
-                  <p className="text-sm font-bold text-slate-700">Equipaje mediano</p>
-                  <p className="text-[10px] text-slate-500">Maleta 23 Kg + Artículo personal</p>
-                </div>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-emerald-50 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={tieneEquipaje('ligero')}
-                  onChange={() => toggleEquipaje('ligero')}
-                  className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                <div>
-                  <p className="text-sm font-bold text-slate-700">Equipaje ligero</p>
-                  <p className="text-[10px] text-slate-500">Maleta 10 Kg + Artículo personal</p>
-                </div>
-              </label>
-            </div>
-          </div>
-          )}
+          {/* Equipaje ahora es por pasajero en PasajerosManager */}
         </CollapsibleSection>
 
       </div>
@@ -1351,8 +1103,6 @@ export default function CotizadorForm({ isAuthenticated = false }) {
           <PdfContent
             ref={pdfContentRef}
             agencia={agencia}
-            vistaCotizacion={vistaCotizacion}
-            tipoPasajeroIndividual={tipoPasajeroIndividual}
             origen={vueloInfo.origen}
             destino={vueloInfo.destino}
             idaVuelta={vueloInfo.idaVuelta}
@@ -1369,13 +1119,9 @@ export default function CotizadorForm({ isAuthenticated = false }) {
             horaSalidaMigratorio={horaSalidaMigratorio}
             horaLlegadaMigratorio={horaLlegadaMigratorio}
             escalas={escalas}
-            equipaje={equipajeSeleccionado}
             pasajeros={pasajeros}
             tienePasajerosConfigurados={tienePasajerosConfigurados}
             calcularTotalPasajeros={calcularTotalPasajeros}
-            precioBase={precioBase}
-            feeEmision={feeEmision}
-            feeAgencia={feeAgencia}
             monedaCotizacion={monedaCotizacionSeleccionada}
             metodoPago={metodoPago}
             total={total}
@@ -1384,7 +1130,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
           />
 
           {/* Bloque interno solo para el asesor (desglose) */}
-          {vistaCotizacion === 'multiple' && tienePasajerosConfigurados() ? (
+          {tienePasajerosConfigurados() ? (
             <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
               <h3 className="text-xl font-semibold text-slate-800 mb-6">
                 Desglose de Pasajeros
@@ -1583,15 +1329,8 @@ export default function CotizadorForm({ isAuthenticated = false }) {
                   </div>
                 )}
               </div>
-            </div>
-            ) : vistaCotizacion === 'individual' ? (
-            <div className="bg-slate-50 rounded-2xl p-8 text-center border border-slate-200">
-              <Calculator className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-              <p className="text-slate-600">
-                Completa los campos para ver el desglose
-              </p>
-            </div>
-              ) : (
+              </div>
+            ) : (
                 <div className="bg-slate-50 rounded-2xl p-8 text-center border border-slate-200">
                   <Users className="w-12 h-12 text-slate-400 mx-auto mb-3" />
                   <p className="text-slate-600">
@@ -1627,7 +1366,7 @@ export default function CotizadorForm({ isAuthenticated = false }) {
               <button
                 type="button"
                 onClick={handleExportarPdf}
-                disabled={(vistaCotizacion === 'individual' && !desglose) || (vistaCotizacion === 'multiple' && !tienePasajerosConfigurados()) || exportingPdf}
+                disabled={!tienePasajerosConfigurados() || exportingPdf}
                 className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white text-indigo-700 font-medium text-sm shadow-sm hover:bg-slate-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {exportingPdf ? (
