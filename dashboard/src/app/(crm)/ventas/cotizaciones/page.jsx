@@ -15,10 +15,13 @@ import {
   MapPin,
   DollarSign,
   User,
-  Plane
+  Plane,
+  Plus
 } from 'lucide-react'
+import { COTIZACIONES_API } from '@/config/apiConfig'
+import { toastSuccess, toastError } from '@/helpers/toasts'
 import CotizacionDetail from '@/components/cotizaciones/CotizacionDetail'
-import { toastError } from '@/helpers/toasts'
+import TutorialCotizaciones from '@/components/cotizaciones/TutorialCotizaciones'
 
 export default function CotizacionesPage() {
   const router = useRouter()
@@ -83,9 +86,29 @@ export default function CotizacionesPage() {
     setSelectedCotizacion(cotizacion)
   }
 
-  const handleCotizacionUpdated = () => {
+  const handleCotizacionUpdated = async () => {
     // Recargar lista de cotizaciones
-    fetchCotizaciones()
+    await fetchCotizaciones()
+
+    // Si hay una cotización seleccionada, actualizarla con los nuevos datos
+    if (selectedCotizacion) {
+      try {
+        const { data, error } = await supabase
+          .from('cotizaciones')
+          .select(`
+            *,
+            pasajeros:cotizaciones_pasajeros(*)
+          `)
+          .eq('id', selectedCotizacion.id)
+          .single()
+
+        if (!error && data) {
+          setSelectedCotizacion(data)
+        }
+      } catch (error) {
+        console.error('Error recargando cotización seleccionada:', error)
+      }
+    }
   }
 
   // Filtrar cotizaciones por búsqueda
@@ -124,9 +147,30 @@ export default function CotizacionesPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Columna Izquierda - Lista de Cotizaciones */}
-      <div className="w-full lg:w-96 border-r border-gray-200 bg-white flex flex-col">
+    <div className="min-h-screen bg-gray-50 p-6">
+      {/* Header con botón crear */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Cotizaciones</h1>
+          <p className="text-gray-600 mt-1">Gestiona y revisa tus cotizaciones</p>
+        </div>
+        <button
+          onClick={() => router.push('/cotizador')}
+          className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm"
+        >
+          <Plus className="w-5 h-5" />
+          Crear Nueva Cotización
+        </button>
+      </div>
+
+      {/* Tutorial */}
+      <div className="mb-6">
+        <TutorialCotizaciones />
+      </div>
+
+      <div className="flex gap-6 h-[calc(100vh-180px)]">
+        {/* Columna Izquierda - Lista de Cotizaciones */}
+        <div className="w-full lg:w-96 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50">
           <div className="flex items-center justify-between mb-4">
@@ -250,20 +294,21 @@ export default function CotizacionesPage() {
         </div>
       </div>
 
-      {/* Columna Derecha - Detalle de Cotización */}
-      <div className="flex-1 bg-white overflow-y-auto">
-        {selectedCotizacion ? (
-          <CotizacionDetail
-            cotizacion={selectedCotizacion}
-            onUpdate={handleCotizacionUpdated}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400">
-            <ClipboardList className="w-20 h-20 mb-4" />
-            <p className="text-lg font-medium">Selecciona una cotización</p>
-            <p className="text-sm mt-1">para ver los detalles</p>
-          </div>
-        )}
+        {/* Columna Derecha - Detalle de Cotización */}
+        <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-y-auto">
+          {selectedCotizacion ? (
+            <CotizacionDetail
+              cotizacion={selectedCotizacion}
+              onUpdate={handleCotizacionUpdated}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+              <ClipboardList className="w-20 h-20 mb-4" />
+              <p className="text-lg font-medium">Selecciona una cotización</p>
+              <p className="text-sm mt-1">para ver los detalles</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

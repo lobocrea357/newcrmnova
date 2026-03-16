@@ -2,7 +2,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
-import VueloForm from '@/components/vuelos/VueloForm'
+import VueloFormNuevo from '@/components/vuelos/VueloFormNuevo'
+import TutorialVuelos from '@/components/vuelos/TutorialVuelos'
+import { VUELOS_API } from '@/config/apiConfig'
 import { supabase } from '@/lib/supabase'
 import { toastInfo } from '@/helpers/toasts'
 
@@ -29,7 +31,10 @@ export default function NuevoVueloPage() {
 
       const { data, error } = await supabase
         .from('cotizaciones')
-        .select('*')
+        .select(`
+          *,
+          pasajeros:cotizaciones_pasajeros(*)
+        `)
         .eq('id', cotizacionId)
         .single()
 
@@ -41,30 +46,35 @@ export default function NuevoVueloPage() {
 
       setCotizacion(data)
 
-      // Mapear cotización a formato de VueloForm
+      // Mapear cotización a formato de VueloFormNuevo
       const mappedData = {
         pax_nombre: data.nombre_cliente,
         contacto_nombre: data.nombre_cliente,
         ruta: `${data.origen} - ${data.destino}`,
         fecha_vuelo: data.fecha_salida,
         horario: data.hora_salida || '',
+        hora_llegada: data.hora_llegada || '',
         aerolinea_nombre: data.aerolinea || '',
         monto_venta: data.precio_final_cotizacion || '',
         metodo_pago: data.metodo_pago || '',
-        tipo_vuelo: data.tipo_vuelo === 'migratorio' ? 'MIGRACION' : 'TURISMO',
-        observaciones: `Creado desde cotización #${data.id}\n\nMoneda cotización: ${data.moneda_cotizacion}\nPrecio base: ${data.precio_base} ${data.moneda_precio}\nPasajeros: ${data.pasajeros?.length || 0}`,
-        // Campos que el asesor debe completar manualmente
-        num_adultos: 1,
-        num_ninos: 0,
-        num_infantes: 0,
+        tipo_vuelo: data.tipo_vuelo || 'ida_vuelta',
+        // Escalas
+        tiene_escala: data.tiene_escala || false,
+        escala_1_ciudad: data.escala_1_ciudad || '',
+        escala_1_duracion: data.escala_1_duracion || '',
+        tiene_segunda_escala: data.tiene_segunda_escala || false,
+        escala_2_ciudad: data.escala_2_ciudad || '',
+        escala_2_duracion: data.escala_2_duracion || '',
+        // Info Financiera
+        moneda_precio: data.moneda_precio || '',
+        moneda_cotizacion: data.moneda_cotizacion || '',
+        tasa_cambio: data.tasa_cambio || '',
+        total_cotizacion: data.total_cotizacion || '',
+        observaciones: `Creado desde cotización #${data.id}`,
         contacto_telefono: '',
-        localizador: '', // IMPORTANTE: debe llenarlo el asesor
+        localizador: '',
         proveedor: '',
-        monto_sabre: '',
-        monto_expedia: '',
-        monto_emision: '',
-        aerolinea_codigo: '',
-        requiere_anulable: false
+        pnr_desglose: ''
       }
 
       setInitialFormData(mappedData)
@@ -78,7 +88,7 @@ export default function NuevoVueloPage() {
     }
   }
 
-  const handleSubmit = async (formData) => {
+  const handleSubmit = async (submitData) => {
     setIsLoading(true)
     setError(null)
 
@@ -89,37 +99,25 @@ export default function NuevoVueloPage() {
         throw new Error('Usuario no autenticado')
       }
 
+      // Preparar datos del vuelo
       const vueloData = {
-        pax_nombre: formData.pax_nombre,
-        num_adultos: formData.num_adultos,
-        num_ninos: formData.num_ninos,
-        num_infantes: formData.num_infantes,
-        contacto_nombre: formData.contacto_nombre,
-        contacto_telefono: formData.contacto_telefono,
-        fecha_vuelo: formData.fecha_vuelo,
-        ruta: formData.ruta,
-        horario: formData.horario || null,
-        aerolinea_codigo: formData.aerolinea_codigo || null,
-        aerolinea_nombre: formData.aerolinea_nombre || null,
-        localizador: formData.localizador,
-        proveedor: formData.proveedor,
-        monto_venta: formData.monto_venta,
-        monto_sabre: formData.monto_sabre || null,
-        monto_expedia: formData.monto_expedia || null,
-        monto_emision: formData.monto_emision || null,
-        metodo_pago: formData.metodo_pago || null,
-        tipo_vuelo: formData.tipo_vuelo,
-        requiere_anulable: formData.requiere_anulable,
-        observaciones: formData.observaciones || null,
-        created_by: user.id
+        ...submitData.vuelo,
+        created_by: user.id,
+        num_adultos: submitData.pasajeros.filter(p => p.tipo === 'ADULTO').length,
+        num_ninos: submitData.pasajeros.filter(p => p.tipo === 'NINO').length,
+        num_infantes: submitData.pasajeros.filter(p => p.tipo === 'INFANTE').length
       }
 
-      const response = await fetch('/api/vuelos', {
+      // Crear vuelo via Express backend
+      const response = await fetch(VUELOS_API.crear, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(vueloData),
+        body: JSON.stringify({
+          vuelo: vueloData,
+          pasajeros: submitData.pasajeros
+        }),
       })
 
       if (!response.ok) {
@@ -145,21 +143,22 @@ export default function NuevoVueloPage() {
 
       console.log('✅ Vuelo creado exitosamente con ID:', vuelo.id)
 
-      // Subir archivos solo si el vuelo tiene un ID válido
-      if ((formData.comprobantes?.length > 0 || formData.pasaportes?.length > 0) && vuelo.id) {
-        console.log(`📎 Subiendo ${formData.comprobantes?.length || 0} comprobantes y ${formData.pasaportes?.length || 0} pasaportes...`)
+      // Subir archivos si hay
+      if ((submitData.comprobantes?.length > 0 || submitData.pasaportes?.length > 0) && vuelo.id && responseData.pasajeros) {
+        console.log(`📎 Subiendo archivos...`)
 
         const uploadPromises = []
 
-        if (formData.comprobantes) {
-          for (const file of formData.comprobantes) {
+        // Subir comprobantes
+        if (submitData.comprobantes) {
+          for (const file of submitData.comprobantes) {
             const formDataUpload = new FormData()
             formDataUpload.append('file', file)
             formDataUpload.append('tipo_adjunto', 'COMPROBANTE_PAGO')
             formDataUpload.append('uploaded_by', user.id)
 
             uploadPromises.push(
-              fetch(`/api/vuelos/${vuelo.id}/adjuntos`, {
+              fetch(VUELOS_API.subirAdjunto(vuelo.id), {
                 method: 'POST',
                 body: formDataUpload,
               }).then(res => {
@@ -174,26 +173,33 @@ export default function NuevoVueloPage() {
           }
         }
 
-        if (formData.pasaportes) {
-          for (const file of formData.pasaportes) {
-            const formDataUpload = new FormData()
-            formDataUpload.append('file', file)
-            formDataUpload.append('tipo_adjunto', 'PASAPORTE')
-            formDataUpload.append('uploaded_by', user.id)
+        // Subir pasaportes asociados a cada pasajero
+        if (submitData.pasaportes && responseData.pasajeros) {
+          for (let i = 0; i < submitData.pasaportes.length; i++) {
+            const file = submitData.pasaportes[i]
+            const pasajeroCreado = responseData.pasajeros[i]
 
-            uploadPromises.push(
-              fetch(`/api/vuelos/${vuelo.id}/adjuntos`, {
-                method: 'POST',
-                body: formDataUpload,
-              }).then(res => {
-                if (!res.ok) {
-                  console.error('❌ Error al subir pasaporte:', file.name)
-                  return res.json().then(err => console.error('Detalles:', err))
-                }
-                console.log('✅ Pasaporte subido:', file.name)
-                return res.json()
-              })
-            )
+            if (file && pasajeroCreado) {
+              const formDataUpload = new FormData()
+              formDataUpload.append('file', file)
+              formDataUpload.append('tipo_adjunto', 'PASAPORTE')
+              formDataUpload.append('uploaded_by', user.id)
+              formDataUpload.append('pasajero_id', pasajeroCreado.id)
+
+              uploadPromises.push(
+                fetch(VUELOS_API.subirAdjunto(vuelo.id), {
+                  method: 'POST',
+                  body: formDataUpload,
+                }).then(res => {
+                  if (!res.ok) {
+                    console.error('❌ Error al subir pasaporte:', file.name)
+                    return res.json().then(err => console.error('Detalles:', err))
+                  }
+                  console.log('✅ Pasaporte subido:', file.name)
+                  return res.json()
+                })
+              )
+            }
           }
         }
 
@@ -202,7 +208,6 @@ export default function NuevoVueloPage() {
           console.log('✅ Todos los archivos subidos correctamente')
         } catch (uploadError) {
           console.error('⚠️ Error al subir algunos archivos:', uploadError)
-          // No lanzamos error, permitimos continuar
         }
       }
 
@@ -231,6 +236,11 @@ export default function NuevoVueloPage() {
           <p className="text-gray-600 mt-2">
             Registra la información completa del vuelo pagado
           </p>
+        </div>
+
+        {/* Tutorial */}
+        <div className="mb-6">
+          <TutorialVuelos />
         </div>
 
         {cotizacion && (
@@ -263,8 +273,9 @@ export default function NuevoVueloPage() {
             </div>
           </div>
         ) : (
-          <VueloForm
+            <VueloFormNuevo
             initialData={initialFormData}
+              cotizacion={cotizacion}
             onSubmit={handleSubmit}
             isLoading={isLoading}
           />

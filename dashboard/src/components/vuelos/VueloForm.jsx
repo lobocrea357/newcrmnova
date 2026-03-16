@@ -5,10 +5,9 @@ import FileUpload from './FileUpload'
 import { calcularFee } from '@/lib/utils/vuelos-calculations'
 
 const TIPOS_VUELO = [
-  { value: 'MIGRACION', label: 'Migración' },
-  { value: 'TURISMO', label: 'Turismo' },
-  { value: 'NEGOCIOS', label: 'Negocios' },
-  { value: 'OTRO', label: 'Otro' }
+  { value: 'solo_ida', label: 'Solo Ida' },
+  { value: 'ida_vuelta', label: 'Ida y Vuelta' },
+  { value: 'migratorio', label: 'Fines Migratorios' }
 ]
 
 const METODOS_PAGO = [
@@ -49,7 +48,7 @@ export default function VueloForm({ initialData, onSubmit, isLoading }) {
     monto_expedia: '',
     monto_emision: '',
     metodo_pago: '',
-    tipo_vuelo: 'TURISMO',
+    tipo_vuelo: 'solo_ida',
     requiere_anulable: false,
     observaciones: '',
     ...initialData
