@@ -1,4 +1,3 @@
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -12,15 +11,16 @@ if (typeof window === "undefined") {
   });
 }
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+// Usar system fonts en lugar de Google Fonts para evitar errores en Docker
+const geistSans = {
+  className: "font-sans",
+  style: { fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }
+};
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const geistMono = {
+  className: "font-mono",
+  style: { fontFamily: "'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace" }
+};
 
 export const metadata = {
   title: "CRM WhatsApp - Dashboard",
@@ -37,7 +37,8 @@ export default function RootLayout({ children }) {
         <link rel="icon" href="/logo-morado.png" type="image/png" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.className} ${geistMono.className} antialiased`}
+        style={geistSans.style}
       >
         <ErrorBoundary>
           <AuthProvider>{children}</AuthProvider>
