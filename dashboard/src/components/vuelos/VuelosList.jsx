@@ -1,6 +1,6 @@
 'use client'
-import { useState } from 'react'
-import { Search, Filter, X } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Search, Filter, X, User } from 'lucide-react'
 import VueloCard from './VueloCard'
 
 const TIPOS_VUELO = [
@@ -10,15 +10,36 @@ const TIPOS_VUELO = [
   { value: 'migratorio', label: 'Fines Migratorios' }
 ]
 
-export default function VuelosList({ vuelos, pagination, onFilterChange, isLoading }) {
+export default function VuelosList({ vuelos, pagination, onFilterChange, isLoading, role, currentUserId }) {
   const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState({
     search: '',
     tipo_vuelo: '',
     fecha_desde: '',
     fecha_hasta: '',
-    requiere_anulable: ''
+    requiere_anulable: '',
+    asesor_id: ''
   })
+
+  const asesoresUnicos = useMemo(() => {
+    if (!vuelos || vuelos.length === 0) return []
+    const asesoresMap = new Map()
+    vuelos.forEach(v => {
+      if (v.creator && !asesoresMap.has(v.created_by)) {
+        asesoresMap.set(v.created_by, {
+          id: v.created_by,
+          nombre: v.creator.full_name || 'Desconocido',
+          email: v.creator.email || 'N/A'
+        })
+      }
+    })
+    return Array.from(asesoresMap.values()).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  }, [vuelos])
+
+  const vuelosFiltrados = useMemo(() => {
+    if (!filters.asesor_id) return vuelos
+    return vuelos.filter(v => v.created_by === filters.asesor_id)
+  }, [vuelos, filters.asesor_id])
 
   const handleFilterChange = (name, value) => {
     const newFilters = { ...filters, [name]: value }
@@ -32,7 +53,8 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
       tipo_vuelo: '',
       fecha_desde: '',
       fecha_hasta: '',
-      requiere_anulable: ''
+      requiere_anulable: '',
+      asesor_id: ''
     }
     setFilters(emptyFilters)
     onFilterChange(emptyFilters)
@@ -86,6 +108,28 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
 
         {showFilters && (
           <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4">
+            {(role === 'gerente' || role === 'admin') && asesoresUnicos.length > 1 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filtrar por Asesor
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <select
+                    value={filters.asesor_id}
+                    onChange={(e) => handleFilterChange('asesor_id', e.target.value)}
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white"
+                  >
+                    <option value="">Todos los asesores</option>
+                    {asesoresUnicos.map(asesor => (
+                      <option key={asesor.id} value={asesor.id}>
+                        {asesor.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Tipo de Vuelo
@@ -148,7 +192,7 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
         <div className="flex items-center justify-center py-12">
           <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : vuelos.length === 0 ? (
+      ) : vuelosFiltrados.length === 0 ? (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
           <p className="text-gray-500">No se encontraron vuelos</p>
           {hasActiveFilters && (
@@ -163,7 +207,7 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4">
-            {vuelos.map(vuelo => (
+                {vuelosFiltrados.map(vuelo => (
               <VueloCard key={vuelo.id} vuelo={vuelo} />
             ))}
           </div>

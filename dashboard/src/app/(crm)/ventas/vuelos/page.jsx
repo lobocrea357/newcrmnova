@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Plane } from 'lucide-react'
+import { Plus, Plane, BarChart3, List } from 'lucide-react'
 import VuelosList from '@/components/vuelos/VuelosList'
+import VuelosStats from '@/components/vuelos/VuelosStats'
 import { VUELOS_API } from '@/config/apiConfig'
 import { useUserProfile } from '@/hooks/useUserProfile'
 import { useAuth } from '@/contexts/AuthContext'
@@ -14,6 +15,7 @@ export default function VuelosPage() {
   const [vuelos, setVuelos] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [filters, setFilters] = useState({})
+  const [activeTab, setActiveTab] = useState('vuelos')
 
   useEffect(() => {
     if (!profileLoading && user) {
@@ -84,12 +86,52 @@ export default function VuelosPage() {
           </button>
         </div>
 
-        <VuelosList
-          vuelos={vuelos}
-          role={role}
-          onFilterChange={handleFilterChange}
-          isLoading={isLoading || profileLoading}
-        />
+        <div className="mb-6">
+          <div className="flex space-x-1 rounded-xl bg-white border border-gray-200 p-1 w-fit">
+            <button
+              onClick={() => setActiveTab('vuelos')}
+              className={`
+                flex items-center gap-2 px-4 py-2.5 text-sm font-medium leading-5 rounded-lg transition-all duration-200
+                ${activeTab === 'vuelos'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }
+              `}
+            >
+              <List className="w-4 h-4" />
+              Vuelos
+            </button>
+            <button
+              onClick={() => setActiveTab('estadisticas')}
+              className={`
+                flex items-center gap-2 px-4 py-2.5 text-sm font-medium leading-5 rounded-lg transition-all duration-200
+                ${activeTab === 'estadisticas'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }
+              `}
+            >
+              <BarChart3 className="w-4 h-4" />
+              Estadísticas
+            </button>
+          </div>
+        </div>
+
+        {activeTab === 'vuelos' ? (
+          <VuelosList
+            vuelos={vuelos}
+            role={role}
+            currentUserId={user?.id}
+            onFilterChange={handleFilterChange}
+            isLoading={isLoading || profileLoading}
+          />
+        ) : (
+          <VuelosStats
+            vuelos={vuelos}
+            currentUserId={user?.id}
+            role={role}
+          />
+        )}
       </div>
     </div>
   )

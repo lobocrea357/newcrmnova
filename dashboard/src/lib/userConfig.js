@@ -45,6 +45,7 @@ const ROLE_PERMISSIONS = {
       '/analisis/rendimiento',
       '/cotizador',
       '/ventas/cotizaciones',
+      '/ventas/vuelos',
       '/inteligencia-artificial',
       '/configuracion'
     ]
@@ -92,12 +93,12 @@ export function getUserInfo(email) {
   const userConfig = USER_CONFIG[email]
   
   if (!userConfig) {
-    // Usuario no configurado - dar acceso completo por defecto
+    // Usuario no configurado - asignar rol asesor por defecto (seguridad)
     return {
       fullName: email.split('@')[0],
-      role: 'Usuario',
-      roleKey: 'admin',
-      permissions: ROLE_PERMISSIONS['admin']
+      role: 'Asesor',
+      roleKey: 'asesor',
+      permissions: ROLE_PERMISSIONS['asesor']
     }
   }
 

@@ -142,13 +142,13 @@ export default function LoginPage() {
         </form>
 
         <div className="text-center text-sm text-gray-600 space-y-4">
-          {/* <Link 
+           <Link 
             href="/cotizador" 
             className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
           >
             <Calculator className="w-4 h-4" />
             Acceder al Cotizador Público
-          </Link> */}
+          </Link> 
           <p>¿No tienes cuenta? Contacta al administrador</p>
         </div>
       </div>

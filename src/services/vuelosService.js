@@ -99,52 +99,99 @@ class VuelosService {
    */
   async obtenerVuelos({ userId, role, filters = {} } = {}) {
     try {
-      // Construir query base
-      let query = supabase
-        .from('vuelos')
-        .select(`
-          *,
-          creator:profiles!created_by(id, full_name, email)
-        `)
-        .order('created_at', { ascending: false });
+      console.log('[VuelosService] obtenerVuelos - userId:', userId, 'role:', role);
 
-      // Filtrado por rol
+      // ============================================
+      // PASO 1: Determinar qué userIds puede ver según rol
+      // ============================================
+      let allowedUserIds = null; // null = sin restricción (admin ve todos)
+
       if (role === 'asesor') {
-        // Asesor solo ve sus propios vuelos
-        query = query.eq('created_by', userId);
+        // Asesor: Solo sus propios vuelos
+        allowedUserIds = [userId];
+        console.log('[VuelosService] Asesor - solo ve sus vuelos:', allowedUserIds);
+
       } else if (role === 'gerente') {
-        // Gerente ve sus vuelos + los de sus asesores (profiles en equipos donde gerente_id = userId)
-        const { data: equipos } = await supabase
+        // Gerente: Sus vuelos + vuelos de asesores en sus equipos
+        
+        // 1. Obtener equipos que gestiona
+        const { data: equipos, error: errorEquipos } = await supabase
           .from('equipos')
           .select('id')
           .eq('gerente_id', userId)
           .eq('is_active', true);
 
+        if (errorEquipos) {
+          console.error('[VuelosService] Error obteniendo equipos:', errorEquipos);
+          throw errorEquipos;
+        }
+
         const equipoIds = (equipos || []).map(e => e.id);
-        
+        console.log('[VuelosService] Gerente gestiona equipos:', equipoIds);
+
         if (equipoIds.length > 0) {
-          const { data: asesores } = await supabase
+          // 2. Obtener asesores que pertenecen a esos equipos
+          const { data: asesores, error: errorAsesores } = await supabase
             .from('profiles')
-            .select('id')
-            .in('equipo_id', equipoIds);
+            .select('id, full_name, email, equipo_id')
+            .in('equipo_id', equipoIds)
+            .eq('is_active', true);
+
+          if (errorAsesores) {
+            console.error('[VuelosService] Error obteniendo asesores:', errorAsesores);
+            throw errorAsesores;
+          }
 
           const asesorIds = (asesores || []).map(a => a.id);
-          const todosIds = [userId, ...asesorIds];
-          query = query.in('created_by', todosIds);
+          allowedUserIds = [userId, ...asesorIds]; // Gerente + sus asesores
+          console.log('[VuelosService] Gerente ve vuelos de:', allowedUserIds.length, 'usuarios (él + asesores)');
         } else {
-          // Si no tiene equipos, solo ve sus propios vuelos
-          query = query.eq('created_by', userId);
+          // Sin equipos, solo ve sus propios vuelos
+          allowedUserIds = [userId];
+          console.log('[VuelosService] Gerente sin equipos - solo ve sus vuelos');
         }
+
+      } else if (role === 'admin' || role === 'superadmin') {
+        // Admin: Ve todos los vuelos (sin restricción)
+        allowedUserIds = null;
+        console.log('[VuelosService] Admin - ve todos los vuelos');
+      } else {
+        // Rol desconocido: restringir al usuario actual
+        console.warn('[VuelosService] Rol desconocido:', role, '- restringiendo a usuario actual');
+        allowedUserIds = [userId];
       }
-      // admin/superadmin: sin filtro, ve todos
+
+      // ============================================
+      // PASO 2: Construir query de vuelos con filtros
+      // ============================================
+      let query = supabase
+        .from('vuelos')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // Aplicar filtro de visibilidad por rol
+      if (allowedUserIds !== null) {
+        query = query.in('created_by', allowedUserIds);
+      }
 
       // Filtros adicionales de query params
       if (filters.tipo_vuelo) query = query.eq('tipo_vuelo', filters.tipo_vuelo);
       if (filters.estado) query = query.eq('estado', filters.estado);
       if (filters.fecha_desde) query = query.gte('fecha_vuelo', filters.fecha_desde);
       if (filters.fecha_hasta) query = query.lte('fecha_vuelo', filters.fecha_hasta);
+      if (filters.requiere_anulable !== undefined && filters.requiere_anulable !== '') {
+        query = query.eq('requiere_anulable', filters.requiere_anulable === 'true');
+      }
       if (filters.search) {
         query = query.or(`pax_nombre.ilike.%${filters.search}%,ruta.ilike.%${filters.search}%,localizador.ilike.%${filters.search}%`);
+      }
+
+      // Paginación opcional
+      if (filters.limit) {
+        query = query.limit(filters.limit);
+        if (filters.offset) {
+          query = query.range(filters.offset, filters.offset + filters.limit - 1);
+        }
       }
 
       const { data: vuelos, error: queryError } = await query;
@@ -154,7 +201,38 @@ class VuelosService {
         throw queryError;
       }
 
-      return vuelos || [];
+      if (!vuelos || vuelos.length === 0) {
+        console.log('[VuelosService] No se encontraron vuelos');
+        return [];
+      }
+
+      console.log('[VuelosService] Vuelos encontrados:', vuelos.length);
+
+      // ============================================
+      // PASO 3: Enriquecer con datos del creador
+      // ============================================
+      const creatorIds = [...new Set(vuelos.map(v => v.created_by).filter(Boolean))];
+      const { data: profiles, error: errorProfiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, equipo_id')
+        .in('id', creatorIds);
+
+      if (errorProfiles) {
+        console.error('[VuelosService] Error obteniendo profiles:', errorProfiles);
+        // No lanzar error, solo devolver sin enriquecer
+      }
+
+      const profilesMap = {};
+      (profiles || []).forEach(p => { profilesMap[p.id] = p; });
+
+      const vuelosEnriquecidos = vuelos.map(v => ({
+        ...v,
+        creator: profilesMap[v.created_by] || { full_name: 'Desconocido', email: 'N/A' }
+      }));
+
+      console.log('[VuelosService] Vuelos enriquecidos correctamente');
+      return vuelosEnriquecidos;
+
     } catch (error) {
       console.error('[VuelosService] Error en obtenerVuelos:', error);
       throw error;
