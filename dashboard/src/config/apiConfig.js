@@ -38,6 +38,7 @@ export const COTIZACIONES_API = {
 
 // URLs específicas para APIs de vuelos
 export const VUELOS_API = {
+  listar: buildApiUrl('/api/vuelos'),
   crear: buildApiUrl('/api/vuelos'),
   obtener: (id) => buildApiUrl(`/api/vuelos/${id}`),
   porEstado: (estado) => buildApiUrl(`/api/vuelos/estado/${estado}`),
@@ -59,6 +60,15 @@ export const EQUIPOS_API = {
   eliminar: (id) => buildApiUrl(`/api/equipos/${id}`),
   asignar: buildApiUrl('/api/equipos/asignar'),
   remover: (userId) => buildApiUrl(`/api/equipos/remover/${userId}`),
+}
+
+// URLs específicas para APIs de anulables
+export const ANULABLES_API = {
+  listar: buildApiUrl('/api/anulables'),
+  obtener: (id) => buildApiUrl(`/api/anulables/${id}`),
+  crear: buildApiUrl('/api/anulables'),
+  actualizar: (id) => buildApiUrl(`/api/anulables/${id}`),
+  eliminar: (id) => buildApiUrl(`/api/anulables/${id}`)
 }
 
 // Exportar URL base para otros servicios

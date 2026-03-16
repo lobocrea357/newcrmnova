@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import AnulableDetail from '@/components/anulables/AnulableDetail'
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
+import { ANULABLES_API } from '@/config/apiConfig'
 
 export default function AnulableDetailPage({ params }) {
   const router = useRouter()
@@ -20,7 +21,7 @@ export default function AnulableDetailPage({ params }) {
     setError(null)
 
     try {
-      const response = await fetch(`/api/anulables/${params.id}`)
+      const response = await fetch(ANULABLES_API.obtener(params.id))
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -45,7 +46,7 @@ export default function AnulableDetailPage({ params }) {
     }
 
     try {
-      const response = await fetch(`/api/anulables/${params.id}`, {
+      const response = await fetch(ANULABLES_API.eliminar(params.id), {
         method: 'DELETE',
       })
 

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { AlertCircle } from 'lucide-react'
 import AnulablesList from '@/components/anulables/AnulablesList'
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
+import { ANULABLES_API } from '@/config/apiConfig'
 
 export default function AnulablesPage() {
   const [anulables, setAnulables] = useState([])
@@ -23,7 +24,7 @@ export default function AnulablesPage() {
         if (value) params.append(key, value)
       })
 
-      const response = await fetch(`/api/anulables?${params.toString()}`)
+      const response = await fetch(`${ANULABLES_API.listar}?${params.toString()}`)
       
       if (!response.ok) {
         throw new Error('Error al obtener anulables')

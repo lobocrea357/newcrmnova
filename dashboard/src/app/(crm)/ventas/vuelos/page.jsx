@@ -32,7 +32,7 @@ export default function VuelosPage() {
         if (value) params.append(key, value)
       })
 
-      const response = await fetch(`${VUELOS_API.crear}?${params.toString()}`)
+      const response = await fetch(`${VUELOS_API.listar}?${params.toString()}`)
 
       if (!response.ok) {
         throw new Error('Error al obtener vuelos')

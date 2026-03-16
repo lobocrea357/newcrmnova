@@ -102,7 +102,10 @@ class VuelosService {
       // Construir query base
       let query = supabase
         .from('vuelos')
-        .select('*')
+        .select(`
+          *,
+          creator:profiles!created_by(id, full_name, email)
+        `)
         .order('created_at', { ascending: false });
 
       // Filtrado por rol

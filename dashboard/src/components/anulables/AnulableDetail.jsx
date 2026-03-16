@@ -6,6 +6,7 @@ import {
   AlertCircle, Calendar, MapPin, DollarSign, CheckCircle, 
   XCircle, Plane, ExternalLink, Edit, Save, X 
 } from 'lucide-react'
+import { ANULABLES_API } from '@/config/apiConfig'
 
 export default function AnulableDetail({ anulable }) {
   const router = useRouter()
@@ -41,7 +42,7 @@ export default function AnulableDetail({ anulable }) {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      const response = await fetch(`/api/anulables/${anulable.id}`, {
+      const response = await fetch(ANULABLES_API.actualizar(anulable.id), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

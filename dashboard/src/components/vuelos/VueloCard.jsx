@@ -142,12 +142,8 @@ export default function VueloCard({ vuelo }) {
         <div className="flex items-center justify-between pt-4 border-t border-gray-100">
           <div className="flex items-center gap-3">
             <span className="text-xs text-gray-500">{vuelo.proveedor}</span>
-            {vuelo.creator?.full_name && (
-              <>
-                <span className="text-gray-300">•</span>
-                <span className="text-xs text-gray-400">{vuelo.creator.full_name}</span>
-              </>
-            )}
+            <span className="text-gray-300">•</span>
+            <span className="text-xs text-gray-400">Creado por: {vuelo.creator?.full_name || 'N/A'}</span>
           </div>
           <div className="flex items-center gap-1 text-purple-600 text-sm font-medium">
             Ver detalles
