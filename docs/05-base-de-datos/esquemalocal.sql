@@ -235,6 +235,7 @@ CREATE TABLE public.cotizaciones_historial (
   estado_nuevo text NOT NULL,
   changed_by uuid NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
+  razon text,
   CONSTRAINT cotizaciones_historial_pkey PRIMARY KEY (id),
   CONSTRAINT cotizaciones_historial_cotizacion_id_fkey FOREIGN KEY (cotizacion_id) REFERENCES public.cotizaciones(id),
   CONSTRAINT cotizaciones_historial_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES auth.users(id)
@@ -278,6 +279,18 @@ CREATE TABLE public.daily_sales_reports (
   CONSTRAINT daily_sales_reports_pkey PRIMARY KEY (id),
   CONSTRAINT daily_sales_reports_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id),
   CONSTRAINT daily_sales_reports_performance_analysis_id_fkey FOREIGN KEY (performance_analysis_id) REFERENCES public.performance_analyses(id)
+);
+CREATE TABLE public.equipos (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  nombre text NOT NULL,
+  descripcion text,
+  color text DEFAULT '#6366f1'::text,
+  gerente_id uuid NOT NULL,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT equipos_pkey PRIMARY KEY (id),
+  CONSTRAINT equipos_gerente_id_fkey FOREIGN KEY (gerente_id) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.media_files (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -413,10 +426,12 @@ CREATE TABLE public.profiles (
   is_active boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  equipo_id uuid,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
   CONSTRAINT profiles_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id),
-  CONSTRAINT profiles_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id)
+  CONSTRAINT profiles_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id),
+  CONSTRAINT profiles_equipo_id_fkey FOREIGN KEY (equipo_id) REFERENCES public.equipos(id)
 );
 CREATE TABLE public.roles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -517,19 +532,36 @@ CREATE TABLE public.vuelos (
   horario time without time zone,
   aerolinea_codigo text,
   aerolinea_nombre text,
-  localizador text NOT NULL UNIQUE,
+  localizador text UNIQUE,
   proveedor text NOT NULL,
   monto_venta numeric NOT NULL CHECK (monto_venta >= 0::numeric),
-  monto_sabre numeric CHECK (monto_sabre >= 0::numeric),
-  monto_expedia numeric CHECK (monto_expedia >= 0::numeric),
-  monto_emision numeric CHECK (monto_emision >= 0::numeric),
-  monto_fee numeric,
   metodo_pago text,
-  tipo_vuelo text NOT NULL CHECK (tipo_vuelo = ANY (ARRAY['MIGRACION'::text, 'TURISMO'::text, 'NEGOCIOS'::text, 'OTRO'::text])),
+  tipo_vuelo text NOT NULL CHECK (tipo_vuelo = ANY (ARRAY['solo_ida'::text, 'ida_vuelta'::text, 'migratorio'::text])),
   requiere_anulable boolean DEFAULT false,
   anulable_id uuid,
   observaciones text,
-  CONSTRAINT vuelos_pkey PRIMARY KEY (id)
+  pnr_desglose text,
+  estado text NOT NULL DEFAULT 'PENDIENTE_CONFIRMACION_PAGO'::text CHECK (estado = ANY (ARRAY['PENDIENTE_CONFIRMACION_PAGO'::text, 'PENDIENTE_EMISION'::text, 'EMITIDO'::text, 'CANCELADO'::text])),
+  cotizacion_id uuid,
+  pago_confirmado_por uuid,
+  pago_confirmado_at timestamp with time zone,
+  emitido_por uuid,
+  emitido_at timestamp with time zone,
+  hora_llegada time without time zone,
+  tiene_escala boolean DEFAULT false,
+  escala_1_ciudad text,
+  escala_1_duracion text,
+  tiene_segunda_escala boolean DEFAULT false,
+  escala_2_ciudad text,
+  escala_2_duracion text,
+  moneda_precio text,
+  moneda_cotizacion text,
+  tasa_cambio numeric,
+  total_cotizacion numeric,
+  CONSTRAINT vuelos_pkey PRIMARY KEY (id),
+  CONSTRAINT vuelos_cotizacion_id_fkey FOREIGN KEY (cotizacion_id) REFERENCES public.cotizaciones(id),
+  CONSTRAINT vuelos_pago_confirmado_por_fkey FOREIGN KEY (pago_confirmado_por) REFERENCES public.profiles(id),
+  CONSTRAINT vuelos_emitido_por_fkey FOREIGN KEY (emitido_por) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.vuelos_adjuntos (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -541,8 +573,35 @@ CREATE TABLE public.vuelos_adjuntos (
   tamano_bytes integer,
   uploaded_at timestamp with time zone DEFAULT now(),
   uploaded_by uuid NOT NULL,
+  pasajero_id uuid,
   CONSTRAINT vuelos_adjuntos_pkey PRIMARY KEY (id),
-  CONSTRAINT vuelos_adjuntos_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id)
+  CONSTRAINT vuelos_adjuntos_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id),
+  CONSTRAINT vuelos_adjuntos_pasajero_id_fkey FOREIGN KEY (pasajero_id) REFERENCES public.vuelos_pasajeros(id)
+);
+CREATE TABLE public.vuelos_pasajeros (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  vuelo_id uuid NOT NULL,
+  cotizacion_pasajero_id uuid,
+  tipo text NOT NULL CHECK (tipo = ANY (ARRAY['ADULTO'::text, 'NINO'::text, 'INFANTE'::text])),
+  orden integer NOT NULL,
+  nombres text,
+  apellidos text,
+  nombre_completo text,
+  sexo text CHECK (sexo = ANY (ARRAY['M'::text, 'F'::text])),
+  fecha_nacimiento date,
+  nacionalidad text,
+  numero_pasaporte text,
+  precio_pantalla numeric NOT NULL DEFAULT 0,
+  fee_emision numeric NOT NULL DEFAULT 0,
+  fee_agencia numeric NOT NULL DEFAULT 0,
+  equipaje_completo boolean DEFAULT false,
+  equipaje_mediano boolean DEFAULT false,
+  equipaje_ligero boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT vuelos_pasajeros_pkey PRIMARY KEY (id),
+  CONSTRAINT vuelos_pasajeros_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id),
+  CONSTRAINT vuelos_pasajeros_cotizacion_pasajero_id_fkey FOREIGN KEY (cotizacion_pasajero_id) REFERENCES public.cotizaciones_pasajeros(id)
 );
 CREATE TABLE public.webhook_events (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

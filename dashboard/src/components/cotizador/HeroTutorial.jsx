@@ -11,16 +11,16 @@ export default function HeroTutorial() {
       description={`
         <div class="space-y-6">
           <!-- Pasos principales -->
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200">
               <div class="flex items-center gap-3 mb-3">
                 <div class="flex items-center justify-center w-8 h-8 bg-white/20 rounded-lg">
                   <span class="text-white font-bold text-sm">1</span>
                 </div>
-                <div class="w-5 h-5 text-white flex items-center justify-center">🧮</div>
+                <div class="w-5 h-5 text-white flex items-center justify-center">👤</div>
               </div>
-              <h3 class="font-semibold text-white mb-1">Ingresa el precio</h3>
-              <p class="text-indigo-100 text-xs">Precio de pantalla + fees de emisión y agencia</p>
+              <h3 class="font-semibold text-white mb-1">Nombre del cliente</h3>
+              <p class="text-indigo-100 text-xs">Ingresa el nombre completo del cliente</p>
             </div>
             
             <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200">
@@ -28,10 +28,10 @@ export default function HeroTutorial() {
                 <div class="flex items-center justify-center w-8 h-8 bg-white/20 rounded-lg">
                   <span class="text-white font-bold text-sm">2</span>
                 </div>
-                <div class="w-5 h-5 text-white flex items-center justify-center">💰</div>
+                <div class="w-5 h-5 text-white flex items-center justify-center">👥</div>
               </div>
-              <h3 class="font-semibold text-white mb-1">Selecciona monedas</h3>
-              <p class="text-indigo-100 text-xs">Moneda del precio y moneda para cotizar</p>
+              <h3 class="font-semibold text-white mb-1">Agrega pasajeros</h3>
+              <p class="text-indigo-100 text-xs">Adultos, niños e infantes con sus precios</p>
             </div>
             
             <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200">
@@ -39,10 +39,10 @@ export default function HeroTutorial() {
                 <div class="flex items-center justify-center w-8 h-8 bg-white/20 rounded-lg">
                   <span class="text-white font-bold text-sm">3</span>
                 </div>
-                <div class="w-5 h-5 text-white flex items-center justify-center">✈️</div>
+                <div class="w-5 h-5 text-white flex items-center justify-center">�</div>
               </div>
-              <h3 class="font-semibold text-white mb-1">Configura vuelo</h3>
-              <p class="text-indigo-100 text-xs">Tipo, fechas, equipaje y método de pago</p>
+              <h3 class="font-semibold text-white mb-1">Método de pago</h3>
+              <p class="text-indigo-100 text-xs">Selecciona cómo pagará el cliente</p>
             </div>
             
             <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200">
@@ -50,10 +50,21 @@ export default function HeroTutorial() {
                 <div class="flex items-center justify-center w-8 h-8 bg-white/20 rounded-lg">
                   <span class="text-white font-bold text-sm">4</span>
                 </div>
+                <div class="w-5 h-5 text-white flex items-center justify-center">💾</div>
+              </div>
+              <h3 class="font-semibold text-white mb-1">Guarda cotización</h3>
+              <p class="text-indigo-100 text-xs">Se guarda automáticamente en revisión</p>
+            </div>
+            
+            <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="flex items-center justify-center w-8 h-8 bg-white/20 rounded-lg">
+                  <span class="text-white font-bold text-sm">5</span>
+                </div>
                 <div class="w-5 h-5 text-white flex items-center justify-center">📄</div>
               </div>
-              <h3 class="font-semibold text-white mb-1">Calcula y exporta</h3>
-              <p class="text-indigo-100 text-xs">Obtén el resultado y genera PDF</p>
+              <h3 class="font-semibold text-white mb-1">Exporta PDF</h3>
+              <p class="text-indigo-100 text-xs">Genera y envía el PDF al cliente</p>
             </div>
           </div>
           
@@ -66,35 +77,35 @@ export default function HeroTutorial() {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="space-y-3">
                 <div class="bg-white/5 rounded-lg p-3 border border-white/10">
-                  <h4 class="font-semibold text-white mb-1">🎯 Precios exactos</h4>
-                  <p class="text-indigo-100 text-sm">Incluye TODOS los costos: tarifa base, fees de emisión, fees de agencia y cualquier cargo adicional del proveedor.</p>
+                  <h4 class="font-semibold text-white mb-1">👥 Múltiples pasajeros</h4>
+                  <p class="text-indigo-100 text-sm">Agrega adultos, niños e infantes. Cada uno tiene su propio precio pantalla, fees y equipaje.</p>
                 </div>
                 
                 <div class="bg-white/5 rounded-lg p-3 border border-white/10">
-                  <h4 class="font-semibold text-white mb-1">💱 Conversión inteligente</h4>
-                  <p class="text-indigo-100 text-sm">El sistema detecta automáticamente la moneda según el método de pago seleccionado (ej: Binance → USDT).</p>
+                  <h4 class="font-semibold text-white mb-1">💱 Conversión automática</h4>
+                  <p class="text-indigo-100 text-sm">El sistema detecta la moneda según el método de pago (Zelle→USD, Binance→USDT, Pago móvil→VES).</p>
                 </div>
                 
                 <div class="bg-white/5 rounded-lg p-3 border border-white/10">
-                  <h4 class="font-semibold text-white mb-1">📅 Fechas correctas</h4>
-                  <p class="text-indigo-100 text-sm">Usa el formato DD/MM/AAAA. Las fechas afectan el cálculo de tasas según la temporada.</p>
+                  <h4 class="font-semibold text-white mb-1">� Guardar cotización</h4>
+                  <p class="text-indigo-100 text-sm">Al guardar, la cotización queda con estado "EN REVISIÓN" automáticamente. Puedes editarla antes de aprobarla.</p>
                 </div>
               </div>
               
               <div class="space-y-3">
                 <div class="bg-white/5 rounded-lg p-3 border border-white/10">
-                  <h4 class="font-semibold text-white mb-1">🧳 Equipaje y fees</h4>
-                  <p class="text-indigo-100 text-sm">Selecciona correctamente el equipaje. Cada pieza tiene un fee que se suma al total de la cotización.</p>
+                  <h4 class="font-semibold text-white mb-1">✏️ Editar cotizaciones</h4>
+                  <p class="text-indigo-100 text-sm">Si está en revisión, puedes editarla desde la vista de cotizaciones. Los cambios se guardan y puedes exportar un nuevo PDF.</p>
                 </div>
                 
                 <div class="bg-white/5 rounded-lg p-3 border border-white/10">
                   <h4 class="font-semibold text-white mb-1">🇻🇪 Impuesto 4x1000</h4>
-                  <p class="text-indigo-100 text-sm">Se aplica automáticamente solo para pagos en Bolívares (VES) según la normativa venezolana.</p>
+                  <p class="text-indigo-100 text-sm">Se aplica automáticamente solo para pagos en Bolívares (VES) según normativa venezolana.</p>
                 </div>
                 
                 <div class="bg-white/5 rounded-lg p-3 border border-white/10">
-                  <h4 class="font-semibold text-white mb-1">📋 Exportación PDF</h4>
-                  <p class="text-indigo-100 text-sm">El PDF generado incluye todos los detalles, tasas aplicadas y está listo para enviar al cliente.</p>
+                  <h4 class="font-semibold text-white mb-1">� PDF profesional</h4>
+                  <p class="text-indigo-100 text-sm">El PDF incluye todos los detalles, métodos de pago disponibles y está listo para enviar al cliente.</p>
                 </div>
               </div>
             </div>

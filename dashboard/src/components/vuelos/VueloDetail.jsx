@@ -5,9 +5,12 @@ import {
   FileText, Copy, CheckCircle, Download, ExternalLink, AlertCircle 
 } from 'lucide-react'
 import { generarFormatoWhatsApp } from '@/lib/utils/vuelos-calculations'
+import ImageModal from '@/components/shared/ImageModal'
 
 export default function VueloDetail({ vuelo }) {
   const [copied, setCopied] = useState(false)
+  const [imageModalOpen, setImageModalOpen] = useState(false)
+  const [selectedImage, setSelectedImage] = useState({ url: '', name: '' })
 
   const totalPax = vuelo.num_adultos + vuelo.num_ninos + vuelo.num_infantes
 
@@ -29,10 +32,9 @@ export default function VueloDetail({ vuelo }) {
 
   const getTipoVueloLabel = (tipo) => {
     const labels = {
-      'MIGRACION': 'Migración',
-      'TURISMO': 'Turismo',
-      'NEGOCIOS': 'Negocios',
-      'OTRO': 'Otro'
+      'solo_ida': 'Solo Ida',
+      'ida_vuelta': 'Ida y Vuelta',
+      'migratorio': 'Fines Migratorios'
     }
     return labels[tipo] || tipo
   }
@@ -248,12 +250,13 @@ export default function VueloDetail({ vuelo }) {
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {adjuntosTipo.map(adjunto => (
-                      <a
+                      <button
                         key={adjunto.id}
-                        href={adjunto.url_storage}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                        onClick={() => {
+                          setSelectedImage({ url: adjunto.url_storage, name: adjunto.nombre_archivo })
+                          setImageModalOpen(true)
+                        }}
+                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left w-full"
                       >
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
@@ -268,8 +271,8 @@ export default function VueloDetail({ vuelo }) {
                             )}
                           </div>
                         </div>
-                        <ExternalLink className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      </a>
+                        <ExternalLink className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -339,6 +342,14 @@ export default function VueloDetail({ vuelo }) {
           <p className="text-gray-700">{vuelo.observaciones}</p>
         </div>
       )}
+
+      {/* Modal de Imagen */}
+      <ImageModal
+        isOpen={imageModalOpen}
+        onClose={() => setImageModalOpen(false)}
+        imageUrl={selectedImage.url}
+        imageName={selectedImage.name}
+      />
     </div>
   )
 }

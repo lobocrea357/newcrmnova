@@ -1,7 +1,7 @@
 'use client'
 // React
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 // Librerías externas
 import { Calculator, DollarSign, Percent, CreditCard, TrendingUp, RefreshCw, Download, ArrowRightLeft, Plane, Calendar, MapPin, Luggage, Users, Save, CheckCircle, Eye, RotateCcw, X } from 'lucide-react'
@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase'
 import CollapsibleSection from '@/components/ui/CollapsibleSection'
 import PasajerosManager from './pasajeros/PasajerosManager'
 import PdfContent from './resultados/PdfContent'
+import BannerCotizacionGuardada from './BannerCotizacionGuardada'
 
 // Helpers
 import { confirmAlert } from '@/helpers/sweetAlerts'
@@ -55,8 +56,14 @@ import { COTIZACIONES_API } from '@/config/apiConfig'
  * Componente principal del cotizador de vuelos
  * Soporta cotización individual y múltiple con conversión inteligente de monedas
  */
-export default function CotizadorForm({ isAuthenticated = false }) {
+export default function CotizadorForm({ isAuthenticated = false, showBannerOutside = false, onBannerStateChange, onCotizacionGuardada }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Modo edición
+  const editId = searchParams?.get('edit')
+  const isEditMode = !!editId
+  const [loadingCotizacion, setLoadingCotizacion] = useState(false)
 
   // ============================================
   // ESTADO - Configuración
@@ -300,6 +307,105 @@ export default function CotizadorForm({ isAuthenticated = false }) {
   useEffect(() => {
     setMonedaCotizacion(monedaCotizacionSeleccionada)
   }, [monedaCotizacionSeleccionada])
+
+  // Cargar cotización en modo edición
+  useEffect(() => {
+    if (isEditMode && editId && !loadingCotizacion) {
+      cargarCotizacionParaEditar(editId)
+    }
+  }, [isEditMode, editId])
+
+  const cargarCotizacionParaEditar = async (cotizacionId) => {
+    try {
+      setLoadingCotizacion(true)
+
+      const { data, error } = await supabase
+        .from('cotizaciones')
+        .select(`
+          *,
+          pasajeros:cotizaciones_pasajeros(*)
+        `)
+        .eq('id', cotizacionId)
+        .single()
+
+      if (error) throw error
+      if (!data) throw new Error('Cotización no encontrada')
+
+      // Cargar datos en el formulario
+      setNombreCliente(data.nombre_cliente || '')
+      setMetodoPago(data.metodo_pago || '')
+      updateVueloInfo('origen', data.origen || '')
+      updateVueloInfo('destino', data.destino || '')
+      updateVueloInfo('aerolinea', data.aerolinea || '')
+      updateVueloInfo('fechaSalida', data.fecha_salida || '')
+
+      // Mapear tipo_vuelo a los botones correspondientes
+      const tipoVuelo = data.tipo_vuelo || 'solo_ida'
+      updateVueloInfo('idaVuelta', tipoVuelo === 'ida_vuelta')
+      updateVueloInfo('soloIda', tipoVuelo === 'solo_ida')
+      updateVueloInfo('finesMigratorios', tipoVuelo === 'migratorio')
+
+      setMonedaBaseSeleccionada(data.moneda_precio || 'USD')
+      setMonedaCotizacionSeleccionada(data.moneda_cotizacion || 'USD')
+
+      // Cargar pasajeros con TODOS sus datos
+      if (data.pasajeros && data.pasajeros.length > 0) {
+        const mapearPasajero = (p) => ({
+          precioPantalla: p.precio_pantalla?.toString() || '',
+          feeEmision: p.fee_emision?.toString() || '',
+          feeAgencia: p.fee_agencia?.toString() || '',
+          equipajeCompleto: p.equipaje_completo || false,
+          equipajeMediano: p.equipaje_mediano || false,
+          equipajeLigero: p.equipaje_ligero || false
+        })
+
+        const pasajerosPorTipo = {
+          adultos: data.pasajeros
+            .filter(p => p.tipo === 'ADULTO')
+            .sort((a, b) => a.orden - b.orden)
+            .map(mapearPasajero),
+          niños: data.pasajeros
+            .filter(p => p.tipo === 'NIÑO')
+            .sort((a, b) => a.orden - b.orden)
+            .map(mapearPasajero),
+          infantes: data.pasajeros
+            .filter(p => p.tipo === 'INFANTE')
+            .sort((a, b) => a.orden - b.orden)
+            .map(mapearPasajero)
+        }
+        setPasajeros(pasajerosPorTipo)
+      }
+
+      // Cargar equipaje general si existe
+      if (data.equipaje_completo || data.equipaje_mediano || data.equipaje_ligero) {
+        if (data.equipaje_completo) toggleEquipaje('completo')
+        if (data.equipaje_mediano) toggleEquipaje('mediano')
+        if (data.equipaje_ligero) toggleEquipaje('ligero')
+      }
+
+      // Cargar escalas si existen
+      if (data.escala_1_ciudad) {
+        updateEscala(0, {
+          ciudad: data.escala_1_ciudad,
+          duracion: data.escala_1_duracion || ''
+        })
+      }
+      if (data.escala_2_ciudad) {
+        updateEscala(1, {
+          ciudad: data.escala_2_ciudad,
+          duracion: data.escala_2_duracion || ''
+        })
+      }
+
+      toastSuccess('Cotización cargada para editar')
+    } catch (error) {
+      console.error('Error cargando cotización:', error)
+      toastError('Error al cargar la cotización')
+      router.push('/cotizador')
+    } finally {
+      setLoadingCotizacion(false)
+    }
+  }
 
   // Recalcular cuando cambian los inputs (con debounce para evitar demasiadas llamadas)
   useEffect(() => {
@@ -560,9 +666,15 @@ export default function CotizadorForm({ isAuthenticated = false }) {
         })
       })
 
-      const response = await fetch(COTIZACIONES_API.crear, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      // Enviar a backend (PUT si es edición, POST si es creación)
+      const url = isEditMode ? COTIZACIONES_API.actualizar(editId) : COTIZACIONES_API.crear
+      const method = isEditMode ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           cotizacion: cotizacionData,
           pasajeros: pasajerosData
@@ -572,15 +684,25 @@ export default function CotizadorForm({ isAuthenticated = false }) {
       const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.error || 'Error al guardar la cotización')
+        throw new Error(result.error || `Error al ${isEditMode ? 'actualizar' : 'guardar'} la cotización`)
       }
 
-      toastSuccess('Cotización guardada exitosamente')
-      console.log('✅ Cotización guardada:', result.data)
+      toastSuccess(isEditMode ? 'Cotización actualizada exitosamente' : 'Cotización guardada exitosamente')
+      console.log(`✅ Cotización ${isEditMode ? 'actualizada' : 'guardada'}:`, result.data)
 
-      // Activar banner de cotización guardada
-      setCotizacionGuardada(true)
-      setUltimaCotizacionId(result.data.id)
+      if (isEditMode) {
+        // En modo edición, redirigir a vista de cotizaciones
+        router.push('/ventas/cotizaciones')
+      } else {
+        // En modo creación, activar banner
+        setCotizacionGuardada(true)
+        setUltimaCotizacionId(result.data.id)
+
+        // Notificar al componente padre si está configurado
+        if (onCotizacionGuardada) {
+          onCotizacionGuardada()
+        }
+      }
 
     } catch (error) {
       console.error('Error guardando cotización:', error)
@@ -678,46 +800,13 @@ export default function CotizadorForm({ isAuthenticated = false }) {
           </div>
         </div>
 
-        {/* Banner de cotización guardada */}
-        {cotizacionGuardada && (
-          <div className="mb-6 bg-green-50 border-2 border-green-200 rounded-xl p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3 flex-1">
-                <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <h3 className="text-sm font-bold text-green-800 mb-1">
-                    ¡Cotización guardada exitosamente!
-                  </h3>
-                  <p className="text-xs text-green-700 mb-3">
-                    Esta cotización ya existe en la base de datos. ¿Qué deseas hacer?
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => router.push('/cotizaciones')}
-                      className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition-colors flex items-center gap-1.5"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      Ver todas las cotizaciones
-                    </button>
-                    <button
-                      onClick={limpiarFormularioCompleto}
-                      className="px-3 py-1.5 bg-white border border-green-300 text-green-700 rounded-lg text-xs font-semibold hover:bg-green-50 transition-colors flex items-center gap-1.5"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      Hacer otra cotización
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => setCotizacionGuardada(false)}
-                className="text-green-600 hover:text-green-800 transition-colors flex-shrink-0"
-                title="Cerrar"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
+        {/* Banner de cotización guardada - solo mostrar aquí si no está afuera */}
+        {!showBannerOutside && (
+          <BannerCotizacionGuardada
+            isVisible={cotizacionGuardada}
+            onClose={() => setCotizacionGuardada(false)}
+            onNuevaCotizacion={limpiarFormularioCompleto}
+          />
         )}
 
         {/* Tabs de Vista de Cotización */}

@@ -5,10 +5,9 @@ import VueloCard from './VueloCard'
 
 const TIPOS_VUELO = [
   { value: '', label: 'Todos' },
-  { value: 'MIGRACION', label: 'Migración' },
-  { value: 'TURISMO', label: 'Turismo' },
-  { value: 'NEGOCIOS', label: 'Negocios' },
-  { value: 'OTRO', label: 'Otro' }
+  { value: 'solo_ida', label: 'Solo Ida' },
+  { value: 'ida_vuelta', label: 'Ida y Vuelta' },
+  { value: 'migratorio', label: 'Fines Migratorios' }
 ]
 
 export default function VuelosList({ vuelos, pagination, onFilterChange, isLoading }) {
