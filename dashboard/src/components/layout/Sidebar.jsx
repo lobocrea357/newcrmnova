@@ -21,7 +21,9 @@ import {
     PlaneTakeoff,
     Calculator,
     ClipboardList,
-    X
+    X,
+    CheckCircle,
+    Send
 } from 'lucide-react'
 
 const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
@@ -65,6 +67,8 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         { href: '/ventas/cotizaciones', label: 'Cotizaciones', icon: ClipboardList },
         { href: '/ventas/vuelos', label: 'Vuelos', icon: PlaneTakeoff },
         { href: '/ventas/anulables', label: 'Anulables', icon: XCircle },
+        { href: '/admin/confirmar-pagos', label: 'Confirmar Pagos', icon: CheckCircle },
+        { href: '/emisiones', label: 'Emisiones', icon: Send },
         { href: '/analisis/reportes', label: 'Reportes', icon: FileText },
         { href: '/inteligencia-artificial', label: 'IA', icon: Brain },
         { href: '/configuracion', label: 'Configuración', icon: Settings },

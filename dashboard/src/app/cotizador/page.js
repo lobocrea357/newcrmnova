@@ -9,12 +9,15 @@ import CotizadorForm from '@/components/cotizador/CotizadorForm'
 import TasasManager from '@/components/cotizador/TasasManager'
 import MonedasManager from '@/components/cotizador/MonedasManager'
 import HeroTutorial from '@/components/cotizador/HeroTutorial'
+import BannerCotizacionGuardada from '@/components/cotizador/BannerCotizacionGuardada'
 
 export default function CotizadorPage() {
   const { user, session, loading: authLoading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [activeTab, setActiveTab] = useState('calculadora') // 'calculadora' | 'tasas' | 'monedas'
+  const [bannerVisible, setBannerVisible] = useState(false)
+  const [formKey, setFormKey] = useState(0) // Para forzar remount del form
   
   const isAuthenticated = !!user && !!session
 
@@ -101,7 +104,20 @@ export default function CotizadorPage() {
                 {activeTab === 'calculadora' ? (
                   <>
                     <HeroTutorial />
-                    <CotizadorForm isAuthenticated={isAuthenticated} />
+                    <BannerCotizacionGuardada
+                      isVisible={bannerVisible}
+                      onClose={() => setBannerVisible(false)}
+                      onNuevaCotizacion={() => {
+                        setBannerVisible(false)
+                        setFormKey(prev => prev + 1) // Forzar remount del form
+                      }}
+                    />
+                    <CotizadorForm 
+                      key={formKey}
+                      isAuthenticated={isAuthenticated} 
+                      showBannerOutside={true}
+                      onCotizacionGuardada={() => setBannerVisible(true)}
+                    />
                   </>
                 ) : activeTab === 'tasas' ? (
                   <TasasManager />

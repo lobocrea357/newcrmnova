@@ -36,6 +36,31 @@ export const COTIZACIONES_API = {
   cambiarEstado: (id) => buildApiUrl(`/api/cotizaciones/${id}/estado`)
 }
 
+// URLs específicas para APIs de vuelos
+export const VUELOS_API = {
+  crear: buildApiUrl('/api/vuelos'),
+  obtener: (id) => buildApiUrl(`/api/vuelos/${id}`),
+  porEstado: (estado) => buildApiUrl(`/api/vuelos/estado/${estado}`),
+  actualizar: (id) => buildApiUrl(`/api/vuelos/${id}`),
+  eliminar: (id) => buildApiUrl(`/api/vuelos/${id}`),
+  confirmarPago: (id) => buildApiUrl(`/api/vuelos/${id}/confirmar-pago`),
+  marcarEmitido: (id) => buildApiUrl(`/api/vuelos/${id}/marcar-emitido`),
+  actualizarPasajero: (pasajeroId) => buildApiUrl(`/api/vuelos/pasajeros/${pasajeroId}`),
+  copiarPasajeros: (vueloId) => buildApiUrl(`/api/vuelos/${vueloId}/copiar-pasajeros`),
+  subirAdjunto: (vueloId) => buildApiUrl(`/api/vuelos/${vueloId}/adjuntos`)
+}
+
+// URLs específicas para APIs de equipos
+export const EQUIPOS_API = {
+  listar: buildApiUrl('/api/equipos'),
+  sinEquipo: buildApiUrl('/api/equipos/sin-equipo'),
+  crear: buildApiUrl('/api/equipos'),
+  actualizar: (id) => buildApiUrl(`/api/equipos/${id}`),
+  eliminar: (id) => buildApiUrl(`/api/equipos/${id}`),
+  asignar: buildApiUrl('/api/equipos/asignar'),
+  remover: (userId) => buildApiUrl(`/api/equipos/remover/${userId}`),
+}
+
 // Exportar URL base para otros servicios
 export { BACKEND_URL }
 

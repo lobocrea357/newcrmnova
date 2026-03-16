@@ -419,7 +419,19 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
 
       {/* Botones de Acción */}
       <div className="sticky bottom-0 bg-white pt-4 border-t border-gray-200 space-y-3">
-        {cotizacion.estado !== 'APROBADA' && (
+        {/* Botón Editar - solo visible en EN_REVISION */}
+        {cotizacion.estado === 'EN_REVISION' && (
+          <button
+            onClick={() => router.push(`/cotizador?edit=${cotizacion.id}`)}
+            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            <Edit className="w-5 h-5" />
+            Editar Cotización
+          </button>
+        )}
+
+        {/* Botón Aprobar - visible solo si NO está aprobada ni rechazada */}
+        {cotizacion.estado !== 'APROBADA' && cotizacion.estado !== 'RECHAZADA' && (
           <button
             onClick={() => handleCambiarEstado('APROBADA')}
             disabled={updating}
@@ -430,12 +442,13 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
             ) : (
               <>
                 <CheckCircle className="w-5 h-5" />
-                Marcar como Aprobada
+                  Aprobar Cotización
               </>
             )}
           </button>
         )}
 
+        {/* Botón Crear Venta - solo visible si está APROBADA */}
         {cotizacion.estado === 'APROBADA' && (
           <button
             onClick={handleCrearVenta}
@@ -446,23 +459,7 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
           </button>
         )}
 
-        {cotizacion.estado !== 'EN_REVISION' && cotizacion.estado !== 'APROBADA' && (
-          <button
-            onClick={() => handleCambiarEstado('EN_REVISION')}
-            disabled={updating}
-            className="w-full py-3 px-4 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {updating ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <>
-                <Edit className="w-5 h-5" />
-                Marcar en Revisión
-              </>
-            )}
-          </button>
-        )}
-
+        {/* Botón Rechazar - visible solo si NO está rechazada ni aprobada */}
         {cotizacion.estado !== 'RECHAZADA' && cotizacion.estado !== 'APROBADA' && (
           <button
             onClick={() => handleCambiarEstado('RECHAZADA')}
@@ -474,7 +471,7 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
             ) : (
               <>
                 <XCircle className="w-5 h-5" />
-                Marcar como Rechazada
+                  Rechazar Cotización
               </>
             )}
           </button>

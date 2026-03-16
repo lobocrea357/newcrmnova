@@ -3,38 +3,74 @@
  * Mapeo de emails a nombres completos y roles
  */
 
+// Definición de permisos por rol
+const ROLE_PERMISSIONS = {
+  'admin': {
+    canAccessAll: true,
+    allowedRoutes: [] // Puede ver TODO
+  },
+  'asesor': {
+    canAccessAll: false,
+    allowedRoutes: [
+      '/',
+      '/cotizador',
+      '/ventas/cotizaciones',
+      '/ventas/vuelos',
+      '/ventas/vuelos/nuevo'
+    ]
+  },
+  'administracion': {
+    canAccessAll: false,
+    allowedRoutes: [
+      '/',
+      '/cotizador',
+      '/ventas/cotizaciones',
+      '/ventas/vuelos',
+      '/ventas/vuelos/nuevo',
+      '/admin/confirmar-pagos'
+    ]
+  },
+  'emisor': {
+    canAccessAll: false,
+    allowedRoutes: [
+      '/',
+      '/emisiones'
+    ]
+  },
+  'gerente': {
+    canAccessAll: false,
+    allowedRoutes: [
+      '/',
+      '/conversaciones',
+      '/analisis/rendimiento',
+      '/cotizador',
+      '/ventas/cotizaciones',
+      '/inteligencia-artificial',
+      '/configuracion'
+    ]
+  }
+}
+
 export const USER_CONFIG = {
   'moisesnova923@gmail.com': {
     fullName: 'Moises Guevara',
     role: 'Gerente',
-    permissions: {
-      canAccessAll: false,
-      hiddenRoutes: ['/rutas-riesgo', '/ventas/vuelos', '/manual-ventas', '/ventas/anulables', '/analisis/reportes']
-    }
+    roleKey: 'gerente'
   },
   'rafaelvuelos.nova@gmail.com': {
     fullName: 'Jesus Diaz',
     role: 'Gerente',
-    permissions: {
-      canAccessAll: false,
-      hiddenRoutes: ['/rutas-riesgo', '/ventas/vuelos', '/manual-ventas', '/ventas/anulables', '/analisis/reportes']
-    }
+    roleKey: 'gerente'
   },
   'iajosni012@gmail.com': {
     fullName: 'Endry Guevara',
     role: 'Gerente',
-    permissions: {
-      canAccessAll: false,
-      hiddenRoutes: ['/rutas-riesgo', '/ventas/vuelos', '/manual-ventas', '/ventas/anulables', '/analisis/reportes']
-    }
+    roleKey: 'gerente'
   },
   'admin@novapolointranet.xyz': {
     fullName: 'Administrador',
     role: 'Administrador',
-    permissions: {
-      canAccessAll: true,
-      hiddenRoutes: []
-    }
+    roleKey: 'admin'
   }
 }
 
@@ -48,20 +84,30 @@ export function getUserInfo(email) {
     return {
       fullName: 'Usuario',
       role: 'Usuario',
-      permissions: {
-        canAccessAll: true,
-        hiddenRoutes: []
-      }
+      roleKey: 'admin',
+      permissions: ROLE_PERMISSIONS['admin']
     }
   }
 
-  return USER_CONFIG[email] || {
-    fullName: email.split('@')[0],
-    role: 'Usuario',
-    permissions: {
-      canAccessAll: true,
-      hiddenRoutes: []
+  const userConfig = USER_CONFIG[email]
+  
+  if (!userConfig) {
+    // Usuario no configurado - dar acceso completo por defecto
+    return {
+      fullName: email.split('@')[0],
+      role: 'Usuario',
+      roleKey: 'admin',
+      permissions: ROLE_PERMISSIONS['admin']
     }
+  }
+
+  // Usuario configurado - usar sus permisos de rol
+  const roleKey = userConfig.roleKey || 'admin'
+  const permissions = ROLE_PERMISSIONS[roleKey] || ROLE_PERMISSIONS['admin']
+
+  return {
+    ...userConfig,
+    permissions
   }
 }
 
@@ -73,5 +119,21 @@ export function getUserInfo(email) {
  */
 export function isRouteHidden(email, route) {
   const userInfo = getUserInfo(email)
-  return userInfo.permissions.hiddenRoutes.includes(route)
+  const permissions = userInfo.permissions
+
+  // Admin puede ver todo
+  if (permissions.canAccessAll) {
+    return false
+  }
+
+  // Verificar si la ruta está en las rutas permitidas
+  // Comparar tanto ruta exacta como rutas que empiezan con la permitida
+  const isAllowed = permissions.allowedRoutes.some(allowedRoute => {
+    if (route === allowedRoute) return true
+    // Si la ruta permitida es '/ventas/vuelos', permitir también '/ventas/vuelos/nuevo'
+    if (route.startsWith(allowedRoute + '/')) return true
+    return false
+  })
+
+  return !isAllowed
 }

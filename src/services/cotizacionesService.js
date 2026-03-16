@@ -11,10 +11,15 @@ class CotizacionesService {
     try {
       console.log('[CotizacionesService] Creando cotización para:', cotizacionData.nombre_cliente);
 
-      // 1. Insertar cotización principal
+      // 1. Insertar cotización principal con estado EN_REVISION por defecto
+      const cotizacionConEstado = {
+        ...cotizacionData,
+        estado: 'EN_REVISION' // Estado inicial siempre EN_REVISION
+      };
+
       const { data: cotizacion, error: errorCotizacion } = await supabase
         .from('cotizaciones')
-        .insert([cotizacionData])
+        .insert([cotizacionConEstado])
         .select()
         .single();
 
