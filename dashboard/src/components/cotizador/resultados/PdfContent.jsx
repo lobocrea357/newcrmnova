@@ -72,7 +72,7 @@ const PdfContent = forwardRef(({
 
         <div className="grid grid-cols-1 gap-6">
           {/* 1. Información del Vuelo */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4" style={{ pageBreakInside: 'avoid' }}>
+          <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 pdf-section" style={{ pageBreakInside: 'avoid' }}>
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-sm font-bold uppercase tracking-widest text-indigo-700">
                 Información del Vuelo
@@ -256,7 +256,7 @@ const PdfContent = forwardRef(({
 
           {/* 3. Desglose de Pasajeros */}
           {tienePasajerosConfigurados() ? (
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 space-y-4" style={{ pageBreakInside: 'avoid' }}>
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 space-y-4 pdf-section" style={{ pageBreakInside: 'avoid' }}>
               <div className="flex items-center justify-between border-b border-blue-100 pb-3">
                 <h3 className="text-sm font-bold uppercase tracking-widest text-blue-700">
                   Desglose de Pasajeros
@@ -366,7 +366,7 @@ const PdfContent = forwardRef(({
 
           {/* 4. Servicios Incluidos (Solo para fines migratorios) */}
           {finesMigratorios && (
-            <div className="bg-amber-50 rounded-xl border border-amber-200 p-6 space-y-3" style={{ pageBreakInside: 'avoid' }}>
+            <div className="bg-amber-50 rounded-xl border border-amber-200 p-6 space-y-3 pdf-section" style={{ pageBreakInside: 'avoid' }}>
               <h3 className="text-sm font-bold uppercase tracking-widest text-amber-700 border-b border-amber-200 pb-2">
                 Servicios Incluidos
               </h3>
@@ -389,7 +389,7 @@ const PdfContent = forwardRef(({
 
 
           {/* Método de pago + datos de pago */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4" style={{ pageBreakInside: 'avoid' }}>
+          <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 pdf-section" style={{ pageBreakInside: 'avoid' }}>
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-widest text-slate-500">
@@ -481,7 +481,7 @@ const PdfContent = forwardRef(({
           </div>
 
           {/* Nota al cliente */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 leading-relaxed" style={{ pageBreakInside: 'avoid' }}>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 leading-relaxed pdf-section" style={{ pageBreakInside: 'avoid' }}>
             Esta cotización es referencial y puede estar sujeta a cambios según
             disponibilidad, variación de tasas de cambio o condiciones del proveedor.
             Confirma siempre con tu asesor antes de realizar cualquier pago.
