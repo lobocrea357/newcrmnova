@@ -517,35 +517,34 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
   }
 
   const handleLimpiar = () => {
-    // Sistema inteligente
+    // Sistema inteligente y monedas
     setMonedaPrecio('USD')
     setMonedaCotizacion('USD')
     setResultadoConversion(null)
-
-    // Monedas (hook)
     setMonedaBaseSeleccionada('USD')
     setMonedaCotizacionSeleccionada('')
     setTasaCambio('1.0')
 
-    // Variables legacy
-    setPrecioBase('')
-    setFeeEmision('')
-    setFeeAgencia('')
+    // Estado del formulario
     setMetodoPago('')
     setTotal(0)
     setDesglose(null)
+    setAgencia(null)
+    setNombreCliente('')
+    setAerolinea('')
 
-    // Hooks reset
+    // Hooks reset (Vuelo, Escalas, Equipaje)
     resetVueloInfo()
     resetEscalas()
     resetEquipaje()
 
-    // Estados individuales restantes
+    // Campos de Vuelo adicionales (Regreso / Migratorio)
     setFechaRegreso('')
     setHoraSalidaRegreso('')
     setHoraLlegadaRegreso('')
-    setAerolinea('')
-    setAgencia(null)
+    setFechaSalidaMigratorio('')
+    setHoraSalidaMigratorio('')
+    setHoraLlegadaMigratorio('')
 
     // Resetear pasajeros
     setPasajeros({
@@ -553,7 +552,12 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
       niños: [],
       infantes: []
     })
-    setNombreCliente('')
+
+    // Resetear estados de guardado
+    setCotizacionGuardada(false)
+    setUltimaCotizacionId(null)
+    
+    toastSuccess('Formulario limpiado')
   }
 
   const limpiarDetallesVuelo = () => {
@@ -562,6 +566,9 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
     setFechaRegreso('')
     setHoraSalidaRegreso('')
     setHoraLlegadaRegreso('')
+    setFechaSalidaMigratorio('')
+    setHoraSalidaMigratorio('')
+    setHoraLlegadaMigratorio('')
     setAerolinea('')
   }
 
