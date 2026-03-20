@@ -23,7 +23,8 @@ import {
     ClipboardList,
     X,
     CheckCircle,
-    Send
+    Send,
+    UserPlus
 } from 'lucide-react'
 
 const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
@@ -73,6 +74,18 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         { href: '/inteligencia-artificial', label: 'IA', icon: Brain },
         { href: '/configuracion', label: 'Configuración', icon: Settings },
     ]
+
+    // Añadir items condicionales según el rol
+    const role = userInfo?.role?.toLowerCase() || ''
+    const canManageTeam = role === 'gerente' || role === 'administrador' || role === 'admin'
+    
+    if (canManageTeam) {
+        // Buscar el índice de configuración para poner 'Mi Equipo' justo antes o después
+        const configIndex = menuItems.findIndex(item => item.href === '/configuracion')
+        if (configIndex !== -1) {
+            menuItems.splice(configIndex, 0, { href: '/configuracion/mi-equipo', label: 'Mi Equipo', icon: UserPlus })
+        }
+    }
 
     const isActive = (href) => {
         if (href === '/') {

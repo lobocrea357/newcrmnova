@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import vuelosService from '../services/vuelosService.js';
 import { supabase } from '../config/supabase.js';
+import { notificarNuevoVuelo, notificarVueloEmitido } from '../services/notificacionesService.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -36,6 +37,21 @@ router.post('/', async (req, res) => {
     // Crear vuelo con pasajeros y adjuntos
     const resultado = await vuelosService.crearVuelo(vuelo, pasajeros || [], adjuntos || []);
 
+    // Obtener nombre del creador para la notificación
+    const { data: creadorProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', vuelo.created_by)
+      .single();
+
+    const creadorNombre = creadorProfile?.full_name || 'Un asesor';
+    const vueloCreado = resultado.vuelo || { ...vuelo, id: resultado.id };
+
+    // Disparar notificaciones de forma asíncrona (no bloquea la respuesta)
+    notificarNuevoVuelo(vueloCreado, creadorNombre).catch(err =>
+      console.error('Error en notificaciones async:', err)
+    );
+
     res.status(201).json({
       message: 'Vuelo creado exitosamente',
       ...resultado
@@ -49,6 +65,7 @@ router.post('/', async (req, res) => {
     });
   }
 });
+
 
 /**
  * POST /api/vuelos/:id/adjuntos - Subir adjunto (comprobante o pasaporte)

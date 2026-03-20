@@ -62,6 +62,12 @@ export const EQUIPOS_API = {
   remover: (userId) => buildApiUrl(`/api/equipos/remover/${userId}`),
 }
 
+// URLs específicas para APIs de rankings
+export const RANKINGS_API = {
+  global: buildApiUrl('/api/rankings/global')
+}
+
+
 // URLs específicas para APIs de anulables
 export const ANULABLES_API = {
   listar: buildApiUrl('/api/anulables'),

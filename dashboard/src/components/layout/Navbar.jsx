@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { getUserInfo } from "@/lib/userConfig";
 import { useAuth } from "@/contexts/AuthContext";
+import NotificacionesCampana from "@/components/ui/NotificacionesCampana";
 import {
   Search,
   Bell,
@@ -138,11 +139,8 @@ const Navbar = ({
               />
             </div> */}
 
-            {/* Notificaciones - Ocultas en móvil pequeño */}
-      {/*       <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors hidden sm:block">
-              <Bell className="h-5 w-5 text-gray-600" />
-              <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
-            </button> */}
+            {/* Campana de notificaciones */}
+            <NotificacionesCampana />
 
             {/* Usuario */}
             <div className="relative">
