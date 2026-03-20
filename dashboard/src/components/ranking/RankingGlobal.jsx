@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRanking } from '@/contexts/RankingContext'
 import { Award, TrendingUp, TrendingDown, Users, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react'
 
@@ -171,6 +171,41 @@ function VistaEquipos({ equipos }) {
 
 export default function RankingGlobal() {
   const { rankingData, loadingRanking, filtroVista, setFiltroVista, realtimeActivo, ultimaActualizacion, recargar } = useRanking()
+  
+  // Estados para el carrusel auto-cíclico
+  const [isHovered, setIsHovered] = useState(false)
+  const [lastInteraction, setLastInteraction] = useState(Date.now())
+  const [animating, setAnimating] = useState(false)
+
+  // Función para cambiar de vista con animación
+  const cambiarVistaConAnimacion = (nuevaVista) => {
+    if (nuevaVista === filtroVista) return
+    setAnimating(true)
+    setTimeout(() => {
+      setFiltroVista(nuevaVista)
+      setLastInteraction(Date.now())
+      setAnimating(false)
+    }, 300) // Duración de la transición de salida
+  }
+
+  // Intervalo para el carrusel
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const ahora = Date.now()
+      const tiempoInactivo = ahora - lastInteraction
+
+      // Condiciones para cambiar automáticamente:
+      // 1. No estar en hover
+      // 2. Haber pasado más de 10 segundos desde la última interacción manual u hover
+      if (!isHovered && tiempoInactivo >= 10000) {
+        const currentIndex = VISTAS.findIndex(v => v.id === filtroVista)
+        const nextIndex = (currentIndex + 1) % VISTAS.length
+        cambiarVistaConAnimacion(VISTAS[nextIndex].id)
+      }
+    }, 5000) // Intento de cambio cada 5 segundos
+
+    return () => clearInterval(interval)
+  }, [filtroVista, isHovered, lastInteraction])
 
   const datosVista = useMemo(() => {
     if (!rankingData) return []
@@ -181,73 +216,106 @@ export default function RankingGlobal() {
   }, [rankingData, filtroVista])
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+    <div 
+      className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden transition-all duration-500"
+      onMouseEnter={() => {
+        setIsHovered(true)
+        setLastInteraction(Date.now())
+      }}
+      onMouseLeave={() => {
+        setIsHovered(false)
+        setLastInteraction(Date.now())
+      }}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50 gap-4">
         <div className="flex items-center gap-3">
-          <Award className="w-5 h-5 text-purple-600" />
-          <h2 className="text-lg font-bold text-gray-900">Ranking Global de Ventas</h2>
-          {realtimeActivo && (
-            <span className="flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
-              <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-              En vivo
-            </span>
-          )}
+          <div className="p-2 bg-purple-100 rounded-lg">
+            <Award className="w-5 h-5 text-purple-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Ranking Global de Ventas</h2>
+            <div className="flex items-center gap-2">
+              {realtimeActivo && (
+                <span className="flex items-center gap-1.5 text-[10px] uppercase font-black text-green-600">
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                  Live
+                </span>
+              )}
+              {!isHovered && (Date.now() - lastInteraction >= 10000) && (
+                <span className="text-[10px] uppercase font-black text-purple-400 animate-pulse">
+                  • Auto-cycle activo
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
           {ultimaActualizacion && (
-            <p className="text-xs text-gray-400 hidden sm:block">
-              Actualizado: {ultimaActualizacion.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+            <p className="text-xs text-gray-400 hidden lg:block whitespace-nowrap">
+              Vigente: {ultimaActualizacion.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
             </p>
           )}
-          <button
-            onClick={recargar}
-            disabled={loadingRanking}
-            className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
-            title="Recargar"
-          >
-            <RefreshCw className={`w-4 h-4 ${loadingRanking ? 'animate-spin' : ''}`} />
-          </button>
-
-          {/* Selector de vista */}
-          <div className="flex rounded-lg border border-gray-200 overflow-hidden bg-white">
+          
+          {/* Selector de vista con estilo moderno */}
+          <div className="flex p-1 bg-gray-200/50 rounded-xl border border-gray-200">
             {VISTAS.map(v => (
               <button
                 key={v.id}
-                onClick={() => setFiltroVista(v.id)}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                onClick={() => cambiarVistaConAnimacion(v.id)}
+                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all duration-300 whitespace-nowrap ${
                   filtroVista === v.id
-                    ? 'bg-purple-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-white text-purple-600 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 {v.label}
               </button>
             ))}
           </div>
+
+          <button
+            onClick={recargar}
+            disabled={loadingRanking}
+            className="p-2 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-200 transition-colors flex-shrink-0"
+            title="Sincronizar ahora"
+          >
+            <RefreshCw className={`w-4 h-4 ${loadingRanking ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 
-      {/* Contenido */}
-      <div className="p-4">
+      {/* Contenido con transiciones suaves */}
+      <div className={`p-4 transition-all duration-300 ${animating ? 'opacity-0 scale-[0.98] blur-sm' : 'opacity-100 scale-100 blur-0'}`}>
         {loadingRanking ? (
-          <div className="flex items-center justify-center py-16">
-            <RefreshCw className="w-8 h-8 text-purple-400 animate-spin" />
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <RefreshCw className="w-10 h-10 text-purple-500 animate-spin" />
+            <p className="text-sm font-medium text-gray-400 animate-pulse">Obteniendo métricas actualizadas...</p>
           </div>
         ) : filtroVista === 'equipos' ? (
-          <VistaEquipos equipos={rankingData?.equipos || []} />
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <VistaEquipos equipos={rankingData?.equipos || []} />
+          </div>
         ) : (
-          <TablaUsuarios
-            usuarios={datosVista}
-            emptyMsg={
-              filtroVista === 'gerentes'
-                ? 'No hay ventas registradas por gerentes'
-                : 'No hay ventas registradas'
-            }
-          />
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <TablaUsuarios
+              usuarios={datosVista}
+              emptyMsg={
+                filtroVista === 'gerentes'
+                  ? 'No hay ventas registradas por gerentes'
+                  : 'No hay ventas registradas'
+              }
+            />
+          </div>
         )}
       </div>
+
+      <style jsx>{`
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   )
 }
+
