@@ -1432,7 +1432,7 @@ El tono debe ser profesional y directo.`);
                       {loadingSales ? (
                         <RefreshCw className="h-5 w-5 text-green-500 animate-spin" />
                       ) : (
-                        salesCount
+                        <span translate="no">{salesCount}</span>
                       )}
                     </dd>
                     <dd className="text-xs text-green-600 mt-1">
@@ -1453,7 +1453,7 @@ El tono debe ser profesional y directo.`);
                     <dt className="text-sm font-medium text-gray-500 truncate">
                       Total Bots
                     </dt>
-                    <dd className="text-3xl font-semibold text-gray-900">
+                    <dd className="text-3xl font-semibold text-gray-900" translate="no">
                       {bots.length}
                     </dd>
                     {activeFiltersCount() > 0 && (
@@ -1476,7 +1476,7 @@ El tono debe ser profesional y directo.`);
                     <dt className="text-sm font-medium text-gray-500 truncate">
                       Total Conversaciones
                     </dt>
-                    <dd className="text-3xl font-semibold text-gray-900">
+                    <dd className="text-3xl font-semibold text-gray-900" translate="no">
                       {totalConversations}
                     </dd>
                   </dl>
@@ -1494,7 +1494,7 @@ El tono debe ser profesional y directo.`);
                     <dt className="text-sm font-medium text-gray-500 truncate">
                       Bots Activos
                     </dt>
-                    <dd className="text-3xl font-semibold text-gray-900">
+                    <dd className="text-3xl font-semibold text-gray-900" translate="no">
                       {
                         bots.filter(
                           (bot) =>
@@ -1687,7 +1687,7 @@ El tono debe ser profesional y directo.`);
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">
-                    Asesores
+                    <span>Asesores</span>
                   </h2>
                   <p className="text-xs text-gray-500 mt-1">
                     Selecciona un asesor para ver sus conversaciones.
@@ -1771,7 +1771,7 @@ El tono debe ser profesional y directo.`);
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-gray-900 truncate">
+                          <p className="text-sm font-semibold text-gray-900 truncate" translate="no">
                             {meta.displayName}
                           </p>
                           <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-gray-500">
@@ -1782,29 +1782,29 @@ El tono debe ser profesional y directo.`);
                                   : "bg-gray-50 text-gray-600 border-gray-200"
                               }`}
                             >
-                              {formattedStatus}
+                              <span translate="no">{formattedStatus}</span>
                             </span>
                             {meta.sedeLabel && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                {meta.sedeLabel}
+                                <span translate="no">{meta.sedeLabel}</span>
                               </span>
                             )}
                             {meta.leadLabel && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                                {meta.leadLabel}
+                                <span translate="no">{meta.leadLabel}</span>
                               </span>
                             )}
                             {meta.leaderLabel && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
-                                {meta.leaderLabel}
+                                <span translate="no">{meta.leaderLabel}</span>
                               </span>
                             )}
                             {bot.phone_number && (
                               <span className="inline-flex items-center gap-1">
                                 <Phone className="h-3 w-3" />
                                 <span className="truncate max-w-[120px]">
-                                  {bot.phone_number}
-                                </span>
+                                <span translate="no">{bot.phone_number}</span>
+                              </span>
                               </span>
                             )}
                           </div>
@@ -1812,10 +1812,10 @@ El tono debe ser profesional y directo.`);
                       </div>
                       <div className="flex flex-col items-end flex-shrink-0">
                         <span className="text-sm font-semibold text-gray-900">
-                          {bot.conversation_count || 0}
+                          <span translate="no">{bot.conversation_count || 0}</span>
                         </span>
                         <span className="text-xs text-gray-500">
-                          Conversaciones
+                          <span>Conversaciones</span>
                         </span>
                       </div>
                     </button>
@@ -1834,29 +1834,42 @@ El tono debe ser profesional y directo.`);
                   return (
                     <div>
                       <h2 className="text-lg font-semibold text-gray-900">
-                        Conversaciones de {meta.displayName}
+                        <span>Conversaciones de </span>
+                        <span translate="no">{meta.displayName}</span>
                       </h2>
                       <p className="text-xs text-gray-500 mt-1">
-                        {selectedBotPagination.total > 0
-                          ? `${selectedBotPagination.total} conversaciones totales`
-                          : `${selectedBot.conversation_count || 0} conversaciones totales`}
-                        {selectedBotPagination.totalPages > 1 &&
-                          ` • Mostrando página ${selectedBotPagination.currentPage} de ${selectedBotPagination.totalPages}`}
+                        {selectedBotPagination.total > 0 ? (
+                          <span translate="no">{selectedBotPagination.total}</span>
+                        ) : (
+                          <span translate="no">{selectedBot.conversation_count || 0}</span>
+                        )}
+                        <span> conversaciones totales</span>
+                        {selectedBotPagination.totalPages > 1 && (
+                          <>
+                            <span> • Mostrando página </span>
+                            <span translate="no">{selectedBotPagination.currentPage}</span>
+                            <span> de </span>
+                            <span translate="no">{selectedBotPagination.totalPages}</span>
+                          </>
+                        )}
                       </p>
                       <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px] text-gray-600">
                         {meta.sedeLabel && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-                            Sede: {meta.sedeLabel}
+                            <span>Sede: </span>
+                            <span translate="no">{meta.sedeLabel}</span>
                           </span>
                         )}
                         {meta.leadLabel && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                            Lead: {meta.leadLabel}
+                            <span>Lead: </span>
+                            <span translate="no">{meta.leadLabel}</span>
                           </span>
                         )}
                         {meta.leaderLabel && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
-                            Líder: {meta.leaderLabel}
+                            <span>Líder: </span>
+                            <span translate="no">{meta.leaderLabel}</span>
                           </span>
                         )}
                       </div>
@@ -1866,11 +1879,10 @@ El tono debe ser profesional y directo.`);
               ) : (
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">
-                    Conversaciones
+                    <span>Conversaciones</span>
                   </h2>
                   <p className="text-xs text-gray-500 mt-1">
-                    Selecciona un asesor en la lista para ver sus
-                    conversaciones.
+                    <span>Selecciona un asesor en la lista para ver sus conversaciones.</span>
                   </p>
                 </div>
               )}
@@ -1878,11 +1890,12 @@ El tono debe ser profesional y directo.`);
               {selectedBot && (
                 <div className="flex flex-col items-end gap-3">
                   <div className="flex flex-col items-end text-xs text-gray-500">
-                    <span>Estado: {formatBotStatus(selectedBot.status)}</span>
+                    <span>Estado: </span>
+                    <span translate="no">{formatBotStatus(selectedBot.status)}</span>
                     {selectedBot.phone_number && (
                       <span className="flex items-center gap-1 mt-1">
                         <Phone className="h-3 w-3" />
-                        {selectedBot.phone_number}
+                        <span translate="no">{selectedBot.phone_number}</span>
                       </span>
                     )}
                   </div>
