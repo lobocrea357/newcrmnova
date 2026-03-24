@@ -32,8 +32,9 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="es" suppressHydrationWarning translate="no">
       <head>
+        <meta name="google" content="notranslate" />
         <link rel="icon" href="/logo-morado.png" type="image/png" />
       </head>
       <body
