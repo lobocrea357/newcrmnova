@@ -83,6 +83,18 @@
       "pais": "Venezuela",
       "iata": "ES",
       "icao": "ETR"
+    },
+    {
+      "nombre": "Laser Airlines",
+      "pais": "Venezuela",
+      "iata": "QL",
+      "icao": "LER"
+    },
+    {
+      "nombre": "Plus Ultra",
+      "pais": "España",
+      "iata": "PU",
+      "icao": "PUE"
     }
   ],
   "globales": [
@@ -181,6 +193,30 @@
       "pais": "Corea del Sur",
       "iata": "KE",
       "icao": "KAL"
+    },
+    {
+      "nombre": "Turkish Airlines",
+      "pais": "Turquía",
+      "iata": "TK",
+      "icao": "THY"
+    },
+    {
+      "nombre": "World2Fly",
+      "pais": "España",
+      "iata": "2W",
+      "icao": "WFL"
+    },
+    {
+      "nombre": "Hahn Air Technologies",
+      "pais": "Alemania",
+      "iata": "HR",
+      "icao": "HHN"
+    },
+    {
+      "nombre": "TAP Air Portugal",
+      "pais": "Portugal",
+      "iata": "TP",
+      "icao": "TAP"
     }
   ],
   "espana": [
