@@ -545,11 +545,17 @@ export default function VueloForm({ initialData, onSubmit, isLoading }) {
 
         <div className="space-y-6">
           <div>
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Comprobantes de Pago</h4>
+            <h4 className="text-sm font-medium text-gray-700 mb-3">
+              Comprobantes de Pago
+              {(formData.metodo_pago?.includes('Depósito oficina') || formData.metodo_pago?.includes('efectivo')) && (
+                <span className="ml-2 text-xs text-green-600 font-medium">(Sin límite para pago en efectivo)</span>
+              )}
+            </h4>
             <FileUpload
               tipo="COMPROBANTE_PAGO"
               onFilesChange={setComprobantes}
               maxFiles={5}
+              unlimited={formData.metodo_pago?.includes('Depósito oficina') || formData.metodo_pago?.includes('efectivo')}
             />
           </div>
 

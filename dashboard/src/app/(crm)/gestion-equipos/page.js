@@ -7,8 +7,11 @@ import { supabase } from '@/lib/supabase'
 import { EQUIPOS_API } from '@/config/apiConfig'
 import { Users, UserPlus, UserMinus, Shield, Search, RefreshCw, ChevronRight } from 'lucide-react'
 import Breadcrumb from '@/components/ui/Breadcrumb'
+import { useRouter, usePathname } from 'next/navigation'
 
-export default function MiEquipoPage() {
+export default function GestionEquiposPage() {
+  const router = useRouter()
+  const pathname = usePathname()
   const { user } = useAuth()
   const { profile, loading: loadingProfile } = useUserProfile(user?.id)
   const [equipo, setEquipo] = useState(null)
@@ -18,21 +21,29 @@ export default function MiEquipoPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
 
+  // Log para verificar la ruta actual
+  useEffect(() => {
+    // console.log("🔍 Ruta actual:", pathname)
+    // if (pathname === '/configuracion/mi-equipo') {
+    //   console.log("⚠️ Usuario accediendo a ruta antigua, debería redirigir a /gestion-equipos")
+    // }
+  }, [pathname])
+
   const loadData = useCallback(async () => {
-    // console.log("🔍 loadData (VIEJA): Perfil actual", profile)
-    // console.log("🔍 loadData (VIEJA): User ID", user?.id)
-    // console.log("🔍 loadData (VIEJA): Profile ID", profile?.id)
-    // console.log("🔍 loadData (VIEJA): Profile role", profile?.role?.name)
+    // console.log("🔍 loadData: Perfil actual", profile)
+    // console.log("🔍 loadData: User ID", user?.id)
+    // console.log("🔍 loadData: Profile ID", profile?.id)
+    // console.log("🔍 loadData: Profile role", profile?.role?.name)
 
     if (!profile?.id || profile?.role?.name !== 'gerente') {
       setLoadingData(false)
-      // console.log("❌ loadData (VIEJA): No es gerente o no hay ID de perfil.")
+      // console.log("❌ loadData: No es gerente o no hay ID de perfil.")
       return
     }
 
     try {
       setLoadingData(true)
-      // console.log("🔍 loadData (VIEJA): Buscando equipo para gerente_id =", profile.id)
+      // console.log("🔍 loadData: Buscando equipo para gerente_id =", profile.id)
       
       // 1. Cargar equipo del gerente (buscar donde gerente_id = profile.id)
       const { data: equipoData, error: equipoError } = await supabase
@@ -42,14 +53,14 @@ export default function MiEquipoPage() {
         .eq('is_active', true)
         .single()
       
-      // console.log("🔍 loadData (VIEJA): Resultado consulta equipoData", equipoData)
-      // console.log("🔍 loadData (VIEJA): Error consulta equipoError", equipoError)
+      // console.log("🔍 loadData: Resultado consulta equipoData", equipoData)
+      // console.log("🔍 loadData: Error consulta equipoError", equipoError)
 
       if (equipoData) {
-        // console.log("✅ loadData (VIEJA): Equipo encontrado:", equipoData.nombre)
+        // console.log("✅ loadData: Equipo encontrado:", equipoData.nombre)
         setEquipo(equipoData)
       } else {
-        // console.log("❌ loadData (VIEJA): No se encontró equipo para el gerente")
+        // console.log("❌ loadData: No se encontró equipo para el gerente")
       }
 
       // 2. Cargar miembros del equipo (asesores con equipo_id = equipo.id)
@@ -59,8 +70,8 @@ export default function MiEquipoPage() {
           .select('id, full_name, email, role:roles(name)')
           .eq('equipo_id', equipoData.id)
         
-        // console.log("🔍 loadData (VIEJA): Resultado consulta miembrosData", miembrosData)
-        // console.log("🔍 loadData (VIEJA): Error consulta miembrosError", miembrosError)
+        // console.log("🔍 loadData: Resultado consulta miembrosData", miembrosData)
+        // console.log("🔍 loadData: Error consulta miembrosError", miembrosError)
 
         if (miembrosData) setMiembros(miembrosData)
 
@@ -72,14 +83,14 @@ export default function MiEquipoPage() {
           .neq('id', user?.id) // No incluirse a sí mismo
           .eq('role_id', (await supabase.from('roles').select('id').eq('name', 'asesor').single()).data?.id)
 
-        // console.log("🔍 loadData (VIEJA): Resultado consulta sinEquipoData", sinEquipoData)
-        // console.log("🔍 loadData (VIEJA): Error consulta sinEquipoError", sinEquipoError)
+        // console.log("🔍 loadData: Resultado consulta sinEquipoData", sinEquipoData)
+        // console.log("🔍 loadData: Error consulta sinEquipoError", sinEquipoError)
 
         if (sinEquipoData) setAsesoresSinEquipo(sinEquipoData)
       }
 
     } catch (err) {
-      console.error('❌ Error cargando datos del equipo (VIEJA):', err)
+      console.error('❌ Error cargando datos del equipo:', err)
     } finally {
       setLoadingData(false)
     }
@@ -162,8 +173,7 @@ export default function MiEquipoPage() {
         <Breadcrumb
           items={[
             { label: 'Dashboard', href: '/' },
-            { label: 'Configuración', href: '/configuracion' },
-            { label: 'Mi Equipo', href: '/configuracion/mi-equipo' },
+            { label: 'Gestión de Equipos', href: '/gestion-equipos' },
           ]}
         />
 
@@ -177,7 +187,7 @@ export default function MiEquipoPage() {
                 <Users className="w-8 h-8" />
               </div>
               <div>
-                <h1 className="text-2xl font-black text-gray-900">{equipo?.nombre || 'Gestión de Equipo'}</h1>
+                <h1 className="text-2xl font-black text-gray-900">{equipo?.nombre || 'Gestión de Equipos'}</h1>
                 <p className="text-gray-500 text-sm">Administra los miembros de tu equipo de ventas</p>
               </div>
             </div>

@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Users, UserPlus, RefreshCw, Shield, AlertTriangle, UsersRound } from "lucide-react";
+import { Users, UserPlus, RefreshCw, Shield, AlertTriangle } from "lucide-react";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import UserList from "@/components/users/UserList";
 import UserFormModal from "@/components/users/UserFormModal";
-import EquiposTab from "@/components/users/EquiposTab";
 import { useRouteGuard } from "@/hooks/useRouteGuard";
 
 export default function UsuariosPage() {
@@ -20,7 +19,6 @@ export default function UsuariosPage() {
   const [loadingData, setLoadingData] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('usuarios');
 
   useEffect(() => {
     if (!loading && user && isAdmin) {
@@ -180,72 +178,30 @@ export default function UsuariosPage() {
                   <RefreshCw className={`h-4 w-4 ${loadingData ? "animate-spin" : ""}`} />
                   Actualizar
                 </button>
-                {activeTab === 'usuarios' && (
-                  <button
-                    onClick={handleAddUser}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    Agregar Usuario
-                  </button>
-                )}
+                <button
+                  onClick={handleAddUser}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Agregar Usuario
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="flex border-b border-gray-200">
-              <button
-                onClick={() => setActiveTab('usuarios')}
-                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === 'usuarios'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <Users className="w-4 h-4" />
-                Usuarios
-                <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">{users.length}</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('equipos')}
-                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === 'equipos'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <UsersRound className="w-4 h-4" />
-                Equipos
-              </button>
+          {/* Lista de Usuarios */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Lista de Usuarios</h3>
+              <p className="text-sm text-gray-500 mt-1">Total: {users.length} usuarios</p>
             </div>
-
-            <div className="p-6">
-              {activeTab === 'usuarios' && (
-                <>
-                  <div className="mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Lista de Usuarios</h3>
-                    <p className="text-sm text-gray-500 mt-1">Total: {users.length} usuarios</p>
-                  </div>
-                  <UserList
-                    users={users}
-                    roles={roles}
-                    onEdit={handleEditUser}
-                    onToggleStatus={handleToggleStatus}
-                    loading={loadingData}
-                  />
-                </>
-              )}
-
-              {activeTab === 'equipos' && (
-                <EquiposTab
-                  allUsers={users}
-                  roles={roles}
-                  onDataChange={loadData}
-                />
-              )}
-            </div>
+            <UserList
+              users={users}
+              roles={roles}
+              onEdit={handleEditUser}
+              onToggleStatus={handleToggleStatus}
+              loading={loadingData}
+            />
           </div>
         </div>
       </div>

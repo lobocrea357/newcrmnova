@@ -83,7 +83,7 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         // Buscar el índice de configuración para poner 'Mi Equipo' justo antes o después
         const configIndex = menuItems.findIndex(item => item.href === '/configuracion')
         if (configIndex !== -1) {
-            menuItems.splice(configIndex, 0, { href: '/configuracion/mi-equipo', label: 'Mi Equipo', icon: UserPlus })
+            menuItems.splice(configIndex, 0, { href: '/gestion-equipos', label: 'Gestión de Equipos', icon: UserPlus })
         }
     }
 

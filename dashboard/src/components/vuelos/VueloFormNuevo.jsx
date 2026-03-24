@@ -258,8 +258,11 @@ export default function VueloFormNuevo({
   const handleComprobanteUpload = (e) => {
     const files = Array.from(e.target.files)
 
-    // Validar cantidad
-    if (comprobantes.length + files.length > 5) {
+    // Verificar si el método de pago es depósito en oficina (efectivo) - sin límite de archivos
+    const esDepositoEfectivo = formData.metodo_pago?.includes('Depósito oficina') || formData.metodo_pago?.includes('efectivo')
+
+    // Validar cantidad solo si NO es depósito en efectivo
+    if (!esDepositoEfectivo && comprobantes.length + files.length > 5) {
       toastError('Máximo 5 comprobantes permitidos')
       return
     }

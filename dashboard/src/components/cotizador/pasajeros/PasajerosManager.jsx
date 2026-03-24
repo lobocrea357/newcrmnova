@@ -51,7 +51,8 @@ export default function PasajerosManager({
   monedasCotizacion = [],
   loadingMonedas = false,
   onMonedaPrecioChange,
-  onMonedaCotizacionChange
+  onMonedaCotizacionChange,
+  aerolinea = ''
 }) {
   // Usar directamente el value del padre (componente controlado)
   const pasajeros = value
@@ -78,6 +79,15 @@ export default function PasajerosManager({
   // Generar ID único para pasajeros
   const generarId = () => Date.now() + Math.random()
 
+  // Calcular fee de emisión según aerolínea
+  const calcularFeeEmision = () => {
+    // Si la aerolínea es Estelar, fee es 10, sino 15
+    if (aerolinea && aerolinea.toLowerCase().includes('estelar')) {
+      return '10'
+    }
+    return '15'
+  }
+
   // Agregar pasajero a una categoría
   const agregarPasajero = (categoria) => {
     if (readonly || !onChange) return
@@ -93,7 +103,7 @@ export default function PasajerosManager({
     const nuevoPasajero = {
       id: generarId(),
       precioPantalla: config.precioDefault,
-      feeEmision: '15', // Fee normal por defecto
+      feeEmision: calcularFeeEmision(), // Fee automático según aerolínea
       feeAgencia: 30, // Default que puede variar por pasajero
       equipajeCompleto: true,
       equipajeMediano: false,
@@ -199,40 +209,40 @@ export default function PasajerosManager({
     return (
       <div className={`border-2 border-${config.color}-200 rounded-xl overflow-hidden bg-white`} key={categoriaKey}>
         {/* Header de la categoría */}
-        <div className={`bg-${config.color}-50 px-4 py-3 border-b border-${config.color}-200`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Icono className={`w-5 h-5 text-${config.color}-600`} />
-              <div>
-                <h3 className="font-bold text-gray-800">{config.nombre}</h3>
-                <p className="text-xs text-gray-600">{config.descripcion}</p>
+        <div className={`bg-${config.color}-50 px-3 sm:px-4 py-3 border-b border-${config.color}-200`}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <Icono className={`w-5 h-5 text-${config.color}-600 flex-shrink-0`} />
+              <div className="min-w-0">
+                <h3 className="font-bold text-gray-800 text-sm sm:text-base">{config.nombre}</h3>
+                <p className="text-xs text-gray-600 hidden sm:block">{config.descripcion}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
               {/* Contador */}
-              <div className={`px-3 py-1 bg-${config.color}-100 text-${config.color}-700 rounded-full text-sm font-bold`}>
+              <div className={`px-2 sm:px-3 py-1 bg-${config.color}-100 text-${config.color}-700 rounded-full text-xs sm:text-sm font-bold whitespace-nowrap`}>
                 {totales.cantidad} pasajero{totales.cantidad !== 1 ? 's' : ''}
               </div>
 
               {/* Botones de acción */}
               {!readonly && (
-                <div className="flex gap-1">
+                <div className="flex gap-1 sm:gap-2">
                   <button
                     onClick={() => agregarPasajero(categoriaKey)}
-                    className={`p-1.5 bg-${config.color}-500 text-white rounded-lg hover:bg-${config.color}-600 transition-colors`}
+                    className={`p-2 sm:p-1.5 bg-${config.color}-500 text-white rounded-lg hover:bg-${config.color}-600 transition-colors touch-manipulation`}
                     title={`Agregar ${config.nombre.slice(0, -1)}`}
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-5 h-5 sm:w-4 sm:h-4" />
                   </button>
 
                   {categoriaPasajeros.length > 0 && (
                     <button
                       onClick={() => toggleCategoria(categoriaKey)}
-                      className={`p-1.5 bg-${config.color}-500 text-white rounded-lg hover:bg-${config.color}-600 transition-colors`}
+                      className={`p-2 sm:p-1.5 bg-${config.color}-500 text-white rounded-lg hover:bg-${config.color}-600 transition-colors touch-manipulation`}
                       title={isExpanded ? 'Contraer' : 'Expandir'}
                     >
-                      {isExpanded ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                      {isExpanded ? <Minus className="w-5 h-5 sm:w-4 sm:h-4" /> : <Plus className="w-5 h-5 sm:w-4 sm:h-4" />}
                     </button>
                   )}
                 </div>
@@ -253,7 +263,7 @@ export default function PasajerosManager({
 
         {/* Lista de pasajeros expandida */}
         {isExpanded && categoriaPasajeros.length > 0 && (
-          <div className="p-4 space-y-3">
+          <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
             {categoriaPasajeros.map((pasajero, index) => (
               <PasajeroCard
                 key={pasajero.id}
@@ -447,22 +457,18 @@ function PasajeroCard({ pasajero, index, categoria, color, readonly, onUpdate, o
           />
         </div>
 
-        {/* Fee Emisión */}
+        {/* Fee Emisión - Automático */}
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
             <CreditCard className="w-3 h-3 inline mr-1" />
-            Fee Emisión
+            Fee Emisión (Automático)
           </label>
-          <select
-            value={pasajero.feeEmision === '15' ? 'normal' : pasajero.feeEmision === '10' ? 'promo' : ''}
-            onChange={(e) => onUpdate('feeEmision', e.target.value === 'normal' ? '15' : '10')}
-            disabled={readonly}
-            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">Seleccionar</option>
-            <option value="normal">Normal ($15)</option>
-            <option value="promo">Promo Stellar ($10)</option>
-          </select>
+          <div className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded bg-gray-50">
+            <span className="font-bold text-gray-900">${pasajero.feeEmision}</span>
+            <span className="text-xs text-gray-500 ml-2">
+              {pasajero.feeEmision === '10' ? '(Estelar)' : '(Normal)'}
+            </span>
+          </div>
         </div>
 
         {/* Fee Agencia */}

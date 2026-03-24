@@ -6,7 +6,8 @@ export default function FileUpload({
   tipo, 
   onFilesChange, 
   maxFiles = 5,
-  maxSizeMB = 10 
+  maxSizeMB = 10,
+  unlimited = false // Para depósito en oficina (efectivo)
 }) {
   const [files, setFiles] = useState([])
   const [dragActive, setDragActive] = useState(false)
@@ -28,7 +29,8 @@ export default function FileUpload({
     setError('')
     const fileArray = Array.from(newFiles)
 
-    if (files.length + fileArray.length > maxFiles) {
+    // Si unlimited es true, no validar cantidad de archivos
+    if (!unlimited && files.length + fileArray.length > maxFiles) {
       setError(`Máximo ${maxFiles} archivos permitidos`)
       return
     }
@@ -143,7 +145,7 @@ export default function FileUpload({
       {files.length > 0 && (
         <div className="space-y-2">
           <p className="text-sm font-medium text-gray-700">
-            Archivos seleccionados ({files.length}/{maxFiles})
+            Archivos seleccionados ({files.length}{unlimited ? '' : `/${maxFiles}`})
           </p>
           {files.map((file, index) => (
             <div

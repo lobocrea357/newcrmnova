@@ -32,13 +32,14 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/logo-morado.png" type="image/png" />
       </head>
       <body
         className={`${geistSans.className} ${geistMono.className} antialiased`}
         style={geistSans.style}
+        suppressHydrationWarning
       >
         <ErrorBoundary>
           <AuthProvider>{children}</AuthProvider>

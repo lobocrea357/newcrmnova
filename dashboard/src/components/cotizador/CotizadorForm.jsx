@@ -16,6 +16,7 @@ import CollapsibleSection from '@/components/ui/CollapsibleSection'
 import PasajerosManager from './pasajeros/PasajerosManager'
 import PdfContent from './resultados/PdfContent'
 import BannerCotizacionGuardada from './BannerCotizacionGuardada'
+import AerolineaAutocomplete from './AerolineaAutocomplete'
 
 // Helpers
 import { confirmAlert } from '@/helpers/sweetAlerts'
@@ -836,13 +837,14 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
                   <PasajerosManager
                     value={pasajeros}
                     onChange={setPasajeros}
-                  monedaPrecio={monedaBaseSeleccionada}
-                  monedaCotizacion={monedaCotizacionSeleccionada}
-                  monedasBase={monedasBase}
-                  monedasCotizacion={getMonedasConTasas()}
-                  loadingMonedas={loadingMonedas}
-                  onMonedaPrecioChange={setMonedaBaseSeleccionada}
-                  onMonedaCotizacionChange={setMonedaCotizacionSeleccionada}
+              monedaPrecio={monedaBaseSeleccionada}
+              monedaCotizacion={monedaCotizacionSeleccionada}
+              monedasBase={monedasBase}
+              monedasCotizacion={getMonedasConTasas()}
+              loadingMonedas={loadingMonedas}
+              onMonedaPrecioChange={setMonedaBaseSeleccionada}
+              onMonedaCotizacionChange={setMonedaCotizacionSeleccionada}
+              aerolinea={aerolinea}
                   />
               </div>
         </div>
@@ -1059,15 +1061,9 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
             </div>
           </div>
           <div>
-            <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-              Aerolínea
-            </label>
-            <input
-              type="text"
+            <AerolineaAutocomplete
               value={aerolinea}
-              onChange={(e) => setAerolinea(e.target.value)}
-              placeholder="Ej: Avianca"
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              onChange={setAerolinea}
             />
           </div>
           {(vueloInfo.idaVuelta || vueloInfo.soloIda) && (
