@@ -46,6 +46,8 @@ const ROLE_PERMISSIONS = {
       '/cotizador',
       '/ventas/cotizaciones',
       '/ventas/vuelos',
+      '/admin/confirmar-pagos',
+      '/emisiones',
       '/inteligencia-artificial',
       '/configuracion'
     ]

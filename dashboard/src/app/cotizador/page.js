@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useUserProfile } from '@/hooks/useUserProfile'
 import { Calculator, ArrowLeft, Settings, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import Navbar from '@/components/layout/Navbar'
@@ -13,6 +14,7 @@ import BannerCotizacionGuardada from '@/components/cotizador/BannerCotizacionGua
 
 export default function CotizadorPage() {
   const { user, session, loading: authLoading } = useAuth()
+  const { profile, isAdmin } = useUserProfile()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [activeTab, setActiveTab] = useState('calculadora') // 'calculadora' | 'tasas' | 'monedas'
@@ -20,6 +22,8 @@ export default function CotizadorPage() {
   const [formKey, setFormKey] = useState(0) // Para forzar remount del form
   
   const isAuthenticated = !!user && !!session
+  // Solo admin y gerente pueden ver tabs de gestión
+  const canManageSettings = isAdmin || profile?.role?.name === 'gerente'
 
   // Mostrar loading mientras se verifica autenticación
   if (authLoading) {
@@ -70,32 +74,36 @@ export default function CotizadorPage() {
                     <Calculator className="w-4 h-4" />
                     Cotizador
                   </button>
-                  <button
-                    onClick={() => setActiveTab('tasas')}
-                    className={`
-                      flex items-center gap-2 px-4 py-2.5 text-sm font-medium leading-5 rounded-lg transition-all duration-200
-                      ${activeTab === 'tasas'
-                        ? 'bg-white text-indigo-700 shadow'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-300'
-                      }
-                    `}
-                  >
-                    <Settings className="w-4 h-4" />
-                    Gestionar Tasas
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('monedas')}
-                    className={`
-                      flex items-center gap-2 px-4 py-2.5 text-sm font-medium leading-5 rounded-lg transition-all duration-200
-                      ${activeTab === 'monedas'
-                        ? 'bg-white text-indigo-700 shadow'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-300'
-                      }
-                    `}
-                  >
-                    <TrendingUp className="w-4 h-4" />
-                    Gestionar Monedas
-                  </button>
+                  {canManageSettings && (
+                    <>
+                      <button
+                        onClick={() => setActiveTab('tasas')}
+                        className={`
+                          flex items-center gap-2 px-4 py-2.5 text-sm font-medium leading-5 rounded-lg transition-all duration-200
+                          ${activeTab === 'tasas'
+                            ? 'bg-white text-indigo-700 shadow'
+                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-300'
+                          }
+                        `}
+                      >
+                        <Settings className="w-4 h-4" />
+                        Gestionar Tasas
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('monedas')}
+                        className={`
+                          flex items-center gap-2 px-4 py-2.5 text-sm font-medium leading-5 rounded-lg transition-all duration-200
+                          ${activeTab === 'monedas'
+                            ? 'bg-white text-indigo-700 shadow'
+                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-300'
+                          }
+                        `}
+                      >
+                        <TrendingUp className="w-4 h-4" />
+                        Gestionar Monedas
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 

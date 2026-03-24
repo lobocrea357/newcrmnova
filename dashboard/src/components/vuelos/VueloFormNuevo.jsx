@@ -319,6 +319,9 @@ export default function VueloFormNuevo({
         ...formData,
         monto_venta: parseFloat(formData.monto_venta),
         cotizacion_id: cotizacion?.id || null,
+        // Validar horas para evitar strings vacíos
+        horario: formData.horario && formData.horario.trim() !== '' ? formData.horario : null,
+        hora_llegada: formData.hora_llegada && formData.hora_llegada.trim() !== '' ? formData.hora_llegada : null,
         // Escalas
         tiene_escala: formData.tiene_escala,
         escala_1_ciudad: formData.escala_1_ciudad || null,

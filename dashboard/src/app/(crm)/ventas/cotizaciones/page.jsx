@@ -147,19 +147,19 @@ export default function CotizacionesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6">
       {/* Header con botón crear */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-4 md:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Cotizaciones</h1>
-          <p className="text-gray-600 mt-1">Gestiona y revisa tus cotizaciones</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Cotizaciones</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Gestiona y revisa tus cotizaciones</p>
         </div>
         <button
           onClick={() => router.push('/cotizador')}
-          className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm"
+          className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm text-sm sm:text-base whitespace-nowrap"
         >
-          <Plus className="w-5 h-5" />
-          Crear Nueva Cotización
+          <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+          Crear Nueva
         </button>
       </div>
 
@@ -168,14 +168,14 @@ export default function CotizacionesPage() {
         <TutorialCotizaciones />
       </div>
 
-      <div className="flex gap-6 h-[calc(100vh-180px)]">
+      <div className="flex flex-col lg:flex-row gap-4 md:gap-6 h-auto lg:h-[calc(100vh-180px)]">
         {/* Columna Izquierda - Lista de Cotizaciones */}
-        <div className="w-full lg:w-96 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
+        <div className="w-full lg:w-96 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden max-h-[500px] lg:max-h-none">
         {/* Header */}
-        <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <ClipboardList className="w-6 h-6 text-indigo-600" />
+          <div className="p-3 sm:p-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
               Cotizaciones
             </h1>
             <button
@@ -248,23 +248,23 @@ export default function CotizacionesPage() {
                 <button
                   key={cotizacion.id}
                   onClick={() => handleSelectCotizacion(cotizacion)}
-                  className={`w-full p-4 text-left hover:bg-gray-50 transition-colors ${selectedCotizacion?.id === cotizacion.id ? 'bg-indigo-50 border-l-4 border-indigo-600' : ''
+                  className={`w-full p-3 sm:p-4 text-left hover:bg-gray-50 transition-colors ${selectedCotizacion?.id === cotizacion.id ? 'bg-indigo-50 border-l-4 border-indigo-600' : ''
                     }`}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 truncate flex items-center gap-2">
-                        <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate flex items-center gap-2">
+                        <User className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
                         {cotizacion.nombre_cliente}
                       </h3>
                     </div>
-                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium border ${getEstadoBadgeColor(cotizacion.estado)}`}>
-                      {cotizacion.estado}
+                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap ${getEstadoBadgeColor(cotizacion.estado)}`}>
+                      {cotizacion.estado.replace('_', ' ')}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                    <Plane className="w-3 h-3 text-gray-400" />
+                  <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 mb-2">
+                    <Plane className="w-3 h-3 text-gray-400 flex-shrink-0" />
                     <span className="truncate">{cotizacion.origen} → {cotizacion.destino}</span>
                   </div>
 

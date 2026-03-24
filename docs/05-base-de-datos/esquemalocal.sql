@@ -347,6 +347,18 @@ CREATE TABLE public.monedas (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT monedas_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.notificaciones (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  tipo character varying NOT NULL DEFAULT 'info'::character varying,
+  titulo character varying NOT NULL,
+  descripcion text,
+  leida boolean NOT NULL DEFAULT false,
+  datos jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT notificaciones_pkey PRIMARY KEY (id),
+  CONSTRAINT notificaciones_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.performance_analyses (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   analysis_name text NOT NULL,
@@ -561,7 +573,8 @@ CREATE TABLE public.vuelos (
   CONSTRAINT vuelos_pkey PRIMARY KEY (id),
   CONSTRAINT vuelos_cotizacion_id_fkey FOREIGN KEY (cotizacion_id) REFERENCES public.cotizaciones(id),
   CONSTRAINT vuelos_pago_confirmado_por_fkey FOREIGN KEY (pago_confirmado_por) REFERENCES public.profiles(id),
-  CONSTRAINT vuelos_emitido_por_fkey FOREIGN KEY (emitido_por) REFERENCES public.profiles(id)
+  CONSTRAINT vuelos_emitido_por_fkey FOREIGN KEY (emitido_por) REFERENCES public.profiles(id),
+  CONSTRAINT vuelos_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.vuelos_adjuntos (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
