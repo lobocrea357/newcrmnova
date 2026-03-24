@@ -271,10 +271,14 @@ export default function CotizacionesPage() {
                   <div className="flex items-center justify-between text-xs text-gray-500">
                     <div className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
-                      {new Date(cotizacion.fecha_salida).toLocaleDateString('es-ES', {
-                        day: '2-digit',
-                        month: 'short'
-                      })}
+                      {(() => {
+                        const [year, month, day] = cotizacion.fecha_salida.split('-')
+                        const date = new Date(year, month - 1, day)
+                        return date.toLocaleDateString('es-ES', {
+                          day: '2-digit',
+                          month: 'short'
+                        })
+                      })()}
                     </div>
                     <div className="flex items-center gap-1 font-semibold text-indigo-600">
                       <DollarSign className="w-3 h-3" />

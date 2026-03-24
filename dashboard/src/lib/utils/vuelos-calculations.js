@@ -26,7 +26,8 @@ export function generarFormatoWhatsApp(vuelo) {
   if (vuelo.num_ninos > 0) paxDetalle.push(`${vuelo.num_ninos}CHD`);
   if (vuelo.num_infantes > 0) paxDetalle.push(`${vuelo.num_infantes}INF`);
   
-  const fecha = new Date(vuelo.fecha_vuelo);
+  const [year, month, day] = vuelo.fecha_vuelo.split('-');
+  const fecha = new Date(year, month - 1, day);
   const fechaFormateada = fecha.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }).toUpperCase();
   
   let mensaje = `*PAGO COMPLETO*\n`;

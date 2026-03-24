@@ -20,7 +20,8 @@ export default function VueloCard({ vuelo }) {
   const totalPax = (vuelo.num_adultos || 0) + (vuelo.num_ninos || 0) + (vuelo.num_infantes || 0)
   
   const formatDate = (dateString) => {
-    const date = new Date(dateString + 'T12:00:00')
+    const [year, month, day] = dateString.split('-')
+    const date = new Date(year, month - 1, day)
     return date.toLocaleDateString('es-ES', { 
       day: '2-digit', 
       month: 'short', 

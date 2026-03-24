@@ -214,11 +214,15 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
             <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Fecha de Salida</p>
             <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
               <Calendar className="w-4 h-4 text-indigo-600" />
-              {new Date(cotizacion.fecha_salida).toLocaleDateString('es-ES', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric'
-              })}
+              {(() => {
+                const [year, month, day] = cotizacion.fecha_salida.split('-')
+                const date = new Date(year, month - 1, day)
+                return date.toLocaleDateString('es-ES', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric'
+                })
+              })()}
             </div>
           </div>
 

@@ -167,7 +167,11 @@ export default function EmisionesPage() {
                         {vuelo.ruta}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {new Date(vuelo.fecha_vuelo).toLocaleDateString('es-ES')}
+                        {(() => {
+                          const [year, month, day] = vuelo.fecha_vuelo.split('-')
+                          const date = new Date(year, month - 1, day)
+                          return date.toLocaleDateString('es-ES')
+                        })()}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
                         {vuelo.aerolinea_nombre || 'N/A'}
@@ -245,7 +249,11 @@ export default function EmisionesPage() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
                       <p className="text-gray-900">
-                        {new Date(selectedVuelo.fecha_vuelo).toLocaleDateString('es-ES')}
+                        {(() => {
+                          const [year, month, day] = selectedVuelo.fecha_vuelo.split('-')
+                          const date = new Date(year, month - 1, day)
+                          return date.toLocaleDateString('es-ES')
+                        })()}
                       </p>
                     </div>
                     <div>

@@ -161,7 +161,11 @@ export default function ConfirmarPagosPage() {
                         {vuelo.ruta}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {new Date(vuelo.fecha_vuelo).toLocaleDateString('es-ES')}
+                        {(() => {
+                          const [year, month, day] = vuelo.fecha_vuelo.split('-')
+                          const date = new Date(year, month - 1, day)
+                          return date.toLocaleDateString('es-ES')
+                        })()}
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-sm font-semibold text-green-600">
@@ -230,12 +234,16 @@ export default function ConfirmarPagosPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Vuelo</label>
                     <p className="text-gray-900">
-                      {new Date(selectedVuelo.fecha_vuelo).toLocaleDateString('es-ES', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
+                      {(() => {
+                        const [year, month, day] = selectedVuelo.fecha_vuelo.split('-')
+                        const date = new Date(year, month - 1, day)
+                        return date.toLocaleDateString('es-ES', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })
+                      })()}
                     </p>
                   </div>
                   <div>
