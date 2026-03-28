@@ -1,10 +1,9 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import { getUserInfo, isRouteHidden } from '@/lib/userConfig'
+import { useUserProfile } from '@/contexts/UserProfileContext'
 import {
     LayoutDashboard,
     MessageSquare,
@@ -16,8 +15,6 @@ import {
     AlertTriangle,
     XCircle,
     Settings,
-    User,
-    Plane,
     PlaneTakeoff,
     Calculator,
     ClipboardList,
@@ -29,34 +26,10 @@ import {
 
 const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
     const pathname = usePathname()
-    const [user, setUser] = useState(null)
-    const [userInfo, setUserInfo] = useState(null)
-    const [loading, setLoading] = useState(true)
+    const { profile, role, loading: profileLoading, isSuperAdmin, isAdmin, isManager } = useUserProfile()
 
-    useEffect(() => {
-        loadUser()
-    }, [])
-
-    const loadUser = async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser()
-            setUser(user)
-            const info = getUserInfo(user?.email)
-            setUserInfo(info)
-            // console.log('🔐 Usuario loggeado (Sidebar):', {
-            //     id: user?.id,
-            //     email: user?.email,
-            //     fullName: user?.user_metadata?.full_name,
-            //     metadata: user?.user_metadata,
-            //     role: user?.role,
-            //     appMetadata: user?.app_metadata,
-            //     fullPayload: user,
-            //     customInfo: info
-            // })
-        } finally {
-            setLoading(false)
-        }
-    }
+    // Solo hay un loading: el del perfil
+    const loading = profileLoading
 
     const menuItems = [
         { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -75,14 +48,54 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         { href: '/configuracion', label: 'Configuración', icon: Settings },
     ]
 
-    // Añadir items condicionales según el rol
-    const role = userInfo?.role?.toLowerCase() || ''
-    const canManageTeam = role === 'gerente' || role === 'administrador' || role === 'admin'
-    
+    // IMPORTANTE: Solo evaluar permisos cuando el perfil ha cargado completamente
+    const permissionsLoaded = !profileLoading && profile !== null
+    const canManageTeam = permissionsLoaded && (isSuperAdmin || isAdmin || isManager)
+
+    // ROUTES_BY_ROLE — fuente única de verdad para el acceso al Sidebar.
+    // null = sin restricciones (puede ver todo).
+    // array = lista de rutas permitidas (prefijos).
+    const ROUTES_BY_ROLE = {
+        super_admin: null,
+        admin: null,
+        gerente: [
+            '/', '/conversaciones', '/rutas-riesgo', '/analisis/rendimiento',
+            '/gestion-equipos', '/cotizador', '/ventas/cotizaciones',
+            '/ventas/vuelos', '/admin/confirmar-pagos', '/emisiones',
+            '/inteligencia-artificial', '/configuracion', '/configuracion/mi-equipo'
+        ],
+        asesor: [
+            '/', '/cotizador', '/ventas/cotizaciones',
+            '/ventas/vuelos', '/ventas/vuelos/nuevo'
+        ],
+        administracion: [
+            '/', '/cotizador', '/ventas/cotizaciones',
+            '/ventas/vuelos', '/ventas/vuelos/nuevo', '/admin/confirmar-pagos'
+        ],
+        emisor: ['/', '/emisiones'],
+    }
+
+    // Determinar las rutas permitidas para el rol actual
+    let allowedRoutes = null
+    if (role) {
+        const roleConfig = ROUTES_BY_ROLE[role.toLowerCase()]
+        allowedRoutes = roleConfig !== undefined ? roleConfig : ['/']
+    }
+
+    // Función que determina si una ruta está visible para el usuario actual
+    const isRouteVisible = (href) => {
+        // Si no cargó el perfil aún, no mostrar nada (seguridad)
+        if (!permissionsLoaded) return false
+        // Si allowedRoutes es null → puede ver todo
+        if (allowedRoutes === null) return true
+        // Verificar si la ruta está en las rutas permitidas
+        return allowedRoutes.some(allowed => href === allowed || href.startsWith(allowed + '/'))
+    }
+
+    // Agregar ruta de gestión de equipos solo si tiene permiso
     if (canManageTeam) {
-        // Buscar el índice de configuración para poner 'Mi Equipo' justo antes o después
         const configIndex = menuItems.findIndex(item => item.href === '/configuracion')
-        if (configIndex !== -1) {
+        if (configIndex !== -1 && !menuItems.some(item => item.href === '/gestion-equipos')) {
             menuItems.splice(configIndex, 0, { href: '/gestion-equipos', label: 'Gestión de Equipos', icon: UserPlus })
         }
     }
@@ -154,8 +167,8 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
                                 const Icon = item.icon
                                 const active = isActive(item.href)
 
-                                // Filtrar rutas según permisos del usuario
-                                if (user?.email && isRouteHidden(user.email, item.href)) {
+                                // Filtrar rutas según ROUTES_BY_ROLE
+                                if (!isRouteVisible(item.href)) {
                                     return null
                                 }
 
@@ -198,17 +211,25 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
                         </div>
                     ) : (
                         <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
-                            <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                                <span className="text-sm font-semibold text-white">
-                                    {(userInfo?.fullName || user?.user_metadata?.full_name || user?.email || 'U').charAt(0).toUpperCase()}
-                                </span>
-                            </div>
+                            {profile?.avatar_url ? (
+                                <img
+                                    src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${profile.avatar_url}`}
+                                    alt="Avatar"
+                                    className="h-10 w-10 rounded-full object-cover flex-shrink-0"
+                                />
+                            ) : (
+                                <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-sm font-semibold text-white">
+                                        {(profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase()}
+                                    </span>
+                                </div>
+                            )}
                             {!collapsed && (
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-white truncate">
-                                        {userInfo?.fullName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuario'}
+                                        {profile?.full_name || profile?.email?.split('@')[0] || 'Usuario'}
                                     </p>
-                                    <p className="text-xs text-gray-400">{userInfo?.role || 'Usuario'}</p>
+                                    <p className="text-xs text-gray-400">{role || 'Usuario'}</p>
                                 </div>
                             )}
                         </div>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Save, Loader2, User, Mail, Lock, Shield } from "lucide-react";
 
-export default function UserFormModal({ user, roles, onClose, onSave }) {
+export default function UserFormModal({ user, roles, onClose, onSave, currentUserId }) {
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -77,11 +77,18 @@ export default function UserFormModal({ user, roles, onClose, onSave }) {
         body.password = formData.password;
       }
 
+      const headers = {
+        "Content-Type": "application/json",
+      };
+
+      // Agregar x-user-id para validación jerárquica
+      if (currentUserId) {
+        headers["x-user-id"] = currentUserId;
+      }
+
       const response = await fetch(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(body),
       });
 

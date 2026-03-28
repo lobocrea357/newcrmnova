@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { useUserProfile } from '@/hooks/useUserProfile'
+import { useUserProfile } from '@/contexts/UserProfileContext'
 import { supabase } from '@/lib/supabase'
 import { EQUIPOS_API } from '@/config/apiConfig'
 import { Users, UserPlus, UserMinus, Shield, Search, RefreshCw, ChevronRight } from 'lucide-react'
@@ -10,7 +10,7 @@ import Breadcrumb from '@/components/ui/Breadcrumb'
 
 export default function MiEquipoPage() {
   const { user } = useAuth()
-  const { profile, loading: loadingProfile } = useUserProfile(user?.id)
+  const { profile, loading: loadingProfile, isManager } = useUserProfile()
   const [equipo, setEquipo] = useState(null)
   const [miembros, setMiembros] = useState([])
   const [asesoresSinEquipo, setAsesoresSinEquipo] = useState([])
@@ -24,7 +24,7 @@ export default function MiEquipoPage() {
     // console.log("🔍 loadData (VIEJA): Profile ID", profile?.id)
     // console.log("🔍 loadData (VIEJA): Profile role", profile?.role?.name)
 
-    if (!profile?.id || profile?.role?.name !== 'gerente') {
+    if (!profile?.id || !isManager) {
       setLoadingData(false)
       // console.log("❌ loadData (VIEJA): No es gerente o no hay ID de perfil.")
       return
@@ -83,7 +83,7 @@ export default function MiEquipoPage() {
     } finally {
       setLoadingData(false)
     }
-  }, [profile?.id, profile?.role?.name, user?.id])
+  }, [profile?.id, isManager, user?.id])
 
   useEffect(() => {
     if (profile) loadData()
@@ -140,7 +140,7 @@ export default function MiEquipoPage() {
     )
   }
 
-  if (!equipo && profile?.role?.name === 'gerente') {
+  if (!equipo && isManager) {
     return (
       <div className="p-8 text-center max-w-2xl mx-auto">
         <Shield className="w-16 h-16 text-gray-300 mx-auto mb-4" />

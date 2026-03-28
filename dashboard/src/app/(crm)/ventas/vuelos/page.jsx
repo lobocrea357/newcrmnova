@@ -5,13 +5,13 @@ import { Plus, Plane, BarChart3, List } from 'lucide-react'
 import VuelosList from '@/components/vuelos/VuelosList'
 import VuelosStats from '@/components/vuelos/VuelosStats'
 import { VUELOS_API } from '@/config/apiConfig'
-import { useUserProfile } from '@/hooks/useUserProfile'
+import { useUserProfile } from '@/contexts/UserProfileContext'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function VuelosPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const { role, loading: profileLoading } = useUserProfile()
+  const { role, loading: profileLoading, isAsesor, isManager } = useUserProfile()
   const [vuelos, setVuelos] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [filters, setFilters] = useState({})
@@ -54,14 +54,14 @@ export default function VuelosPage() {
   }
 
   const getTituloVista = () => {
-    if (role === 'asesor') return 'Mis Vuelos'
-    if (role === 'gerente') return 'Vuelos de Mi Equipo'
+    if (isAsesor) return 'Mis Vuelos'
+    if (isManager) return 'Vuelos de Mi Equipo'
     return 'Todos los Vuelos'
   }
 
   const getDescripcionVista = () => {
-    if (role === 'asesor') return 'Vuelos que has creado'
-    if (role === 'gerente') return 'Vuelos de tu equipo de asesores'
+    if (isAsesor) return 'Vuelos que has creado'
+    if (isManager) return 'Vuelos de tu equipo de asesores'
     return 'Gestión completa de vuelos'
   }
 

@@ -262,8 +262,8 @@ export default function VueloFormNuevo({
     const esDepositoEfectivo = formData.metodo_pago?.includes('Depósito oficina') || formData.metodo_pago?.includes('efectivo')
 
     // Validar cantidad solo si NO es depósito en efectivo
-    if (!esDepositoEfectivo && comprobantes.length + files.length > 5) {
-      toastError('Máximo 5 comprobantes permitidos')
+    if (!esDepositoEfectivo && comprobantes.length + files.length > 10) {
+      toastError('Máximo 10 comprobantes permitidos')
       return
     }
 
@@ -1069,7 +1069,7 @@ export default function VueloFormNuevo({
         <div className="space-y-4">
           <label className="flex items-center justify-center gap-2 p-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
             <Upload className="w-6 h-6 text-gray-400" />
-            <span className="text-sm text-gray-600">Subir comprobantes (máx. 5)</span>
+            <span className="text-sm text-gray-600">Subir comprobantes (máx. 10)</span>
             <input
               type="file"
               accept="image/*,.pdf"

@@ -77,6 +77,37 @@ export const ANULABLES_API = {
   eliminar: (id) => buildApiUrl(`/api/anulables/${id}`)
 }
 
+// URLs específicas para APIs de agencias
+export const AGENCIAS_API = {
+  listar: buildApiUrl('/api/agencias'),
+  obtener: (id) => buildApiUrl(`/api/agencias/${id}`),
+  crear: buildApiUrl('/api/agencias'),
+  actualizar: (id) => buildApiUrl(`/api/agencias/${id}`),
+  eliminar: (id) => buildApiUrl(`/api/agencias/${id}`),
+  usuarios: (id) => buildApiUrl(`/api/agencias/${id}/users`),
+  agenciasUsuario: (userId) => buildApiUrl(`/api/agencias/user/${userId}`),
+  asignarUsuario: (id) => buildApiUrl(`/api/agencias/${id}/users`),
+  removerUsuario: (id, userId) => buildApiUrl(`/api/agencias/${id}/users/${userId}`),
+  setPrimaria: (id, userId) => buildApiUrl(`/api/agencias/${id}/users/${userId}/primary`),
+}
+
+// URLs específicas para APIs de sedes
+export const SEDES_API = {
+  listar: buildApiUrl('/api/sedes'),
+  obtener: (id) => buildApiUrl(`/api/sedes/${id}`),
+  crear: buildApiUrl('/api/sedes'),
+  actualizar: (id) => buildApiUrl(`/api/sedes/${id}`),
+  eliminar: (id) => buildApiUrl(`/api/sedes/${id}`),
+  usuarios: (id) => buildApiUrl(`/api/sedes/${id}/users`),
+  asignarUsuario: (id) => buildApiUrl(`/api/sedes/${id}/users`),
+  removerUsuario: (id, userId) => buildApiUrl(`/api/sedes/${id}/users/${userId}`),
+}
+
+// URLs específicas para APIs de usuarios
+export const USERS_API = {
+  listar: buildApiUrl('/api/users'),
+}
+
 // Exportar URL base para otros servicios
 export { BACKEND_URL }
 

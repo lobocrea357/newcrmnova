@@ -79,19 +79,35 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { updates, userId } = req.body;
+    // El frontend envía { cotizacion, pasajeros } — compatibilidad con ambos formatos
+    const { cotizacion, pasajeros, updates, userId } = req.body;
+    const updatesData = cotizacion || updates;
+    const userIdData = (cotizacion && cotizacion.created_by) || userId;
 
-    if (!id || !updates || !userId) {
+    if (!id || !updatesData || !userIdData) {
       return res.status(400).json({
-        error: 'Faltan parámetros requeridos: id, updates, userId'
+        error: 'Faltan parámetros requeridos: id, datos de la cotización y userId'
       });
     }
 
-    const cotizacion = await cotizacionesService.actualizarCotizacion(id, updates, userId);
+    // VERIFICAR que el usuario sea el creador de la cotización
+    const cotizacionExistente = await cotizacionesService.obtenerCotizacion(id);
+    if (cotizacionExistente.created_by !== userIdData) {
+      return res.status(403).json({
+        error: 'No tienes permiso para editar esta cotización. Solo el creador puede editarla.'
+      });
+    }
+
+    const cotizacionActualizada = await cotizacionesService.actualizarCotizacion(id, updatesData, userIdData);
+
+    // Si se envían pasajeros, actualizar (eliminar los existentes e insertar nuevos)
+    if (pasajeros && Array.isArray(pasajeros) && pasajeros.length > 0) {
+      await cotizacionesService.actualizarPasajeros(id, pasajeros);
+    }
 
     res.json({
       success: true,
-      data: cotizacion,
+      data: cotizacionActualizada,
       message: 'Cotización actualizada exitosamente'
     });
 

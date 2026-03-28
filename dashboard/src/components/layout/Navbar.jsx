@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { getUserInfo } from "@/lib/userConfig";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserProfile } from "@/contexts/UserProfileContext";
 import NotificacionesCampana from "@/components/ui/NotificacionesCampana";
 import {
   Search,
@@ -14,6 +14,7 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeft,
+  UserCircle,
 } from "lucide-react";
 
 const Navbar = ({
@@ -24,26 +25,9 @@ const Navbar = ({
   const router = useRouter();
   const pathname = usePathname();
   const { user, signOut, loading } = useAuth();
-  const [userInfo, setUserInfo] = useState(null);
+  const { profile, role } = useUserProfile();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-
-  useEffect(() => {
-    if (user) {
-      const info = getUserInfo(user?.email);
-      setUserInfo(info);
-      // console.log("🔐 Usuario loggeado (Navbar):", {
-      //   id: user?.id,
-      //   email: user?.email,
-      //   fullName: user?.user_metadata?.full_name,
-      //   metadata: user?.user_metadata,
-      //   role: user?.role,
-      //   appMetadata: user?.app_metadata,
-      //   fullPayload: user,
-      //   customInfo: info,
-      // });
-    }
-  }, [user]);
 
   const handleLogout = async () => {
     await signOut();
@@ -148,9 +132,17 @@ const Navbar = ({
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                  <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-                </div>
+                {profile?.avatar_url ? (
+                  <img
+                    src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${profile.avatar_url}`}
+                    alt="Avatar"
+                    className="h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                    <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                      <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                    </div>
+                )}
                 {loading ? (
                   <div className="text-left hidden lg:block">
                     <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mb-1" />
@@ -159,12 +151,10 @@ const Navbar = ({
                 ) : (
                   <div className="text-left hidden lg:block">
                     <p className="text-sm font-medium text-gray-900">
-                      {userInfo?.fullName ||
-                        user?.user_metadata?.full_name ||
-                        "Usuario"}
+                        {profile?.full_name || user?.email?.split('@')[0] || "Usuario"}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {userInfo?.role || "Usuario"}
+                        {role || "Usuario"}
                     </p>
                   </div>
                 )}
@@ -181,14 +171,19 @@ const Navbar = ({
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
                     <div className="px-4 py-3 border-b border-gray-200">
                       <p className="text-sm font-medium text-gray-900">
-                        {userInfo?.fullName ||
-                          user?.user_metadata?.full_name ||
-                          "Usuario"}
+                        {profile?.full_name || user?.email?.split('@')[0] || "Usuario"}
                       </p>
                       <p className="text-xs text-gray-500 truncate">
                         {user?.email}
                       </p>
                     </div>
+                    <button
+                      onClick={() => { setShowUserMenu(false); router.push('/perfil') }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <UserCircle className="h-4 w-4" />
+                      Ver mi perfil
+                    </button>
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"

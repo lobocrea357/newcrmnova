@@ -117,6 +117,42 @@ class CotizacionesService {
   }
 
   /**
+   * Reemplazar pasajeros de una cotización (delete + insert)
+   */
+  async actualizarPasajeros(cotizacionId, pasajeros) {
+    try {
+      // Eliminar los pasajeros existentes
+      const { error: deleteError } = await supabase
+        .from('cotizaciones_pasajeros')
+        .delete()
+        .eq('cotizacion_id', cotizacionId);
+
+      if (deleteError) {
+        console.error('[CotizacionesService] Error eliminando pasajeros existentes:', deleteError);
+        throw deleteError;
+      }
+
+      // Insertar los nuevos pasajeros
+      const pasajerosConId = pasajeros.map(p => ({ ...p, cotizacion_id: cotizacionId }));
+      const { data, error: insertError } = await supabase
+        .from('cotizaciones_pasajeros')
+        .insert(pasajerosConId)
+        .select();
+
+      if (insertError) {
+        console.error('[CotizacionesService] Error insertando pasajeros actualizados:', insertError);
+        throw insertError;
+      }
+
+      return data;
+
+    } catch (error) {
+      console.error('[CotizacionesService] Error en actualizarPasajeros:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Eliminar cotización (CASCADE elimina pasajeros e historial)
    */
   async eliminarCotizacion(id) {

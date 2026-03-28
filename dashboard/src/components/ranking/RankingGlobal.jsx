@@ -196,13 +196,13 @@ export default function RankingGlobal() {
 
       // Condiciones para cambiar automáticamente:
       // 1. No estar en hover
-      // 2. Haber pasado más de 10 segundos desde la última interacción manual u hover
-      if (!isHovered && tiempoInactivo >= 10000) {
+      // 2. Haber pasado más de 4 segundos desde la última interacción manual u hover
+      if (!isHovered && tiempoInactivo >= 4000) {
         const currentIndex = VISTAS.findIndex(v => v.id === filtroVista)
         const nextIndex = (currentIndex + 1) % VISTAS.length
         cambiarVistaConAnimacion(VISTAS[nextIndex].id)
       }
-    }, 5000) // Intento de cambio cada 5 segundos
+    }, 4000) // Intento de cambio cada 4 segundos
 
     return () => clearInterval(interval)
   }, [filtroVista, isHovered, lastInteraction])

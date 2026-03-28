@@ -434,15 +434,14 @@ CREATE TABLE public.profiles (
   email character varying NOT NULL UNIQUE,
   full_name character varying,
   role_id uuid,
-  worker_id uuid,
   is_active boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   equipo_id uuid,
+  avatar_url text,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
   CONSTRAINT profiles_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id),
-  CONSTRAINT profiles_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id),
   CONSTRAINT profiles_equipo_id_fkey FOREIGN KEY (equipo_id) REFERENCES public.equipos(id)
 );
 CREATE TABLE public.roles (

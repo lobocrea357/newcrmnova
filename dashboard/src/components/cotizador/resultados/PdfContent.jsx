@@ -182,7 +182,11 @@ const PdfContent = forwardRef(({
               {finesMigratorios && (
                 <div className="py-3 px-4 bg-amber-50 rounded-lg border border-amber-100">
                   <p className="text-[10px] font-bold text-amber-600 uppercase mb-2">Fines Migratorios</p>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase">Aerolínea</p>
+                      <p className="text-xs font-bold text-slate-700">{aerolinea || '---'}</p>
+                    </div>
                     <div>
                       <p className="text-[10px] text-slate-400 uppercase">Fecha Salida</p>
                       <p className="text-xs font-bold text-slate-700">

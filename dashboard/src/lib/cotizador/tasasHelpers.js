@@ -9,6 +9,7 @@ export async function obtenerMonedas() {
     .from('monedas')
     .select('*')
     .eq('activa', true)
+    .is('deleted_at', null)
     .order('codigo')
   
   if (error) throw error
@@ -19,18 +20,19 @@ export async function obtenerMonedas() {
  * Obtener todas las tasas de conversión
  */
 export async function obtenerTasasConversion() {
-  // Primero obtener tasas
+  // Primero obtener tasas (solo las no eliminadas)
   const { data: tasas, error: errorTasas } = await supabase
     .from('tasas_conversion')
     .select('*')
     .eq('activa', true)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
   
   if (errorTasas) throw errorTasas
 
   if (!tasas || tasas.length === 0) return []
 
-  // Obtener información de monedas
+  // Obtener información de monedas (solo las no eliminadas)
   const monedaIds = [...new Set([...tasas.map(t => t.moneda_origen_id), ...tasas.map(t => t.moneda_destino_id)])]
   
   const { data: monedas, error: errorMonedas } = await supabase
@@ -38,6 +40,7 @@ export async function obtenerTasasConversion() {
     .select('id, codigo, nombre, simbolo')
     .in('id', monedaIds)
     .eq('activa', true)
+    .is('deleted_at', null)
 
   if (errorMonedas) throw errorMonedas
 

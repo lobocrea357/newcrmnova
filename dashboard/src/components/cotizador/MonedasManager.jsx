@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { obtenerMonedas, crearMoneda, actualizarMoneda, eliminarMoneda } from '@/lib/cotizador/tasasHelpers'
 import { Plus, Trash2, RefreshCw } from 'lucide-react'
-import { useUserProfile } from '@/hooks/useUserProfile'
+import { useUserProfile } from '@/contexts/UserProfileContext'
 import Swal from 'sweetalert2'
 import toast from 'react-hot-toast'
 import EditableCell from '@/components/ui/EditableCell'
@@ -12,7 +12,8 @@ import { useDebouncedCallback, useLoadingAlert } from '@/hooks/useDebounce'
 
 export default function MonedasManager() {
   const { user } = useAuth()
-  const { profile, isAdmin } = useUserProfile()
+  const { profile, isSuperAdmin, isAdmin } = useUserProfile()
+  const canManageSettings = isSuperAdmin || isAdmin
   const { showLoadingAlert, closeLoadingAlert } = useLoadingAlert()
   const [monedas, setMonedas] = useState([])
   const [loading, setLoading] = useState(true)

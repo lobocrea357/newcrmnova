@@ -1,6 +1,6 @@
 'use client'
 // React
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 // Librerías externas
@@ -23,10 +23,12 @@ import { confirmAlert } from '@/helpers/sweetAlerts'
 import { toastSuccess, toastError } from '@/helpers/toasts'
 
 // Hooks
+import { useUserProfile } from '@/contexts/UserProfileContext'
 import { useVueloInfo } from '@/hooks/cotizador/useVueloInfo'
 import { useEscalas } from '@/hooks/cotizador/useEscalas'
 import { useEquipaje } from '@/hooks/cotizador/useEquipaje'
 import { useMonedas } from '@/hooks/cotizador/useMonedas'
+import { useLocalStorage } from '@/hooks/useLocalStorage'
 
 // Servicios
 import { calcularCotizacionIndividual } from '@/services/cotizador/cotizacionService'
@@ -60,6 +62,9 @@ import { COTIZACIONES_API } from '@/config/apiConfig'
 export default function CotizadorForm({ isAuthenticated = false, showBannerOutside = false, onBannerStateChange, onCotizacionGuardada }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  // Obtener perfil del usuario (si está autenticado)
+  const { profile } = useUserProfile()
 
   // Modo edición
   const editId = searchParams?.get('edit')
@@ -126,9 +131,129 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
   const [exportingPdf, setExportingPdf] = useState(false)
   const pdfContentRef = useRef(null)
 
-  // SweetAlert inicial eliminado - ya no se pregunta por tipo de vista
+  // localStorage para autoguardado diferenciado por usuario
+  // Clave: cotizador_draft_{full_name} o cotizador_draft_public si no está autenticado
+  // NOTA: Este cálculo debe esperar a que profile esté disponible
+  const draftKey = useMemo(() => {
+    if (!isAuthenticated || !profile) return 'cotizador_draft_public'
+    const userName = profile?.full_name?.replace(/\s+/g, '_').toLowerCase() || 'unknown'
+    return `cotizador_draft_${userName}`
+  }, [isAuthenticated, profile])
 
-  // Función cambiarVista eliminada - ya no hay alternancia de vistas
+  const [cotizadorDraft, setCotizadorDraft, removeCotizadorDraft] = useLocalStorage(draftKey, null)
+  const [draftLoaded, setDraftLoaded] = useState(false)
+
+  // Detectar draft al cargar componente — SOLO si NO está en modo edición
+  useEffect(() => {
+    if (isEditMode) {
+      // En modo edición, NO usar draft (se cargan datos de la cotización existente)
+      setDraftLoaded(true)
+      return
+    }
+
+    if (cotizadorDraft && !draftLoaded) {
+      confirmAlert(
+        '¿Recuperar cotización guardada?',
+        'Tienes una cotización sin terminar. ¿Deseas recuperarla?',
+        'question',
+        {
+          confirmButtonText: 'Sí, recuperar',
+          cancelButtonText: 'No, empezar nueva',
+          showCancelButton: true
+        }
+      ).then((result) => {
+        if (result.isConfirmed) {
+          recuperarDraft()
+          toastSuccess('Cotización recuperada exitosamente')
+        } else {
+          removeCotizadorDraft()
+        }
+        setDraftLoaded(true)
+      })
+    } else {
+      setDraftLoaded(true)
+    }
+  }, [])
+
+  // Autoguardar en localStorage cada vez que cambien los datos
+  useEffect(() => {
+    if (!draftLoaded) return // No guardar hasta que se resuelva el draft inicial
+    if (isEditMode) return // NO guardar draft si está editando una cotización existente
+
+    const draft = {
+      vueloInfo,
+      fechaSalidaMigratorio,
+      horaSalidaMigratorio,
+      horaLlegadaMigratorio,
+      fechaRegreso,
+      horaSalidaRegreso,
+      horaLlegadaRegreso,
+      aerolinea,
+      agencia,
+      escalas,
+      equipajeSeleccionado,
+      pasajeros,
+      nombreCliente,
+      monedaBaseSeleccionada,
+      monedaCotizacionSeleccionada,
+      metodoPago: metodoPago,
+      timestamp: new Date().toISOString()
+    }
+
+    // Solo guardar si hay algún dato relevante
+    const tieneAlgunDato =
+      vueloInfo.origen ||
+      vueloInfo.destino ||
+      nombreCliente ||
+      pasajeros.adultos.length > 0 ||
+      pasajeros.niños.length > 0
+
+    if (tieneAlgunDato) {
+      setCotizadorDraft(draft)
+    }
+  }, [
+    vueloInfo,
+    fechaSalidaMigratorio,
+    horaSalidaMigratorio,
+    horaLlegadaMigratorio,
+    fechaRegreso,
+    horaSalidaRegreso,
+    horaLlegadaRegreso,
+    aerolinea,
+    agencia,
+    escalas,
+    equipajeSeleccionado,
+    pasajeros,
+    nombreCliente,
+    monedaBaseSeleccionada,
+    monedaCotizacionSeleccionada,
+    metodoPago,
+    draftLoaded
+  ])
+
+  const recuperarDraft = () => {
+    if (!cotizadorDraft) return
+
+    // Recuperar información del vuelo
+    Object.keys(cotizadorDraft.vueloInfo || {}).forEach(key => {
+      updateVueloInfo(key, cotizadorDraft.vueloInfo[key])
+    })
+
+    // Recuperar campos adicionales
+    setFechaSalidaMigratorio(cotizadorDraft.fechaSalidaMigratorio || '')
+    setHoraSalidaMigratorio(cotizadorDraft.horaSalidaMigratorio || '')
+    setHoraLlegadaMigratorio(cotizadorDraft.horaLlegadaMigratorio || '')
+    setFechaRegreso(cotizadorDraft.fechaRegreso || '')
+    setHoraSalidaRegreso(cotizadorDraft.horaSalidaRegreso || '')
+    setHoraLlegadaRegreso(cotizadorDraft.horaLlegadaRegreso || '')
+    setAerolinea(cotizadorDraft.aerolinea || '')
+    setAgencia(cotizadorDraft.agencia || null)
+    setNombreCliente(cotizadorDraft.nombreCliente || '')
+    setPasajeros(cotizadorDraft.pasajeros || { adultos: [], niños: [], infantes: [] })
+    setMonedaBaseSeleccionada(cotizadorDraft.monedaBaseSeleccionada || 'USD')
+    setMonedaCotizacionSeleccionada(cotizadorDraft.monedaCotizacionSeleccionada || '')
+    setMetodoPago(cotizadorDraft.metodoPago || '')
+  }
 
   // Función para reset completo del formulario
   const limpiarFormularioCompleto = () => {
@@ -166,6 +291,29 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
     })
     setCotizacionGuardada(false)
     setUltimaCotizacionId(null)
+    setNombreCliente('')
+
+    // Limpiar draft de localStorage
+    removeCotizadorDraft()
+  }
+
+  // Función de limpiar con confirmación
+  const handleLimpiar = async () => {
+    const result = await confirmAlert(
+      '¿Limpiar formulario?',
+      'Se perderán todos los datos ingresados. Esta acción no se puede deshacer.',
+      'warning',
+      {
+        confirmButtonText: 'Sí, limpiar',
+        cancelButtonText: 'Cancelar',
+        showCancelButton: true
+      }
+    )
+
+    if (result.isConfirmed) {
+      limpiarFormularioCompleto()
+      toastSuccess('Formulario limpiado exitosamente')
+    }
   }
 
   const metodosPago = ALL_PAYMENT_METHODS
@@ -517,50 +665,6 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
     }).format(valor)
   }
 
-  const handleLimpiar = () => {
-    // Sistema inteligente y monedas
-    setMonedaPrecio('USD')
-    setMonedaCotizacion('USD')
-    setResultadoConversion(null)
-    setMonedaBaseSeleccionada('USD')
-    setMonedaCotizacionSeleccionada('')
-    setTasaCambio('1.0')
-
-    // Estado del formulario
-    setMetodoPago('')
-    setTotal(0)
-    setDesglose(null)
-    setAgencia(null)
-    setNombreCliente('')
-    setAerolinea('')
-
-    // Hooks reset (Vuelo, Escalas, Equipaje)
-    resetVueloInfo()
-    resetEscalas()
-    resetEquipaje()
-
-    // Campos de Vuelo adicionales (Regreso / Migratorio)
-    setFechaRegreso('')
-    setHoraSalidaRegreso('')
-    setHoraLlegadaRegreso('')
-    setFechaSalidaMigratorio('')
-    setHoraSalidaMigratorio('')
-    setHoraLlegadaMigratorio('')
-
-    // Resetear pasajeros
-    setPasajeros({
-      adultos: [],
-      niños: [],
-      infantes: []
-    })
-
-    // Resetear estados de guardado
-    setCotizacionGuardada(false)
-    setUltimaCotizacionId(null)
-    
-    toastSuccess('Formulario limpiado')
-  }
-
   const limpiarDetallesVuelo = () => {
     resetVueloInfo()
     resetEscalas()
@@ -785,7 +889,7 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
             type="text"
             value={nombreCliente}
             onChange={(e) => setNombreCliente(e.target.value)}
-            placeholder="Ej: Juan Pérez"
+            placeholder="Ej: Sabrina Burgos"
             className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
           />
         </div>
@@ -989,13 +1093,48 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
             </button>
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                Origen
+              </label>
+              <input
+                type="text"
+                value={vueloInfo.origen}
+                onChange={(e) => updateVueloInfo('origen', e.target.value)}
+                placeholder="Ej: CCS"
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                Destino
+              </label>
+              <input
+                type="text"
+                value={vueloInfo.destino}
+                onChange={(e) => updateVueloInfo('destino', e.target.value)}
+                placeholder="Ej: MAD"
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              />
+            </div>
+          </div>
+
           {/* Campos para Fines Migratorios */}
           {vueloInfo.finesMigratorios && (
-            <div className="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
+            <div className="mt-8 p-6 bg-amber-50 rounded-xl border-2 border-amber-200 space-y-6">
               <h4 className="text-sm font-bold text-amber-700 mb-4 flex items-center gap-2">
                 <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
                 Información para Fines Migratorios
               </h4>
+
+              <div>
+                <AerolineaAutocomplete
+                  value={aerolinea}
+                  onChange={setAerolinea}
+                />
+              </div>
+
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-black bg-white rounded px-2 py-1 mb-2">
@@ -1033,42 +1172,17 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
               </div>
             </div>
           )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                Origen
-              </label>
-              <input
-                type="text"
-                value={vueloInfo.origen}
-                onChange={(e) => updateVueloInfo('origen', e.target.value)}
-                placeholder="Ej: CCS"
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                Destino
-              </label>
-              <input
-                type="text"
-                value={vueloInfo.destino}
-                onChange={(e) => updateVueloInfo('destino', e.target.value)}
-                placeholder="Ej: MAD"
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              />
-            </div>
-          </div>
-          <div>
-            <AerolineaAutocomplete
-              value={aerolinea}
-              onChange={setAerolinea}
-            />
-          </div>
           {(vueloInfo.idaVuelta || vueloInfo.soloIda) && (
-            <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-4">
+            <div className="mt-8 p-6 bg-indigo-50/50 rounded-xl border-2 border-indigo-100 space-y-6">
               <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-widest px-1">Vuelo de Ida</h4>
+
+              <div>
+                <AerolineaAutocomplete
+                  value={aerolinea}
+                  onChange={setAerolinea}
+                />
+              </div>
+
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">FECHA</label>
@@ -1101,7 +1215,7 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
             </div>
           )}
           {vueloInfo.idaVuelta && (
-            <div className="p-4 bg-purple-50/50 rounded-xl border border-purple-100 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="mt-8 p-6 bg-purple-50/50 rounded-xl border-2 border-purple-100 space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
               <h4 className="text-xs font-bold text-purple-700 uppercase tracking-widest px-1">Vuelo de Vuelta</h4>
               <div className="grid grid-cols-3 gap-4">
                 <div>
@@ -1135,7 +1249,7 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
             </div>
           )}
           {/* Escalas */}
-          <div className="p-4 bg-orange-50/50 rounded-xl border border-orange-100 space-y-4">
+          <div className="mt-8 p-6 bg-orange-50/50 rounded-xl border-2 border-orange-100 space-y-6">
             <h4 className="text-xs font-bold text-orange-700 uppercase tracking-widest px-1">Escalas</h4>
             {escalas.map((escala, index) => (
               <div key={index} className="space-y-3 p-3 bg-white rounded-lg border border-orange-200">

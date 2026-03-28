@@ -15,14 +15,14 @@ import {
 } from "lucide-react";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUserProfile } from "@/hooks/useUserProfile";
+import { useUserProfile } from "@/contexts/UserProfileContext";
 
 export default function ConfiguracionPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { profile, loading: loadingProfile } = useUserProfile(user?.id);
-  const role = profile?.role?.name?.toLowerCase() || "";
-  const isGerenteOrAdmin = role === "gerente" || role === "admin" || role === "manager";
+  const { profile, loading: loadingProfile, isSuperAdmin, isAdmin, isManager } = useUserProfile();
+  // Usar helpers del contexto en lugar de comparaciones manuales
+  const canManageTeam = isSuperAdmin || isAdmin || isManager;
 
   const configSections = [
     {
@@ -33,9 +33,9 @@ export default function ConfiguracionPage() {
       iconColor: "text-indigo-600",
       bgColor: "bg-indigo-50",
       borderColor: "border-indigo-200",
-      available: isGerenteOrAdmin,
+      available: canManageTeam,
       path: "/configuracion/mi-equipo",
-      hidden: !isGerenteOrAdmin,
+      hidden: !canManageTeam,
     },
     {
       id: "usuarios",
@@ -45,21 +45,9 @@ export default function ConfiguracionPage() {
       iconColor: "text-blue-600",
       bgColor: "bg-blue-50",
       borderColor: "border-blue-200",
-      available: role === "admin",
+      available: isSuperAdmin || isAdmin,
       path: "/configuracion/usuarios",
-      hidden: role !== "admin",
-    },
-        {
-      id: "roles",
-      title: "Roles y Permisos",
-      description: "Configure roles y asigne permisos específicos",
-      icon: Shield,
-      iconColor: "text-purple-600",
-      bgColor: "bg-purple-50",
-      borderColor: "border-purple-200",
-      available: role === "admin",
-      path: "/configuracion/roles",
-      hidden: role !== "admin",
+      hidden: !isSuperAdmin && !isAdmin,
     },
     {
       id: "notificaciones",

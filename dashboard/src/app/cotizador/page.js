@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { useUserProfile } from '@/hooks/useUserProfile'
+import { useUserProfile } from '@/contexts/UserProfileContext'
 import { Calculator, ArrowLeft, Settings, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import Navbar from '@/components/layout/Navbar'
@@ -14,7 +14,7 @@ import BannerCotizacionGuardada from '@/components/cotizador/BannerCotizacionGua
 
 export default function CotizadorPage() {
   const { user, session, loading: authLoading } = useAuth()
-  const { profile, isAdmin } = useUserProfile()
+  const { profile, loading: profileLoading, allPermissions, isSuperAdmin, isAdmin, isManager, hasAnyPermission } = useUserProfile()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [activeTab, setActiveTab] = useState('calculadora') // 'calculadora' | 'tasas' | 'monedas'
@@ -22,8 +22,39 @@ export default function CotizadorPage() {
   const [formKey, setFormKey] = useState(0) // Para forzar remount del form
   
   const isAuthenticated = !!user && !!session
-  // Solo admin y gerente pueden ver tabs de gestión
-  const canManageSettings = isAdmin || profile?.role?.name === 'gerente'
+  
+  // IMPORTANTE: Solo evaluar permisos cuando el perfil ha cargado completamente
+  // Si aún está cargando, NO mostrar tabs de gestión
+  const permissionsLoaded = !profileLoading && profile !== null
+  
+  // Pestañas de gestión: solo para roles privilegiados o permisos de ESCRITURA/GESTIÓN explícitos.
+  // NOTA: tasas.view / monedas.view se excluyen a propósito — son permisos de lectura
+  // para que los asesores vean las tasas al cotizar, pero NO para gestionarlas.
+  const canManageTasas = permissionsLoaded && (
+    isSuperAdmin || isAdmin || isManager ||
+    hasAnyPermission(['tasas.edit', 'tasas.create', 'tasas.delete', 'tasas.manage'])
+  )
+  const canManageMonedas = permissionsLoaded && (
+    isSuperAdmin || isAdmin || isManager ||
+    hasAnyPermission(['monedas.edit', 'monedas.create', 'monedas.delete', 'monedas.manage'])
+  )
+  const canManageSettings = canManageTasas || canManageMonedas
+
+  // DEBUG: Log para diagnosticar visibilidad de tabs
+  if (permissionsLoaded) {
+    console.log('📊 [Cotizador] Evaluación de tabs:', {
+      profileLoading,
+      profileExists: !!profile,
+      permissionsLoaded,
+      role: profile?.role?.name,
+      isSuperAdmin,
+      isAdmin,
+      isManager,
+      canManageTasas,
+      canManageMonedas,
+      canManageSettings
+    })
+  }
 
   // Mostrar loading mientras se verifica autenticación
   if (authLoading) {
@@ -74,10 +105,9 @@ export default function CotizadorPage() {
                     <Calculator className="w-4 h-4" />
                     Cotizador
                   </button>
-                  {canManageSettings && (
-                    <>
-                      <button
-                        onClick={() => setActiveTab('tasas')}
+                  {canManageTasas && (
+                    <button
+                      onClick={() => setActiveTab('tasas')}
                         className={`
                           flex items-center gap-2 px-4 py-2.5 text-sm font-medium leading-5 rounded-lg transition-all duration-200
                           ${activeTab === 'tasas'
@@ -86,11 +116,13 @@ export default function CotizadorPage() {
                           }
                         `}
                       >
-                        <Settings className="w-4 h-4" />
-                        Gestionar Tasas
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('monedas')}
+                      <Settings className="w-4 h-4" />
+                      Gestionar Tasas
+                    </button>
+                  )}
+                  {canManageMonedas && (
+                    <button
+                      onClick={() => setActiveTab('monedas')}
                         className={`
                           flex items-center gap-2 px-4 py-2.5 text-sm font-medium leading-5 rounded-lg transition-all duration-200
                           ${activeTab === 'monedas'
@@ -99,10 +131,9 @@ export default function CotizadorPage() {
                           }
                         `}
                       >
-                        <TrendingUp className="w-4 h-4" />
-                        Gestionar Monedas
-                      </button>
-                    </>
+                      <TrendingUp className="w-4 h-4" />
+                      Gestionar Monedas
+                    </button>
                   )}
                 </div>
               </div>

@@ -4,7 +4,12 @@
  */
 
 // Definición de permisos por rol
+// IMPORTANTE: super_admin y admin tienen canAccessAll: true
 const ROLE_PERMISSIONS = {
+  'super_admin': {
+    canAccessAll: true,
+    allowedRoutes: [] // Puede ver TODO
+  },
   'admin': {
     canAccessAll: true,
     allowedRoutes: [] // Puede ver TODO
@@ -43,13 +48,15 @@ const ROLE_PERMISSIONS = {
       '/',
       '/conversaciones',
       '/analisis/rendimiento',
+      '/gestion-equipos',
       '/cotizador',
       '/ventas/cotizaciones',
       '/ventas/vuelos',
       '/admin/confirmar-pagos',
       '/emisiones',
       '/inteligencia-artificial',
-      '/configuracion'
+      '/configuracion',
+      '/configuracion/mi-equipo'
     ]
   }
 }
@@ -118,9 +125,32 @@ export function getUserInfo(email) {
  * Verifica si una ruta debe estar oculta para el usuario
  * @param {string} email - Email del usuario
  * @param {string} route - Ruta a verificar
+ * @param {string} dbRole - Rol del usuario desde la base de datos (opcional, prioritario)
  * @returns {boolean} true si la ruta debe ocultarse
  */
-export function isRouteHidden(email, route) {
+export function isRouteHidden(email, route, dbRole = null) {
+  // PRIORIDAD: Usar el rol de la BD si está disponible
+  if (dbRole) {
+    const roleKey = dbRole.toLowerCase()
+    const rolePermissions = ROLE_PERMISSIONS[roleKey]
+    
+    // Si el rol tiene acceso total, no ocultar nada
+    if (rolePermissions?.canAccessAll) {
+      return false
+    }
+    
+    // Si el rol existe en la configuración, usar sus rutas permitidas
+    if (rolePermissions) {
+      const isAllowed = rolePermissions.allowedRoutes.some(allowedRoute => {
+        if (route === allowedRoute) return true
+        if (route.startsWith(allowedRoute + '/')) return true
+        return false
+      })
+      return !isAllowed
+    }
+  }
+
+  // FALLBACK: Usar la configuración por email (sistema antiguo)
   const userInfo = getUserInfo(email)
   const permissions = userInfo.permissions
 
@@ -130,10 +160,8 @@ export function isRouteHidden(email, route) {
   }
 
   // Verificar si la ruta está en las rutas permitidas
-  // Comparar tanto ruta exacta como rutas que empiezan con la permitida
   const isAllowed = permissions.allowedRoutes.some(allowedRoute => {
     if (route === allowedRoute) return true
-    // Si la ruta permitida es '/ventas/vuelos', permitir también '/ventas/vuelos/nuevo'
     if (route.startsWith(allowedRoute + '/')) return true
     return false
   })

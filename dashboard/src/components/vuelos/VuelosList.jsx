@@ -108,7 +108,7 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
 
         {showFilters && (
           <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(role === 'gerente' || role === 'admin') && asesoresUnicos.length > 1 && (
+            {(role === 'super_admin' || role === 'gerente' || role === 'admin') && asesoresUnicos.length > 1 && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Filtrar por Asesor

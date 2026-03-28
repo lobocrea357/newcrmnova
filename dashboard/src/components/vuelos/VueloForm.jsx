@@ -554,7 +554,7 @@ export default function VueloForm({ initialData, onSubmit, isLoading }) {
             <FileUpload
               tipo="COMPROBANTE_PAGO"
               onFilesChange={setComprobantes}
-              maxFiles={5}
+              maxFiles={10}
               unlimited={formData.metodo_pago?.includes('Depósito oficina') || formData.metodo_pago?.includes('efectivo')}
             />
           </div>

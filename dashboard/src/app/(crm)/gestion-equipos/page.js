@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { useUserProfile } from '@/hooks/useUserProfile'
+import { useUserProfile } from '@/contexts/UserProfileContext'
 import { supabase } from '@/lib/supabase'
 import { EQUIPOS_API } from '@/config/apiConfig'
 import { Users, UserPlus, UserMinus, Shield, Search, RefreshCw, ChevronRight } from 'lucide-react'
@@ -13,7 +13,8 @@ export default function GestionEquiposPage() {
   const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuth()
-  const { profile, loading: loadingProfile } = useUserProfile(user?.id)
+  const { profile, loading: loadingProfile, isSuperAdmin, isAdmin, isManager } = useUserProfile()
+  const canAccessPage = isSuperAdmin || isAdmin || isManager
   const [equipo, setEquipo] = useState(null)
   const [miembros, setMiembros] = useState([])
   const [asesoresSinEquipo, setAsesoresSinEquipo] = useState([])
@@ -35,9 +36,8 @@ export default function GestionEquiposPage() {
     // console.log("🔍 loadData: Profile ID", profile?.id)
     // console.log("🔍 loadData: Profile role", profile?.role?.name)
 
-    if (!profile?.id || profile?.role?.name !== 'gerente') {
+    if (!profile?.id || !canAccessPage) {
       setLoadingData(false)
-      // console.log("❌ loadData: No es gerente o no hay ID de perfil.")
       return
     }
 
@@ -94,7 +94,7 @@ export default function GestionEquiposPage() {
     } finally {
       setLoadingData(false)
     }
-  }, [profile?.id, profile?.role?.name, user?.id])
+  }, [profile?.id, canAccessPage, user?.id])
 
   useEffect(() => {
     if (profile) loadData()
@@ -151,7 +151,7 @@ export default function GestionEquiposPage() {
     )
   }
 
-  if (!equipo && profile?.role?.name === 'gerente') {
+  if (!equipo && canAccessPage) {
     return (
       <div className="p-8 text-center max-w-2xl mx-auto">
         <Shield className="w-16 h-16 text-gray-300 mx-auto mb-4" />

@@ -9,28 +9,45 @@ const router = express.Router();
  */
 router.get('/global', async (req, res) => {
   try {
-    // Obtener todos los vuelos con info del creador y su equipo
-    const { data: vuelos, error: vuelosError } = await supabase
-      .from('vuelos')
-      .select(`
-        id,
-        estado,
-        monto_venta,
-        created_by,
-        created_at,
-        ruta,
-        creator:profiles!created_by(
+    // Obtener vuelos + equipos en paralelo (equipos para identificar gerentes sin hardcodear roles)
+    const [vuelosResult, equiposResult] = await Promise.all([
+      supabase
+        .from('vuelos')
+        .select(`
           id,
-          full_name,
-          email,
-          equipo_id,
-          equipo:equipos!equipo_id(id, nombre, color),
-          role:roles(id, name)
-        )
-      `)
-      .neq('estado', 'CANCELADO');
+          estado,
+          monto_venta,
+          created_by,
+          created_at,
+          ruta,
+          creator:profiles!created_by(
+            id,
+            full_name,
+            email,
+            equipo_id,
+            equipo:equipos!equipo_id(id, nombre, color),
+            role:roles(id, name)
+          )
+        `)
+        .neq('estado', 'CANCELADO'),
+      supabase
+        .from('equipos')
+        .select('id, nombre, color, gerente_id')
+        .eq('is_active', true)
+    ]);
+
+    const { data: vuelos, error: vuelosError } = vuelosResult;
+    const { data: equiposRaw } = equiposResult;
 
     if (vuelosError) throw vuelosError;
+
+    // Mapa de equipo_id → equipo data y set de gerente_ids (sin hardcodear roles)
+    const equiposMap = {};
+    const gerenteIds = new Set();
+    (equiposRaw || []).forEach(eq => {
+      equiposMap[eq.id] = eq;
+      if (eq.gerente_id) gerenteIds.add(eq.gerente_id);
+    });
 
     // Agrupar por usuario
     const porUsuario = {};
@@ -65,7 +82,7 @@ router.get('/global', async (req, res) => {
       if (vuelo.estado === 'PENDIENTE_EMISION') u.pendientesEmision += 1;
     });
 
-    // Calcular % conversión y separar en asesores/gerentes
+    // Calcular % conversión
     const todos = Object.values(porUsuario).map(u => ({
       ...u,
       porcentajeConversion: u.totalVuelos > 0
@@ -73,60 +90,61 @@ router.get('/global', async (req, res) => {
         : 0
     }));
 
+    // Ordenar por cantidad de ventas registradas (totalVuelos) → emitidos → montoTotal
+    const sortByVentas = (a, b) => {
+      if (b.totalVuelos !== a.totalVuelos) return b.totalVuelos - a.totalVuelos;
+      if (b.emitidos !== a.emitidos) return b.emitidos - a.emitidos;
+      return b.montoTotal - a.montoTotal;
+    };
+
+    // Separar asesores de gerentes usando gerenteIds del DB (sin hardcodear roles)
     const asesores = todos
-      .filter(u => u.rol === 'asesor' || u.rol === 'advisor')
-      .sort((a, b) => b.emitidos - a.emitidos);
+      .filter(u => !gerenteIds.has(u.id))
+      .sort(sortByVentas);
 
     const gerentes = todos
-      .filter(u => u.rol === 'gerente' || u.rol === 'manager' || u.rol === 'admin')
-      .sort((a, b) => b.emitidos - a.emitidos);
+      .filter(u => gerenteIds.has(u.id))
+      .sort(sortByVentas);
 
-    // Agrupar por equipo
+    // Agrupar por equipo — SOLO usuarios que pertenecen a un equipo (equipo_id != null)
+    // Los gerentes gestionan equipos pero no son miembros (no tienen equipo_id), por lo que quedan fuera naturalmente
     const porEquipo = {};
-    todos.forEach(u => {
-      if (!u.equipoId) {
-        if (!porEquipo['sin-equipo']) {
-          porEquipo['sin-equipo'] = {
-            id: 'sin-equipo',
-            nombre: 'Sin equipo',
-            color: '#9ca3af',
+    todos
+      .filter(u => u.equipoId !== null)
+      .forEach(u => {
+        if (!porEquipo[u.equipoId]) {
+          porEquipo[u.equipoId] = {
+            id: u.equipoId,
+            nombre: u.equipoNombre || 'Equipo',
+            color: u.equipoColor,
+            totalVuelos: 0,
             totalEmitidos: 0,
             montoTotal: 0,
             miembros: []
           };
         }
-        porEquipo['sin-equipo'].totalEmitidos += u.emitidos;
-        porEquipo['sin-equipo'].montoTotal += u.montoTotal;
-        porEquipo['sin-equipo'].miembros.push(u);
-        return;
-      }
-
-      if (!porEquipo[u.equipoId]) {
-        porEquipo[u.equipoId] = {
-          id: u.equipoId,
-          nombre: u.equipoNombre || 'Equipo',
-          color: u.equipoColor,
-          totalEmitidos: 0,
-          montoTotal: 0,
-          miembros: []
-        };
-      }
-      porEquipo[u.equipoId].totalEmitidos += u.emitidos;
-      porEquipo[u.equipoId].montoTotal += u.montoTotal;
-      porEquipo[u.equipoId].miembros.push(u);
-    });
+        porEquipo[u.equipoId].totalVuelos += u.totalVuelos;
+        porEquipo[u.equipoId].totalEmitidos += u.emitidos;
+        porEquipo[u.equipoId].montoTotal += u.montoTotal;
+        porEquipo[u.equipoId].miembros.push(u);
+      });
 
     // Ordenar miembros dentro de cada equipo
     Object.values(porEquipo).forEach(eq => {
-      eq.miembros.sort((a, b) => b.emitidos - a.emitidos);
+      eq.miembros.sort(sortByVentas);
     });
 
-    const equipos = Object.values(porEquipo).sort((a, b) => b.totalEmitidos - a.totalEmitidos);
+    // Ordenar equipos: por totalVuelos → totalEmitidos → montoTotal
+    const equipos = Object.values(porEquipo).sort((a, b) => {
+      if (b.totalVuelos !== a.totalVuelos) return b.totalVuelos - a.totalVuelos;
+      if (b.totalEmitidos !== a.totalEmitidos) return b.totalEmitidos - a.totalEmitidos;
+      return b.montoTotal - a.montoTotal;
+    });
 
     // Top performers
     const topAsesor = asesores[0] || null;
     const topGerente = gerentes[0] || null;
-    const general = todos.sort((a, b) => b.emitidos - a.emitidos);
+    const general = [...todos].sort(sortByVentas);
 
     res.json({
       general,

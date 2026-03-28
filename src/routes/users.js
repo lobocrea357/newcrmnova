@@ -5,10 +5,12 @@ const router = express.Router();
 
 /**
  * GET / - Obtener todos los usuarios
+ * Query params: userId (opcional, para filtrado jerárquico)
  */
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await userService.getUsers();
+    const currentUserId = req.query.userId || req.headers['x-user-id'];
+    const { data, error } = await userService.getUsers(currentUserId);
 
     if (error) {
       return res.status(400).json({
@@ -32,10 +34,12 @@ router.get('/', async (req, res) => {
 
 /**
  * GET /roles - Obtener todos los roles disponibles
+ * Query params: userId (opcional, para filtrado jerárquico)
  */
 router.get('/roles', async (req, res) => {
   try {
-    const { data, error } = await userService.getRoles();
+    const currentUserId = req.query.userId || req.headers['x-user-id'];
+    const { data, error } = await userService.getRoles(currentUserId);
 
     if (error) {
       return res.status(400).json({
@@ -95,10 +99,12 @@ router.get('/:id', async (req, res) => {
 /**
  * POST / - Crear un nuevo usuario
  * Body: { email, password, fullName, roleId }
+ * Headers: x-user-id (ID del usuario que crea)
  */
 router.post('/', async (req, res) => {
   try {
     const { email, password, fullName, roleId } = req.body;
+    const createdBy = req.headers['x-user-id'];
 
     if (!email || !password || !fullName || !roleId) {
       return res.status(400).json({
@@ -119,7 +125,7 @@ router.post('/', async (req, res) => {
       password,
       fullName,
       roleId
-    });
+    }, createdBy);
 
     if (error) {
       return res.status(400).json({
@@ -145,11 +151,13 @@ router.post('/', async (req, res) => {
 /**
  * PUT /:id - Actualizar un usuario
  * Body: { email?, password?, fullName?, roleId? }
+ * Headers: x-user-id (ID del usuario que actualiza)
  */
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { email, password, fullName, roleId } = req.body;
+    const updatedBy = req.headers['x-user-id'];
 
     if (!email && !password && !fullName && !roleId) {
       return res.status(400).json({
@@ -170,7 +178,7 @@ router.put('/:id', async (req, res) => {
       password,
       fullName,
       roleId
-    });
+    }, updatedBy);
 
     if (error) {
       return res.status(400).json({
@@ -196,11 +204,13 @@ router.put('/:id', async (req, res) => {
 /**
  * PATCH /:id/status - Activar/Desactivar un usuario
  * Body: { isActive: boolean }
+ * Headers: x-user-id (ID del usuario que cambia el estado)
  */
 router.patch('/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
     const { isActive } = req.body;
+    const changedBy = req.headers['x-user-id'];
 
     if (typeof isActive !== 'boolean') {
       return res.status(400).json({
@@ -209,7 +219,7 @@ router.patch('/:id/status', async (req, res) => {
       });
     }
 
-    const { data, error } = await userService.toggleUserStatus(id, isActive);
+    const { data, error } = await userService.toggleUserStatus(id, isActive, changedBy);
 
     if (error) {
       return res.status(400).json({
