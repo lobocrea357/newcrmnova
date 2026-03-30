@@ -63,6 +63,8 @@ grep -r "/api/tu-endpoint" dashboard/src/config/
   - Fetch con manejo de errores completo
   - Notificaciones: SweetAlert2 (críticas) + toast (info)
   - Loading states: mix según contexto
+  - Sistema de permisos granular con `useUserProfile`
+  - APIs centralizadas en `apiConfig.js`
 
 ### **✅ Ejemplo rápido:**
 ```javascript
@@ -139,13 +141,22 @@ import { USER_API } from '@/config/apiConfig'
 fetch(USER_API.listar)
 ```
 
-### **Caso 3: Necesito validar usuario**
+### **Caso 3: Necesito validar permisos de usuario**
 ```javascript
-// ❌ ANTES (lógica duplicada):
+// ❌ ANTES (solo validar por rol):
 if (user.role === 'admin') { ... }
 
-// ✅ DESPUÉS (usar hooks):
-const { isAdmin } = useUserProfile()
+// ✅ DESPUÉS (usar sistema de permisos granular):
+import { useUserProfile } from '@/contexts/UserProfileContext'
+const { hasPermission, hasAnyPermission, isAdmin } = useUserProfile()
+
+// Validar permiso específico
+if (hasPermission('manage_users')) { ... }
+
+// Validar múltiples permisos (OR)
+if (hasAnyPermission(['edit_flights', 'view_flights'])) { ... }
+
+// Validar por rol cuando aplica
 if (isAdmin) { ... }
 ```
 

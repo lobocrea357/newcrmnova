@@ -18,11 +18,15 @@ function getMedalla(i) {
   return `${i + 1}.`
 }
 
-function formatMoney(n) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0)
+function formatMoney(n, moneda = 'USD') {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: moneda, maximumFractionDigits: 0 }).format(n || 0)
 }
 
-function FilaUsuario({ usuario, index }) {
+function formatFee(n) {
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(n || 0)
+}
+
+function FilaUsuario({ usuario, index, monedaVista }) {
   return (
     <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
       <td className="px-4 py-3 text-sm font-bold text-gray-700 w-10">
@@ -65,13 +69,16 @@ function FilaUsuario({ usuario, index }) {
         </div>
       </td>
       <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
-        {formatMoney(usuario.montoTotal)}
+        {formatMoney(usuario.montoTotal, monedaVista)}
+      </td>
+      <td className="px-4 py-3 text-right text-sm font-bold text-emerald-600">
+        {formatFee(usuario.feeAgenciaTotal)}
       </td>
     </tr>
   )
 }
 
-function TablaUsuarios({ usuarios, emptyMsg }) {
+function TablaUsuarios({ usuarios, emptyMsg, monedaVista }) {
   if (!usuarios || usuarios.length === 0) {
     return (
       <div className="text-center py-12 text-gray-400">
@@ -91,12 +98,13 @@ function TablaUsuarios({ usuarios, emptyMsg }) {
             <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-center">Emitidos</th>
             <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-center">Total</th>
             <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-center">% Conv.</th>
-            <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-right">Monto</th>
+            <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-right">Monto ({monedaVista})</th>
+            <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-right">Fee Gen.</th>
           </tr>
         </thead>
         <tbody>
           {usuarios.map((u, i) => (
-            <FilaUsuario key={u.id} usuario={u} index={i} />
+            <FilaUsuario key={u.id} usuario={u} index={i} monedaVista={monedaVista} />
           ))}
         </tbody>
       </table>
@@ -104,7 +112,7 @@ function TablaUsuarios({ usuarios, emptyMsg }) {
   )
 }
 
-function VistaEquipos({ equipos }) {
+function VistaEquipos({ equipos, monedaVista }) {
   const [expandidos, setExpandidos] = useState({})
 
   if (!equipos || equipos.length === 0) {
@@ -135,7 +143,10 @@ function VistaEquipos({ equipos }) {
             <div className="flex items-center gap-4">
               <div className="text-right">
                 <p className="text-sm font-bold text-gray-900">{equipo.totalEmitidos} emitidos</p>
-                <p className="text-xs text-gray-500">{formatMoney(equipo.montoTotal)}</p>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-gray-500">{formatMoney(equipo.montoTotal, monedaVista)}</span>
+                  <span className="text-emerald-600 font-semibold">Fee: {formatFee(equipo.feeAgenciaTotal)}</span>
+                </div>
               </div>
               {expandidos[equipo.id]
                 ? <ChevronDown className="w-4 h-4 text-gray-400" />
@@ -157,7 +168,10 @@ function VistaEquipos({ equipos }) {
                   </div>
                   <div className="flex items-center gap-4 text-sm">
                     <span className="text-gray-500">{m.emitidos} emitidos</span>
-                    <span className="font-semibold text-gray-800">{formatMoney(m.montoTotal)}</span>
+                    <div className="flex flex-col items-end">
+                      <span className="font-semibold text-gray-800">{formatMoney(m.montoTotal, monedaVista)}</span>
+                      <span className="text-xs text-emerald-600 font-medium">Fee: {formatFee(m.feeAgenciaTotal)}</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -170,7 +184,7 @@ function VistaEquipos({ equipos }) {
 }
 
 export default function RankingGlobal() {
-  const { rankingData, loadingRanking, filtroVista, setFiltroVista, realtimeActivo, ultimaActualizacion, recargar } = useRanking()
+  const { rankingData, loadingRanking, filtroVista, setFiltroVista, monedaVista, setMonedaVista, realtimeActivo, ultimaActualizacion, recargar } = useRanking()
   
   // Estados para el carrusel auto-cíclico
   const [isHovered, setIsHovered] = useState(false)
@@ -188,7 +202,7 @@ export default function RankingGlobal() {
     }, 300) // Duración de la transición de salida
   }
 
-  // Intervalo para el carrusel
+  // Intervalo para el carrusel de vistas
   useEffect(() => {
     const interval = setInterval(() => {
       const ahora = Date.now()
@@ -206,6 +220,21 @@ export default function RankingGlobal() {
 
     return () => clearInterval(interval)
   }, [filtroVista, isHovered, lastInteraction])
+
+  // Intervalo para alternar moneda USD/EUR cada 8 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const ahora = Date.now()
+      const tiempoInactivo = ahora - lastInteraction
+
+      // Cambiar moneda automáticamente si no hay interacción
+      if (!isHovered && tiempoInactivo >= 8000) {
+        setMonedaVista(prev => prev === 'USD' ? 'EUR' : 'USD')
+      }
+    }, 8000) // Cambio cada 8 segundos
+
+    return () => clearInterval(interval)
+  }, [isHovered, lastInteraction, setMonedaVista])
 
   const datosVista = useMemo(() => {
     if (!rankingData) return []
@@ -242,9 +271,13 @@ export default function RankingGlobal() {
                   Live
                 </span>
               )}
+              <span className="flex items-center gap-1.5 text-[10px] uppercase font-black text-blue-600">
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                {monedaVista}
+              </span>
               {!isHovered && (Date.now() - lastInteraction >= 10000) && (
                 <span className="text-[10px] uppercase font-black text-purple-400 animate-pulse">
-                  • Auto-cycle activo
+                  • Auto-cycle
                 </span>
               )}
             </div>
@@ -295,12 +328,13 @@ export default function RankingGlobal() {
           </div>
         ) : filtroVista === 'equipos' ? (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <VistaEquipos equipos={rankingData?.equipos || []} />
+              <VistaEquipos equipos={rankingData?.equipos || []} monedaVista={monedaVista} />
           </div>
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
             <TablaUsuarios
               usuarios={datosVista}
+                  monedaVista={monedaVista}
               emptyMsg={
                 filtroVista === 'gerentes'
                   ? 'No hay ventas registradas por gerentes'

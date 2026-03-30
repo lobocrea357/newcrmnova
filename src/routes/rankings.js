@@ -4,22 +4,32 @@ import { supabase } from '../config/supabase.js';
 const router = express.Router();
 
 /**
- * GET /api/rankings/global
+ * GET /api/rankings/global?moneda=USD|EUR
  * Devuelve el ranking global de ventas agrupado por asesor/gerente y equipo
+ * Incluye fee_agencia_total y convierte montos según moneda solicitada
  */
 router.get('/global', async (req, res) => {
   try {
-    // Obtener vuelos + equipos en paralelo (equipos para identificar gerentes sin hardcodear roles)
-    const [vuelosResult, equiposResult] = await Promise.all([
+    const monedaVista = req.query.moneda || 'USD'; // USD o EUR
+
+    // Obtener vuelos + pasajeros + equipos + tasas en paralelo
+    const [vuelosResult, equiposResult, tasasResult] = await Promise.all([
       supabase
         .from('vuelos')
         .select(`
           id,
           estado,
           monto_venta,
+          total_cotizacion,
+          moneda_precio,
+          moneda_cotizacion,
+          tasa_cambio,
           created_by,
           created_at,
           ruta,
+          pasajeros:vuelos_pasajeros(
+            fee_agencia
+          ),
           creator:profiles!created_by(
             id,
             full_name,
@@ -33,13 +43,49 @@ router.get('/global', async (req, res) => {
       supabase
         .from('equipos')
         .select('id, nombre, color, gerente_id')
-        .eq('is_active', true)
+        .eq('is_active', true),
+      supabase
+        .from('tasas_conversion')
+        .select(`
+          tasa,
+          moneda_origen:monedas!tasas_conversion_moneda_origen_id_fkey(codigo),
+          moneda_destino:monedas!tasas_conversion_moneda_destino_id_fkey(codigo)
+        `)
+        .eq('activa', true)
     ]);
 
     const { data: vuelos, error: vuelosError } = vuelosResult;
     const { data: equiposRaw } = equiposResult;
+    const { data: tasasRaw } = tasasResult;
 
     if (vuelosError) throw vuelosError;
+
+    // Crear mapa de tasas para conversión rápida
+    const tasasMap = {};
+    (tasasRaw || []).forEach(t => {
+      const origen = t.moneda_origen?.codigo;
+      const destino = t.moneda_destino?.codigo;
+      if (origen && destino) {
+        tasasMap[`${origen}_${destino}`] = t.tasa;
+      }
+    });
+
+    // Función helper para convertir entre monedas
+    const convertirMoneda = (monto, monedaOrigen, monedaDestino) => {
+      if (!monto || monedaOrigen === monedaDestino) return monto;
+      
+      // Buscar tasa directa
+      const tasaDirecta = tasasMap[`${monedaOrigen}_${monedaDestino}`];
+      if (tasaDirecta) return monto * tasaDirecta;
+      
+      // Buscar tasa inversa
+      const tasaInversa = tasasMap[`${monedaDestino}_${monedaOrigen}`];
+      if (tasaInversa) return monto / tasaInversa;
+      
+      // Si no hay tasa, retornar el monto original
+      console.warn(`No se encontró tasa entre ${monedaOrigen} y ${monedaDestino}`);
+      return monto;
+    };
 
     // Mapa de equipo_id → equipo data y set de gerente_ids (sin hardcodear roles)
     const equiposMap = {};
@@ -69,13 +115,34 @@ router.get('/global', async (req, res) => {
           emitidos: 0,
           pendientesPago: 0,
           pendientesEmision: 0,
-          montoTotal: 0
+          montoTotal: 0,
+          feeAgenciaTotal: 0
         };
       }
 
       const u = porUsuario[userId];
       u.totalVuelos += 1;
-      u.montoTotal += parseFloat(vuelo.monto_venta) || 0;
+
+      // Calcular monto en la moneda de vista (USD o EUR)
+      // Si total_cotizacion existe, usarlo (está en moneda_precio: USD o EUR)
+      if (vuelo.total_cotizacion && vuelo.moneda_precio) {
+        const montoEnMonedaVista = convertirMoneda(
+          vuelo.total_cotizacion,
+          vuelo.moneda_precio,
+          monedaVista
+        );
+        u.montoTotal += parseFloat(montoEnMonedaVista) || 0;
+      } else {
+        // Fallback a monto_venta si no hay total_cotizacion
+        u.montoTotal += parseFloat(vuelo.monto_venta) || 0;
+      }
+
+      // Sumar fee_agencia de todos los pasajeros (cantidad fija sin moneda)
+      if (vuelo.pasajeros && Array.isArray(vuelo.pasajeros)) {
+        vuelo.pasajeros.forEach(pasajero => {
+          u.feeAgenciaTotal += parseFloat(pasajero.fee_agencia) || 0;
+        });
+      }
 
       if (vuelo.estado === 'EMITIDO') u.emitidos += 1;
       if (vuelo.estado === 'PENDIENTE_CONFIRMACION_PAGO') u.pendientesPago += 1;
@@ -120,12 +187,14 @@ router.get('/global', async (req, res) => {
             totalVuelos: 0,
             totalEmitidos: 0,
             montoTotal: 0,
+            feeAgenciaTotal: 0,
             miembros: []
           };
         }
         porEquipo[u.equipoId].totalVuelos += u.totalVuelos;
         porEquipo[u.equipoId].totalEmitidos += u.emitidos;
         porEquipo[u.equipoId].montoTotal += u.montoTotal;
+        porEquipo[u.equipoId].feeAgenciaTotal += u.feeAgenciaTotal;
         porEquipo[u.equipoId].miembros.push(u);
       });
 
@@ -154,6 +223,7 @@ router.get('/global', async (req, res) => {
       topAsesor,
       topGerente,
       totalVuelos: vuelos?.length || 0,
+      monedaVista,
       updatedAt: new Date().toISOString()
     });
 

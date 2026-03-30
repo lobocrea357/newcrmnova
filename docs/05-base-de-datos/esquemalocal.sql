@@ -1,6 +1,18 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.agencias (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  nombre character varying NOT NULL UNIQUE,
+  codigo character varying NOT NULL UNIQUE,
+  descripcion text,
+  logo_url text,
+  color_primario character varying DEFAULT '#6366f1'::character varying,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT agencias_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.anulables (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone DEFAULT now(),
@@ -342,10 +354,13 @@ CREATE TABLE public.monedas (
   codigo text NOT NULL UNIQUE,
   nombre text NOT NULL,
   simbolo text NOT NULL,
-  activa boolean DEFAULT true,
+  activa boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT monedas_pkey PRIMARY KEY (id)
+  deleted_at timestamp with time zone,
+  deleted_by uuid,
+  CONSTRAINT monedas_pkey PRIMARY KEY (id),
+  CONSTRAINT monedas_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.notificaciones (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -429,6 +444,15 @@ CREATE TABLE public.performance_reports (
   CONSTRAINT performance_reports_analysis_id_fkey FOREIGN KEY (performance_analysis_id) REFERENCES public.performance_analyses(id),
   CONSTRAINT performance_reports_generated_by_fkey FOREIGN KEY (generated_by_user_id) REFERENCES public.profiles(id)
 );
+CREATE TABLE public.permissions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL UNIQUE,
+  description text,
+  category character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT permissions_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.profiles (
   id uuid NOT NULL,
   email character varying NOT NULL UNIQUE,
@@ -439,10 +463,21 @@ CREATE TABLE public.profiles (
   updated_at timestamp with time zone DEFAULT now(),
   equipo_id uuid,
   avatar_url text,
+  sede_id uuid,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
   CONSTRAINT profiles_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id),
-  CONSTRAINT profiles_equipo_id_fkey FOREIGN KEY (equipo_id) REFERENCES public.equipos(id)
+  CONSTRAINT profiles_equipo_id_fkey FOREIGN KEY (equipo_id) REFERENCES public.equipos(id),
+  CONSTRAINT profiles_sede_id_fkey FOREIGN KEY (sede_id) REFERENCES public.sedes(id)
+);
+CREATE TABLE public.role_permissions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  role_id uuid NOT NULL,
+  permission_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT role_permissions_pkey PRIMARY KEY (id),
+  CONSTRAINT role_permissions_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id),
+  CONSTRAINT role_permissions_permission_id_fkey FOREIGN KEY (permission_id) REFERENCES public.permissions(id)
 );
 CREATE TABLE public.roles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -451,6 +486,7 @@ CREATE TABLE public.roles (
   permissions jsonb DEFAULT '{}'::jsonb,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  ranking integer DEFAULT 0,
   CONSTRAINT roles_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.sales_analysis_config (
@@ -476,6 +512,19 @@ CREATE TABLE public.sales_analysis_logs (
   CONSTRAINT sales_analysis_logs_pkey PRIMARY KEY (id),
   CONSTRAINT sales_analysis_logs_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id)
 );
+CREATE TABLE public.sedes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  nombre character varying NOT NULL UNIQUE,
+  codigo character varying NOT NULL UNIQUE,
+  direccion text,
+  ciudad character varying,
+  pais character varying DEFAULT 'Venezuela'::character varying,
+  telefono character varying,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT sedes_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.tags (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   bot_id uuid,
@@ -491,14 +540,17 @@ CREATE TABLE public.tasas_conversion (
   moneda_destino_id uuid NOT NULL,
   tasa numeric NOT NULL,
   descripcion text,
-  activa boolean DEFAULT true,
+  activa boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   actualizado_por uuid,
+  deleted_at timestamp with time zone,
+  deleted_by uuid,
   CONSTRAINT tasas_conversion_pkey PRIMARY KEY (id),
   CONSTRAINT tasas_conversion_moneda_origen_id_fkey FOREIGN KEY (moneda_origen_id) REFERENCES public.monedas(id),
   CONSTRAINT tasas_conversion_moneda_destino_id_fkey FOREIGN KEY (moneda_destino_id) REFERENCES public.monedas(id),
-  CONSTRAINT tasas_conversion_actualizado_por_fkey FOREIGN KEY (actualizado_por) REFERENCES public.profiles(id)
+  CONSTRAINT tasas_conversion_actualizado_por_fkey FOREIGN KEY (actualizado_por) REFERENCES public.profiles(id),
+  CONSTRAINT tasas_conversion_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.tasas_historial (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -510,22 +562,38 @@ CREATE TABLE public.tasas_historial (
   motivo text,
   modificado_por uuid NOT NULL,
   fecha_cambio timestamp with time zone DEFAULT now(),
+  tipo_operacion character varying DEFAULT 'update'::character varying CHECK (tipo_operacion::text = ANY (ARRAY['create'::character varying, 'update'::character varying, 'delete'::character varying]::text[])),
   CONSTRAINT tasas_historial_pkey PRIMARY KEY (id),
   CONSTRAINT tasas_historial_tasa_conversion_id_fkey FOREIGN KEY (tasa_conversion_id) REFERENCES public.tasas_conversion(id),
   CONSTRAINT tasas_historial_moneda_origen_id_fkey FOREIGN KEY (moneda_origen_id) REFERENCES public.monedas(id),
   CONSTRAINT tasas_historial_moneda_destino_id_fkey FOREIGN KEY (moneda_destino_id) REFERENCES public.monedas(id),
   CONSTRAINT tasas_historial_modificado_por_fkey FOREIGN KEY (modificado_por) REFERENCES public.profiles(id)
 );
-CREATE TABLE public.tasas_monedas_deprecated (
+CREATE TABLE public.user_permissions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  moneda_codigo text NOT NULL UNIQUE,
-  moneda_nombre text NOT NULL,
-  simbolo text NOT NULL DEFAULT '$'::text,
-  tasa_conversion numeric NOT NULL DEFAULT 1.0,
-  updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
-  updated_by uuid,
-  CONSTRAINT tasas_monedas_deprecated_pkey PRIMARY KEY (id),
-  CONSTRAINT tasas_monedas_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
+  user_id uuid NOT NULL,
+  permission_id uuid NOT NULL,
+  granted boolean DEFAULT true,
+  granted_by uuid,
+  reason text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_permissions_pkey PRIMARY KEY (id),
+  CONSTRAINT user_permissions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
+  CONSTRAINT user_permissions_permission_id_fkey FOREIGN KEY (permission_id) REFERENCES public.permissions(id),
+  CONSTRAINT user_permissions_granted_by_fkey FOREIGN KEY (granted_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.usuario_agencias (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  agencia_id uuid NOT NULL,
+  is_primary boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  created_by uuid,
+  CONSTRAINT usuario_agencias_pkey PRIMARY KEY (id),
+  CONSTRAINT usuario_agencias_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
+  CONSTRAINT usuario_agencias_agencia_id_fkey FOREIGN KEY (agencia_id) REFERENCES public.agencias(id),
+  CONSTRAINT usuario_agencias_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.vuelos (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

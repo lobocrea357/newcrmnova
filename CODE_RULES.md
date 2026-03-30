@@ -152,12 +152,33 @@ async function fetchUserData(userId) {
 ### **Endpoints Centralizados**
 ```javascript
 // ✅ BUENO: Usar apiConfig.js para endpoints
-import { TASAS_API } from '@/config/apiConfig'
+import { TASAS_API, VUELOS_API, AGENCIAS_API } from '@/config/apiConfig'
 
+// Endpoints simples
 await fetch(TASAS_API.crear, options)
+
+// Endpoints con parámetros
+await fetch(VUELOS_API.obtener(vueloId), options)
+
+// Endpoints complejos
+await fetch(AGENCIAS_API.agenciasUsuario(userId), options)
 
 // ❌ MALO: Hardcodear URLs
 await fetch('http://localhost:4000/api/tasas/crear', options)
+```
+
+### **APIs Disponibles en apiConfig.js**
+```javascript
+// Todas las APIs están centralizadas:
+- TASAS_API          // Tasas de cambio y monedas
+- COTIZACIONES_API   // Sistema de cotizaciones
+- VUELOS_API         // Gestión de vuelos
+- EQUIPOS_API        // Equipos de trabajo
+- RANKINGS_API       // Rankings globales
+- ANULABLES_API      // Anulables
+- AGENCIAS_API       // Agencias
+- SEDES_API          // Sedes
+- USERS_API          // Usuarios
 ```
 
 ---
@@ -327,16 +348,29 @@ toast.error('Error al procesar la solicitud')
 
 ### **Roles y Permisos**
 ```javascript
-// ✅ BUENO: Validación de roles en frontend
-const { isAdmin, isManager } = useUserProfile()
+// ✅ BUENO: Validación por permisos granulares (preferido)
+import { useUserProfile } from '@/contexts/UserProfileContext'
 
+const { hasPermission, hasAnyPermission, isAdmin, isManager } = useUserProfile()
+
+// Validación por permiso específico
+if (!hasPermission('manage_users')) {
+  return <div>No tienes permisos para acceder</div>
+}
+
+// Validación por múltiples permisos (OR)
+if (!hasAnyPermission(['edit_flights', 'view_flights'])) {
+  return <div>No tienes permisos para ver vuelos</div>
+}
+
+// Validación por rol (cuando aplica)
 if (!isAdmin && !isManager) {
   return <div>No tienes permisos para acceder</div>
 }
 
-// ✅ BUENO: Componentes protegidos
-<ProtectedRoute requiredRole="admin">
-  <AdminPanel />
+// ✅ BUENO: Componentes protegidos con permisos
+<ProtectedRoute requiredPermission="manage_users">
+  <UserManagement />
 </ProtectedRoute>
 ```
 
@@ -360,12 +394,37 @@ try {
 
 ### **WAHA Integration**
 ```javascript
-// ✅ BUENO: Requests directos a WAHA (sin helper centralizado aún)
+// ✅ BUENO: Requests directos a WAHA (sin helper centralizado)
 const wahaResponse = await axios.get(`${process.env.WAHA_BASE_URL}/api/sessions`, {
   headers: {
     'X-API-Key': process.env.WAHA_API_KEY
   }
 })
+
+// Nota: No hay helper centralizado para WAHA, cada servicio maneja sus requests
+```
+
+### **Helpers de Supabase**
+```javascript
+// ✅ BUENO: Usar helpers de autenticación
+import { getValidSession, getValidUser, handleAuthError } from '@/lib/supabase'
+
+try {
+  const session = await getValidSession()
+  const user = await getValidUser()
+  // continuar con operación
+} catch (error) {
+  await handleAuthError(error) // Maneja errores de sesión automáticamente
+}
+
+// ✅ BUENO: Usar helpers de bots
+import { getAllBots, isBotExcluded } from '@/lib/supabase'
+
+const bots = await getAllBots() // Retorna bots con estadísticas
+
+if (isBotExcluded(botName)) {
+  // Es un bot de prueba, excluir de análisis
+}
 ```
 
 ---
@@ -431,6 +490,58 @@ if (!isAdmin) return null
 
 ---
 
+## 🆕 **Patrones Específicos del Proyecto**
+
+### **Hooks Personalizados del Cotizador**
+```javascript
+// ✅ BUENO: Usar hooks especializados del cotizador
+import { useMonedas } from '@/hooks/cotizador/useMonedas'
+import { usePasajeros } from '@/hooks/cotizador/usePasajeros'
+import { useVistaCotizacion } from '@/hooks/cotizador/useVistaCotizacion'
+import { useCalculoCotizacion } from '@/hooks/cotizador/useCalculoCotizacion'
+
+const { monedas, loading } = useMonedas()
+const { pasajeros, agregarPasajero } = usePasajeros()
+```
+
+### **Configuraciones del Cotizador**
+```javascript
+// ✅ BUENO: Usar configuraciones centralizadas
+import { PASSENGER_CATEGORIES } from '@/lib/cotizador/passengerConfig'
+import { PAYMENT_METHODS } from '@/lib/cotizador/paymentConfig'
+import { obtenerTasaActual } from '@/lib/cotizador/tasasHelpers'
+import aerolineas from '@/lib/cotizador/aerolineas.json'
+
+// Usar categorías de pasajeros predefinidas
+const categoria = PASSENGER_CATEGORIES.ADULT
+
+// Obtener métodos de pago por agencia
+const metodos = PAYMENT_METHODS[agencia][moneda]
+```
+
+### **Sistema de Permisos Context**
+```javascript
+// ✅ BUENO: Usar UserProfileContext para permisos
+import { useUserProfile } from '@/contexts/UserProfileContext'
+
+const { 
+  profile,
+  role,
+  isSuperAdmin,
+  isAdmin,
+  hasPermission,
+  hasAnyPermission,
+  allPermissions
+} = useUserProfile()
+
+// Renderizado condicional basado en permisos
+{hasPermission('manage_users') && (
+  <UserManagementButton />
+)}
+```
+
+---
+
 ## 🚀 **Mejoras Futuras**
 
 ### **Pendiente Implementar**
@@ -438,7 +549,6 @@ if (!isAdmin) return null
 - [ ] **Row Level Security (RLS) en Supabase**
 - [ ] **Helper centralizado para WAHA API**
 - [ ] **Sistema de logging profesional**
-- [ ] **Centralización completa de endpoints**
 - [ ] **Tests unitarios y de integración**
 
 ---

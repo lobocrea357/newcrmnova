@@ -16,12 +16,14 @@ export function RankingProvider({ children }) {
   const [rankingData, setRankingData] = useState(null)
   const [loadingRanking, setLoadingRanking] = useState(true)
   const [filtroVista, setFiltroVista] = useState('general')
+  const [monedaVista, setMonedaVista] = useState('USD') // USD o EUR
   const [realtimeActivo, setRealtimeActivo] = useState(false)
   const [ultimaActualizacion, setUltimaActualizacion] = useState(null)
 
-  const cargarRanking = useCallback(async () => {
+  const cargarRanking = useCallback(async (moneda = monedaVista) => {
     try {
-      const res = await fetch(RANKINGS_API.global)
+      const url = `${RANKINGS_API.global}?moneda=${moneda}`
+      const res = await fetch(url)
       if (!res.ok) throw new Error('Error obteniendo ranking')
       const data = await res.json()
       setRankingData(data)
@@ -31,10 +33,10 @@ export function RankingProvider({ children }) {
     } finally {
       setLoadingRanking(false)
     }
-  }, [])
+  }, [monedaVista])
 
   useEffect(() => {
-    cargarRanking()
+    cargarRanking(monedaVista)
 
     // Suscripción Realtime a INSERT/UPDATE en vuelos — igual al patrón de ChatView
     const channel = supabase
@@ -48,7 +50,7 @@ export function RankingProvider({ children }) {
         },
         () => {
           // Al haber cualquier cambio en vuelos → recargar ranking
-          cargarRanking()
+          cargarRanking(monedaVista)
         }
       )
       .subscribe((status) => {
@@ -59,7 +61,7 @@ export function RankingProvider({ children }) {
       supabase.removeChannel(channel)
       setRealtimeActivo(false)
     }
-  }, [cargarRanking])
+  }, [cargarRanking, monedaVista])
 
   return (
     <RankingContext.Provider value={{
@@ -67,6 +69,8 @@ export function RankingProvider({ children }) {
       loadingRanking,
       filtroVista,
       setFiltroVista,
+      monedaVista,
+      setMonedaVista,
       realtimeActivo,
       ultimaActualizacion,
       recargar: cargarRanking
