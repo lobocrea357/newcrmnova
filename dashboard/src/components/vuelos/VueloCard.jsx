@@ -1,6 +1,8 @@
 'use client'
-import { Plane, Calendar, Users, MapPin, AlertCircle, ExternalLink, ArrowRight } from 'lucide-react'
+import { Plane, Calendar, Users, MapPin, AlertCircle, ExternalLink, ArrowRight, Edit3 } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
 
 const ESTADO_CONFIG = {
   'PENDIENTE_CONFIRMACION_PAGO': { label: 'Pend. Pago', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
@@ -17,8 +19,37 @@ const MONEDA_SIMBOLO = {
 }
 
 export default function VueloCard({ vuelo }) {
+  const router = useRouter()
+  const { user } = useAuth()
   const totalPax = (vuelo.num_adultos || 0) + (vuelo.num_ninos || 0) + (vuelo.num_infantes || 0)
   
+  // Verificar permisos de edición
+  const esCreador = vuelo.created_by === user?.id
+  const role = user?.role
+  const esAdmin = role === 'admin' || role === 'super_admin'
+  const esGerente = role === 'gerente'
+
+  // Gerente puede editar si es creador O si el creador está en su equipo
+  const puedeEditarGerente = esGerente && (esCreador || vuelo.creator?.equipo_id === user?.equipo_id)
+
+  const edicionesDisponibles = vuelo.ediciones_disponibles ?? 3
+
+  // Determinar si puede editar:
+  // - Admin/Super Admin: siempre (sin límite de intentos)
+  // - Gerente: sus vuelos + vuelos de su equipo (sin límite de intentos)
+  // - Asesor creador: solo sus vuelos (con límite de 3 intentos)
+  const puedeEditar = vuelo.estado !== 'EMITIDO' && (
+    esAdmin ||
+    puedeEditarGerente ||
+    (esCreador && edicionesDisponibles > 0)
+  )
+
+  const handleEditClick = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    router.push(`/ventas/vuelos/${vuelo.id}/editar`)
+  }
+
   const formatDate = (dateString) => {
     const date = new Date(dateString + 'T12:00:00')
     return date.toLocaleDateString('es-ES', { 
@@ -144,10 +175,34 @@ export default function VueloCard({ vuelo }) {
             <span className="text-xs text-gray-500">{vuelo.proveedor}</span>
             <span className="text-gray-300">•</span>
             <span className="text-xs text-gray-400">Creado por: {vuelo.creator?.full_name || 'N/A'}</span>
+            {/* Badge de ediciones disponibles (solo para asesores creadores) */}
+            {esCreador && !esGerente && !esAdmin && vuelo.estado !== 'EMITIDO' && (
+              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${edicionesDisponibles > 1
+                  ? 'bg-green-100 text-green-700'
+                  : edicionesDisponibles === 1
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-red-100 text-red-700'
+                }`}>
+                {edicionesDisponibles > 0 ? `${edicionesDisponibles} ediciones` : 'Sin ediciones'}
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-1 text-purple-600 text-sm font-medium">
-            Ver detalles
-            <ExternalLink className="w-4 h-4" />
+          <div className="flex items-center gap-3">
+            {/* Botón de editar */}
+            {puedeEditar && (
+              <button
+                onClick={handleEditClick}
+                className="flex items-center gap-1 px-3 py-1.5 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg text-sm font-medium transition-colors"
+                title="Editar vuelo"
+              >
+                <Edit3 className="w-4 h-4" />
+                Editar
+              </button>
+            )}
+            <div className="flex items-center gap-1 text-purple-600 text-sm font-medium">
+              Ver detalles
+              <ExternalLink className="w-4 h-4" />
+            </div>
           </div>
         </div>
       </div>

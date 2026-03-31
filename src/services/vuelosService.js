@@ -151,10 +151,10 @@ class VuelosService {
           console.log('[VuelosService] Gerente sin equipos - solo ve sus vuelos');
         }
 
-      } else if (role === 'admin' || role === 'superadmin') {
-        // Admin: Ve todos los vuelos (sin restricción)
+      } else if (role === 'admin' || role === 'super_admin') {
+        // Admin y Super Admin: Ve todos los vuelos (sin restricción)
         allowedUserIds = null;
-        console.log('[VuelosService] Admin - ve todos los vuelos');
+        console.log('[VuelosService] Admin/Super Admin - ve todos los vuelos');
       } else {
         // Rol desconocido: restringir al usuario actual
         console.warn('[VuelosService] Rol desconocido:', role, '- restringiendo a usuario actual');

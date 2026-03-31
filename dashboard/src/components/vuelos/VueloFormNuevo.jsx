@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { Plane, Users, Calendar, DollarSign, FileText, Upload, X, Copy, CheckCircle, AlertCircle, Sparkles, Loader2, MapPin, Clock } from 'lucide-react'
 import { toastSuccess, toastError, toastInfo } from '@/helpers/toasts'
 import { METHODS_BY_CURRENCY } from '@/lib/cotizador/paymentConfig'
+import AerolineaAutocomplete from '@/components/cotizador/AerolineaAutocomplete'
 
 const TIPOS_VUELO = [
   { value: 'solo_ida', label: 'Solo Ida' },
@@ -230,8 +231,38 @@ export default function VueloFormNuevo({
     }
   }
 
+  // Calcular fee de emisión según aerolínea
+  const calcularFeeEmision = () => {
+    if (formData.aerolinea_nombre && formData.aerolinea_nombre.toLowerCase().includes('estelar')) {
+      return 10
+    }
+    return 15
+  }
+
+  // Calcular subtotal (suma de todos los pasajeros en moneda base)
+  const calcularSubtotal = () => {
+    return pasajeros.reduce((total, p) => {
+      const precio = parseFloat(p.precio_pantalla) || 0
+      const feeEmision = parseFloat(p.fee_emision) || 0
+      const feeAgencia = parseFloat(p.fee_agencia) || 0
+      return total + precio + feeEmision + feeAgencia
+    }, 0)
+  }
+
+  // Calcular monto de venta (subtotal con tasa aplicada)
+  const calcularMontoVenta = () => {
+    const subtotal = calcularSubtotal()
+    const tasa = parseFloat(formData.tasa_cambio) || 1
+    // Si las monedas son diferentes, aplicar tasa
+    if (formData.moneda_precio !== formData.moneda_cotizacion && tasa > 0) {
+      return subtotal * tasa
+    }
+    return subtotal
+  }
+
   const agregarPasajero = () => {
     const nuevoOrden = pasajeros.length + 1
+    const feeEmisionDefault = calcularFeeEmision()
     setPasajeros(prev => [...prev, {
       id: `temp-${Date.now()}`,
       tipo: 'ADULTO',
@@ -243,9 +274,9 @@ export default function VueloFormNuevo({
       nacionalidad: '',
       numero_pasaporte: '',
       precio_pantalla: 0,
-      fee_emision: 0,
-      fee_agencia: 0,
-      equipaje_completo: false,
+      fee_emision: feeEmisionDefault,
+      fee_agencia: 30,
+      equipaje_completo: true,
       equipaje_mediano: false,
       equipaje_ligero: false,
       pasaporte_file: null
@@ -294,8 +325,27 @@ export default function VueloFormNuevo({
     if (!formData.fecha_vuelo) newErrors.fecha_vuelo = 'Fecha del vuelo es requerida'
     if (!formData.ruta.trim()) newErrors.ruta = 'Ruta es requerida'
     if (!formData.proveedor.trim()) newErrors.proveedor = 'Proveedor es requerido'
-    if (!formData.monto_venta || parseFloat(formData.monto_venta) <= 0) {
-      newErrors.monto_venta = 'Monto de venta es requerido y debe ser mayor a 0'
+
+    // Validaciones específicas cuando NO hay cotización
+    if (!cotizacion) {
+      if (!formData.moneda_precio) newErrors.moneda_precio = 'Moneda de precios es requerida'
+      if (!formData.moneda_cotizacion) newErrors.moneda_cotizacion = 'Moneda de cotización es requerida'
+      if (!formData.metodo_pago) newErrors.metodo_pago = 'Método de pago es requerido'
+      // Si las monedas son diferentes, validar tasa
+      if (formData.moneda_precio && formData.moneda_cotizacion &&
+        formData.moneda_precio !== formData.moneda_cotizacion &&
+        (!formData.tasa_cambio || parseFloat(formData.tasa_cambio) <= 0)) {
+        newErrors.tasa_cambio = 'Tasa de cambio es requerida cuando las monedas son diferentes'
+      }
+      // Validar que el monto calculado sea mayor a 0
+      if (calcularMontoVenta() <= 0) {
+        newErrors.monto_venta = 'El monto de venta debe ser mayor a 0'
+      }
+    } else {
+    // Validación cuando hay cotización
+      if (!formData.monto_venta || parseFloat(formData.monto_venta) <= 0) {
+        newErrors.monto_venta = 'Monto de venta es requerido y debe ser mayor a 0'
+      }
     }
 
     // Validar pasajeros
@@ -315,10 +365,14 @@ export default function VueloFormNuevo({
       return
     }
 
+    // Calcular valores dinámicos si no hay cotización
+    const subtotalCalculado = cotizacion ? parseFloat(formData.total_cotizacion) : calcularSubtotal()
+    const montoVentaCalculado = cotizacion ? parseFloat(formData.monto_venta) : calcularMontoVenta()
+
     const submitData = {
       vuelo: {
         ...formData,
-        monto_venta: parseFloat(formData.monto_venta),
+        monto_venta: montoVentaCalculado,
         cotizacion_id: cotizacion?.id || null,
         // Validar horas para evitar strings vacíos
         horario: formData.horario && formData.horario.trim() !== '' ? formData.horario : null,
@@ -334,7 +388,7 @@ export default function VueloFormNuevo({
         moneda_precio: formData.moneda_precio || null,
         moneda_cotizacion: formData.moneda_cotizacion || null,
         tasa_cambio: formData.tasa_cambio ? parseFloat(formData.tasa_cambio) : null,
-        total_cotizacion: formData.total_cotizacion ? parseFloat(formData.total_cotizacion) : null
+        total_cotizacion: subtotalCalculado
       },
       pasajeros: pasajeros.map(p => ({
         cotizacion_pasajero_id: p.cotizacion_pasajero_id || null,
@@ -487,13 +541,10 @@ export default function VueloFormNuevo({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Aerolínea
             </label>
-            <input
-              type="text"
-              name="aerolinea_nombre"
+            <AerolineaAutocomplete
               value={formData.aerolinea_nombre}
-              onChange={handleChange}
-              placeholder="Ej: Avianca"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              onChange={(nombre) => setFormData(prev => ({ ...prev, aerolinea_nombre: nombre }))}
+              onCodigoChange={(codigo) => setFormData(prev => ({ ...prev, aerolinea_codigo: codigo }))}
             />
           </div>
 
@@ -729,79 +780,118 @@ export default function VueloFormNuevo({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Moneda de Precios de Pantalla
+              Moneda de Precios de Pantalla *
+            </label>
+            {cotizacion ? (
+              <input
+                type="text"
+                value={formData.moneda_precio}
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+              />
+            ) : (
+              <select
+                name="moneda_precio"
+                value={formData.moneda_precio}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Seleccionar</option>
+                <option value="USD">USD - Dólares</option>
+                <option value="EUR">EUR - Euros</option>
+              </select>
+            )}
+            <p className="mt-1 text-xs text-gray-500">Moneda en la que están los precios de pantalla</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Moneda de Cotización *
+            </label>
+            {cotizacion ? (
+              <input
+                type="text"
+                value={formData.moneda_cotizacion}
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+              />
+            ) : (
+              <select
+                name="moneda_cotizacion"
+                value={formData.moneda_cotizacion}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Seleccionar</option>
+                <option value="USD">USD - Dólares</option>
+                <option value="EUR">EUR - Euros</option>
+                <option value="VES">VES - Bolívares</option>
+                <option value="COP">COP - Pesos Colombianos</option>
+              </select>
+            )}
+            <p className="mt-1 text-xs text-gray-500">Moneda en la que paga el cliente</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tasa de Cambio {!cotizacion && formData.moneda_precio !== formData.moneda_cotizacion && '*'}
+            </label>
+            {cotizacion ? (
+              <input
+                type="text"
+                value={formData.tasa_cambio}
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+              />
+            ) : (
+              <input
+                type="number"
+                name="tasa_cambio"
+                value={formData.tasa_cambio}
+                onChange={handleChange}
+                step="0.0001"
+                min="0"
+                placeholder={formData.moneda_precio === formData.moneda_cotizacion ? 'No aplica' : 'Ej: 1.08'}
+                disabled={formData.moneda_precio === formData.moneda_cotizacion}
+                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 ${formData.moneda_precio === formData.moneda_cotizacion ? 'bg-gray-100' : ''}`}
+              />
+            )}
+            <p className="mt-1 text-xs text-gray-500">
+              {formData.moneda_precio === formData.moneda_cotizacion
+                ? 'Misma moneda, no requiere tasa'
+                : `Tasa de ${formData.moneda_precio || '?'} a ${formData.moneda_cotizacion || '?'}`}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Subtotal ({formData.moneda_precio || 'USD'})
             </label>
             <input
               type="text"
-              value={formData.moneda_precio}
+              value={cotizacion ? formData.total_cotizacion : calcularSubtotal().toFixed(2)}
               disabled
-              placeholder="EUR o USD"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 font-semibold"
             />
-            <p className="mt-1 text-xs text-gray-500">Solo EUR o USD (desde cotización)</p>
+            <p className="mt-1 text-xs text-gray-500">Suma de todos los boletos (calculado automáticamente)</p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Moneda de Cotización
+              Monto Venta - Total a Pagar ({formData.moneda_cotizacion || 'USD'})
             </label>
             <input
               type="text"
-              value={formData.moneda_cotizacion}
+              value={cotizacion ? formData.monto_venta : calcularMontoVenta().toFixed(2)}
               disabled
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-emerald-50 text-emerald-700 font-bold text-lg"
             />
-            <p className="mt-1 text-xs text-gray-500">Moneda en la que se cotizó</p>
+            <p className="mt-1 text-xs text-gray-500">Precio final para el cliente (calculado automáticamente)</p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tasa de Cambio
-            </label>
-            <input
-              type="text"
-              value={formData.tasa_cambio}
-              disabled
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
-            />
-            <p className="mt-1 text-xs text-gray-500">Tasa aplicada en la cotización</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Subtotal
-            </label>
-            <input
-              type="text"
-              value={formData.total_cotizacion}
-              disabled
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
-            />
-            <p className="mt-1 text-xs text-gray-500">Suma total de boletos en {formData.moneda_precio || 'moneda base'}</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Monto Venta (Total a Pagar) *
-            </label>
-            <input
-              type="number"
-              name="monto_venta"
-              value={formData.monto_venta}
-              onChange={handleChange}
-              disabled={!!cotizacion}
-              step="0.01"
-              min="0"
-              placeholder="0.00"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${!!cotizacion ? 'bg-gray-100' : ''} ${errors.monto_venta ? 'border-red-500' : 'border-gray-300'}`}
-            />
-            {errors.monto_venta && <p className="mt-1 text-sm text-red-600">{errors.monto_venta}</p>}
-            <p className="mt-1 text-xs text-gray-500">Subtotal con tasa aplicada = Precio final para el cliente</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Método de Pago
+              Método de Pago *
             </label>
             <select
               name="metodo_pago"
@@ -1026,26 +1116,101 @@ export default function VueloFormNuevo({
                   )}
                 </div>
 
-                {/* Precios (solo lectura si viene de cotización) */}
-                {pasajero.cotizacion_pasajero_id && (
-                  <div className="md:col-span-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-                    <p className="text-xs font-medium text-indigo-700 mb-2">Precios heredados de cotización:</p>
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-600">Precio Pantalla:</span>
-                        <span className="font-semibold text-gray-900 ml-2">${pasajero.precio_pantalla}</span>
+                {/* Precios del pasajero */}
+                <div className="md:col-span-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                  <p className="text-xs font-medium text-indigo-700 mb-3">
+                    {pasajero.cotizacion_pasajero_id ? '💰 Precios heredados de cotización:' : '💰 Precios del boleto:'}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Precio Pantalla</label>
+                      {pasajero.cotizacion_pasajero_id ? (
+                        <div className="px-3 py-2 bg-white border border-gray-200 rounded text-sm font-semibold">
+                          ${pasajero.precio_pantalla}
+                        </div>
+                      ) : (
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={pasajero.precio_pantalla}
+                          onChange={(e) => handlePasajeroChange(index, 'precio_pantalla', e.target.value)}
+                          placeholder="0.00"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500"
+                        />
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Fee Emisión</label>
+                      <div className="px-3 py-2 bg-white border border-gray-200 rounded text-sm font-semibold">
+                        ${pasajero.fee_emision}
+                        <span className="text-xs text-gray-400 ml-1">
+                          {parseFloat(pasajero.fee_emision) === 10 ? '(Estelar)' : '(Normal)'}
+                        </span>
                       </div>
-                      <div>
-                        <span className="text-gray-600">Fee Emisión:</span>
-                        <span className="font-semibold text-gray-900 ml-2">${pasajero.fee_emision}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Fee Agencia:</span>
-                        <span className="font-semibold text-gray-900 ml-2">${pasajero.fee_agencia}</span>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Fee Agencia</label>
+                      {pasajero.cotizacion_pasajero_id ? (
+                        <div className="px-3 py-2 bg-white border border-gray-200 rounded text-sm font-semibold">
+                          ${pasajero.fee_agencia}
+                        </div>
+                      ) : (
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={pasajero.fee_agencia}
+                          onChange={(e) => handlePasajeroChange(index, 'fee_agencia', e.target.value)}
+                          placeholder="30"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500"
+                        />
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Subtotal</label>
+                      <div className="px-3 py-2 bg-emerald-100 border border-emerald-300 rounded text-sm font-bold text-emerald-700">
+                        ${(parseFloat(pasajero.precio_pantalla || 0) + parseFloat(pasajero.fee_emision || 0) + parseFloat(pasajero.fee_agencia || 0)).toFixed(2)}
                       </div>
                     </div>
                   </div>
-                )}
+
+                  {/* Equipaje */}
+                  {!pasajero.cotizacion_pasajero_id && (
+                    <div className="mt-3 pt-3 border-t border-indigo-200">
+                      <p className="text-xs font-medium text-gray-600 mb-2">🧳 Equipaje incluido:</p>
+                      <div className="flex flex-wrap gap-4">
+                        <label className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={pasajero.equipaje_completo || false}
+                            onChange={(e) => handlePasajeroChange(index, 'equipaje_completo', e.target.checked)}
+                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded"
+                          />
+                          <span>Completo (23Kg + 8Kg)</span>
+                        </label>
+                        <label className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={pasajero.equipaje_mediano || false}
+                            onChange={(e) => handlePasajeroChange(index, 'equipaje_mediano', e.target.checked)}
+                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded"
+                          />
+                          <span>Mediano (23Kg)</span>
+                        </label>
+                        <label className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={pasajero.equipaje_ligero || false}
+                            onChange={(e) => handlePasajeroChange(index, 'equipaje_ligero', e.target.checked)}
+                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded"
+                          />
+                          <span>Ligero (10Kg)</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))}

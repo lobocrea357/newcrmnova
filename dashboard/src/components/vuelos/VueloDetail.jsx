@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { generarFormatoWhatsApp } from '@/lib/utils/vuelos-calculations'
 import ImageModal from '@/components/shared/ImageModal'
+import HistorialEdiciones from './HistorialEdiciones'
 
 export default function VueloDetail({ vuelo }) {
   const [copied, setCopied] = useState(false)
@@ -335,6 +336,9 @@ export default function VueloDetail({ vuelo }) {
           </div>
         </div>
       )}
+
+      {/* Historial de Ediciones */}
+      <HistorialEdiciones vueloId={vuelo.id} />
 
       {/* Observaciones */}
       {vuelo.observaciones && (

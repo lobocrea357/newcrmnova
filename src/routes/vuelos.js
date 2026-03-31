@@ -289,7 +289,268 @@ router.patch('/:id/marcar-emitido', async (req, res) => {
 });
 
 /**
- * PUT /api/vuelos/:id - Actualizar vuelo
+ * PUT /api/vuelos/:id/editar - Editar vuelo con validaciones de permisos y límite de intentos
+ */
+router.put('/:id/editar', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { vuelo: vueloUpdates, pasajeros: pasajerosUpdates, razon_edicion, user_id, user_role } = req.body;
+
+    // Validar campos requeridos
+    if (!user_id || !razon_edicion) {
+      return res.status(400).json({
+        error: 'user_id y razon_edicion son requeridos'
+      });
+    }
+
+    if (!razon_edicion.trim() || razon_edicion.trim().length < 10) {
+      return res.status(400).json({
+        error: 'La razón de edición debe tener al menos 10 caracteres'
+      });
+    }
+
+    // Obtener vuelo actual
+    const { data: vueloActual, error: fetchError } = await supabase
+      .from('vuelos')
+      .select('*, created_by, estado, ediciones_disponibles')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !vueloActual) {
+      return res.status(404).json({ error: 'Vuelo no encontrado' });
+    }
+
+    // Validar estado - No permitir edición si está EMITIDO
+    if (vueloActual.estado === 'EMITIDO') {
+      return res.status(403).json({
+        error: 'No se puede editar un vuelo que ya ha sido emitido'
+      });
+    }
+
+    // Obtener perfil y permisos del usuario
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('equipo_id, role_id')
+      .eq('id', user_id)
+      .single();
+
+    // Obtener permisos del rol
+    const { data: rolePermissions } = await supabase
+      .from('role_permissions')
+      .select('permission_id, permissions(name)')
+      .eq('role_id', profile?.role_id);
+
+    const permissions = rolePermissions?.map(rp => rp.permissions.name) || [];
+
+    // Validar permisos y límite de intentos
+    const esCreador = vueloActual.created_by === user_id;
+    const tieneEditAll = permissions.includes('vuelos.edit_all');
+    const tieneEditTeam = permissions.includes('vuelos.edit_team');
+    const tieneEditOwn = permissions.includes('vuelos.edit_own');
+
+    // Obtener equipo del creador para verificar si está en el mismo equipo
+    const { data: creadorProfile } = await supabase
+      .from('profiles')
+      .select('equipo_id')
+      .eq('id', vueloActual.created_by)
+      .single();
+
+    const mismoEquipo = profile?.equipo_id && profile.equipo_id === creadorProfile?.equipo_id;
+
+    // Determinar si puede editar
+    let puedeEditar = false;
+    let requiereDecrementar = false;
+
+    if (tieneEditAll) {
+      // Admin/Super Admin pueden editar todo sin límite
+      puedeEditar = true;
+      requiereDecrementar = false;
+    } else if (tieneEditTeam && mismoEquipo) {
+      // Gerente puede editar vuelos de su equipo sin límite
+      puedeEditar = true;
+      requiereDecrementar = false;
+    } else if (tieneEditOwn && esCreador) {
+      // Asesor puede editar sus propios vuelos con límite
+      const edicionesDisponibles = vueloActual.ediciones_disponibles ?? 3;
+      if (edicionesDisponibles > 0) {
+        puedeEditar = true;
+        requiereDecrementar = true;
+      }
+    }
+
+    if (!puedeEditar) {
+      if (esCreador && tieneEditOwn) {
+        return res.status(403).json({
+          error: 'Has agotado tus intentos de edición para este vuelo',
+          ediciones_disponibles: 0
+        });
+      }
+      return res.status(403).json({
+        error: 'No tienes permisos para editar este vuelo'
+      });
+    }
+
+    // Obtener pasajeros actuales para comparar
+    const { data: pasajerosActuales } = await supabase
+      .from('vuelos_pasajeros')
+      .select('*')
+      .eq('vuelo_id', id);
+
+    // Campos que NO se pueden editar
+    const camposProtegidos = [
+      'id', 'created_at', 'created_by', 'estado', 'cotizacion_id',
+      'pago_confirmado_por', 'pago_confirmado_at', 'emitido_por', 'emitido_at',
+      'moneda_precio', 'moneda_cotizacion', 'tasa_cambio', 'metodo_pago'
+    ];
+
+    // Preparar actualizaciones del vuelo (solo campos permitidos)
+    const vueloUpdatesFiltrado = {};
+    const camposModificados = {};
+    const valoresAnteriores = {};
+    const valoresNuevos = {};
+
+    if (vueloUpdates) {
+      for (const [key, value] of Object.entries(vueloUpdates)) {
+        if (!camposProtegidos.includes(key) && vueloActual[key] !== value) {
+          vueloUpdatesFiltrado[key] = value;
+          camposModificados[`vuelo.${key}`] = true;
+          valoresAnteriores[`vuelo.${key}`] = vueloActual[key];
+          valoresNuevos[`vuelo.${key}`] = value;
+        }
+      }
+    }
+
+    // Actualizar vuelo si hay cambios
+    let vueloActualizado = vueloActual;
+    if (Object.keys(vueloUpdatesFiltrado).length > 0) {
+      // Decrementar intentos solo si es necesario (asesores con límite)
+      if (requiereDecrementar) {
+        vueloUpdatesFiltrado.ediciones_disponibles = (vueloActual.ediciones_disponibles ?? 3) - 1;
+      }
+
+      const { data: updated, error: updateError } = await supabase
+        .from('vuelos')
+        .update(vueloUpdatesFiltrado)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (updateError) {
+        throw new Error(`Error actualizando vuelo: ${updateError.message}`);
+      }
+      vueloActualizado = updated;
+    }
+
+    // Actualizar pasajeros si hay cambios
+    if (pasajerosUpdates && pasajerosUpdates.length > 0) {
+      for (const pasajeroUpdate of pasajerosUpdates) {
+        const pasajeroActual = pasajerosActuales?.find(p => p.id === pasajeroUpdate.id);
+        if (!pasajeroActual) continue;
+
+        // Campos editables de pasajero
+        const camposEditablesPasajero = [
+          'nombres', 'apellidos', 'sexo', 'fecha_nacimiento', 'nacionalidad',
+          'numero_pasaporte', 'precio_pantalla', 'fee_agencia',
+          'equipaje_completo', 'equipaje_mediano', 'equipaje_ligero'
+        ];
+
+        const pasajeroUpdatesFiltrado = {};
+        for (const [key, value] of Object.entries(pasajeroUpdate)) {
+          if (camposEditablesPasajero.includes(key) && pasajeroActual[key] !== value) {
+            pasajeroUpdatesFiltrado[key] = value;
+            camposModificados[`pasajero_${pasajeroActual.orden}.${key}`] = true;
+            valoresAnteriores[`pasajero_${pasajeroActual.orden}.${key}`] = pasajeroActual[key];
+            valoresNuevos[`pasajero_${pasajeroActual.orden}.${key}`] = value;
+          }
+        }
+
+        if (Object.keys(pasajeroUpdatesFiltrado).length > 0) {
+          await supabase
+            .from('vuelos_pasajeros')
+            .update(pasajeroUpdatesFiltrado)
+            .eq('id', pasajeroUpdate.id);
+        }
+      }
+    }
+
+    // Contar ediciones previas para este vuelo
+    const { count: edicionesPrevias } = await supabase
+      .from('vuelos_ediciones')
+      .select('*', { count: 'exact', head: true })
+      .eq('vuelo_id', id);
+
+    // Registrar en historial de ediciones
+    const { error: historialError } = await supabase
+      .from('vuelos_ediciones')
+      .insert({
+        vuelo_id: id,
+        editado_por: user_id,
+        campos_modificados: camposModificados,
+        valores_anteriores: valoresAnteriores,
+        valores_nuevos: valoresNuevos,
+        intento_numero: (edicionesPrevias || 0) + 1,
+        razon_edicion: razon_edicion.trim()
+      });
+
+    if (historialError) {
+      console.error('Error guardando historial de edición:', historialError);
+    }
+
+    // Obtener vuelo actualizado con pasajeros
+    const vueloCompleto = await vuelosService.obtenerVuelo(id);
+
+    res.json({
+      message: 'Vuelo editado exitosamente',
+      vuelo: vueloCompleto,
+      ediciones_disponibles: vueloActualizado.ediciones_disponibles,
+      cambios_realizados: Object.keys(camposModificados).length
+    });
+
+  } catch (error) {
+    console.error('Error en PUT /api/vuelos/:id/editar:', error);
+    res.status(500).json({
+      error: 'Error al editar vuelo',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/vuelos/:id/historial-ediciones - Obtener historial de ediciones
+ */
+router.get('/:id/historial-ediciones', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: historial, error } = await supabase
+      .from('vuelos_ediciones')
+      .select(`
+        *,
+        editor:profiles!vuelos_ediciones_editado_por_fkey(id, full_name, avatar_url)
+      `)
+      .eq('vuelo_id', id)
+      .order('editado_at', { ascending: false });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.json({
+      data: historial || [],
+      total: historial?.length || 0
+    });
+
+  } catch (error) {
+    console.error('Error en GET /api/vuelos/:id/historial-ediciones:', error);
+    res.status(500).json({
+      error: 'Error al obtener historial de ediciones',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * PUT /api/vuelos/:id - Actualizar vuelo (simple, sin historial)
  */
 router.put('/:id', async (req, res) => {
   try {
