@@ -46,6 +46,7 @@ export default function VueloFormNuevo({
     horario: '',
     hora_llegada: '',
     aerolinea_nombre: '',
+    aerolinea_codigo: '',
     localizador: '',
     proveedor: '',
     monto_venta: '',

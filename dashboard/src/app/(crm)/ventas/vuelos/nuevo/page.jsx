@@ -55,6 +55,7 @@ export default function NuevoVueloPage() {
         horario: data.hora_salida || '',
         hora_llegada: data.hora_llegada || '',
         aerolinea_nombre: data.aerolinea || '',
+        aerolinea_codigo: data.aereolinea_codigo || '',
         monto_venta: data.precio_final_cotizacion || '',
         metodo_pago: data.metodo_pago || '',
         tipo_vuelo: data.tipo_vuelo || 'ida_vuelta',

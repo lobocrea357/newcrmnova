@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Plane, Search, X } from 'lucide-react'
 import aerolineasData from '@/lib/cotizador/aerolineas.json'
 
-export default function AerolineaAutocomplete({ value, onChange, disabled = false }) {
+export default function AerolineaAutocomplete({ value, onChange, onCodigoChange, disabled = false }) {
   const [inputValue, setInputValue] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const [filteredOptions, setFilteredOptions] = useState([])
@@ -63,12 +63,19 @@ export default function AerolineaAutocomplete({ value, onChange, disabled = fals
   const handleSelect = (aerolinea) => {
     setInputValue(`${aerolinea.nombre} (${aerolinea.iata})`)
     onChange(aerolinea.nombre)
+    // Pasar también el código IATA si está disponible el callback
+    if (onCodigoChange) {
+      onCodigoChange(aerolinea.iata)
+    }
     setIsOpen(false)
   }
 
   const handleClear = () => {
     setInputValue('')
     onChange('')
+    if (onCodigoChange) {
+      onCodigoChange('')
+    }
     setIsOpen(false)
   }
 
@@ -84,6 +91,9 @@ export default function AerolineaAutocomplete({ value, onChange, disabled = fals
         <Plane className="w-4 h-4 inline mr-1" />
         Aerolínea
       </label>
+      <p className="text-xs text-amber-600 mb-2 font-medium">
+        ⚠️ Escribe para buscar y <strong>selecciona una opción de la lista</strong>
+      </p>
       
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />

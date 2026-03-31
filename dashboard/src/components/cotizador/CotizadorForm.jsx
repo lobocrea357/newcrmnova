@@ -108,6 +108,7 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
   const [horaSalidaRegreso, setHoraSalidaRegreso] = useState('')
   const [horaLlegadaRegreso, setHoraLlegadaRegreso] = useState('')
   const [aerolinea, setAerolinea] = useState('')
+  const [aerolineaCodigo, setAerolineaCodigo] = useState('')
   const [agencia, setAgencia] = useState(null) // 'nova', 'colombia', 'apolo'
 
   // Hook: Escalas (6 estados → 1)
@@ -189,6 +190,7 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
       horaSalidaRegreso,
       horaLlegadaRegreso,
       aerolinea,
+      aerolineaCodigo,
       agencia,
       escalas,
       equipajeSeleccionado,
@@ -247,6 +249,7 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
     setHoraSalidaRegreso(cotizadorDraft.horaSalidaRegreso || '')
     setHoraLlegadaRegreso(cotizadorDraft.horaLlegadaRegreso || '')
     setAerolinea(cotizadorDraft.aerolinea || '')
+    setAerolineaCodigo(cotizadorDraft.aerolineaCodigo || '')
     setAgencia(cotizadorDraft.agencia || null)
     setNombreCliente(cotizadorDraft.nombreCliente || '')
     setPasajeros(cotizadorDraft.pasajeros || { adultos: [], niños: [], infantes: [] })
@@ -281,6 +284,7 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
     setHoraSalidaRegreso('')
     setHoraLlegadaRegreso('')
     setAerolinea('')
+    setAerolineaCodigo('')
     setAgencia(null)
     resetEscalas()
     resetEquipaje()
@@ -733,6 +737,7 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
         origen: vueloInfo.origen,
         destino: vueloInfo.destino,
         aerolinea: aerolinea || null,
+        aereolinea_codigo: aerolineaCodigo || null,
         fecha_salida: fechaSalidaFinal,
         hora_salida: horaSalidaFinal || null,
         hora_llegada: horaLlegadaFinal || null,
@@ -1132,10 +1137,11 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
                 <AerolineaAutocomplete
                   value={aerolinea}
                   onChange={setAerolinea}
+                  onCodigoChange={setAerolineaCodigo}
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-black bg-white rounded px-2 py-1 mb-2">
                     Fecha Salida
@@ -1180,10 +1186,11 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
                 <AerolineaAutocomplete
                   value={aerolinea}
                   onChange={setAerolinea}
+                  onCodigoChange={setAerolineaCodigo}
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">FECHA</label>
                   <input
@@ -1217,7 +1224,7 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
           {vueloInfo.idaVuelta && (
             <div className="mt-8 p-6 bg-purple-50/50 rounded-xl border-2 border-purple-100 space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
               <h4 className="text-xs font-bold text-purple-700 uppercase tracking-widest px-1">Vuelo de Vuelta</h4>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">FECHA</label>
                   <input
