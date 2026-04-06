@@ -993,7 +993,7 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
             )}
             {metodoPago === 'Depósitos en dólares (BNC USD)' && (
               <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">
-                Cotización en USD (+3.5% comisión depósito)
+                Cotización en USD (+4.5% comisión depósito)
               </p>
             )}
             {metodoPago === 'Arcadia Service' && (

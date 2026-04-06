@@ -75,8 +75,8 @@ export async function calcularConversionInteligente({
       descripcionRecargos = `+5.6% + $10${monedaBase} Arcadia Service`
       montoConvertido += recargos
     } else if (metodoPago === 'Depósitos en dólares (BNC USD)') {
-      recargos = montoConvertido * 0.035 // 3.5%
-      descripcionRecargos = `+3.5% Depósito en dólares`
+      recargos = montoConvertido * 0.045 // 4.5%
+      descripcionRecargos = `+4.5% Depósito en dólares`
       montoConvertido += recargos
     }
     

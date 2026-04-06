@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { toastInfo } from '@/helpers/toasts'
 
 export default function NuevoVueloPage() {
+  
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
