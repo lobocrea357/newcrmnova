@@ -23,7 +23,8 @@ export const PAYMENT_METHODS = {
   DEPOSITO_COLOMBIA: 'Depósito oficina Colombia (efectivo)',
   DEPOSITO_EUROPA: 'Depósito oficina Europa (efectivo)',
   CHASE: 'Chase Bank (Estados Unidos)',
-  BIZUM: 'Bizum (España)'
+  BIZUM: 'Bizum (España)',
+  TARJETA_CREDITO_USD: 'Tarjeta de Crédito (USD)'
 }
 
 export const PAYMENT_DATA = {
@@ -184,6 +185,14 @@ export const PAYMENT_DATA = {
     detalles: [
       'Teléfono: +34 672 75 08 25'
     ]
+  },
+  [PAYMENT_METHODS.TARJETA_CREDITO_USD]: {
+    titulo: 'Pago con Tarjeta de Crédito (USD)',
+    descripcion: 'Pago con tarjeta de crédito en dólares estadounidenses.',
+    detalles: [
+      'El enlace de pago será enviado por tu asesor.',
+      'Incluye recargo del 5% sobre el total.'
+    ]
   }
 }
 
@@ -204,7 +213,8 @@ export const METHODS_BY_CURRENCY = {
     PAYMENT_METHODS.BANESCO_PANAMA,
     PAYMENT_METHODS.CHASE,
     PAYMENT_METHODS.DEPOSITO_VENEZUELA,
-    PAYMENT_METHODS.ARCADIA
+    PAYMENT_METHODS.ARCADIA,
+    PAYMENT_METHODS.TARJETA_CREDITO_USD
   ],
   EUR: [
     PAYMENT_METHODS.CUENTA_EUROS,
@@ -242,7 +252,8 @@ export const ALL_PAYMENT_METHODS = [
   PAYMENT_METHODS.DEPOSITO_COLOMBIA,
   PAYMENT_METHODS.DEPOSITO_EUROPA,
   PAYMENT_METHODS.CHASE,
-  PAYMENT_METHODS.BIZUM
+  PAYMENT_METHODS.BIZUM,
+  PAYMENT_METHODS.TARJETA_CREDITO_USD
 ]
 
 /**

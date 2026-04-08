@@ -237,6 +237,7 @@ CREATE TABLE public.cotizaciones (
   tasa_cambio numeric,
   metodo_pago text,
   reserva_id uuid,
+  aereolinea_codigo text,
   CONSTRAINT cotizaciones_pkey PRIMARY KEY (id),
   CONSTRAINT cotizaciones_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
@@ -637,6 +638,7 @@ CREATE TABLE public.vuelos (
   moneda_cotizacion text,
   tasa_cambio numeric,
   total_cotizacion numeric,
+  ediciones_disponibles integer DEFAULT 3 CHECK (ediciones_disponibles >= 0 AND ediciones_disponibles <= 3),
   CONSTRAINT vuelos_pkey PRIMARY KEY (id),
   CONSTRAINT vuelos_cotizacion_id_fkey FOREIGN KEY (cotizacion_id) REFERENCES public.cotizaciones(id),
   CONSTRAINT vuelos_pago_confirmado_por_fkey FOREIGN KEY (pago_confirmado_por) REFERENCES public.profiles(id),
@@ -657,6 +659,20 @@ CREATE TABLE public.vuelos_adjuntos (
   CONSTRAINT vuelos_adjuntos_pkey PRIMARY KEY (id),
   CONSTRAINT vuelos_adjuntos_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id),
   CONSTRAINT vuelos_adjuntos_pasajero_id_fkey FOREIGN KEY (pasajero_id) REFERENCES public.vuelos_pasajeros(id)
+);
+CREATE TABLE public.vuelos_ediciones (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  vuelo_id uuid NOT NULL,
+  editado_por uuid NOT NULL,
+  editado_at timestamp with time zone DEFAULT now(),
+  campos_modificados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  valores_anteriores jsonb NOT NULL DEFAULT '{}'::jsonb,
+  valores_nuevos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  intento_numero integer NOT NULL,
+  razon_edicion text NOT NULL,
+  CONSTRAINT vuelos_ediciones_pkey PRIMARY KEY (id),
+  CONSTRAINT vuelos_ediciones_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id),
+  CONSTRAINT vuelos_ediciones_editado_por_fkey FOREIGN KEY (editado_por) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.vuelos_pasajeros (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

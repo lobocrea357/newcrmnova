@@ -47,11 +47,6 @@ export default function PasajerosManager({
   readonly = false,
   monedaPrecio = 'USD',
   monedaCotizacion = 'USD',
-  monedasBase = [],
-  monedasCotizacion = [],
-  loadingMonedas = false,
-  onMonedaPrecioChange,
-  onMonedaCotizacionChange,
   aerolinea = ''
 }) {
   // Usar directamente el value del padre (componente controlado)
@@ -62,19 +57,6 @@ export default function PasajerosManager({
     niños: false,
     infantes: false
   })
-
-  // Estados locales para los selects (sincronizados con props)
-  const [monedaPrecioLocal, setMonedaPrecioLocal] = useState(monedaPrecio)
-  const [monedaCotizacionLocal, setMonedaCotizacionLocal] = useState(monedaCotizacion)
-
-  // Sincronizar estados locales cuando cambien los props del padre
-  useEffect(() => {
-    setMonedaPrecioLocal(monedaPrecio)
-  }, [monedaPrecio])
-
-  useEffect(() => {
-    setMonedaCotizacionLocal(monedaCotizacion)
-  }, [monedaCotizacion])
 
   // Generar ID único para pasajeros
   const generarId = () => Date.now() + Math.random()
@@ -293,82 +275,6 @@ export default function PasajerosManager({
       badge={`${totalPasajeros} pasajeros`}
     >
       <div className="space-y-4">
-        {/* Sección de Monedas */}
-        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-200">
-          <h3 className="text-sm font-bold text-indigo-700 mb-3">Configuración de Monedas</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                <DollarSign className="w-3 h-3 inline mr-1" />
-                ¿El precio introducido está en:
-              </label>
-              <select
-                value={monedaPrecioLocal}
-                onChange={(e) => {
-                  const nuevoValor = e.target.value
-                  // Actualizar estado local inmediatamente para UI responsiva
-                  setMonedaPrecioLocal(nuevoValor)
-                  // Notificar al padre
-                  if (onMonedaPrecioChange) {
-                    onMonedaPrecioChange(nuevoValor)
-                  }
-                }}
-                disabled={readonly || loadingMonedas}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              >
-                {loadingMonedas ? (
-                  <option value="">Cargando monedas...</option>
-                ) : monedasBase.length === 0 ? (
-                  <>
-                    <option value="USD">USD - Dólares</option>
-                    <option value="EUR">EUR - Euros</option>
-                  </>
-                ) : (
-                  monedasBase.map(moneda => (
-                    <option key={moneda.value} value={moneda.value}>
-                      {moneda.label}
-                    </option>
-                  ))
-                )}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                <CreditCard className="w-3 h-3 inline mr-1" />
-                ¿En qué moneda deseas cotizar?
-              </label>
-              <select
-                value={monedaCotizacionLocal}
-                onChange={(e) => {
-                  const nuevoValor = e.target.value
-                  // Actualizar estado local inmediatamente para UI responsiva
-                  setMonedaCotizacionLocal(nuevoValor)
-                  // Notificar al padre
-                  if (onMonedaCotizacionChange) {
-                    onMonedaCotizacionChange(nuevoValor)
-                  }
-                }}
-                disabled={readonly || loadingMonedas}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              >
-                {loadingMonedas ? (
-                  <option value="">Cargando monedas...</option>
-                ) : monedasCotizacion.length === 0 ? (
-                    <option value="">No hay monedas con tasas disponibles</option>
-                ) : (
-                      <>
-                        <option value="">Seleccionar moneda de cotización</option>
-                        {monedasCotizacion.map(moneda => (
-                          <option key={moneda.value} value={moneda.value}>
-                            {moneda.label}
-                          </option>
-                        ))}
-                      </>
-                )}
-              </select>
-            </div>
-          </div>
-        </div>
         {/* Resumen general */}
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-200">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "rule-creator": {
+      "source": "oimiragieo/agent-studio",
+      "sourceType": "github",
+      "computedHash": "8331eb279526b18243f19697936ef1f29f4a6e34e5f6793ac09c732c4d42a6e3"
+    },
+    "writing-rules": {
+      "source": "athola/claude-night-market",
+      "sourceType": "github",
+      "computedHash": "ada22262df9e69ba7afbb925112d79421c0ebba3adb1c0e76bbdc23819a5e468"
+    }
+  }
+}

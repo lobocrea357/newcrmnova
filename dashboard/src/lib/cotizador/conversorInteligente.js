@@ -57,27 +57,36 @@ export async function calcularConversionInteligente({
     // 1. Obtener tasa de conversión
     const tasaConversion = await obtenerTasaConversion(monedaBase, monedaCotizacion)
     
-    // 2. Calcular monto en moneda de cotización
-    let montoConvertido = base * tasaConversion
+    // 2. Calcular monto base en moneda de cotización
+    const baseConvertida = base * tasaConversion
+    let montoConvertido = baseConvertida
     
-    // 3. Aplicar recargos específicos por método de pago
+    // 3. Aplicar recargos específicos por método de pago (sobre la base convertida)
     let recargos = 0
     let descripcionRecargos = ''
     
     if (metodoPago === 'Scalapay') {
-      recargos = montoConvertido * 0.093 // 9.3%
-      descripcionRecargos = `+9.3% Scalapay`
-      montoConvertido += recargos
+      recargos = baseConvertida * 0.113 // 11.3%
+      descripcionRecargos = `+11.3% Scalapay`
+      montoConvertido = baseConvertida + recargos
     } else if (metodoPago === 'Arcadia Service') {
-      const porcentaje = montoConvertido * 0.056 // 5.6%
+      const porcentaje = baseConvertida * 0.056 // 5.6%
       const fijo = 10 // USD fijo
       recargos = porcentaje + (fijo * tasaConversion) // Convertir fijo a moneda de cotización
       descripcionRecargos = `+5.6% + $10${monedaBase} Arcadia Service`
-      montoConvertido += recargos
+      montoConvertido = baseConvertida + recargos
     } else if (metodoPago === 'Depósitos en dólares (BNC USD)') {
-      recargos = montoConvertido * 0.045 // 4.5%
+      recargos = baseConvertida * 0.045 // 4.5%
       descripcionRecargos = `+4.5% Depósito en dólares`
-      montoConvertido += recargos
+      montoConvertido = baseConvertida + recargos
+    } else if (metodoPago === 'Chase Bank (Estados Unidos)') {
+      recargos = baseConvertida * 0.05 // 5%
+      descripcionRecargos = `+5% Chase Bank`
+      montoConvertido = baseConvertida + recargos
+    } else if (metodoPago === 'Tarjeta de Crédito (USD)') {
+      recargos = baseConvertida * 0.05 // 5%
+      descripcionRecargos = `+5% Tarjeta de Crédito`
+      montoConvertido = baseConvertida + recargos
     }
     
     // 4. Aplicar impuesto 4x1000 SOLO para COP (DESPUÉS de recargos)

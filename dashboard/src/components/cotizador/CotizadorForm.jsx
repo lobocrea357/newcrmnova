@@ -17,6 +17,7 @@ import PasajerosManager from './pasajeros/PasajerosManager'
 import PdfContent from './resultados/PdfContent'
 import BannerCotizacionGuardada from './BannerCotizacionGuardada'
 import AerolineaAutocomplete from './AerolineaAutocomplete'
+import ResumenCotizacionSticky from './ResumenCotizacionSticky'
 
 // Helpers
 import { confirmAlert } from '@/helpers/sweetAlerts'
@@ -43,6 +44,7 @@ import {
   getSimboloMoneda
 } from '@/lib/cotizador/monedasConfig'
 import { obtenerMonedas, obtenerTasasConversion } from '@/lib/cotizador/tasasHelpers'
+import { getThemeByAgency } from '@/lib/cotizador/agencyThemes'
 
 // Configuración
 import {
@@ -70,14 +72,12 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
   const editId = searchParams?.get('edit')
   const isEditMode = !!editId
   const [loadingCotizacion, setLoadingCotizacion] = useState(false)
+  const [isCalculating, setIsCalculating] = useState(false)
 
   // ============================================
   // ESTADO - Configuración
   // ============================================
   const [metodoPago, setMetodoPago] = useState('')
-  // Sistema de conversión inteligente (LEGACY - mantener por compatibilidad temporal)
-  const [monedaPrecio, setMonedaPrecio] = useState('USD')
-  const [monedaCotizacion, setMonedaCotizacion] = useState('USD')
   const [resultadoConversion, setResultadoConversion] = useState(null)
 
   // Hook: Monedas (8+ estados → 1)
@@ -262,8 +262,6 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
   const limpiarFormularioCompleto = () => {
     // Resetear todos los estados
     setMetodoPago('')
-    setMonedaPrecio('USD')
-    setMonedaCotizacion('USD')
     setResultadoConversion(null)
     setMonedaBaseSeleccionada('USD')
     setMonedaCotizacionSeleccionada('')
@@ -452,15 +450,6 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
     }
   }, [monedaCotizacionSeleccionada])
 
-  // Sincronizar variables de moneda nuevas con las del sistema inteligente
-  useEffect(() => {
-    setMonedaPrecio(monedaBaseSeleccionada)
-  }, [monedaBaseSeleccionada])
-
-  useEffect(() => {
-    setMonedaCotizacion(monedaCotizacionSeleccionada)
-  }, [monedaCotizacionSeleccionada])
-
   // Cargar cotización en modo edición
   useEffect(() => {
     if (isEditMode && editId && !loadingCotizacion) {
@@ -560,26 +549,9 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
     }
   }
 
-  // Recalcular cuando cambian los inputs (con debounce para evitar demasiadas llamadas)
-  useEffect(() => {
-    // Requiere al menos 1 pasajero configurado
-    const debeCalcular = tienePasajerosConfigurados() && monedaPrecio && monedaCotizacion
-
-    if (debeCalcular) {
-      const timeoutId = setTimeout(() => {
-        const calcular = async () => {
-          try {
-            await calcularCotizacion()
-          } catch (error) {
-            console.error('❌ Error en cálculo automático:', error)
-          }
-        }
-        calcular()
-      }, 300) // 300ms de debounce
-
-      return () => clearTimeout(timeoutId)
-    }
-  }, [pasajeros, monedaPrecio, monedaCotizacion, metodoPago])
+  // ============================================
+  // FUNCIONES DE CÁLCULO (deben estar ANTES de los useEffect que las usan)
+  // ============================================
 
   // Calcular total de pasajeros
   const calcularTotalPasajeros = () => {
@@ -610,8 +582,8 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
       // Usar sistema inteligente de conversión
       const resultado = await calcularConversionInteligente({
         base,
-        monedaBase: monedaPrecio,
-        monedaCotizacion: monedaCotizacion,
+        monedaBase: monedaBaseSeleccionada,
+        monedaCotizacion: monedaCotizacionSeleccionada,
         metodoPago
       })
 
@@ -634,10 +606,8 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
         totalFinal: resultado.total
       })
 
-      console.log('✅ Cotización calculada con sistema inteligente:', resultado)
-
     } catch (error) {
-      console.error('❌ Error en cálculo inteligente:', error)
+      console.error('Error en cálculo inteligente:', error)
 
       // Fallback a cálculo simple si hay error
       const tasa = parseFloat(tasaCambio) || 1
@@ -658,8 +628,48 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
     }
   }
 
+  // ============================================
+  // EFFECTS
+  // ============================================
+
+  // Recalcular cuando cambian los inputs (con debounce para evitar demasiadas llamadas)
+  useEffect(() => {
+    // Requiere al menos 1 pasajero configurado
+    const debeCalcular = tienePasajerosConfigurados() && monedaBaseSeleccionada && monedaCotizacionSeleccionada
+
+    if (debeCalcular) {
+      setIsCalculating(true)
+      const timeoutId = setTimeout(() => {
+        const calcular = async () => {
+          try {
+            await calcularCotizacion()
+          } catch (error) {
+            console.error('Error en cálculo automático:', error)
+          } finally {
+            setIsCalculating(false)
+          }
+        }
+        calcular()
+      }, 300) // 300ms de debounce
+
+      return () => {
+        clearTimeout(timeoutId)
+        setIsCalculating(false)
+      }
+    } else {
+      setIsCalculating(false)
+    }
+  }, [pasajeros, monedaBaseSeleccionada, monedaCotizacionSeleccionada, metodoPago])
+
+  // ============================================
+  // VARIABLES DERIVADAS
+  // ============================================
+
   const simboloMoneda = getSimboloMoneda(monedaCotizacionSeleccionada)
   const monedaSeleccionada = getMonedasCotizacion().find(m => m.value === monedaCotizacionSeleccionada)
+
+  // Tema dinámico según agencia
+  const theme = getThemeByAgency(agencia)
 
   const formatearMonto = (valor) => {
     if (!valor && valor !== 0) return '0.00'
@@ -815,6 +825,9 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
         setCotizacionGuardada(true)
         setUltimaCotizacionId(result.data.id)
 
+        // Limpiar draft del localStorage ya que se guardó exitosamente
+        localStorage.removeItem(draftKey)
+
         // Notificar al componente padre si está configurado
         if (onCotizacionGuardada) {
           onCotizacionGuardada()
@@ -855,8 +868,17 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
   }
 
   return (
-    <div className="grid lg:grid-cols-2 gap-8">
-      <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
+    <>
+      {/* Indicador de Cálculo Activo */}
+      {isCalculating && (
+        <div className={`fixed bottom-6 right-6 bg-gradient-to-r ${theme.gradient} text-white px-5 py-3 rounded-full shadow-2xl animate-pulse z-50 flex items-center gap-3`}>
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <span className="font-semibold text-sm">Calculando...</span>
+        </div>
+      )}
+
+      <div className="grid lg:grid-cols-[1fr_420px] gap-6 max-w-7xl mx-auto relative">
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100 transition-all duration-300">
         {/* Selector de Agencia */}
         <div className="mb-6 pb-6 border-b border-slate-100">
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
@@ -864,19 +886,17 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
           </label>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { id: 'nova', label: 'NOVA', color: 'indigo' },
-              { id: 'colombia', label: 'NOVA COLOMBIA', color: 'indigo' },
-              { id: 'apolo', label: 'APOLO', color: 'amber' }
+                { id: 'nova', label: 'NOVA', theme: getThemeByAgency('nova') },
+                { id: 'colombia', label: 'NOVA COLOMBIA', theme: getThemeByAgency('colombia') },
+                { id: 'apolo', label: 'APOLO', theme: getThemeByAgency('apolo') }
             ].map((opt) => (
               <button
                 key={opt.id}
                 type="button"
                 onClick={() => setAgencia(opt.id)}
-                className={`py-1.5 px-1 rounded-lg font-bold text-[9px] transition-all border-2 ${agencia === opt.id
-                  ? opt.color === 'indigo'
-                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
-                    : 'bg-amber-500 border-amber-500 text-white shadow-sm'
-                  : 'bg-white border-slate-50 text-slate-400 hover:border-slate-100'
+                className={`py-1.5 px-1 rounded-lg font-bold text-[9px] transition-all duration-200 border-2 ${agencia === opt.id
+                  ? `bg-${opt.theme.primary} border-${opt.theme.primary} text-white shadow-sm scale-105`
+                  : 'bg-white border-slate-50 text-slate-400 hover:border-slate-200 hover:shadow-sm hover:scale-102'
                   }`}
               >
                 {opt.label}
@@ -895,20 +915,25 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
             value={nombreCliente}
             onChange={(e) => setNombreCliente(e.target.value)}
             placeholder="Ej: Sabrina Burgos"
-            className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              className={`w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-${theme.accent} focus:border-transparent transition-all duration-200 hover:border-slate-400`}
           />
         </div>
 
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold text-slate-800 flex items-center gap-2">
-            <Calculator className="w-6 h-6 text-indigo-600" />
-            Calculadora de Cotizaciones
-          </h2>
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-3 mb-1">
+                <div className={`p-2 bg-${theme.primaryLight} rounded-lg`}>
+                  <Calculator className={`w-6 h-6 text-${theme.primary}`} />
+                </div>
+                Calculadora de Cotizaciones
+              </h2>
+              <p className="text-sm text-slate-500 ml-14">Configura los detalles del vuelo y pasajeros</p>
+            </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleLimpiar}
-              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 text-sm"
+                className="px-4 py-2.5 border-2 border-slate-200 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 flex items-center justify-center gap-2 text-sm shadow-sm hover:scale-105 active:scale-95"
               title="Limpiar formulario"
             >
               <RefreshCw className="w-4 h-4" />
@@ -926,113 +951,15 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
           />
         )}
 
-        {/* Tabs de Vista de Cotización */}
-        {/* Sección de Pasajeros - Vista única */}
-        <div className="space-y-4">
-              {/* Información de la vista múltiple */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="w-5 h-5 text-blue-600" />
-                  <h4 className="font-bold text-blue-800">Modo Múltiples Pasajeros</h4>
-                </div>
-                <p className="text-sm text-blue-700">
-                  Configura cada pasajero individualmente con sus precios, fees y equipaje.
-                  El total se calculará automáticamente sumando todos los pasajeros.
-                </p>
-              </div>
-
-                {/* Componente de Pasajeros con scrollbar */}
-                <div className="max-h-[600px] overflow-y-auto pr-2">
-                  <PasajerosManager
-                    value={pasajeros}
-                    onChange={setPasajeros}
-              monedaPrecio={monedaBaseSeleccionada}
-              monedaCotizacion={monedaCotizacionSeleccionada}
-              monedasBase={monedasBase}
-              monedasCotizacion={getMonedasConTasas()}
-              loadingMonedas={loadingMonedas}
-              onMonedaPrecioChange={setMonedaBaseSeleccionada}
-              onMonedaCotizacionChange={setMonedaCotizacionSeleccionada}
-              aerolinea={aerolinea}
-                  />
-              </div>
-        </div>
-
-        {/* Sección de Método de Pago */}
-        <CollapsibleSection
-          title="Método de Pago"
-          icon={CreditCard}
-          defaultExpanded={true}
-        >
-          <div>
-            <label className="text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2 flex items-center gap-2">
-              <CreditCard className="w-4 h-4" />
-              Método de Pago
-            </label>
-            <select
-              value={metodoPago}
-              onChange={(e) => setMetodoPago(e.target.value)}
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white"
-              disabled={!monedaCotizacionSeleccionada}
-            >
-              <option value="">
-                {monedaCotizacionSeleccionada
-                  ? 'Seleccionar método'
-                  : 'Primero selecciona una moneda de cotización'}
-              </option>
-              {metodosPagoFiltrados.map((metodo) => (
-                <option key={metodo} value={metodo}>
-                  {metodo}
-                </option>
-              ))}
-            </select>
-            {!monedaCotizacionSeleccionada && (
-              <p className="text-xs text-amber-600 mt-1 ml-2 font-medium">
-                💡 Selecciona primero la moneda de cotización para ver los métodos de pago disponibles
-              </p>
-            )}
-            {metodoPago === 'Depósitos en dólares (BNC USD)' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">
-                Cotización en USD (+4.5% comisión depósito)
-              </p>
-            )}
-            {metodoPago === 'Arcadia Service' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en USD (+5.6% + $10)</p>
-            )}
-            {metodoPago === 'BNC - Transferencia en Bs' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Bolívares (VES)</p>
-            )}
-            {metodoPago === 'Pago móvil' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Bolívares (VES)</p>
-            )}
-            {metodoPago === 'Depósito oficina Venezuela (efectivo)' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Pago en efectivo USD - Seleccione moneda de cotización</p>
-            )}
-            {(metodoPago === 'Davivienda' || metodoPago === 'Bancacolombia' || metodoPago === 'Depósito oficina Colombia (efectivo)') && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Pesos Colombianos (COP)</p>
-            )}
-            {(metodoPago === 'Cuenta en Euros' || metodoPago === 'Depósito oficina Europa (efectivo)' || metodoPago === 'Bizum (España)') && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Euros (EUR)</p>
-            )}
-            {(metodoPago === 'Zelle' || metodoPago === 'Banesco Panamá (ViajesNova)' || metodoPago === 'Chase Bank (Estados Unidos)') && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Dólares (USD)</p>
-            )}
-            {metodoPago === 'Binance (USDT)' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en USDT</p>
-            )}
-            {metodoPago === 'Scalapay' && (
-              <p className="text-xs text-orange-600 mt-1 ml-2 font-medium">Cotización en Euros (EUR) +10.5% recargo</p>
-            )}
+          {/* Sección de Tipo de Vuelo */}
+          <div className="mb-8 pb-8 border-b border-slate-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Plane className={`w-4 h-4 text-${theme.primary}`} />
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Tipo de Vuelo
+              </label>
           </div>
-        </CollapsibleSection>
-
-        {/* Sección de Tipo de Vuelo */}
-        <CollapsibleSection
-          title="Tipo de Vuelo"
-          icon={Plane}
-          defaultExpanded={true}
-        >
-          <div className="grid grid-cols-3 gap-3 p-1.5 bg-slate-100 rounded-xl border border-slate-200">
+            <div className="grid grid-cols-3 gap-3 p-1.5 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border-2 border-slate-200 shadow-inner">
             <button
               type="button"
               onClick={() => {
@@ -1046,9 +973,9 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
                 }
                 updateVueloInfo('idaVuelta', newValue)
               }}
-              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${vueloInfo.idaVuelta
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-50'
+                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all duration-200 ${vueloInfo.idaVuelta
+                  ? `bg-${theme.primary} text-white shadow-md scale-105`
+                  : 'bg-white text-slate-600 hover:bg-slate-50 hover:scale-102'
                 }`}
             >
               <div className={`w-2 h-2 rounded-full ${vueloInfo.idaVuelta ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
@@ -1067,9 +994,9 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
                 }
                 updateVueloInfo('soloIda', newValue)
               }}
-              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${vueloInfo.soloIda
-                ? 'bg-green-600 text-white shadow-md'
-                : 'bg-white text-slate-600 hover:bg-slate-50'
+                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all duration-200 ${vueloInfo.soloIda
+                  ? `bg-${theme.primary} text-white shadow-md scale-105`
+                  : 'bg-white text-slate-600 hover:bg-slate-50 hover:scale-102'
                 }`}
             >
               <div className={`w-2 h-2 rounded-full ${vueloInfo.soloIda ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
@@ -1088,9 +1015,9 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
                 }
                 updateVueloInfo('finesMigratorios', newValue)
               }}
-              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all ${vueloInfo.finesMigratorios
-                  ? 'bg-amber-500 text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-50'
+                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all duration-200 ${vueloInfo.finesMigratorios
+                  ? `bg-${theme.secondary} text-white shadow-md scale-105`
+                  : 'bg-white text-slate-600 hover:bg-slate-50 hover:scale-102'
                 }`}
             >
               <div className={`w-2 h-2 rounded-full ${vueloInfo.finesMigratorios ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
@@ -1098,32 +1025,221 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 mt-5">
             <div>
-              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                <label className="block text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                  <MapPin className={`w-3.5 h-3.5 text-${theme.primary}`} />
                 Origen
               </label>
               <input
                 type="text"
                 value={vueloInfo.origen}
-                onChange={(e) => updateVueloInfo('origen', e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^a-zA-Z\s]/g, '').toUpperCase()
+                    updateVueloInfo('origen', value)
+                  }}
                 placeholder="Ej: CCS"
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white shadow-sm hover:border-slate-300 font-medium text-slate-900 placeholder:text-slate-400 uppercase"
+                  maxLength={50}
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-black bg-white rounded px-2 py-1 mb-2">
+                <label className="block text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                  <MapPin className={`w-3.5 h-3.5 text-${theme.primary}`} />
                 Destino
               </label>
               <input
                 type="text"
                 value={vueloInfo.destino}
-                onChange={(e) => updateVueloInfo('destino', e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^a-zA-Z\s]/g, '').toUpperCase()
+                    updateVueloInfo('destino', value)
+                  }}
                 placeholder="Ej: MAD"
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white shadow-sm hover:border-slate-300 font-medium text-slate-900 placeholder:text-slate-400 uppercase"
+                  maxLength={50}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Sección de Configuración de Monedas */}
+          <div className="mb-8 pb-8 border-b border-slate-200">
+            <div className="flex items-center gap-2 mb-4">
+              <DollarSign className={`w-4 h-4 text-${theme.primary}`} />
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Configuración de Monedas
+              </label>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-2">
+                  Moneda Base
+                </label>
+                <div className="relative">
+                  <select
+                    value={monedaBaseSeleccionada}
+                    onChange={(e) => setMonedaBaseSeleccionada(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white shadow-sm hover:border-slate-300 font-medium text-slate-900 appearance-none cursor-pointer"
+                    disabled={loadingMonedas}
+                  >
+                    {monedasBase.map((moneda) => (
+                      <option key={moneda.value} value={moneda.value}>
+                        {moneda.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ArrowRightLeft className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-2">
+                  Moneda Cotización
+                </label>
+                <div className="relative">
+                  <select
+                    value={monedaCotizacionSeleccionada}
+                    onChange={(e) => setMonedaCotizacionSeleccionada(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white shadow-sm hover:border-slate-300 font-medium text-slate-900 appearance-none cursor-pointer"
+                    disabled={loadingMonedas}
+                  >
+                    <option value="">Seleccionar moneda</option>
+                    {getMonedasConTasas().map((moneda) => (
+                      <option key={moneda.value} value={moneda.value}>
+                        {moneda.label}
+                      </option>
+                    ))}
+                  </select>
+                  <TrendingUp className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+            {monedaBaseSeleccionada && monedaCotizacionSeleccionada && monedaBaseSeleccionada !== monedaCotizacionSeleccionada && tasaCambio && (
+              <div className={`mt-4 p-4 bg-gradient-to-r ${theme.gradientLight} rounded-xl border-2 border-${theme.primaryBorder} shadow-sm`}>
+                <p className={`text-sm text-${theme.textLight} font-semibold flex items-center gap-2`}>
+                  <TrendingUp className="w-4 h-4" />
+                  Tasa de cambio: <span className={`text-${theme.text}`}>1 {monedaBaseSeleccionada} = {tasaCambio} {monedaCotizacionSeleccionada}</span>
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Sección de Pasajeros - Vista única */}
+          <div className="space-y-4">
+            {/* Información de la vista múltiple */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="w-5 h-5 text-blue-600" />
+                <h4 className="font-bold text-blue-800">Modo Múltiples Pasajeros</h4>
+              </div>
+              <p className="text-sm text-blue-700">
+                Configura cada pasajero individualmente con sus precios, fees y equipaje.
+                El total se calculará automáticamente sumando todos los pasajeros.
+              </p>
+            </div>
+
+            {/* Componente de Pasajeros */}
+            <div className="max-h-[500px] overflow-y-auto pr-2">
+              <PasajerosManager
+                value={pasajeros}
+                onChange={setPasajeros}
+                monedaPrecio={monedaBaseSeleccionada}
+                monedaCotizacion={monedaCotizacionSeleccionada}
+                aerolinea={aerolinea}
               />
             </div>
           </div>
+
+          {/* Sección de Método de Pago */}
+          <div className="mt-12 mb-8 pb-8 border-b border-slate-200">
+            <div className="flex items-center gap-2 mb-4">
+              <CreditCard className={`w-4 h-4 text-${theme.primary}`} />
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Método de Pago
+              </label>
+            </div>
+            <div>
+              <div className="relative">
+                <select
+                  value={metodoPago}
+                  onChange={(e) => setMetodoPago(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white shadow-sm hover:border-slate-300 font-medium text-slate-900 appearance-none cursor-pointer disabled:bg-slate-50 disabled:cursor-not-allowed"
+                  disabled={!monedaCotizacionSeleccionada}
+                >
+                  <option value="">
+                    {monedaCotizacionSeleccionada
+                      ? 'Seleccionar método'
+                      : 'Primero selecciona una moneda de cotización'}
+                  </option>
+                  {metodosPagoFiltrados.map((metodo) => (
+                    <option key={metodo} value={metodo}>
+                      {metodo}
+                    </option>
+                  ))}
+                </select>
+                <CreditCard className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+              {!monedaCotizacionSeleccionada && (
+                <p className="text-xs text-amber-600 mt-1 ml-2 font-medium">
+                  💡 Selecciona primero la moneda de cotización para ver los métodos de pago disponibles
+                </p>
+              )}
+              {metodoPago === 'Depósitos en dólares (BNC USD)' && (
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <p className="text-xs text-blue-700 font-semibold">💵 Cotización en USD (+4.5% comisión depósito)</p>
+                </div>
+              )}
+              {metodoPago === 'Arcadia Service' && (
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <p className="text-xs text-blue-700 font-semibold">💵 Cotización en USD (+5.6% + $10)</p>
+                </div>
+              )}
+              {metodoPago === 'BNC - Transferencia en Bs' && (
+                <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-100">
+                  <p className="text-xs text-purple-700 font-semibold">Bs Cotización en Bolívares (VES)</p>
+                </div>
+              )}
+              {metodoPago === 'Depósito oficina Venezuela (efectivo)' && (
+                <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                  <p className="text-xs text-amber-700 font-semibold">💰 Pago en efectivo USD - Seleccione moneda de cotización</p>
+                </div>
+              )}
+              {(metodoPago === 'Davivienda' || metodoPago === 'Bancacolombia' || metodoPago === 'Depósito oficina Colombia (efectivo)') && (
+                <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                  <p className="text-xs text-yellow-700 font-semibold">🇨🇴 Cotización en Pesos Colombianos (COP)</p>
+                </div>
+              )}
+              {(metodoPago === 'Cuenta en Euros' || metodoPago === 'Depósito oficina Europa (efectivo)' || metodoPago === 'Bizum (España)') && (
+                <div className="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+                  <p className="text-xs text-indigo-700 font-semibold">€ Cotización en Euros (EUR)</p>
+                </div>
+              )}
+              {(metodoPago === 'Zelle' || metodoPago === 'Banesco Panamá (ViajesNova)' || metodoPago === 'Chase Bank (Estados Unidos)') && (
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <p className="text-xs text-blue-700 font-semibold">💵 Cotización en Dólares (USD)</p>
+                </div>
+              )}
+              {metodoPago === 'Binance (USDT)' && (
+                <div className="mt-3 p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                  <p className="text-xs text-emerald-700 font-semibold">₮ Cotización en USDT</p>
+                </div>
+              )}
+              {metodoPago === 'Scalapay' && (
+                <div className="mt-3 p-3 bg-orange-50 rounded-lg border border-orange-100">
+                  <p className="text-xs text-orange-700 font-semibold">€ Cotización en Euros (EUR) +10.5% recargo</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Sección de Detalles del Vuelo */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Calendar className={`w-4 h-4 text-${theme.primary}`} />
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Detalles del Vuelo
+              </label>
+            </div>
 
           {/* Campos para Fines Migratorios */}
           {vueloInfo.finesMigratorios && (
@@ -1305,14 +1421,14 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
             )}
           </div>
           {/* Equipaje ahora es por pasajero en PasajerosManager */}
-        </CollapsibleSection>
+          </div>
 
       </div>
 
       {/* Panel de Resultados */}
-      <div className="space-y-6">
-        <div className="sticky top-6 space-y-6">
+        <div>
           {/* Componente PDF (oculto visualmente, usado para generar la imagen) */}
+          <div className="absolute -left-[9999px] top-0">
           <PdfContent
             ref={pdfContentRef}
             agencia={agencia}
@@ -1340,284 +1456,30 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
             total={total}
             desglose={desglose}
             simboloMoneda={simboloMoneda}
-          />
-
-          {/* Bloque interno solo para el asesor (desglose) */}
-          {tienePasajerosConfigurados() ? (
-            <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
-              <h3 className="text-xl font-semibold text-slate-800 mb-6">
-                Desglose de Pasajeros
-              </h3>
-
-              <div className="space-y-6">
-                {Object.entries(pasajeros).map(([categoriaKey, categoriaPasajeros]) => {
-                  if (categoriaPasajeros.length === 0) return null
-
-                  const categoriaConfig = {
-                    adultos: { nombre: 'Adultos', color: 'blue' },
-                    niños: { nombre: 'Niños', color: 'green' },
-                    infantes: { nombre: 'Infantes', color: 'purple' }
-                  }[categoriaKey]
-
-                  return (
-                    <div key={categoriaKey} className="border border-slate-200 rounded-lg p-4">
-                      <h4 className={`text-sm font-bold text-${categoriaConfig.color}-600 mb-3 uppercase`}>
-                        {categoriaConfig.nombre} ({categoriaPasajeros.length})
-                      </h4>
-
-                      <div className="space-y-3">
-                        {categoriaPasajeros.map((pasajero, index) => {
-                          const precioPantalla = parseFloat(pasajero.precioPantalla || 0)
-                          const feeEmision = parseFloat(pasajero.feeEmision || 0)
-                          const feeAgencia = parseFloat(pasajero.feeAgencia || 0)
-                          const totalBoleto = precioPantalla + feeEmision + feeAgencia
-
-                          return (
-                            <div key={pasajero.id} className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                              <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-medium text-slate-700">Pasajero #{index + 1}</span>
-                                <span className="text-lg font-bold text-slate-900">
-                                  ${totalBoleto.toFixed(2)}
-                                </span>
-                              </div>
-
-                              <div className="grid grid-cols-3 gap-2 text-xs">
-                                <div>
-                                  <p className="text-slate-500">Precio Pantalla</p>
-                                  <p className="font-semibold text-slate-700">${precioPantalla.toFixed(2)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-slate-500">Fee Emisión</p>
-                                  <p className="font-semibold text-slate-700">${feeEmision.toFixed(2)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-slate-500">Fee Agencia</p>
-                                  <p className="font-semibold text-slate-700">${feeAgencia.toFixed(2)}</p>
-                                </div>
-                              </div>
-
-                              {categoriaKey !== 'infantes' && (
-                                <div className="mt-2 text-xs text-slate-600">
-                                  <span className="font-medium">Equipaje: </span>
-                                  {pasajero.equipajeCompleto && <span className="text-green-600">Completo • </span>}
-                                  {pasajero.equipajeMediano && <span className="text-blue-600">Mediano • </span>}
-                                  {pasajero.equipajeLigero && <span className="text-orange-600">Ligero</span>}
-                                  {!pasajero.equipajeCompleto && !pasajero.equipajeMediano && !pasajero.equipajeLigero && (
-                                    <span className="text-slate-400 italic">Sin equipaje</span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-
-                      <div className="mt-3 pt-3 border-t border-slate-300 flex justify-between items-center">
-                        <span className="text-sm font-semibold text-slate-700">Subtotal {categoriaConfig.nombre}</span>
-                        <span className="text-lg font-bold text-slate-900">
-                          ${categoriaPasajeros.reduce((sum, p) =>
-                            sum + parseFloat(p.precioPantalla || 0) + parseFloat(p.feeEmision || 0) + parseFloat(p.feeAgencia || 0), 0
-                          ).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })}
-
-                {/* Total General */}
-                <div className="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-indigo-700 font-medium">Total Base (USD)</p>
-                      <p className="text-xs text-indigo-600 mt-1">
-                        {Object.values(pasajeros).reduce((sum, cat) => sum + cat.length, 0)} pasajeros
-                      </p>
-                    </div>
-                    <span className="text-3xl font-bold text-indigo-900">
-                      ${calcularTotalPasajeros().toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Información de conversión si aplica */}
-                {desglose && (
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-600">Tasa de Cambio</span>
-                      <span className="font-semibold text-indigo-600">
-                        × {formatearMonto(desglose.tasaCambio)}
-                      </span>
-                    </div>
-
-                    {desglose.recargoDescripcion && (
-                      <div className="p-3 bg-orange-50 rounded-lg border border-orange-100">
-                        <p className="text-sm text-orange-700 font-medium">
-                          {desglose.recargoDescripcion}
-                        </p>
-                      </div>
-                    )}
-
-                    {metodoPago && (
-                      <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
-                        <p className="text-sm text-slate-700">
-                          <span className="font-medium">Método de pago:</span>
-                          <span className="ml-2 text-indigo-700 font-semibold">
-                            {metodoPago}
-                          </span>
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : desglose ? (
-            <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
-              <h3 className="text-xl font-semibold text-slate-800 mb-6">
-                Desglose de Cotización 
-              </h3>
-
-              <div className="space-y-4">
-                <div className="flex justify-between items-center pb-3 border-b border-slate-200">
-                  <span className="text-slate-600">Precio de Pantalla</span>
-                  <span className="font-semibold text-slate-800">
-                    ${formatearMonto(desglose.precioBase)}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center pb-3 border-b border-slate-200">
-                  <span className="text-slate-600">Fees (Emisión + Agencia)</span>
-                  <span className="font-semibold text-slate-800">
-                    ${formatearMonto(desglose.feeEmision + desglose.feeAgencia)}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center pb-3 border-b-2 border-slate-300">
-                  <span className="font-medium text-slate-700">Subtotal (USD)</span>
-                  <span className="font-semibold text-slate-800">
-                    ${formatearMonto(desglose.subtotal)}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center pt-2 pb-3 border-b border-slate-200">
-                  <span className="text-slate-600">Tasa de Cambio</span>
-                  <span className="font-semibold text-indigo-600">
-                    × {formatearMonto(desglose.tasaCambio)}
-                  </span>
-                </div>
-
-                {/* Mostrar subtotal convertido si hay recargos */}
-                {desglose.recargoDescripcion && (
-                  <div className="flex justify-between items-center pt-2 text-sm">
-                    <span className="text-slate-500">Subtotal ({monedaCotizacionSeleccionada})</span>
-                    <span className="font-medium text-slate-600">
-                      {simboloMoneda} {formatearMonto(desglose.totalPrevio)}
-                    </span>
-                  </div>
-                )}
-
-                {/* Impuesto del gobierno de Colombia (solo si aplica) */}
-                {monedaCotizacionSeleccionada === 'COP' && desglose.impuestoGobierno > 0 && (
-                  <div className="flex justify-between items-center pt-2 text-sm">
-                    <span className="text-slate-500">Impuesto gobierno (4 COP por cada 1000)</span>
-                    <span className="font-medium text-slate-600">
-                      {simboloMoneda} {formatearMonto(desglose.impuestoGobierno)}
-                    </span>
-                  </div>
-                )}
-
-                {metodoPago && (
-                  <div className="mt-4 p-4 bg-indigo-50 rounded-lg border border-indigo-200 space-y-2">
-                    <p className="text-sm text-slate-700">
-                      <span className="font-medium">Método de pago:</span>
-                      <span className="ml-2 text-indigo-700 font-semibold">
-                        {metodoPago}
-                      </span>
-                    </p>
-                    {desglose.recargoDescripcion && (
-                      <p className="text-sm text-orange-700 bg-orange-50 p-2 rounded border border-orange-100 font-medium">
-                        {desglose.recargoDescripcion}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-              </div>
-            ) : (
-                <div className="bg-slate-50 rounded-2xl p-8 text-center border border-slate-200">
-                  <Users className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-                  <p className="text-slate-600">
-                    Agrega pasajeros para ver el desglose
-                  </p>
-                </div>
-          )}
-
-          {/* Total + botón de exportación */}
-          <div className="bg-linear-to-br from-indigo-600 to-purple-700 rounded-2xl shadow-xl p-8 text-white flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-medium mb-2 opacity-90">Total a Pagar</h3>
-              <div className="text-5xl font-bold mb-1">
-                {simboloMoneda} {formatearMonto(total)}
-              </div>
-              {monedaSeleccionada && (
-                <p className="text-sm opacity-80">
-                  {monedaSeleccionada.label}
-                </p>
-              )}
-              {monedaCotizacionSeleccionada === 'VES' && (
-                <div className="mt-2 p-2 bg-white/10 rounded-lg">
-                  <p className="text-xs opacity-90">
-                    <span className="font-semibold">Reconversión:</span> {monedaBaseSeleccionada} → VES
-                  </p>
-                  <p className="text-xs opacity-80 mt-1">
-                    Tasa: 1 {monedaBaseSeleccionada} = {tasaCambio} Bs
-                  </p>
-                </div>
-              )}
-            </div>
-            <div className="flex md:flex-col gap-3">
-              <button
-                type="button"
-                onClick={handleExportarPdf}
-                disabled={!tienePasajerosConfigurados() || exportingPdf}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white text-indigo-700 font-medium text-sm shadow-sm hover:bg-slate-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {exportingPdf ? (
-                  <>
-                    <span className="h-4 w-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                    Generando PDF...
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-4 w-4" />
-                    Exportar PDF
-                  </>
-                )}
-              </button>
-              {isAuthenticated && (
-                <button
-                  type="button"
-                  onClick={handleGuardarCotizacion}
-                  disabled={!desglose || savingCotizacion}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 text-white font-medium text-sm shadow-sm hover:bg-emerald-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {savingCotizacion ? (
-                    <>
-                      <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Guardando...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4" />
-                      Guardar Cotización
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
+            />
           </div>
+
+          {/* Nuevo Componente de Resumen Sticky */}
+          <ResumenCotizacionSticky
+            total={total}
+            simboloMoneda={simboloMoneda}
+            monedaCotizacion={monedaCotizacionSeleccionada}
+            monedaBase={monedaBaseSeleccionada}
+            tasaCambio={tasaCambio}
+            pasajeros={pasajeros}
+            desglose={desglose}
+            tienePasajerosConfigurados={tienePasajerosConfigurados}
+            calcularTotalPasajeros={calcularTotalPasajeros}
+            onExportar={handleExportarPdf}
+            onGuardar={handleGuardarCotizacion}
+            exportingPdf={exportingPdf}
+            savingCotizacion={savingCotizacion}
+            isAuthenticated={isAuthenticated}
+            formatearMonto={formatearMonto}
+            theme={theme}
+          />
         </div>
       </div>
-    </div>
+    </>
   )
 }
