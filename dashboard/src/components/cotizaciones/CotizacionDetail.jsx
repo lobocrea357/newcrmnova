@@ -18,7 +18,10 @@ import {
   ArrowRight,
   PlaneTakeoff,
   Edit,
-  Loader2
+  Loader2,
+  Trash2,
+  EyeOff,
+  MoreVertical
 } from 'lucide-react'
 import { COTIZACIONES_API } from '@/config/apiConfig'
 import { toastSuccess, toastError } from '@/helpers/toasts'
@@ -27,6 +30,8 @@ import Swal from 'sweetalert2'
 export default function CotizacionDetail({ cotizacion, onUpdate }) {
   const router = useRouter()
   const [updating, setUpdating] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const getEstadoConfig = (estado) => {
     switch (estado) {
@@ -145,6 +150,55 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
     router.push(`/ventas/vuelos/nuevo?cotizacion_id=${cotizacion.id}`)
   }
 
+  const handleSoftDelete = async () => {
+    const result = await Swal.fire({
+      title: '¿Eliminar cotización?',
+      html: `
+        <p class="text-gray-600 mb-2">Esta cotización será removida de tu espacio de trabajo.</p>
+        <p class="text-sm text-gray-500">No se eliminará permanentemente, pero ya no aparecerá en tu lista.</p>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      confirmButtonColor: '#dc2626',
+      cancelButtonText: 'Cancelar',
+      cancelButtonColor: '#6b7280'
+    })
+
+    if (!result.isConfirmed) return
+
+    try {
+      setDeleting(true)
+
+      const response = await fetch(COTIZACIONES_API.softDelete(cotizacion.id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: cotizacion.created_by
+        })
+      })
+
+      const resultData = await response.json()
+
+      if (!response.ok) {
+        throw new Error(resultData.error || 'Error al eliminar cotización')
+      }
+
+      toastSuccess('Cotización eliminada de tu espacio de trabajo')
+
+      // Actualizar lista
+      if (onUpdate) {
+        onUpdate()
+      }
+
+    } catch (error) {
+      console.error('Error eliminando cotización:', error)
+      toastError(error.message || 'Error al eliminar cotización')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const formatTipoVuelo = (tipo) => {
     switch (tipo) {
       case 'solo_ida': return 'Solo Ida'
@@ -156,7 +210,7 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header con Estado */}
+      {/* Header con Estado y Menú */}
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
@@ -171,9 +225,55 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
             })}
           </p>
         </div>
-        <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 ${estadoConfig.color} font-semibold`}>
-          <EstadoIcon className="w-5 h-5" />
-          {estadoConfig.label}
+
+        <div className="flex items-center gap-3">
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 ${estadoConfig.color} font-semibold`}>
+            <EstadoIcon className="w-5 h-5" />
+            {estadoConfig.label}
+          </div>
+
+          {/* Menú de opciones */}
+          <div className="relative">
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Más opciones"
+            >
+              <MoreVertical className="w-5 h-5 text-gray-600" />
+            </button>
+
+            {menuOpen && (
+              <>
+                {/* Overlay para cerrar el menú */}
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setMenuOpen(false)}
+                />
+
+                {/* Dropdown Menu */}
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-20">
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false)
+                      handleSoftDelete()
+                    }}
+                    disabled={deleting}
+                    className="w-full px-4 py-2.5 text-left hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {deleting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <EyeOff className="w-4 h-4" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">Eliminar de mi espacio</p>
+                      <p className="text-xs text-gray-500">Limpiar de la vista</p>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

@@ -33,7 +33,8 @@ export const COTIZACIONES_API = {
   obtener: (id) => buildApiUrl(`/api/cotizaciones/${id}`),
   actualizar: (id) => buildApiUrl(`/api/cotizaciones/${id}`),
   eliminar: (id) => buildApiUrl(`/api/cotizaciones/${id}`),
-  cambiarEstado: (id) => buildApiUrl(`/api/cotizaciones/${id}/estado`)
+  cambiarEstado: (id) => buildApiUrl(`/api/cotizaciones/${id}/estado`),
+  softDelete: (id) => buildApiUrl(`/api/cotizaciones/${id}/soft-delete`)
 }
 
 // URLs específicas para APIs de vuelos

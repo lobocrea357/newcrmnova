@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import {
@@ -22,9 +22,12 @@ import { COTIZACIONES_API } from '@/config/apiConfig'
 import { toastSuccess, toastError } from '@/helpers/toasts'
 import CotizacionDetail from '@/components/cotizaciones/CotizacionDetail'
 import TutorialCotizaciones from '@/components/cotizaciones/TutorialCotizaciones'
+import NavigationBreadcrumb from '@/components/ui/NavigationBreadcrumb'
+import FloatingActionButton from '@/components/ui/FloatingActionButton'
 
 export default function CotizacionesPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user } = useAuth()
 
   const [cotizaciones, setCotizaciones] = useState([])
@@ -45,6 +48,17 @@ export default function CotizacionesPage() {
     fetchCotizaciones()
   }, [user, estadoFilter])
 
+  // Seleccionar cotización desde URL (cuando se redirige desde el banner)
+  useEffect(() => {
+    const cotizacionId = searchParams?.get('id')
+    if (cotizacionId && cotizaciones.length > 0) {
+      const cotizacion = cotizaciones.find(c => c.id === parseInt(cotizacionId))
+      if (cotizacion) {
+        setSelectedCotizacion(cotizacion)
+      }
+    }
+  }, [searchParams, cotizaciones])
+
   const fetchCotizaciones = async () => {
     try {
       setLoading(true)
@@ -55,6 +69,7 @@ export default function CotizacionesPage() {
           *,
           pasajeros:cotizaciones_pasajeros(*)
         `)
+        .is('deleted_at', null) // Filtrar solo cotizaciones activas (no eliminadas)
         .eq('created_by', user.id)
         .order('created_at', { ascending: false })
 
@@ -314,6 +329,9 @@ export default function CotizacionesPage() {
           )}
         </div>
       </div>
+
+      {/* Floating Action Button */}
+      <FloatingActionButton />
     </div>
   )
 }

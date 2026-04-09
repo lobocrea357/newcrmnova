@@ -11,10 +11,13 @@ class VuelosService {
     try {
       console.log('[VuelosService] Creando vuelo para:', vueloData.pax_nombre);
 
-      // 1. Insertar vuelo principal
+      // 1. Sanitizar datos de vuelo de vuelta según tipo_vuelo
+      const datosSanitizados = this._sanitizarDatosVuelo(vueloData);
+
+      // 2. Insertar vuelo principal
       const { data: vuelo, error: errorVuelo } = await supabase
         .from('vuelos')
-        .insert([vueloData])
+        .insert([datosSanitizados])
         .select()
         .single();
 
@@ -25,7 +28,7 @@ class VuelosService {
 
       console.log('[VuelosService] Vuelo creado:', vuelo.id);
 
-      // 2. Insertar pasajeros si los hay
+      // 3. Insertar pasajeros si los hay
       let pasajerosCreados = [];
       if (pasajeros.length > 0) {
         const pasajerosConVueloId = pasajeros.map(p => ({
@@ -53,7 +56,7 @@ class VuelosService {
         console.log(`[VuelosService] ${pasajerosCreados.length} pasajeros creados`);
       }
 
-      // 3. Insertar adjuntos si los hay
+      // 4. Insertar adjuntos si los hay
       let adjuntosCreados = [];
       if (adjuntos.length > 0) {
         const adjuntosConVueloId = adjuntos.map(adj => ({
@@ -374,10 +377,15 @@ class VuelosService {
     try {
       console.log(`[VuelosService] Actualizando vuelo ${id}`);
 
+      // Sanitizar datos de vuelo de vuelta si se está actualizando tipo_vuelo
+      const updatesSanitizados = updates.tipo_vuelo 
+        ? this._sanitizarDatosVuelo(updates)
+        : updates;
+
       const { data: vuelo, error } = await supabase
         .from('vuelos')
         .update({
-          ...updates,
+          ...updatesSanitizados,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
@@ -507,6 +515,35 @@ class VuelosService {
       console.error('[VuelosService] Error en copiarPasajerosDeCotizacion:', error);
       throw error;
     }
+  }
+
+  /**
+   * Sanitizar datos de vuelo según tipo_vuelo
+   * Si tipo_vuelo !== 'ida_vuelta', los campos de regreso deben ser null
+   * @private
+   */
+  _sanitizarDatosVuelo(vueloData) {
+    const { tipo_vuelo, fecha_regreso, hora_salida_regreso, hora_llegada_regreso, ...restoDatos } = vueloData;
+
+    // Si es ida y vuelta, mantener los campos de regreso
+    if (tipo_vuelo === 'ida_vuelta') {
+      return {
+        ...restoDatos,
+        tipo_vuelo,
+        fecha_regreso: fecha_regreso || null,
+        hora_salida_regreso: hora_salida_regreso || null,
+        hora_llegada_regreso: hora_llegada_regreso || null
+      };
+    }
+
+    // Para solo_ida o migratorio, forzar campos de regreso a null
+    return {
+      ...restoDatos,
+      tipo_vuelo,
+      fecha_regreso: null,
+      hora_salida_regreso: null,
+      hora_llegada_regreso: null
+    };
   }
 }
 

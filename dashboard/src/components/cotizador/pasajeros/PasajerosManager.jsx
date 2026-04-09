@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Users, Plus, Minus, Trash2, Luggage, DollarSign, Percent, CreditCard } from 'lucide-react'
+import { Users, Plus, Trash2, Luggage, DollarSign, Percent, CreditCard, ChevronDown, ChevronUp } from 'lucide-react'
 import { toastSuccess, toastError, toastWarning } from '@/helpers/toasts'
 import { confirmAlert } from '@/helpers/sweetAlerts'
 import CollapsibleSection from '@/components/ui/CollapsibleSection'
@@ -189,14 +189,25 @@ export default function PasajerosManager({
     const Icono = config.icono
 
     return (
-      <div className={`border-2 border-${config.color}-200 rounded-xl overflow-hidden bg-white`} key={categoriaKey}>
-        {/* Header de la categoría */}
-        <div className={`bg-${config.color}-50 px-3 sm:px-4 py-3 border-b border-${config.color}-200`}>
+      <div className={`border-2 border-${config.color}-200 rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow duration-200`} key={categoriaKey}>
+        {/* Header de la categoría - Clickeable para expandir/colapsar */}
+        <div
+          className={`bg-${config.color}-50 px-3 sm:px-4 py-3 border-b border-${config.color}-200 ${categoriaPasajeros.length > 0 ? 'cursor-pointer hover:bg-' + config.color + '-100' : ''} transition-colors duration-150`}
+          onClick={() => categoriaPasajeros.length > 0 && toggleCategoria(categoriaKey)}
+        >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               <Icono className={`w-5 h-5 text-${config.color}-600 flex-shrink-0`} />
-              <div className="min-w-0">
-                <h3 className="font-bold text-gray-800 text-sm sm:text-base">{config.nombre}</h3>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-gray-800 text-sm sm:text-base">{config.nombre}</h3>
+                  {/* Indicador de expansión */}
+                  {categoriaPasajeros.length > 0 && (
+                    <div className={`transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                      <ChevronDown className={`w-4 h-4 text-${config.color}-600`} />
+                    </div>
+                  )}
+                </div>
                 <p className="text-xs text-gray-600 hidden sm:block">{config.descripcion}</p>
               </div>
             </div>
@@ -207,27 +218,18 @@ export default function PasajerosManager({
                 {totales.cantidad} pasajero{totales.cantidad !== 1 ? 's' : ''}
               </div>
 
-              {/* Botones de acción */}
+              {/* Botón de agregar pasajero */}
               {!readonly && (
-                <div className="flex gap-1 sm:gap-2">
-                  <button
-                    onClick={() => agregarPasajero(categoriaKey)}
-                    className={`p-2 sm:p-1.5 bg-${config.color}-500 text-white rounded-lg hover:bg-${config.color}-600 transition-colors touch-manipulation`}
-                    title={`Agregar ${config.nombre.slice(0, -1)}`}
-                  >
-                    <Plus className="w-5 h-5 sm:w-4 sm:h-4" />
-                  </button>
-
-                  {categoriaPasajeros.length > 0 && (
-                    <button
-                      onClick={() => toggleCategoria(categoriaKey)}
-                      className={`p-2 sm:p-1.5 bg-${config.color}-500 text-white rounded-lg hover:bg-${config.color}-600 transition-colors touch-manipulation`}
-                      title={isExpanded ? 'Contraer' : 'Expandir'}
-                    >
-                      {isExpanded ? <Minus className="w-5 h-5 sm:w-4 sm:h-4" /> : <Plus className="w-5 h-5 sm:w-4 sm:h-4" />}
-                    </button>
-                  )}
-                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation() // Evitar que se active el toggle al hacer click en agregar
+                    agregarPasajero(categoriaKey)
+                  }}
+                  className={`p-2 sm:p-2 bg-${config.color}-500 text-white rounded-lg hover:bg-${config.color}-600 active:scale-95 transition-all duration-150 touch-manipulation shadow-sm hover:shadow`}
+                  title={`Agregar ${config.nombre.slice(0, -1)}`}
+                >
+                  <Plus className="w-5 h-5 sm:w-5 sm:h-5" />
+                </button>
               )}
             </div>
           </div>
@@ -243,9 +245,9 @@ export default function PasajerosManager({
           )}
         </div>
 
-        {/* Lista de pasajeros expandida */}
+        {/* Lista de pasajeros expandida con animación */}
         {isExpanded && categoriaPasajeros.length > 0 && (
-          <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
+          <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto animate-in fade-in-0 slide-in-from-top-2 duration-200">
             {categoriaPasajeros.map((pasajero, index) => (
               <PasajeroCard
                 key={pasajero.id}

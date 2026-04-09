@@ -34,6 +34,13 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Validación condicional: si es ida_vuelta, fecha_regreso es requerida
+    if (vuelo.tipo_vuelo === 'ida_vuelta' && !vuelo.fecha_regreso) {
+      return res.status(400).json({
+        error: 'Para vuelos de ida y vuelta, la fecha de regreso es requerida'
+      });
+    }
+
     // Crear vuelo con pasajeros y adjuntos
     const resultado = await vuelosService.crearVuelo(vuelo, pasajeros || [], adjuntos || []);
 

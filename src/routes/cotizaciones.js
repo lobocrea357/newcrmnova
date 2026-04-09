@@ -27,6 +27,13 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Validación condicional: si es ida_vuelta, fecha_regreso es requerida
+    if (cotizacion.tipo_vuelo === 'ida_vuelta' && !cotizacion.fecha_regreso) {
+      return res.status(400).json({
+        error: 'Para vuelos de ida y vuelta, la fecha de regreso es requerida'
+      });
+    }
+
     const resultado = await cotizacionesService.crearCotizacion(cotizacion, pasajeros || []);
 
     res.status(201).json({
@@ -182,6 +189,38 @@ router.patch('/:id/estado', async (req, res) => {
     console.error('[Cotizaciones API] Error cambiando estado:', error);
     res.status(500).json({
       error: error.message || 'Error al cambiar estado',
+      details: error.toString()
+    });
+  }
+});
+
+/**
+ * PATCH /api/cotizaciones/:id/soft-delete
+ * Marcar cotización como eliminada (soft delete)
+ */
+router.patch('/:id/soft-delete', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    if (!id || !userId) {
+      return res.status(400).json({
+        error: 'Faltan parámetros requeridos: userId'
+      });
+    }
+
+    const cotizacion = await cotizacionesService.softDeleteCotizacion(id, userId);
+
+    res.json({
+      success: true,
+      data: cotizacion,
+      message: 'Cotización eliminada de tu espacio de trabajo'
+    });
+
+  } catch (error) {
+    console.error('[Cotizaciones API] Error en soft delete:', error);
+    res.status(500).json({
+      error: error.message || 'Error al eliminar cotización',
       details: error.toString()
     });
   }

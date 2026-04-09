@@ -16,6 +16,7 @@ import CollapsibleSection from '@/components/ui/CollapsibleSection'
 import PasajerosManager from './pasajeros/PasajerosManager'
 import PdfContent from './resultados/PdfContent'
 import BannerCotizacionGuardada from './BannerCotizacionGuardada'
+import BannerEdicion from './BannerEdicion'
 import AerolineaAutocomplete from './AerolineaAutocomplete'
 import ResumenCotizacionSticky from './ResumenCotizacionSticky'
 
@@ -61,11 +62,10 @@ import { COTIZACIONES_API } from '@/config/apiConfig'
  * Componente principal del cotizador de vuelos
  * Soporta cotización individual y múltiple con conversión inteligente de monedas
  */
-export default function CotizadorForm({ isAuthenticated = false, showBannerOutside = false, onBannerStateChange, onCotizacionGuardada }) {
+export default function CotizadorForm({ showBannerOutside = false, onBannerStateChange, onCotizacionGuardada }) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Obtener perfil del usuario (si está autenticado)
   const { profile } = useUserProfile()
 
   // Modo edición
@@ -128,18 +128,16 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
   const [savingCotizacion, setSavingCotizacion] = useState(false)
   const [cotizacionGuardada, setCotizacionGuardada] = useState(false)
   const [ultimaCotizacionId, setUltimaCotizacionId] = useState(null)
+  const [cotizacionEnEdicion, setCotizacionEnEdicion] = useState(null)
 
   const [exportingPdf, setExportingPdf] = useState(false)
   const pdfContentRef = useRef(null)
 
   // localStorage para autoguardado diferenciado por usuario
-  // Clave: cotizador_draft_{full_name} o cotizador_draft_public si no está autenticado
-  // NOTA: Este cálculo debe esperar a que profile esté disponible
   const draftKey = useMemo(() => {
-    if (!isAuthenticated || !profile) return 'cotizador_draft_public'
     const userName = profile?.full_name?.replace(/\s+/g, '_').toLowerCase() || 'unknown'
     return `cotizador_draft_${userName}`
-  }, [isAuthenticated, profile])
+  }, [profile])
 
   const [cotizadorDraft, setCotizadorDraft, removeCotizadorDraft] = useLocalStorage(draftKey, null)
   const [draftLoaded, setDraftLoaded] = useState(false)
@@ -473,6 +471,9 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
       if (error) throw error
       if (!data) throw new Error('Cotización no encontrada')
 
+      // Guardar cotización para mostrar en banner
+      setCotizacionEnEdicion(data)
+
       // Cargar datos en el formulario
       setNombreCliente(data.nombre_cliente || '')
       setMetodoPago(data.metodo_pago || '')
@@ -486,6 +487,17 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
       updateVueloInfo('idaVuelta', tipoVuelo === 'ida_vuelta')
       updateVueloInfo('soloIda', tipoVuelo === 'solo_ida')
       updateVueloInfo('finesMigratorios', tipoVuelo === 'migratorio')
+
+      // Cargar campos de vuelo de vuelta si es ida_vuelta
+      if (tipoVuelo === 'ida_vuelta') {
+        setFechaRegreso(data.fecha_regreso || '')
+        setHoraSalidaRegreso(data.hora_salida_regreso || '')
+        setHoraLlegadaRegreso(data.hora_llegada_regreso || '')
+      }
+
+      // Cargar horas de salida/llegada (ida o migratorio)
+      updateVueloInfo('horaSalida', data.hora_salida || '')
+      updateVueloInfo('horaLlegada', data.hora_llegada || '')
 
       setMonedaBaseSeleccionada(data.moneda_precio || 'USD')
       setMonedaCotizacionSeleccionada(data.moneda_cotizacion || 'USD')
@@ -729,6 +741,12 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
       return
     }
 
+    // Validación: si es ida y vuelta, fecha_regreso es requerida
+    if (vueloInfo.idaVuelta && !fechaRegreso) {
+      toastError('Para vuelos de ida y vuelta, la fecha de regreso es requerida')
+      return
+    }
+
     try {
       setSavingCotizacion(true)
 
@@ -751,6 +769,9 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
         fecha_salida: fechaSalidaFinal,
         hora_salida: horaSalidaFinal || null,
         hora_llegada: horaLlegadaFinal || null,
+        fecha_regreso: vueloInfo.idaVuelta ? fechaRegreso : null,
+        hora_salida_regreso: vueloInfo.idaVuelta ? horaSalidaRegreso : null,
+        hora_llegada_regreso: vueloInfo.idaVuelta ? horaLlegadaRegreso : null,
         tiene_escala: escalas.length > 0,
         escala_1_ciudad: escalas[0]?.ciudad || null,
         escala_1_duracion: escalas[0]?.duracion || null,
@@ -828,9 +849,13 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
         // Limpiar draft del localStorage ya que se guardó exitosamente
         localStorage.removeItem(draftKey)
 
-        // Notificar al componente padre si está configurado
+        // Notificar al componente padre con datos completos
         if (onCotizacionGuardada) {
-          onCotizacionGuardada()
+          onCotizacionGuardada({
+            id: result.data.id,
+            nombreCliente: nombreCliente.trim(),
+            createdAt: new Date().toISOString()
+          })
         }
       }
 
@@ -867,8 +892,20 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
     }
   }
 
+  const handleCancelarEdicion = () => {
+    router.push('/ventas/cotizaciones')
+  }
+
   return (
     <>
+      {/* Banner de Edición */}
+      {isEditMode && cotizacionEnEdicion && (
+        <BannerEdicion
+          cotizacion={cotizacionEnEdicion}
+          onCancel={handleCancelarEdicion}
+        />
+      )}
+
       {/* Indicador de Cálculo Activo */}
       {isCalculating && (
         <div className={`fixed bottom-6 right-6 bg-gradient-to-r ${theme.gradient} text-white px-5 py-3 rounded-full shadow-2xl animate-pulse z-50 flex items-center gap-3`}>
@@ -1474,7 +1511,6 @@ export default function CotizadorForm({ isAuthenticated = false, showBannerOutsi
             onGuardar={handleGuardarCotizacion}
             exportingPdf={exportingPdf}
             savingCotizacion={savingCotizacion}
-            isAuthenticated={isAuthenticated}
             formatearMonto={formatearMonto}
             theme={theme}
           />

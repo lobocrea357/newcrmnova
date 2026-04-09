@@ -11,9 +11,12 @@ class CotizacionesService {
     try {
       console.log('[CotizacionesService] Creando cotización para:', cotizacionData.nombre_cliente);
 
-      // 1. Insertar cotización principal con estado EN_REVISION por defecto
+      // 1. Sanitizar datos de vuelo de vuelta según tipo_vuelo
+      const datosSanitizados = this._sanitizarDatosVuelo(cotizacionData);
+
+      // 2. Insertar cotización principal con estado EN_REVISION por defecto
       const cotizacionConEstado = {
-        ...cotizacionData,
+        ...datosSanitizados,
         estado: 'EN_REVISION' // Estado inicial siempre EN_REVISION
       };
 
@@ -30,7 +33,7 @@ class CotizacionesService {
 
       console.log('[CotizacionesService] Cotización creada:', cotizacion.id);
 
-      // 2. Si hay pasajeros (vista múltiple), insertarlos
+      // 3. Si hay pasajeros (vista múltiple), insertarlos
       if (pasajeros.length > 0) {
         const pasajerosConCotizacionId = pasajeros.map(p => ({
           ...p,
@@ -95,10 +98,15 @@ class CotizacionesService {
     try {
       console.log(`[CotizacionesService] Actualizando cotización ${id}`);
 
+      // Sanitizar datos de vuelo de vuelta si se está actualizando tipo_vuelo
+      const updatesSanitizados = updates.tipo_vuelo 
+        ? this._sanitizarDatosVuelo(updates)
+        : updates;
+
       // Si se está cambiando el estado, el trigger automático registrará el historial
       const { data: cotizacion, error } = await supabase
         .from('cotizaciones')
-        .update(updates)
+        .update(updatesSanitizados)
         .eq('id', id)
         .select()
         .single();
@@ -153,11 +161,42 @@ class CotizacionesService {
   }
 
   /**
-   * Eliminar cotización (CASCADE elimina pasajeros e historial)
+   * Soft delete de cotización (marcar como eliminada)
+   */
+  async softDeleteCotizacion(id, userId) {
+    try {
+      console.log(`[CotizacionesService] Soft delete de cotización ${id}`);
+
+      const { data: cotizacion, error } = await supabase
+        .from('cotizaciones')
+        .update({
+          deleted_at: new Date().toISOString(),
+          deleted_by: userId
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[CotizacionesService] Error en soft delete:', error);
+        throw error;
+      }
+
+      console.log('[CotizacionesService] Cotización marcada como eliminada');
+      return cotizacion;
+
+    } catch (error) {
+      console.error('[CotizacionesService] Error en softDeleteCotizacion:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Eliminar cotización permanentemente (hard delete - CASCADE elimina pasajeros e historial)
    */
   async eliminarCotizacion(id) {
     try {
-      console.log(`[CotizacionesService] Eliminando cotización ${id}`);
+      console.log(`[CotizacionesService] Eliminando cotización ${id} PERMANENTEMENTE`);
 
       const { error } = await supabase
         .from('cotizaciones')
@@ -207,6 +246,35 @@ class CotizacionesService {
       console.error('[CotizacionesService] Error en cambiarEstado:', error);
       throw error;
     }
+  }
+
+  /**
+   * Sanitizar datos de vuelo según tipo_vuelo
+   * Si tipo_vuelo !== 'ida_vuelta', los campos de regreso deben ser null
+   * @private
+   */
+  _sanitizarDatosVuelo(cotizacionData) {
+    const { tipo_vuelo, fecha_regreso, hora_salida_regreso, hora_llegada_regreso, ...restoDatos } = cotizacionData;
+
+    // Si es ida y vuelta, mantener los campos de regreso
+    if (tipo_vuelo === 'ida_vuelta') {
+      return {
+        ...restoDatos,
+        tipo_vuelo,
+        fecha_regreso: fecha_regreso || null,
+        hora_salida_regreso: hora_salida_regreso || null,
+        hora_llegada_regreso: hora_llegada_regreso || null
+      };
+    }
+
+    // Para solo_ida o migratorio, forzar campos de regreso a null
+    return {
+      ...restoDatos,
+      tipo_vuelo,
+      fecha_regreso: null,
+      hora_salida_regreso: null,
+      hora_llegada_regreso: null
+    };
   }
 }
 

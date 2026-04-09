@@ -46,6 +46,9 @@ export default function VueloFormNuevo({
     ruta: '',
     horario: '',
     hora_llegada: '',
+    fecha_regreso: '',
+    hora_salida_regreso: '',
+    hora_llegada_regreso: '',
     aerolinea_nombre: '',
     aerolinea_codigo: '',
     localizador: '',
@@ -326,6 +329,11 @@ export default function VueloFormNuevo({
     if (!formData.ruta.trim()) newErrors.ruta = 'Ruta es requerida'
     if (!formData.proveedor.trim()) newErrors.proveedor = 'Proveedor es requerido'
 
+    // Validación condicional: si es ida_vuelta, fecha_regreso es requerida
+    if (formData.tipo_vuelo === 'ida_vuelta' && !formData.fecha_regreso) {
+      newErrors.fecha_regreso = 'Fecha de regreso es requerida para vuelos de ida y vuelta'
+    }
+
     // Validaciones específicas cuando NO hay cotización
     if (!cotizacion) {
       if (!formData.moneda_precio) newErrors.moneda_precio = 'Moneda de precios es requerida'
@@ -377,6 +385,10 @@ export default function VueloFormNuevo({
         // Validar horas para evitar strings vacíos
         horario: formData.horario && formData.horario.trim() !== '' ? formData.horario : null,
         hora_llegada: formData.hora_llegada && formData.hora_llegada.trim() !== '' ? formData.hora_llegada : null,
+        // Campos de vuelo de regreso (solo si es ida_vuelta)
+        fecha_regreso: formData.tipo_vuelo === 'ida_vuelta' ? formData.fecha_regreso : null,
+        hora_salida_regreso: formData.tipo_vuelo === 'ida_vuelta' && formData.hora_salida_regreso?.trim() ? formData.hora_salida_regreso : null,
+        hora_llegada_regreso: formData.tipo_vuelo === 'ida_vuelta' && formData.hora_llegada_regreso?.trim() ? formData.hora_llegada_regreso : null,
         // Escalas
         tiene_escala: formData.tiene_escala,
         escala_1_ciudad: formData.escala_1_ciudad || null,
@@ -477,49 +489,110 @@ export default function VueloFormNuevo({
             {errors.contacto_telefono && <p className="mt-1 text-sm text-red-600">{errors.contacto_telefono}</p>}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Fecha de Salida del vuelo *
-            </label>
-            <input
-              type="date"
-              name="fecha_vuelo"
-              value={formData.fecha_vuelo}
-              onChange={handleChange}
-              disabled={!!cotizacion}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${!!cotizacion ? 'bg-gray-100' : ''} ${errors.fecha_vuelo ? 'border-red-500' : 'border-gray-300'
-                }`}
-            />
-            {errors.fecha_vuelo && <p className="mt-1 text-sm text-red-600">{errors.fecha_vuelo}</p>}
+          {/* Vuelo de IDA - Siempre se muestra */}
+          <div className="col-span-full">
+            <div className="bg-indigo-50/50 rounded-xl border-2 border-indigo-100 p-6 space-y-4">
+              <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-widest px-1 mb-4">
+                {formData.tipo_vuelo === 'ida_vuelta' ? 'Vuelo de Ida' : formData.tipo_vuelo === 'migratorio' ? 'Información del Vuelo (Fines Migratorios)' : 'Información del Vuelo'}
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">
+                    FECHA SALIDA *
+                  </label>
+                  <input
+                    type="date"
+                    name="fecha_vuelo"
+                    value={formData.fecha_vuelo}
+                    onChange={handleChange}
+                    disabled={!!cotizacion}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white ${!!cotizacion ? 'bg-gray-100' : ''} ${errors.fecha_vuelo ? 'border-red-500' : 'border-slate-300'}`}
+                  />
+                  {errors.fecha_vuelo && <p className="mt-1 text-sm text-red-600">{errors.fecha_vuelo}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">
+                    HORA SALIDA
+                  </label>
+                  <input
+                    type="time"
+                    name="horario"
+                    value={formData.horario}
+                    onChange={handleChange}
+                    disabled={!!cotizacion}
+                    className={`w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white ${!!cotizacion ? 'bg-gray-100' : ''}`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">
+                    HORA LLEGADA
+                  </label>
+                  <input
+                    type="time"
+                    name="hora_llegada"
+                    value={formData.hora_llegada}
+                    onChange={handleChange}
+                    disabled={!!cotizacion}
+                    className={`w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white ${!!cotizacion ? 'bg-gray-100' : ''}`}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Hora de Salida del vuelo
-            </label>
-            <input
-              type="time"
-              name="horario"
-              value={formData.horario}
-              onChange={handleChange}
-              disabled={!!cotizacion}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 ${!!cotizacion ? 'bg-gray-100' : ''}`}
-            />
-          </div>
+          {/* Vuelo de VUELTA - Solo si es ida_vuelta */}
+          {formData.tipo_vuelo === 'ida_vuelta' && (
+            <div className="col-span-full">
+              <div className="bg-purple-50/50 rounded-xl border-2 border-purple-100 p-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                <h4 className="text-xs font-bold text-purple-700 uppercase tracking-widest px-1 mb-4">Vuelo de Vuelta</h4>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Hora de Llegada del vuelo
-            </label>
-            <input
-              type="time"
-              name="hora_llegada"
-              value={formData.hora_llegada}
-              onChange={handleChange}
-              disabled={!!cotizacion}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 ${!!cotizacion ? 'bg-gray-100' : ''}`}
-            />
-          </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">
+                      FECHA REGRESO *
+                    </label>
+                    <input
+                      type="date"
+                      name="fecha_regreso"
+                      value={formData.fecha_regreso}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 transition-all text-sm bg-white ${errors.fecha_regreso ? 'border-red-500' : 'border-slate-300'}`}
+                    />
+                    {errors.fecha_regreso && <p className="mt-1 text-sm text-red-600">{errors.fecha_regreso}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">
+                      HORA SALIDA
+                    </label>
+                    <input
+                      type="time"
+                      name="hora_salida_regreso"
+                      value={formData.hora_salida_regreso}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 transition-all text-sm bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">
+                      HORA LLEGADA
+                    </label>
+                    <input
+                      type="time"
+                      name="hora_llegada_regreso"
+                      value={formData.hora_llegada_regreso}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 transition-all text-sm bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

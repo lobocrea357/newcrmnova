@@ -238,7 +238,10 @@ CREATE TABLE public.cotizaciones (
   metodo_pago text,
   reserva_id uuid,
   aereolinea_codigo text,
+  deleted_at timestamp with time zone,
+  deleted_by uuid,
   CONSTRAINT cotizaciones_pkey PRIMARY KEY (id),
+  CONSTRAINT cotizaciones_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES auth.users(id),
   CONSTRAINT cotizaciones_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
 CREATE TABLE public.cotizaciones_historial (
@@ -265,7 +268,10 @@ CREATE TABLE public.cotizaciones_pasajeros (
   equipaje_mediano boolean DEFAULT false,
   equipaje_ligero boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
+  deleted_at timestamp with time zone,
+  deleted_by uuid,
   CONSTRAINT cotizaciones_pasajeros_pkey PRIMARY KEY (id),
+  CONSTRAINT cotizaciones_pasajeros_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES auth.users(id),
   CONSTRAINT cotizaciones_pasajeros_cotizacion_id_fkey FOREIGN KEY (cotizacion_id) REFERENCES public.cotizaciones(id)
 );
 CREATE TABLE public.daily_sales_reports (
