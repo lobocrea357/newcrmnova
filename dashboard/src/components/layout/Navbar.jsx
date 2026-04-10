@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import NotificacionesCampana from "@/components/ui/NotificacionesCampana";
+import BarraPersonalHeader from "@/components/ranking/BarraPersonalHeader";
 import {
   Search,
   Bell,
@@ -198,6 +199,15 @@ const Navbar = ({
           </div>
         </div>
       </div>
+      
+      {/* Barra personal debajo del navbar principal */}
+      {user && (
+        <div className="border-t border-gray-100 py-2 sm:py-3 px-4 sm:px-6">
+          <div className="max-w-4xl mx-auto">
+            <BarraPersonalHeader userId={user.id} />
+          </div>
+        </div>
+      )}
     </header>
   );
 };

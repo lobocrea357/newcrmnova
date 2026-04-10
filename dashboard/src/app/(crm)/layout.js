@@ -7,11 +7,15 @@ import { useAuthRequired } from "@/hooks/useRouteGuard";
 import { NotificacionesProvider } from "@/contexts/NotificacionesContext";
 import { RankingProvider } from "@/contexts/RankingContext";
 import ToastContainer from "@/components/ui/ToastContainer";
+import { useMetaNotifications } from "@/hooks/useMetaNotifications";
 
 export default function CRMLayout({ children }) {
   const { loading, isAuthenticated } = useAuthRequired();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // NUEVO: Activar sistema de notificaciones de metas
+  useMetaNotifications();
 
   // Mientras verificamos la sesión o si no está autenticado (se redirige desde el hook)
   if (loading || !isAuthenticated) {

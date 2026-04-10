@@ -48,6 +48,7 @@ export const VUELOS_API = {
   historialEdiciones: (id) => buildApiUrl(`/api/vuelos/${id}/historial-ediciones`),
   eliminar: (id) => buildApiUrl(`/api/vuelos/${id}`),
   confirmarPago: (id) => buildApiUrl(`/api/vuelos/${id}/confirmar-pago`),
+  observarPago: (id) => buildApiUrl(`/api/vuelos/${id}/observar-pago`),
   marcarEmitido: (id) => buildApiUrl(`/api/vuelos/${id}/marcar-emitido`),
   actualizarPasajero: (pasajeroId) => buildApiUrl(`/api/vuelos/pasajeros/${pasajeroId}`),
   copiarPasajeros: (vueloId) => buildApiUrl(`/api/vuelos/${vueloId}/copiar-pasajeros`),
@@ -67,7 +68,8 @@ export const EQUIPOS_API = {
 
 // URLs específicas para APIs de rankings
 export const RANKINGS_API = {
-  global: buildApiUrl('/api/rankings/global')
+  global: buildApiUrl('/api/rankings/global'),
+  personal: (userId) => buildApiUrl(`/api/rankings/personal/${userId}`)
 }
 
 

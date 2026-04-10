@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { RANKINGS_API } from '@/config/apiConfig'
+import { useAuth } from '@/contexts/AuthContext'
 
 const RankingContext = createContext({})
 
@@ -19,6 +20,10 @@ export function RankingProvider({ children }) {
   const [monedaVista, setMonedaVista] = useState('USD') // USD o EUR
   const [realtimeActivo, setRealtimeActivo] = useState(false)
   const [ultimaActualizacion, setUltimaActualizacion] = useState(null)
+  const [datosPersonales, setDatosPersonales] = useState(null)
+  const [loadingPersonal, setLoadingPersonal] = useState(false)
+
+  const { user } = useAuth()
 
   const cargarRanking = useCallback(async (moneda = monedaVista) => {
     try {
@@ -34,6 +39,25 @@ export function RankingProvider({ children }) {
       setLoadingRanking(false)
     }
   }, [monedaVista])
+
+  const cargarDatosPersonales = useCallback(async (userId) => {
+    if (!userId) return
+    
+    try {
+      setLoadingPersonal(true)
+      // RANKINGS_API.personal is a function now
+      const url = RANKINGS_API.personal(userId)
+      const res = await fetch(url)
+      if (!res.ok) throw new Error('Error obteniendo datos personales')
+      const data = await res.json()
+      setDatosPersonales(data)
+    } catch (err) {
+      console.error('Error cargando datos personales:', err)
+      setDatosPersonales(null)
+    } finally {
+      setLoadingPersonal(false)
+    }
+  }, [])
 
   useEffect(() => {
     cargarRanking(monedaVista)
@@ -63,6 +87,12 @@ export function RankingProvider({ children }) {
     }
   }, [cargarRanking, monedaVista])
 
+  useEffect(() => {
+    if (user?.id) {
+      cargarDatosPersonales(user.id)
+    }
+  }, [cargarDatosPersonales, user?.id])
+
   return (
     <RankingContext.Provider value={{
       rankingData,
@@ -73,7 +103,10 @@ export function RankingProvider({ children }) {
       setMonedaVista,
       realtimeActivo,
       ultimaActualizacion,
-      recargar: cargarRanking
+      recargar: cargarRanking,
+      datosPersonales,
+      loadingPersonal,
+      recargarPersonal: cargarDatosPersonales
     }}>
       {children}
     </RankingContext.Provider>

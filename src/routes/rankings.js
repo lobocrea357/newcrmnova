@@ -1,5 +1,11 @@
 import express from 'express';
 import { supabase } from '../config/supabase.js';
+import {
+  getRangoMesActual,
+  getMetaPorAgencia,
+  calcularProgresoMeta,
+  calcularProyeccionMeta
+} from '../lib/rankingHelpers.js';
 
 const router = express.Router();
 
@@ -11,6 +17,7 @@ const router = express.Router();
 router.get('/global', async (req, res) => {
   try {
     const monedaVista = req.query.moneda || 'USD'; // USD o EUR
+    const { inicio, fin } = getRangoMesActual();
 
     // Obtener vuelos + pasajeros + equipos + tasas en paralelo
     const [vuelosResult, equiposResult, tasasResult] = await Promise.all([
@@ -36,13 +43,29 @@ router.get('/global', async (req, res) => {
             email,
             equipo_id,
             equipo:equipos!equipo_id(id, nombre, color),
-            role:roles(id, name)
+            role:roles(id, name),
+            agencia_usuario:usuario_agencias!usuario_agencias_user_id_fkey(
+              is_primary,
+              agencia:agencias!agencia_id(id, codigo, nombre)
+            )
           )
         `)
+        .gte('created_at', inicio.toISOString())
+        .lte('created_at', fin.toISOString())
         .neq('estado', 'CANCELADO'),
       supabase
         .from('equipos')
-        .select('id, nombre, color, gerente_id')
+        .select(`
+          id, nombre, color, gerente_id,
+          gerente:profiles!gerente_id(
+            id, full_name, email,
+            role:roles(id, name),
+            agencia_usuario:usuario_agencias!usuario_agencias_user_id_fkey(
+              is_primary,
+              agencia:agencias!agencia_id(id, codigo, nombre)
+            )
+          )
+        `)
         .eq('is_active', true),
       supabase
         .from('tasas_conversion')
@@ -95,14 +118,51 @@ router.get('/global', async (req, res) => {
       if (eq.gerente_id) gerenteIds.add(eq.gerente_id);
     });
 
-    // Agrupar por usuario
+    // Agrupar por usuario e inicializar gerentes
     const porUsuario = {};
+    
+    // 1. Inicializar gerentes (para que aparezcan incluso con 0 vuelos)
+    (equiposRaw || []).forEach(eq => {
+      const g = eq.gerente;
+      if (g && !porUsuario[g.id]) {
+        const agenciaUsuario = g.agencia_usuario?.find(au => au.is_primary);
+        const agencia = agenciaUsuario?.agencia || { codigo: 'SIN_AGENCIA', nombre: 'Sin Agencia' };
+        const meta = getMetaPorAgencia(agencia.codigo);
+
+        porUsuario[g.id] = {
+          id: g.id,
+          nombre: g.full_name || 'Sin nombre',
+          email: g.email || '',
+          rol: g.role?.name?.toLowerCase() || 'gerente',
+          equipoId: null, // Gerentes no son "miembros" de base de su propio equipo para sumar
+          equipoNombre: null,
+          equipoColor: null,
+          agenciaCodigo: agencia.codigo,
+          agenciaNombre: agencia.nombre,
+          metaIndividual: meta,
+          totalVuelos: 0,
+          emitidos: 0,
+          pendientesPago: 0,
+          pendientesEmision: 0,
+          montoTotal: 0,
+          feeAgenciaTotal: 0
+        };
+      }
+    });
+
+    // 2. Procesar vuelos
     (vuelos || []).forEach(vuelo => {
       const userId = vuelo.created_by;
       const creator = vuelo.creator;
       if (!creator) return;
 
+      // Obtener agencia primaria del usuario
+      const agenciaUsuario = creator.agencia_usuario?.find(au => au.is_primary);
+      const agencia = agenciaUsuario?.agencia || { codigo: 'SIN_AGENCIA', nombre: 'Sin Agencia' };
+
       if (!porUsuario[userId]) {
+        const meta = getMetaPorAgencia(agencia.codigo);
+
         porUsuario[userId] = {
           id: userId,
           nombre: creator.full_name || 'Sin nombre',
@@ -111,6 +171,9 @@ router.get('/global', async (req, res) => {
           equipoId: creator.equipo_id || null,
           equipoNombre: creator.equipo?.nombre || null,
           equipoColor: creator.equipo?.color || '#6366f1',
+          agenciaCodigo: agencia.codigo,
+          agenciaNombre: agencia.nombre,
+          metaIndividual: meta,
           totalVuelos: 0,
           emitidos: 0,
           pendientesPago: 0,
@@ -149,13 +212,24 @@ router.get('/global', async (req, res) => {
       if (vuelo.estado === 'PENDIENTE_EMISION') u.pendientesEmision += 1;
     });
 
-    // Calcular % conversión
-    const todos = Object.values(porUsuario).map(u => ({
-      ...u,
-      porcentajeConversion: u.totalVuelos > 0
-        ? parseFloat(((u.emitidos / u.totalVuelos) * 100).toFixed(1))
-        : 0
-    }));
+    // Calcular % conversión y métricas de gamificación
+    const diaDelMes = new Date().getDate();
+    const todos = Object.values(porUsuario).map(u => {
+      const progreso = calcularProgresoMeta(u.feeAgenciaTotal, u.metaIndividual);
+      const metaAlcanzada = u.feeAgenciaTotal >= u.metaIndividual;
+      const proyeccion = calcularProyeccionMeta(u.feeAgenciaTotal, u.metaIndividual, diaDelMes);
+
+      return {
+        ...u,
+        porcentajeConversion: u.totalVuelos > 0
+          ? parseFloat(((u.emitidos / u.totalVuelos) * 100).toFixed(1))
+          : 0,
+        progresoMeta: Math.min(progreso, 100),
+        alcanzoMeta: metaAlcanzada,
+        proyeccionMeta: proyeccion,
+        estaCercaDeMeta: progreso >= 85 && !metaAlcanzada
+      };
+    });
 
     // Ordenar por cantidad de ventas registradas (totalVuelos) → emitidos → montoTotal
     const sortByVentas = (a, b) => {
@@ -231,6 +305,131 @@ router.get('/global', async (req, res) => {
     console.error('Error en GET /api/rankings/global:', error);
     res.status(500).json({
       error: 'Error al obtener ranking global',
+      details: error.message
+    });
+  }
+});
+
+// NUEVO: GET /api/rankings/personal/:userId
+// Devuelve datos de ranking personal con desglose mensual y quincenal
+router.get('/personal/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const {
+      getRangoQuincenaActual,
+      isValidUUID,
+      calcularComision,
+      calcularDiaCobro
+    } = await import('../lib/rankingHelpers.js');
+
+    const { inicio, fin } = getRangoMesActual();
+    const quincena = getRangoQuincenaActual();
+
+    // Validar UUID
+    if (!isValidUUID(userId)) {
+      return res.status(400).json({ error: 'ID de usuario inválido' });
+    }
+
+    // Obtener datos del usuario con agencia
+    const { data: usuario, error: usuarioError } = await supabase
+      .from('profiles')
+      .select(`
+        id, full_name, email,
+        agencia_usuario:usuario_agencias!usuario_agencias_user_id_fkey(
+          is_primary,
+          agencia:agencias!agencia_id(id, codigo, nombre)
+        )
+      `)
+      .eq('id', userId)
+      .single();
+
+    if (usuarioError || !usuario) {
+      console.error('Error obteniendo perfil en /personal/:userId:', usuarioError);
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Obtener agencia primaria
+    const agenciaUsuario = usuario.agencia_usuario?.find(au => au.is_primary);
+    const agencia = agenciaUsuario?.agencia || { codigo: 'SIN_AGENCIA', nombre: 'Sin Agencia' };
+    const meta = getMetaPorAgencia(agencia.codigo);
+
+    // Obtener vuelos del mes
+    const { data: vuelosMes, error: vuelosError } = await supabase
+      .from('vuelos')
+      .select(`
+        created_at,
+        pasajeros:vuelos_pasajeros(fee_agencia)
+      `)
+      .eq('created_by', userId)
+      .gte('created_at', inicio.toISOString())
+      .lte('created_at', fin.toISOString())
+      .neq('estado', 'CANCELADO');
+
+    if (vuelosError) throw vuelosError;
+
+    // Calcular fees
+    let feeMensual = 0;
+    let feeQuincenal = 0;
+
+    (vuelosMes || []).forEach(vuelo => {
+      const fechaVuelo = new Date(vuelo.created_at);
+      const estaEnQuincenaActual = fechaVuelo >= quincena.inicio && fechaVuelo <= quincena.fin;
+
+      if (vuelo.pasajeros && Array.isArray(vuelo.pasajeros)) {
+        vuelo.pasajeros.forEach(pasajero => {
+          const fee = parseFloat(pasajero.fee_agencia) || 0;
+          feeMensual += fee;
+          if (estaEnQuincenaActual) {
+            feeQuincenal += fee;
+          }
+        });
+      }
+    });
+
+    const alcanzoMetaVal = feeMensual >= meta;
+    const comision = calcularComision(feeQuincenal, alcanzoMetaVal);
+
+    // Determinar estado de cobro
+    const hoy = new Date();
+    const diaCobro = calcularDiaCobro(quincena.fin);
+    const yaCobro = hoy > diaCobro;
+
+    res.json({
+      usuario: {
+        id: usuario.id,
+        nombre: usuario.full_name,
+        email: usuario.email,
+        agencia: agencia
+      },
+      mensual: {
+        fee: feeMensual,
+        meta,
+        progreso: Math.min((feeMensual / meta) * 100, 100),
+        alcanzoMeta: alcanzoMetaVal
+      },
+      quincenal: {
+        numero: quincena.numero,
+        fee: feeQuincenal,
+        comision,
+        porcentajeComision: alcanzoMetaVal ? 15 : 12,
+        estado: yaCobro ? 'cobrado' : 'estimado',
+        diaCobro: diaCobro.toISOString()
+      },
+      mesActual: {
+        inicio: inicio.toISOString(),
+        fin: fin.toISOString(),
+        quincenaActual: {
+          numero: quincena.numero,
+          inicio: quincena.inicio.toISOString(),
+          fin: quincena.fin.toISOString()
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error en GET /api/rankings/personal/:userId:', error);
+    res.status(500).json({
+      error: 'Error al obtener ranking personal',
       details: error.message
     });
   }

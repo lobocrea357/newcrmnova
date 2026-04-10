@@ -3,6 +3,8 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useRanking } from '@/contexts/RankingContext'
 import { Award, TrendingUp, TrendingDown, Users, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react'
+import BarraProgresoMeta from './BarraProgresoMeta'
+import { obtenerClasesAgencia, obtenerBadgeMetaUI } from '@/lib/ranking/helpers'
 
 const VISTAS = [
   { id: 'general', label: 'General' },
@@ -27,10 +29,22 @@ function formatFee(n) {
 }
 
 function FilaUsuario({ usuario, index, monedaVista }) {
+  const clasesAgencia = obtenerClasesAgencia(usuario.agenciaCodigo || 'SIN_AGENCIA')
+  const badgeMeta = obtenerBadgeMetaUI(usuario.alcanzoMeta, usuario.progresoMeta)
+
   return (
-    <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+    <tr className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+      usuario.alcanzoMeta ? 'bg-emerald-50/50' : ''
+    }`}>
       <td className="px-4 py-3 text-sm font-bold text-gray-700 w-10">
-        {getMedalla(index)}
+        <div className="flex items-center gap-1">
+          {getMedalla(index)}
+          {badgeMeta && (
+            <span className="animate-in zoom-in duration-300">
+              {badgeMeta}
+            </span>
+          )}
+        </div>
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
@@ -49,6 +63,13 @@ function FilaUsuario({ usuario, index, monedaVista }) {
                 {usuario.equipoNombre}
               </span>
             )}
+            {/* Badge de agencia */}
+            <span 
+              className="text-[10px] px-1.5 py-0.5 rounded-full font-medium ml-1"
+              style={{ backgroundColor: clasesAgencia.hexSecundario, color: clasesAgencia.hexTexto }}
+            >
+              {usuario.agenciaNombre || 'Sin Agencia'}
+            </span>
           </div>
         </div>
       </td>
@@ -73,6 +94,19 @@ function FilaUsuario({ usuario, index, monedaVista }) {
       </td>
       <td className="px-4 py-3 text-right text-sm font-bold text-emerald-600">
         {formatFee(usuario.feeAgenciaTotal)}
+      </td>
+      
+      {/* Columna de Progreso Meta */}
+      <td className="px-4 py-3 w-48">
+        <BarraProgresoMeta
+          feeActual={usuario.feeAgenciaTotal}
+          meta={usuario.metaIndividual}
+          nombre={usuario.nombre}
+          alcanzóMeta={usuario.alcanzoMeta}
+          mostrarCantidades={false}
+          compacta={true}
+          animada={true}
+        />
       </td>
     </tr>
   )
@@ -100,6 +134,7 @@ function TablaUsuarios({ usuarios, emptyMsg, monedaVista }) {
             <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-center">% Conv.</th>
             <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-right">Monto ({monedaVista})</th>
             <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-right">Fee Gen.</th>
+            <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-center">Progreso Meta</th>
           </tr>
         </thead>
         <tbody>
