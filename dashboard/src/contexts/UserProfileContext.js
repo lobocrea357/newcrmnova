@@ -23,6 +23,9 @@ export const UserProfileProvider = ({ children }) => {
     rolePermissions: [],
     userPermissions: [],
     revokedPermissions: [],
+    agencias: [],
+    primaryAgencia: null,
+    sede: null,
     loading: true,
     error: null
   })
@@ -49,6 +52,9 @@ export const UserProfileProvider = ({ children }) => {
           rolePermissions: [],
           userPermissions: [],
           revokedPermissions: [],
+          agencias: [],
+          primaryAgencia: null,
+          sede: null,
           loading: false,
           error: null
         })
@@ -56,7 +62,7 @@ export const UserProfileProvider = ({ children }) => {
       }
 
       try {
-        // 1. Obtener perfil con rol
+        // 1. Obtener perfil con rol y sede
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select(`
@@ -68,11 +74,22 @@ export const UserProfileProvider = ({ children }) => {
             created_at,
             updated_at,
             equipo_id,
+            sede_id,
             role:roles(
               id,
               name,
               description,
               ranking
+            ),
+            sede:sedes(
+              id,
+              nombre,
+              codigo,
+              ciudad,
+              pais,
+              direccion,
+              telefono,
+              is_active
             )
           `)
           .eq('id', user.id)
@@ -120,6 +137,28 @@ export const UserProfileProvider = ({ children }) => {
           ? userPerms.filter(up => !up.granted).map(up => up.permission.name)
           : []
 
+        // 4. Obtener agencias del usuario
+        let agencias = []
+        let primaryAgencia = null
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+          const agenciasResponse = await fetch(`${apiUrl}/api/agencias/user/${user.id}`)
+          const agenciasJson = await agenciasResponse.json()
+          
+          if (agenciasJson.success && agenciasJson.data) {
+            const usuarioAgencias = agenciasJson.data
+            agencias = usuarioAgencias
+              .map(ua => ua.agencia)
+              .filter(Boolean)
+              .filter(a => a.is_active)
+            
+            const primaryUA = usuarioAgencias.find(ua => ua.is_primary)
+            primaryAgencia = primaryUA?.agencia || null
+          }
+        } catch (agenciasError) {
+          console.warn('⚠️ Error cargando agencias del usuario:', agenciasError)
+        }
+
         // DEBUG: Log para diagnosticar permisos cargados
         console.log('🔐 [UserProfileContext] Perfil cargado:', {
           email: profileData.email,
@@ -130,7 +169,11 @@ export const UserProfileProvider = ({ children }) => {
           rolePermissions: rolePermissions,
           userPermissionsCount: userPermissions.length,
           userPermissions: userPermissions,
-          revokedPermissions: revokedPermissions
+          revokedPermissions: revokedPermissions,
+          agenciasCount: agencias.length,
+          agencias: agencias.map(a => a.nombre),
+          primaryAgencia: primaryAgencia?.nombre || 'ninguna',
+          sede: profileData.sede?.nombre || 'ninguna'
         })
 
         setProfileData({
@@ -140,6 +183,9 @@ export const UserProfileProvider = ({ children }) => {
           rolePermissions,
           userPermissions,
           revokedPermissions,
+          agencias,
+          primaryAgencia,
+          sede: profileData.sede || null,
           loading: false,
           error: null
         })
@@ -153,6 +199,9 @@ export const UserProfileProvider = ({ children }) => {
           rolePermissions: [],
           userPermissions: [],
           revokedPermissions: [],
+          agencias: [],
+          primaryAgencia: null,
+          sede: null,
           loading: false,
           error: error.message
         })
@@ -164,7 +213,16 @@ export const UserProfileProvider = ({ children }) => {
 
   // Helpers computados (memoized para performance)
   const helpers = useMemo(() => {
-    const { role, roleObject, rolePermissions = [], userPermissions = [], revokedPermissions = [] } = profileData
+    const { 
+      role, 
+      roleObject, 
+      rolePermissions = [], 
+      userPermissions = [], 
+      revokedPermissions = [],
+      agencias = [],
+      primaryAgencia,
+      sede
+    } = profileData
 
     // Combinar permisos: rol + usuario - revocados
     const allPermissions = [
@@ -224,6 +282,68 @@ export const UserProfileProvider = ({ children }) => {
       return myRanking > targetRoleRanking // Mayor ranking = mayor jerarquía
     }
 
+    // ========================================
+    // HELPERS DE AGENCIAS
+    // ========================================
+
+    // Helper: verificar si el usuario pertenece a una agencia específica (por código)
+    const hasAgencia = (agenciaCodigo) => {
+      if (!agenciaCodigo) return false
+      return agencias.some(a => a.codigo === agenciaCodigo)
+    }
+
+    // Helper: verificar si una agencia es la primaria del usuario
+    const isAgenciaPrimary = (agenciaCodigo) => {
+      if (!agenciaCodigo || !primaryAgencia) return false
+      return primaryAgencia.codigo === agenciaCodigo
+    }
+
+    // Helper: obtener agencia por código
+    const getAgenciaByCode = (codigo) => {
+      if (!codigo) return null
+      return agencias.find(a => a.codigo === codigo) || null
+    }
+
+    // Helper: verificar si el usuario tiene al menos una agencia asignada
+    const hasAnyAgencia = () => {
+      return agencias.length > 0
+    }
+
+    // Helper: obtener todas las agencias del usuario
+    const getAllAgencias = () => {
+      return agencias
+    }
+
+    // Helper: obtener IDs de todas las agencias (útil para filtros)
+    const getAgenciaIds = () => {
+      return agencias.map(a => a.id)
+    }
+
+    // ========================================
+    // HELPERS DE SEDES
+    // ========================================
+
+    // Helper: verificar si el usuario tiene una sede asignada
+    const hasSede = () => {
+      return !!sede
+    }
+
+    // Helper: verificar si la sede del usuario coincide con un código específico
+    const isSedeCode = (sedeCodigo) => {
+      if (!sedeCodigo || !sede) return false
+      return sede.codigo === sedeCodigo
+    }
+
+    // Helper: obtener la sede del usuario
+    const getSede = () => {
+      return sede
+    }
+
+    // Helper: obtener el ID de la sede (útil para filtros)
+    const getSedeId = () => {
+      return sede?.id || null
+    }
+
     return {
       allPermissions,
       hasPermission,
@@ -237,7 +357,17 @@ export const UserProfileProvider = ({ children }) => {
       isEmisor,
       isAdministracion,
       getRoleRanking,
-      canManageRole
+      canManageRole,
+      hasAgencia,
+      isAgenciaPrimary,
+      getAgenciaByCode,
+      hasAnyAgencia,
+      getAllAgencias,
+      getAgenciaIds,
+      hasSede,
+      isSedeCode,
+      getSede,
+      getSedeId
     }
   }, [profileData])
 
