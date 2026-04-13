@@ -1,10 +1,11 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { CheckCircle, Eye, X, Loader2, CreditCard, FileText, Calendar, Users } from 'lucide-react'
+import { CheckCircle, Eye, X, Loader2, CreditCard, FileText, Calendar, Users, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { VUELOS_API } from '@/config/apiConfig'
 import { toastSuccess, toastError } from '@/helpers/toasts'
 import ImageModal from '@/components/shared/ImageModal'
+import ModalObservacionPago from '@/components/vuelos/ModalObservacionPago'
 
 export default function ConfirmarPagosPage() {
   const [vuelos, setVuelos] = useState([])
@@ -14,6 +15,7 @@ export default function ConfirmarPagosPage() {
   const [confirmingPago, setConfirmingPago] = useState(false)
   const [imageModalOpen, setImageModalOpen] = useState(false)
   const [selectedImage, setSelectedImage] = useState({ url: '', name: '' })
+  const [observacionModalOpen, setObservacionModalOpen] = useState(false)
 
   useEffect(() => {
     cargarVuelosPendientes()
@@ -85,6 +87,48 @@ export default function ConfirmarPagosPage() {
       toastError(error.message)
     } finally {
       setConfirmingPago(false)
+    }
+  }
+
+  const abrirModalObservacion = (vuelo) => {
+    setSelectedVuelo(vuelo)
+    setObservacionModalOpen(true)
+  }
+
+  const cerrarModalObservacion = () => {
+    setObservacionModalOpen(false)
+  }
+
+  const enviarObservacion = async (datos) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        toastError('Usuario no autenticado')
+        return
+      }
+
+      const response = await fetch(VUELOS_API.observarPago(selectedVuelo.id), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          adminId: user.id,
+          ...datos
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error al enviar observación')
+      }
+
+      toastSuccess('Observación enviada al asesor exitosamente')
+      cerrarModalObservacion()
+      await cargarVuelosPendientes()
+    } catch (error) {
+      console.error('Error enviando observación:', error)
+      toastError(error.message)
     }
   }
 
@@ -336,12 +380,19 @@ export default function ConfirmarPagosPage() {
               </div>
 
               {/* Footer */}
-              <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex gap-4 justify-end">
+              <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex gap-3 justify-end">
                 <button
                   onClick={cerrarModal}
                   className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-100 transition-colors"
                 >
                   Cancelar
+                </button>
+                <button
+                  onClick={() => abrirModalObservacion(selectedVuelo)}
+                  className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg font-medium hover:from-amber-600 hover:to-orange-600 transition-all flex items-center gap-2"
+                >
+                  <AlertTriangle className="w-5 h-5" />
+                  Reportar Observación
                 </button>
                 <button
                   onClick={() => confirmarPago(selectedVuelo.id)}
@@ -371,6 +422,14 @@ export default function ConfirmarPagosPage() {
           onClose={() => setImageModalOpen(false)}
           imageUrl={selectedImage.url}
           imageName={selectedImage.name}
+        />
+
+        {/* Modal de Observación */}
+        <ModalObservacionPago
+          vuelo={selectedVuelo}
+          isOpen={observacionModalOpen}
+          onClose={cerrarModalObservacion}
+          onSubmit={enviarObservacion}
         />
       </div>
     </div>

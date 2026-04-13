@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import vuelosService from '../services/vuelosService.js';
 import { supabase } from '../config/supabase.js';
-import { notificarNuevoVuelo, notificarVueloEmitido } from '../services/notificacionesService.js';
+import { notificarNuevoVuelo, notificarVueloEmitido, notificarPagoObservado } from '../services/notificacionesService.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -260,6 +260,81 @@ router.patch('/:id/confirmar-pago', async (req, res) => {
     console.error('Error en PATCH /api/vuelos/:id/confirmar-pago:', error);
     res.status(500).json({
       error: 'Error al confirmar pago',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/vuelos/:id/observar-pago - Reportar observación en pago
+ */
+router.post('/:id/observar-pago', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { adminId, motivo, montoFaltante, observaciones } = req.body;
+
+    if (!adminId || !motivo || !observaciones) {
+      return res.status(400).json({
+        error: 'Campos requeridos: adminId, motivo, observaciones'
+      });
+    }
+
+    const motivosValidos = ['pago_no_recibido', 'monto_insuficiente', 'requiere_aclaracion'];
+    if (!motivosValidos.includes(motivo)) {
+      return res.status(400).json({
+        error: 'Motivo inválido',
+        motivosValidos
+      });
+    }
+
+    if (observaciones.length < 20) {
+      return res.status(400).json({
+        error: 'Las observaciones deben tener al menos 20 caracteres'
+      });
+    }
+
+    const { data: vuelo, error: vueloError } = await supabase
+      .from('vuelos')
+      .select('id, created_by, pax_nombre, ruta, monto_venta, estado')
+      .eq('id', id)
+      .single();
+
+    if (vueloError || !vuelo) {
+      return res.status(404).json({ error: 'Vuelo no encontrado' });
+    }
+
+    if (vuelo.estado !== 'PENDIENTE_CONFIRMACION_PAGO') {
+      return res.status(400).json({
+        error: 'El vuelo no está en estado PENDIENTE_CONFIRMACION_PAGO'
+      });
+    }
+
+    const { data: adminProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', adminId)
+      .single();
+
+    const adminNombre = adminProfile?.full_name || 'Administrador';
+
+    await notificarPagoObservado(
+      vuelo,
+      adminNombre,
+      motivo,
+      montoFaltante,
+      observaciones
+    );
+
+    res.json({
+      message: 'Observación registrada y notificación enviada',
+      vuelo_id: id,
+      asesor_id: vuelo.created_by
+    });
+
+  } catch (error) {
+    console.error('Error en POST /api/vuelos/:id/observar-pago:', error);
+    res.status(500).json({
+      error: 'Error al registrar observación',
       details: error.message
     });
   }
