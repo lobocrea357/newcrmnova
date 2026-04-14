@@ -1,9 +1,11 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowLeft, Loader2, ArrowRight } from 'lucide-react'
 import VueloFormNuevo from '@/components/vuelos/VueloFormNuevo'
 import TutorialVuelos from '@/components/vuelos/TutorialVuelos'
+import NavigationBreadcrumb from '@/components/ui/NavigationBreadcrumb'
 import { VUELOS_API } from '@/config/apiConfig'
 import { supabase } from '@/lib/supabase'
 import { toastInfo } from '@/helpers/toasts'
@@ -214,7 +216,7 @@ export default function NuevoVueloPage() {
       }
 
       console.log('🔄 Redirigiendo a:', `/ventas/vuelos/${vuelo.id}`)
-      router.push(`/ventas/vuelos/${vuelo.id}`)
+      router.push(`/ventas/vuelos/${vuelo.id}?created=true`)
     } catch (err) {
       console.error('Error creating vuelo:', err)
       setError(err.message)
@@ -223,9 +225,17 @@ export default function NuevoVueloPage() {
     }
   }
 
+  const breadcrumbItems = [
+    { label: 'Inicio', href: '/' },
+    { label: 'Ventas', href: '/ventas' },
+    { label: 'Vuelos', href: '/ventas/vuelos' },
+    { label: 'Nuevo', href: '/ventas/vuelos/nuevo' }
+  ]
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <NavigationBreadcrumb items={breadcrumbItems} />
         <div className="mb-8">
           <button
             onClick={() => router.back()}
@@ -246,17 +256,27 @@ export default function NuevoVueloPage() {
         </div>
 
         {cotizacion && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-blue-800 font-medium flex items-center gap-2">
-              <Loader2 className="w-4 h-4" />
-              Pre-llenando desde cotización aprobada
-            </p>
-            <p className="text-blue-600 text-sm mt-1">
-              Cliente: {cotizacion.nombre_cliente} • Ruta: {cotizacion.origen} → {cotizacion.destino}
-            </p>
-            <p className="text-blue-700 text-xs mt-2 font-medium">
-              ⚠️ Completa los campos faltantes: localizador, teléfono, pasajeros, proveedor y adjuntos
-            </p>
+          <div className="mb-6 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-indigo-900 font-medium flex items-center gap-2">
+                  <Loader2 className="w-4 h-4" />
+                  Creando desde cotización aprobada
+                </p>
+                <p className="text-indigo-700 text-sm mt-1">
+                  Cliente: {cotizacion.nombre_cliente} · Ruta: {cotizacion.origen} → {cotizacion.destino}
+                </p>
+                <p className="text-indigo-700 text-xs mt-2 font-medium">
+                  Completa los campos faltantes: localizador, teléfono, pasajeros, proveedor y adjuntos
+                </p>
+              </div>
+              <Link href={`/ventas/cotizaciones?id=${cotizacion.id}`}>
+                <button className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center gap-1 transition-colors">
+                  Ver cotización
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </Link>
+            </div>
           </div>
         )}
 

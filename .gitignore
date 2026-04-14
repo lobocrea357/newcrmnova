@@ -13,6 +13,8 @@ package-lock.json
 .env.test
 *.env
 .env.backup
+.agents
+skills
 
 # Credenciales sensibles
 CREDENCIALES_DOCKER.md

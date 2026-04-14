@@ -38,6 +38,7 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         { href: '/analisis/rendimiento', label: 'Rendimiento', icon: TrendingUp },
         { href: '/manual-ventas', label: 'Manual de Ventas', icon: BookOpen },
         { href: '/cotizador', label: 'Cotizador', icon: Calculator },
+        { href: '/ventas', label: 'Ventas', icon: TrendingUp },
         { href: '/ventas/cotizaciones', label: 'Cotizaciones', icon: ClipboardList },
         { href: '/ventas/vuelos', label: 'Vuelos', icon: PlaneTakeoff },
         { href: '/ventas/anulables', label: 'Anulables', icon: XCircle },
@@ -60,16 +61,16 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         admin: null,
         gerente: [
             '/', '/conversaciones', '/rutas-riesgo', '/analisis/rendimiento',
-            '/gestion-equipos', '/cotizador', '/ventas/cotizaciones',
+            '/gestion-equipos', '/cotizador', '/ventas', '/ventas/cotizaciones',
             '/ventas/vuelos', '/admin/confirmar-pagos', '/emisiones',
             '/inteligencia-artificial', '/configuracion', '/configuracion/mi-equipo'
         ],
         asesor: [
-            '/', '/cotizador', '/ventas/cotizaciones',
+            '/', '/cotizador', '/ventas', '/ventas/cotizaciones',
             '/ventas/vuelos', '/ventas/vuelos/nuevo'
         ],
         administracion: [
-            '/', '/cotizador', '/ventas/cotizaciones',
+            '/', '/cotizador', '/ventas', '/ventas/cotizaciones',
             '/ventas/vuelos', '/ventas/vuelos/nuevo', '/admin/confirmar-pagos'
         ],
         emisor: ['/', '/emisiones'],

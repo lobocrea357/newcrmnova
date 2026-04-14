@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import vuelosService from '../services/vuelosService.js';
+import permisosService from '../services/permisosService.js';
 import { supabase } from '../config/supabase.js';
 import { notificarNuevoVuelo, notificarVueloEmitido, notificarPagoObservado } from '../services/notificacionesService.js';
 
@@ -632,35 +633,44 @@ router.get('/:id/historial-ediciones', async (req, res) => {
 });
 
 /**
- * PUT /api/vuelos/:id - Actualizar vuelo (simple, sin historial)
+ * PUT /api/vuelos/:id - Actualizar vuelo con validación de permisos
  */
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
-
-    // No permitir actualizar estos campos directamente
-    delete updates.id;
-    delete updates.created_at;
-    delete updates.created_by;
-    delete updates.estado; // Se actualiza con endpoints específicos
-    delete updates.pago_confirmado_por;
-    delete updates.pago_confirmado_at;
-    delete updates.emitido_por;
-    delete updates.emitido_at;
-
-    const vuelo = await vuelosService.actualizarVuelo(id, updates);
-
-    res.json({
-      message: 'Vuelo actualizado exitosamente',
-      vuelo
-    });
-
+    const { vuelo, pasajeros, razon_edicion, user_id, user_role, sin_limite_ediciones } = req.body;
+    
+    if (!user_id || !user_role) {
+      return res.status(400).json({ error: 'Se requieren datos de usuario' });
+    }
+    
+    if (!razon_edicion || razon_edicion.trim() === '') {
+      return res.status(400).json({ error: 'La razón de edición es obligatoria' });
+    }
+    
+    const { permitido, sinLimite, vuelo: vueloActual } = await permisosService.validarPermisosEdicionVuelo(
+      id, user_id, user_role
+    );
+    
+    if (!permitido) {
+      return res.status(403).json({ error: 'No tienes permisos para editar este vuelo' });
+    }
+    
+    await permisosService.guardarHistorialEdicion(id, user_id, razon_edicion, vueloActual);
+    
+    const resultado = await vuelosService.editarVuelo(
+      id, 
+      vuelo, 
+      pasajeros, 
+      sin_limite_ediciones || sinLimite
+    );
+    
+    res.json(resultado);
+    
   } catch (error) {
-    console.error('Error en PUT /api/vuelos/:id:', error);
-    res.status(500).json({
-      error: 'Error al actualizar vuelo',
-      details: error.message
+    console.error('Error editando vuelo:', error);
+    res.status(500).json({ 
+      error: error.message || 'Error al editar el vuelo' 
     });
   }
 });

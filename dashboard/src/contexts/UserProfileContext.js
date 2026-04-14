@@ -137,7 +137,22 @@ export const UserProfileProvider = ({ children }) => {
           ? userPerms.filter(up => !up.granted).map(up => up.permission.name)
           : []
 
-        // 4. Obtener agencias del usuario
+        // 4. Obtener equipo liderado (si es gerente)
+        let equipoLiderado = null
+        if (profileData?.role?.name === 'gerente') {
+          const { data: equipoData, error: equipoError } = await supabase
+            .from('equipos')
+            .select('id, nombre, descripcion, color')
+            .eq('gerente_id', user.id)
+            .eq('is_active', true)
+            .maybeSingle()
+
+          if (!equipoError && equipoData) {
+            equipoLiderado = equipoData
+          }
+        }
+
+        // 5. Obtener agencias del usuario
         let agencias = []
         let primaryAgencia = null
         try {
@@ -173,7 +188,9 @@ export const UserProfileProvider = ({ children }) => {
           agenciasCount: agencias.length,
           agencias: agencias.map(a => a.nombre),
           primaryAgencia: primaryAgencia?.nombre || 'ninguna',
-          sede: profileData.sede?.nombre || 'ninguna'
+          sede: profileData.sede?.nombre || 'ninguna',
+          equipoId: profileData.equipo_id || 'ninguno',
+          equipoLiderado: equipoLiderado ? { id: equipoLiderado.id, nombre: equipoLiderado.nombre } : 'ninguno'
         })
 
         setProfileData({
@@ -186,6 +203,8 @@ export const UserProfileProvider = ({ children }) => {
           agencias,
           primaryAgencia,
           sede: profileData.sede || null,
+          equipoId: profileData.equipo_id || null,
+          equipoLiderado: equipoLiderado || null,
           loading: false,
           error: null
         })

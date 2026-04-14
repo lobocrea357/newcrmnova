@@ -1,21 +1,32 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Edit, Trash2 } from 'lucide-react'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
+import { ArrowLeft, Edit, Trash2, CheckCircle } from 'lucide-react'
 import VueloDetail from '@/components/vuelos/VueloDetail'
+import NavigationBreadcrumb from '@/components/ui/NavigationBreadcrumb'
 import { VUELOS_API } from '@/config/apiConfig'
 
 export default function VueloDetailPage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const id = params?.id
   const [vuelo, setVuelo] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false)
 
   useEffect(() => {
     if (id) fetchVuelo()
-  }, [id])
+
+    // Mostrar banner de éxito si viene de crear vuelo
+    const created = searchParams.get('created')
+    if (created === 'true') {
+      setShowSuccessBanner(true)
+      // Ocultar el banner después de 10 segundos
+      setTimeout(() => setShowSuccessBanner(false), 10000)
+    }
+  }, [id, searchParams])
 
   const fetchVuelo = async () => {
     setIsLoading(true)
@@ -108,13 +119,54 @@ export default function VueloDetailPage() {
     )
   }
 
+  const breadcrumbItems = vuelo ? [
+    { label: 'Inicio', href: '/' },
+    { label: 'Ventas', href: '/ventas' },
+    { label: 'Vuelos', href: '/ventas/vuelos' },
+    { label: vuelo.pax_nombre, href: `/ventas/vuelos/${id}` }
+  ] : []
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Breadcrumbs */}
+        {vuelo && <NavigationBreadcrumb items={breadcrumbItems} />}
+
+        {/* Banner de éxito */}
+        {showSuccessBanner && vuelo && (
+          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-900 font-medium flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5" />
+                  Vuelo creado exitosamente
+                </p>
+                <p className="text-green-700 text-sm mt-1">
+                  Localizador: {vuelo.localizador} · Estado: {vuelo.estado}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => router.push('/ventas/vuelos/nuevo')}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  Crear otro vuelo
+                </button>
+                <button
+                  onClick={() => router.push('/ventas/vuelos')}
+                  className="px-4 py-2 border border-green-600 text-green-600 rounded-lg hover:bg-green-50 transition-colors text-sm font-medium"
+                >
+                  Ver todos
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mb-6 flex items-center justify-between">
           <button
             onClick={() => router.push('/ventas/vuelos')}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
             Volver a vuelos

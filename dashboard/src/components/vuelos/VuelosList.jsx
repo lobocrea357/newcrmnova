@@ -2,12 +2,37 @@
 import { useState, useMemo } from 'react'
 import { Search, Filter, X, User } from 'lucide-react'
 import VueloCard from './VueloCard'
+import FilterSelect from './FilterSelect'
 
 const TIPOS_VUELO = [
   { value: '', label: 'Todos' },
   { value: 'solo_ida', label: 'Solo Ida' },
   { value: 'ida_vuelta', label: 'Ida y Vuelta' },
   { value: 'migratorio', label: 'Fines Migratorios' }
+]
+
+const ESTADOS_VUELO = [
+  { value: 'PENDIENTE_CONFIRMACION_PAGO', label: 'Pendientes Pago' },
+  { value: 'PENDIENTE_EMISION', label: 'Pendientes Emisión' },
+  { value: 'EMITIDO', label: 'Emitidos' },
+  { value: 'CANCELADO', label: 'Cancelados' }
+]
+
+const METODOS_PAGO = [
+  { value: 'Zelle', label: 'Zelle' },
+  { value: 'Transferencia', label: 'Transferencia' },
+  { value: 'Efectivo', label: 'Efectivo' },
+  { value: 'Tarjeta de Crédito', label: 'Tarjeta de Crédito' },
+  { value: 'Scalapay', label: 'Scalapay' },
+  { value: 'Chase Bank', label: 'Chase Bank' }
+]
+
+const PROVEEDORES = [
+  { value: 'Sabre', label: 'Sabre' },
+  { value: 'Kiu', label: 'Kiu' },
+  { value: 'Servivuelo', label: 'Servivuelo' },
+  { value: 'Expedia', label: 'Expedia' },
+  { value: 'Otro', label: 'Otro' }
 ]
 
 export default function VuelosList({ vuelos, pagination, onFilterChange, isLoading, role, currentUserId }) {
@@ -18,7 +43,10 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
     fecha_desde: '',
     fecha_hasta: '',
     requiere_anulable: '',
-    asesor_id: ''
+    asesor_id: '',
+    estado: '',
+    metodo_pago: '',
+    proveedor: ''
   })
 
   const asesoresUnicos = useMemo(() => {
@@ -37,9 +65,45 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
   }, [vuelos])
 
   const vuelosFiltrados = useMemo(() => {
-    if (!filters.asesor_id) return vuelos
-    return vuelos.filter(v => v.created_by === filters.asesor_id)
-  }, [vuelos, filters.asesor_id])
+    let filtered = vuelos
+
+    if (filters.asesor_id) {
+      filtered = filtered.filter(v => v.created_by === filters.asesor_id)
+    }
+    if (filters.tipo_vuelo) {
+      filtered = filtered.filter(v => v.tipo_vuelo === filters.tipo_vuelo)
+    }
+    if (filters.fecha_desde) {
+      filtered = filtered.filter(v => v.fecha_vuelo >= filters.fecha_desde)
+    }
+    if (filters.fecha_hasta) {
+      filtered = filtered.filter(v => v.fecha_vuelo <= filters.fecha_hasta)
+    }
+    if (filters.requiere_anulable !== '') {
+      filtered = filtered.filter(v => v.requiere_anulable === (filters.requiere_anulable === 'true'))
+    }
+    if (filters.estado) {
+      filtered = filtered.filter(v => v.estado === filters.estado)
+    }
+    if (filters.metodo_pago) {
+      filtered = filtered.filter(v => v.metodo_pago === filters.metodo_pago)
+    }
+    if (filters.proveedor) {
+      filtered = filtered.filter(v => v.proveedor === filters.proveedor)
+    }
+
+    if (filters.search) {
+      const query = filters.search.toLowerCase()
+      filtered = filtered.filter(v =>
+        v.pax_nombre?.toLowerCase().includes(query) ||
+        v.localizador?.toLowerCase().includes(query) ||
+        v.ruta?.toLowerCase().includes(query) ||
+        v.contacto_telefono?.toLowerCase().includes(query)
+      )
+    }
+
+    return filtered
+  }, [vuelos, filters])
 
   const handleFilterChange = (name, value) => {
     const newFilters = { ...filters, [name]: value }
@@ -54,7 +118,10 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
       fecha_desde: '',
       fecha_hasta: '',
       requiere_anulable: '',
-      asesor_id: ''
+      asesor_id: '',
+      estado: '',
+      metodo_pago: '',
+      proveedor: ''
     }
     setFilters(emptyFilters)
     onFilterChange(emptyFilters)
@@ -108,42 +175,34 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
 
         {showFilters && (
           <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <FilterSelect
+              label="Estado"
+              value={filters.estado}
+              onChange={(value) => handleFilterChange('estado', value)}
+              options={ESTADOS_VUELO}
+              placeholder="Todos los Estados"
+            />
+
             {(role === 'super_admin' || role === 'gerente' || role === 'admin') && asesoresUnicos.length > 1 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Filtrar por Asesor
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <select
-                    value={filters.asesor_id}
-                    onChange={(e) => handleFilterChange('asesor_id', e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white"
-                  >
-                    <option value="">Todos los asesores</option>
-                    {asesoresUnicos.map(asesor => (
-                      <option key={asesor.id} value={asesor.id}>
-                        {asesor.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <FilterSelect
+                label="Filtrar por Asesor"
+                value={filters.asesor_id}
+                onChange={(value) => handleFilterChange('asesor_id', value)}
+                options={asesoresUnicos.map(asesor => ({
+                  value: asesor.id,
+                  label: asesor.nombre
+                }))}
+                placeholder="Todos los asesores"
+              />
             )}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de Vuelo
-              </label>
-              <select
-                value={filters.tipo_vuelo}
-                onChange={(e) => handleFilterChange('tipo_vuelo', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              >
-                {TIPOS_VUELO.map(tipo => (
-                  <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
-                ))}
-              </select>
-            </div>
+
+            <FilterSelect
+              label="Tipo de Vuelo"
+              value={filters.tipo_vuelo}
+              onChange={(value) => handleFilterChange('tipo_vuelo', value)}
+              options={TIPOS_VUELO}
+              placeholder="Todos los tipos"
+            />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -169,20 +228,32 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Anulables
-              </label>
-              <select
-                value={filters.requiere_anulable}
-                onChange={(e) => handleFilterChange('requiere_anulable', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              >
-                <option value="">Todos</option>
-                <option value="true">Solo anulables</option>
-                <option value="false">Sin anulables</option>
-              </select>
-            </div>
+            <FilterSelect
+              label="Método de Pago"
+              value={filters.metodo_pago}
+              onChange={(value) => handleFilterChange('metodo_pago', value)}
+              options={METODOS_PAGO}
+              placeholder="Todos los métodos"
+            />
+
+            <FilterSelect
+              label="Anulables"
+              value={filters.requiere_anulable}
+              onChange={(value) => handleFilterChange('requiere_anulable', value)}
+              options={[
+                { value: 'true', label: 'Solo anulables' },
+                { value: 'false', label: 'Sin anulables' }
+              ]}
+              placeholder="Todos"
+            />
+
+            <FilterSelect
+              label="Proveedor"
+              value={filters.proveedor}
+              onChange={(value) => handleFilterChange('proveedor', value)}
+              options={PROVEEDORES}
+              placeholder="Todos los proveedores"
+            />
           </div>
         )}
       </div>

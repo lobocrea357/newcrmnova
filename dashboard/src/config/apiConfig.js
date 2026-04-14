@@ -19,6 +19,7 @@ export const buildApiUrl = (endpoint) => {
 
 // URLs específicas para APIs de tasas
 export const TASAS_API = {
+  activas: buildApiUrl('/api/tasas/activas'),
   crear: buildApiUrl('/api/tasas/crear'),
   actualizar: buildApiUrl('/api/tasas/actualizar'),
   eliminar: (id) => buildApiUrl(`/api/tasas/eliminar/${id}`),

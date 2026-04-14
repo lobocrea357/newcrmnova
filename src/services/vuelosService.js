@@ -518,6 +518,78 @@ class VuelosService {
   }
 
   /**
+   * Editar vuelo con control de ediciones disponibles
+   */
+  async editarVuelo(id, datosVuelo, pasajeros, sinLimiteEdiciones = false) {
+    try {
+      console.log(`[VuelosService] Editando vuelo ${id}`);
+      
+      if (!sinLimiteEdiciones) {
+        const { data: vueloActual } = await supabase
+          .from('vuelos')
+          .select('ediciones_disponibles')
+          .eq('id', id)
+          .single();
+        
+        if (!vueloActual) {
+          throw new Error('Vuelo no encontrado');
+        }
+        
+        const edicionesDisponibles = vueloActual.ediciones_disponibles ?? 3;
+        if (edicionesDisponibles <= 0) {
+          throw new Error('Has agotado tus ediciones para este vuelo');
+        }
+        
+        await supabase
+          .from('vuelos')
+          .update({ 
+            ediciones_disponibles: edicionesDisponibles - 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id);
+      }
+      
+      const { data: vueloActualizado, error } = await supabase
+        .from('vuelos')
+        .update({
+          ...datosVuelo,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('[VuelosService] Error editando vuelo:', error);
+        throw error;
+      }
+      
+      if (pasajeros && pasajeros.length > 0) {
+        await supabase
+          .from('vuelos_pasajeros')
+          .delete()
+          .eq('vuelo_id', id);
+        
+        const pasajerosConVuelo = pasajeros.map(p => ({
+          ...p,
+          vuelo_id: id
+        }));
+        
+        await supabase
+          .from('vuelos_pasajeros')
+          .insert(pasajerosConVuelo);
+      }
+      
+      console.log('[VuelosService] Vuelo editado exitosamente');
+      return vueloActualizado;
+      
+    } catch (error) {
+      console.error('[VuelosService] Error en editarVuelo:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Sanitizar datos de vuelo según tipo_vuelo
    * Si tipo_vuelo !== 'ida_vuelta', los campos de regreso deben ser null
    * @private

@@ -3,6 +3,7 @@ import { Plane, Calendar, Users, MapPin, AlertCircle, ExternalLink, ArrowRight, 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { useUserProfile } from '@/contexts/UserProfileContext'
 
 const ESTADO_CONFIG = {
   'PENDIENTE_CONFIRMACION_PAGO': { label: 'Pend. Pago', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
@@ -21,16 +22,32 @@ const MONEDA_SIMBOLO = {
 export default function VueloCard({ vuelo }) {
   const router = useRouter()
   const { user } = useAuth()
+  const { role, profile, equipoId, equipoLiderado } = useUserProfile()
   const totalPax = (vuelo.num_adultos || 0) + (vuelo.num_ninos || 0) + (vuelo.num_infantes || 0)
   
   // Verificar permisos de edición
   const esCreador = vuelo.created_by === user?.id
-  const role = user?.role
   const esAdmin = role === 'admin' || role === 'super_admin'
   const esGerente = role === 'gerente'
 
-  // Gerente puede editar si es creador O si el creador está en su equipo
-  const puedeEditarGerente = esGerente && (esCreador || vuelo.creator?.equipo_id === user?.equipo_id)
+  // Gerente puede editar si es creador O si el creador pertenece al equipo que lidera
+  const puedeEditarGerente = esGerente && (esCreador || vuelo.creator?.equipo_id === equipoLiderado?.id)
+
+  // 🐛 DEBUG LOGS para gerente (comentados - validación funcionando)
+  // if (esGerente) {
+  //   console.log('🔍 [VueloCard Debug - Gerente]', {
+  //     vueloId: vuelo.id,
+  //     role: role,
+  //     esGerente: esGerente,
+  //     esCreador: esCreador,
+  //     profileEquipoId: equipoId,
+  //     equipoLideradoId: equipoLiderado?.id,
+  //     creatorEquipoId: vuelo.creator?.equipo_id,
+  //     creatorFullName: vuelo.creator?.full_name,
+  //     puedeEditarGerente: puedeEditarGerente,
+  //     estadoVuelo: vuelo.estado
+  //   })
+  // }
 
   const edicionesDisponibles = vuelo.ediciones_disponibles ?? 3
 

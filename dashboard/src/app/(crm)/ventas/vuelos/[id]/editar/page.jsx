@@ -7,6 +7,23 @@ import { useUserProfile } from '@/contexts/UserProfileContext'
 import { VUELOS_API } from '@/config/apiConfig'
 import { toastSuccess, toastError } from '@/helpers/toasts'
 import VueloFormEditar from '@/components/vuelos/VueloFormEditar'
+import NavigationBreadcrumb from '@/components/ui/NavigationBreadcrumb'
+import { supabase } from '@/lib/supabase'
+
+async function obtenerEquiposDelGerente(userId) {
+  const { data, error } = await supabase
+    .from('equipos')
+    .select('id, nombre')
+    .eq('gerente_id', userId)
+    .eq('is_active', true)
+
+  if (error) {
+    console.error('Error obteniendo equipos del gerente:', error)
+    return []
+  }
+
+  return data || []
+}
 
 export default function EditarVueloPage() {
   const { id } = useParams()
@@ -19,11 +36,14 @@ export default function EditarVueloPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [sinLimiteEdiciones, setSinLimiteEdiciones] = useState(false)
 
-  // Verificar permisos de edición
   const tieneEditAll = hasPermission('vuelos.edit_all')
   const tieneEditTeam = hasPermission('vuelos.edit_team')
   const tieneEditOwn = hasPermission('vuelos.edit_own')
+
+  const isRole = (role) => profile?.role === role
+  const esGerente = isRole('gerente')
 
   useEffect(() => {
     if (id) {
@@ -47,29 +67,36 @@ export default function EditarVueloPage() {
         throw new Error('Vuelo no encontrado')
       }
 
-      // Validar que se puede editar
-      if (data.estado === 'EMITIDO') {
-        setError('Este vuelo ya ha sido emitido y no se puede editar.')
-        return
-      }
-
-      // Validar permisos con sistema granular
       const esCreador = data.created_by === user?.id
-      const mismoEquipo = profile?.equipo_id && data.creator?.equipo_id === profile.equipo_id
+      const esAdmin = isRole('admin')
+      const esSuperAdmin = isRole('super_admin')
 
       let puedeEditar = false
+      let sinLimite = false
 
-      if (tieneEditAll) {
-        // Admin/Super Admin pueden editar todo
+      if (tieneEditAll && esSuperAdmin) {
         puedeEditar = true
-      } else if (tieneEditTeam && mismoEquipo) {
-        // Gerente puede editar vuelos de su equipo
+        sinLimite = true
+      }
+      else if (tieneEditAll && esAdmin && data.estado !== 'EMITIDO') {
         puedeEditar = true
-      } else if (tieneEditOwn && esCreador) {
-        // Asesor puede editar sus propios vuelos (con límite)
+        sinLimite = true
+      }
+      else if (tieneEditTeam && data.estado !== 'EMITIDO') {
+        const equiposGestionados = await obtenerEquiposDelGerente(user?.id)
+        const equipoIdsGestionados = equiposGestionados.map(e => e.id)
+        const creadorEnMiEquipo = equipoIdsGestionados.includes(data.creator?.equipo_id)
+
+        if (creadorEnMiEquipo) {
+          puedeEditar = true
+          sinLimite = true
+        }
+      }
+      else if (tieneEditOwn && esCreador && data.estado !== 'EMITIDO') {
         const edicionesDisponibles = data.ediciones_disponibles ?? 3
         if (edicionesDisponibles > 0) {
           puedeEditar = true
+          sinLimite = false
         } else {
           setError('Has agotado tus intentos de edición para este vuelo.')
           return
@@ -80,6 +107,8 @@ export default function EditarVueloPage() {
         setError('No tienes permisos para editar este vuelo.')
         return
       }
+
+      setSinLimiteEdiciones(sinLimite)
 
       setVuelo(data)
       setPasajeros(data.pasajeros || [])
@@ -106,7 +135,8 @@ export default function EditarVueloPage() {
           pasajeros: formData.pasajeros,
           razon_edicion: formData.razon_edicion,
           user_id: user?.id,
-          user_role: user?.role
+          user_role: profile?.role,
+          sin_limite_ediciones: sinLimiteEdiciones
         })
       })
 
@@ -191,9 +221,20 @@ export default function EditarVueloPage() {
     )
   }
 
+  const breadcrumbItems = vuelo ? [
+    { label: 'Inicio', href: '/' },
+    { label: 'Ventas', href: '/ventas' },
+    { label: 'Vuelos', href: '/ventas/vuelos' },
+    { label: vuelo.pax_nombre, href: `/ventas/vuelos/${id}` },
+    { label: 'Editar', href: `/ventas/vuelos/${id}/editar` }
+  ] : []
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-4xl mx-auto">
+        {/* Breadcrumbs */}
+        {vuelo && <NavigationBreadcrumb items={breadcrumbItems} />}
+
         {/* Header */}
         <div className="mb-6">
           <button
