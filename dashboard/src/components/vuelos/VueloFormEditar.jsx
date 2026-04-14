@@ -3,72 +3,8 @@ import { useState, useEffect } from 'react'
 import { Plane, Users, DollarSign, FileText, Upload, X, CheckCircle, AlertCircle, Sparkles, Loader2, MapPin, Clock, Edit3, History } from 'lucide-react'
 import { toastSuccess, toastError, toastInfo } from '@/helpers/toasts'
 import Swal from 'sweetalert2'
-
-const TIPOS_VUELO = [
-  { value: 'solo_ida', label: 'Solo Ida' },
-  { value: 'ida_vuelta', label: 'Ida y Vuelta' },
-  { value: 'migratorio', label: 'Fines Migratorios' }
-]
-
-const PROVEEDORES = [
-  'Sabre',
-  'Servivuelo',
-  'Kiu',
-  'Expedia',
-  'Kiwi',
-  'Amadeus'
-]
-
-const SEXOS = [
-  { value: 'M', label: 'Masculino' },
-  { value: 'F', label: 'Femenino' }
-]
-
-const TIPOS_DOCUMENTO = [
-  {
-    value: 'PASAPORTE',
-    label: 'Pasaporte',
-    description: 'Documento internacional para viajes',
-    icon: '🛂',
-    color: 'blue'
-  },
-  {
-    value: 'CEDULA',
-    label: 'Cédula de Identidad (C.I.)',
-    description: 'Documento nacional para reservación temporal',
-    icon: '🪪',
-    color: 'green'
-  }
-]
-
-const PAISES_CEDULA = [
-  { value: 'Venezuela', label: 'Venezuela', code: 'VE' },
-  { value: 'Colombia', label: 'Colombia', code: 'CO' },
-  { value: 'Perú', label: 'Perú', code: 'PE' },
-  { value: 'Ecuador', label: 'Ecuador', code: 'EC' },
-  { value: 'Bolivia', label: 'Bolivia', code: 'BO' },
-  { value: 'Argentina', label: 'Argentina', code: 'AR' },
-  { value: 'Chile', label: 'Chile', code: 'CL' },
-  { value: 'Uruguay', label: 'Uruguay', code: 'UY' },
-  { value: 'Paraguay', label: 'Paraguay', code: 'PY' },
-  { value: 'Brasil', label: 'Brasil', code: 'BR' }
-]
-
-// Helper para formato automático según país
-const formatCedulaByCountry = (value, country) => {
-  const cleanValue = value.replace(/[^0-9VEve]/g, '')
-
-  switch (country) {
-    case 'Venezuela':
-      const prefix = value.toUpperCase().startsWith('E') ? 'E-' : 'V-'
-      const numbers = cleanValue.replace(/[VEve]/g, '')
-      return numbers ? `${prefix}${numbers.slice(0, 8)}` : ''
-    case 'Colombia':
-      return cleanValue.slice(0, 10)
-    default:
-      return cleanValue
-  }
-}
+import { TIPOS_VUELO, PROVEEDORES, SEXOS, TIPOS_DOCUMENTO, PAISES_CEDULA } from '@/lib/constants/vuelosConstants'
+import { formatCedulaByCountry } from '@/lib/utils/documentHelpers'
 
 export default function VueloFormEditar({
   vuelo,
@@ -994,34 +930,34 @@ export default function VueloFormEditar({
 
                         {/* Extracción IA para pasaportes y cédulas */}
                         {pasajero.pasaporte_file_nuevo.type.startsWith('image/') && (
-                        <button
-                          type="button"
+                          <button
+                            type="button"
                             onClick={() => extractDocumentData(index)}
-                          disabled={extractingPassport[index]}
+                            disabled={extractingPassport[index]}
                             className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-white rounded-lg transition-all disabled:opacity-50 ${pasajero.tipo_documento === 'CEDULA'
-                                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
-                                : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
+                              ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                              : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
                               }`}
-                        >
-                          {extractingPassport[index] ? (
-                            <>
-                              <Loader2 className="w-5 h-5 animate-spin" />
-                              <span>Extrayendo datos...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="w-5 h-5" />
-                                  <span>✨ Extraer Datos {pasajero.tipo_documento === 'CEDULA' ? 'de la Cédula' : 'del Pasaporte'} (GPT-4o)</span>
-                            </>
-                          )}
-                        </button>
+                          >
+                            {extractingPassport[index] ? (
+                              <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                <span>Extrayendo datos...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-5 h-5" />
+                                <span>✨ Extraer Datos {pasajero.tipo_documento === 'CEDULA' ? 'de la Cédula' : 'del Pasaporte'} (GPT-4o)</span>
+                              </>
+                            )}
+                          </button>
                         )}
                     </div>
                   )}
                 </div>
               </div>
-            ))}
-            </div>
+              </div>
+          ))}
         </div>
       </div>
 

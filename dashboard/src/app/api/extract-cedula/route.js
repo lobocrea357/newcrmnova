@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
+const apiKey = process.env.OPENAI_API_KEY
+if (!apiKey) {
+  throw new Error('OPENAI_API_KEY no está configurada en las variables de entorno')
+}
+
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey,
 })
 
 export async function POST(request) {
@@ -100,7 +105,21 @@ RECUERDA:
       temperature: 0.1
     })
 
-    const extractedData = JSON.parse(completion.choices[0].message.content)
+    let extractedData
+    try {
+      extractedData = JSON.parse(completion.choices[0].message.content)
+      
+      if (!extractedData.confidence) {
+        throw new Error('Respuesta de IA inválida: falta campo confidence')
+      }
+    } catch (parseError) {
+      console.error('Error parsing AI response:', parseError)
+      console.error('Raw AI response:', completion.choices[0].message.content)
+      return NextResponse.json({
+        success: false,
+        error: 'La IA devolvió una respuesta inválida. Por favor intenta nuevamente.'
+      }, { status: 500 })
+    }
 
     return NextResponse.json({
       success: true,
@@ -109,9 +128,24 @@ RECUERDA:
 
   } catch (error) {
     console.error('Error extracting cedula data:', error)
+    
+    const getUserFriendlyError = (err) => {
+      if (err.code === 'insufficient_quota') {
+        return 'Servicio temporalmente no disponible. Intenta más tarde.'
+      }
+      if (err.message?.includes('invalid_image')) {
+        return 'Formato de imagen no válido. Usa JPG o PNG.'
+      }
+      if (err.message?.includes('timeout')) {
+        return 'La solicitud tardó demasiado. Intenta con una imagen más pequeña.'
+      }
+      return 'Error al procesar la imagen. Por favor intenta nuevamente.'
+    }
+    
     return NextResponse.json({
       success: false,
-      error: error.message,
+      error: getUserFriendlyError(error),
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     }, { status: 500 })
   }
