@@ -4,6 +4,7 @@ import { Plane, Users, Calendar, DollarSign, FileText, Upload, X, Copy, CheckCir
 import { toastSuccess, toastError, toastInfo } from '@/helpers/toasts'
 import { METHODS_BY_CURRENCY } from '@/lib/cotizador/paymentConfig'
 import AerolineaAutocomplete from '@/components/cotizador/AerolineaAutocomplete'
+import FileUpload from '@/components/vuelos/FileUpload' // NEW IMPORT
 
 const TIPOS_VUELO = [
   { value: 'solo_ida', label: 'Solo Ida' },
@@ -174,19 +175,7 @@ export default function VueloFormNuevo({
   const handlePasaporteUpload = (index, file) => {
     if (!file) return
 
-    // Validar tipo de archivo
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf']
-    if (!validTypes.includes(file.type)) {
-      toastError('Solo se permiten imágenes (JPG, PNG) o PDF')
-      return
-    }
-
-    // Validar tamaño (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      toastError('El archivo no debe superar 10MB')
-      return
-    }
-
+    // FileUpload already validates, just handle the file
     handlePasajeroChange(index, 'pasaporte_file', file)
     toastSuccess(`Pasaporte cargado: ${file.name}`)
   }
@@ -369,25 +358,9 @@ export default function VueloFormNuevo({
     setPasajeros(prev => prev.filter((_, i) => i !== index))
   }
 
-  const handleComprobanteUpload = (e) => {
-    const files = Array.from(e.target.files)
-
-    // Verificar si el método de pago es depósito en oficina (efectivo) - sin límite de archivos
-    const esDepositoEfectivo = formData.metodo_pago?.includes('Depósito oficina') || formData.metodo_pago?.includes('efectivo')
-
-    // Validar cantidad solo si NO es depósito en efectivo
-    if (!esDepositoEfectivo && comprobantes.length + files.length > 10) {
-      toastError('Máximo 10 comprobantes permitidos')
-      return
-    }
-
-    // Validar archivos
-    const validFiles = files.filter(file => {
-      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf']
-      if (!validTypes.includes(file.type)) return false
-      if (file.size > 10 * 1024 * 1024) return false
-      return true
-    })
+  const handleComprobanteUpload = (files) => {
+    // FileUpload already validates files and returns array
+    const validFiles = Array.isArray(files) ? files : [files]
 
     setComprobantes(prev => [...prev, ...validFiles])
     toastSuccess(`${validFiles.length} comprobante(s) agregado(s)`)
@@ -1369,21 +1342,17 @@ export default function VueloFormNuevo({
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {pasajero.tipo_documento === 'PASAPORTE' ? 'Pasaporte (Foto/PDF)' : 'Cédula (Foto/PDF)'}
                   </label>
-                  {!pasajero.pasaporte_file ? (
-                    <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
-                      <Upload className="w-5 h-5 text-gray-400" />
-                      <span className="text-sm text-gray-600">
-                        Subir {pasajero.tipo_documento === 'PASAPORTE' ? 'pasaporte' : 'cédula'}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={(e) => handlePasaporteUpload(index, e.target.files[0])}
-                        className="hidden"
-                      />
-                    </label>
-                  ) : (
-                    <div className="space-y-2">
+                  <FileUpload
+                    tipo="PASAPORTE"
+                    onFilesChange={(file) => handlePasaporteUpload(index, file)}
+                    maxFiles={1}
+                    singleFile={true}
+                    maxSizeMB={10}
+                  />
+
+                  {/* Existing file display and AI extraction button */}
+                  {pasajero.pasaporte_file && (
+                    <div className="mt-2 space-y-2">
                       <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
                         <div className="flex items-center gap-2">
                           <CheckCircle className="w-5 h-5 text-green-600" />
@@ -1398,36 +1367,34 @@ export default function VueloFormNuevo({
                         </button>
                       </div>
 
-                        {/* Botón de Extracción Automática con IA - Para pasaportes y cédulas */}
-                        {pasajero.pasaporte_file.type.startsWith('image/') && (
+                      {/* Botón de Extracción Automática con IA - Para pasaportes y cédulas */}
+                      {pasajero.pasaporte_file.type.startsWith('image/') && (
                         <button
                           type="button"
-                            onClick={() => extractDocumentData(index)}
+                          onClick={() => extractDocumentData(index)}
                           disabled={extractingPassport[index]}
-                            className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm ${pasajero.tipo_documento === 'CEDULA'
-                                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
-                                : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
-                              }`}
+                          className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm ${pasajero.tipo_documento === 'CEDULA'
+                            ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                            : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
+                            }`}
                         >
                           {extractingPassport[index] ? (
                             <>
-                              <Loader2 className="w-5 h-5 animate-spin" />
-                              <span className="font-medium">Extrayendo datos con IA...</span>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Extrayendo datos...
                             </>
                           ) : (
                             <>
-                              <Sparkles className="w-5 h-5" />
-                                  <span className="font-medium">
-                                    ✨ Extraer Datos {pasajero.tipo_documento === 'CEDULA' ? 'de la Cédula' : 'del Pasaporte'} (GPT-4o)
-                                  </span>
+                                <Sparkles className="w-4 h-4" />
+                                Extraer datos con IA
                             </>
                           )}
                         </button>
                       )}
 
-                        {pasajero.pasaporte_file.type === 'application/pdf' && (
+                      {pasajero.pasaporte_file.type === 'application/pdf' && (
                         <p className="text-xs text-amber-600 italic">
-                          ⚠️ La extracción automática solo funciona con imágenes (JPG, PNG)
+                          &#9888; La extracción automática solo funciona con imágenes (JPG, PNG)
                         </p>
                       )}
                     </div>
@@ -1551,17 +1518,13 @@ export default function VueloFormNuevo({
         </div>
 
         <div className="space-y-4">
-          <label className="flex items-center justify-center gap-2 p-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
-            <Upload className="w-6 h-6 text-gray-400" />
-            <span className="text-sm text-gray-600">Subir comprobantes (máx. 10)</span>
-            <input
-              type="file"
-              accept="image/*,.pdf"
-              multiple
-              onChange={handleComprobanteUpload}
-              className="hidden"
-            />
-          </label>
+          <FileUpload
+            tipo="COMPROBANTE_PAGO"
+            onFilesChange={handleComprobanteUpload}
+            maxFiles={10}
+            unlimited={formData.metodo_pago?.includes('Depósito oficina') || formData.metodo_pago?.includes('efectivo')}
+            maxSizeMB={10}
+          />
 
           {comprobantes.length > 0 && (
             <div className="space-y-2">
