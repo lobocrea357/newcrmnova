@@ -204,12 +204,14 @@ export default function VueloFormEditar({
     })
   }
 
-  const extractPassportData = async (index) => {
+  const extractDocumentData = async (index) => {
     const pasajero = pasajeros[index]
     const file = pasajero.pasaporte_file_nuevo
+    const tipoDocumento = pasajero.tipo_documento || 'PASAPORTE'
+    const esCedula = tipoDocumento === 'CEDULA'
     
     if (!file) {
-      toastError('Primero debes cargar la foto del pasaporte')
+      toastError(`Primero debes cargar la foto ${esCedula ? 'de la cédula' : 'del pasaporte'}`)
       return
     }
 
@@ -220,13 +222,20 @@ export default function VueloFormEditar({
 
     try {
       setExtractingPassport(prev => ({ ...prev, [index]: true }))
-      toastInfo('Analizando pasaporte con IA...')
+      toastInfo(`Analizando ${esCedula ? 'cédula' : 'pasaporte'} con IA...`)
 
       const imageBase64 = await fileToBase64(file)
-      const response = await fetch('/api/extract-passport', {
+
+      // Seleccionar endpoint según tipo de documento
+      const endpoint = esCedula ? '/api/extract-cedula' : '/api/extract-passport'
+      const requestBody = esCedula
+        ? { imageBase64, pais: pasajero.pais_emision_cedula }
+        : { imageBase64 }
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64 })
+        body: JSON.stringify(requestBody)
       })
 
       if (!response.ok) {
@@ -242,15 +251,32 @@ export default function VueloFormEditar({
       const extracted = result.data
       setPasajeros(prev => {
         const updated = [...prev]
-        updated[index] = {
-          ...updated[index],
-          nombres: extracted.nombres || updated[index].nombres,
-          apellidos: extracted.apellidos || updated[index].apellidos,
-          numero_pasaporte: extracted.numero_pasaporte || updated[index].numero_pasaporte,
-          nacionalidad: extracted.nacionalidad || updated[index].nacionalidad,
-          sexo: extracted.sexo || updated[index].sexo,
-          fecha_nacimiento: extracted.fecha_nacimiento || updated[index].fecha_nacimiento
+
+        if (esCedula) {
+          // Para cédulas
+          updated[index] = {
+            ...updated[index],
+            nombres: extracted.nombres || updated[index].nombres,
+            apellidos: extracted.apellidos || updated[index].apellidos,
+            numero_cedula: extracted.numero_cedula || updated[index].numero_cedula,
+            nacionalidad: extracted.nacionalidad || updated[index].nacionalidad,
+            sexo: extracted.sexo || updated[index].sexo,
+            fecha_nacimiento: extracted.fecha_nacimiento || updated[index].fecha_nacimiento,
+            pais_emision_cedula: extracted.pais_emision || updated[index].pais_emision_cedula
+          }
+        } else {
+        // Para pasaportes
+          updated[index] = {
+            ...updated[index],
+            nombres: extracted.nombres || updated[index].nombres,
+            apellidos: extracted.apellidos || updated[index].apellidos,
+            numero_pasaporte: extracted.numero_pasaporte || updated[index].numero_pasaporte,
+            nacionalidad: extracted.nacionalidad || updated[index].nacionalidad,
+            sexo: extracted.sexo || updated[index].sexo,
+            fecha_nacimiento: extracted.fecha_nacimiento || updated[index].fecha_nacimiento
+          }
         }
+
         return updated
       })
 
@@ -260,7 +286,7 @@ export default function VueloFormEditar({
         toastInfo('⚠️ Verifica los datos extraídos manualmente.')
       }
     } catch (error) {
-      console.error('Error extrayendo datos:', error)
+      console.error(`Error extrayendo datos ${esCedula ? 'de la cédula' : 'del pasaporte'}:`, error)
       toastError('Error al extraer datos: ' + error.message)
     } finally {
       setExtractingPassport(prev => ({ ...prev, [index]: false }))
@@ -966,13 +992,16 @@ export default function VueloFormEditar({
                         </button>
                       </div>
 
-                        {/* Extracción IA solo para pasaportes */}
-                        {pasajero.tipo_documento === 'PASAPORTE' && pasajero.pasaporte_file_nuevo.type.startsWith('image/') && (
+                        {/* Extracción IA para pasaportes y cédulas */}
+                        {pasajero.pasaporte_file_nuevo.type.startsWith('image/') && (
                         <button
                           type="button"
-                          onClick={() => extractPassportData(index)}
+                            onClick={() => extractDocumentData(index)}
                           disabled={extractingPassport[index]}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+                            className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-white rounded-lg transition-all disabled:opacity-50 ${pasajero.tipo_documento === 'CEDULA'
+                                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                                : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
+                              }`}
                         >
                           {extractingPassport[index] ? (
                             <>
@@ -982,26 +1011,17 @@ export default function VueloFormEditar({
                           ) : (
                             <>
                               <Sparkles className="w-5 h-5" />
-                                  <span>✨ Extraer Datos del Pasaporte (GPT-4o)</span>
+                                  <span>✨ Extraer Datos {pasajero.tipo_documento === 'CEDULA' ? 'de la Cédula' : 'del Pasaporte'} (GPT-4o)</span>
                             </>
                           )}
                         </button>
-                      )}
-
-                        {pasajero.tipo_documento === 'CEDULA' && (
-                          <div className="w-full p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                            <p className="text-sm text-amber-700 flex items-center gap-2">
-                              <AlertCircle className="w-4 h-4" />
-                              La extracción automática está disponible solo para pasaportes.
-                            </p>
-                          </div>
                         )}
                     </div>
                   )}
                 </div>
               </div>
+            ))}
             </div>
-          ))}
         </div>
       </div>
 
