@@ -12,7 +12,7 @@ import Breadcrumb from '@/components/ui/Breadcrumb'
 const AVATAR_UPDATED_EVENT = 'avatar-updated'
 
 const AVATAR_BUCKET = 'avatars'
-const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 
 export default function PerfilPage() {
@@ -68,7 +68,7 @@ export default function PerfilPage() {
 
     // Validar tamaño
     if (file.size > MAX_FILE_SIZE) {
-      toastError('La imagen no debe superar 2MB')
+      toastError('La imagen no debe superar 10MB')
       return
     }
 
@@ -302,7 +302,7 @@ export default function PerfilPage() {
                     Formatos permitidos: JPG, PNG, WebP
                   </p>
                   <p className="text-sm text-gray-600 mb-3">
-                    Tamaño máximo: 2MB
+                    Tamaño máximo: 10MB
                   </p>
                   {avatarFile && (
                     <p className="text-sm text-green-600 mt-2 font-medium">
