@@ -2,12 +2,23 @@
 import { useState, useCallback } from 'react'
 import { Upload, X, File, FileText, Image as ImageIcon } from 'lucide-react'
 
+/**
+ * FileUpload component - Handles file uploads with drag & drop support
+ * 
+ * @param {string} tipo - Type of files being uploaded (COMPROBANTE_PAGO, PASAPORTE)
+ * @param {Function} onFilesChange - Callback when files change (file|array)
+ * @param {number} maxFiles - Maximum number of files allowed
+ * @param {number} maxSizeMB - Maximum file size in MB
+ * @param {boolean} unlimited - If true, no file limit enforced
+ * @param {boolean} singleFile - If true, only accepts single file and calls onFilesChange(file)
+ */
 export default function FileUpload({ 
   tipo, 
   onFilesChange, 
   maxFiles = 5,
   maxSizeMB = 10,
-  unlimited = false // Para depósito en oficina (efectivo)
+  unlimited = false, // Para depósito en oficina (efectivo)
+  singleFile = false // NEW: Support individual files
 }) {
   const [files, setFiles] = useState([])
   const [dragActive, setDragActive] = useState(false)
@@ -29,7 +40,23 @@ export default function FileUpload({
     setError('')
     const fileArray = Array.from(newFiles)
 
-    // Si unlimited es true, no validar cantidad de archivos
+    // Single file mode - only accept first file
+    if (singleFile) {
+      const file = fileArray[0]
+      if (!file) return
+
+      const validationError = validateFile(file)
+      if (validationError) {
+        setError(validationError)
+        return
+      }
+
+      setFiles([file])
+      onFilesChange(file) // Pass individual file, not array
+      return
+    }
+
+    // Array mode - existing logic
     if (!unlimited && files.length + fileArray.length > maxFiles) {
       setError(`Máximo ${maxFiles} archivos permitidos`)
       return
@@ -48,7 +75,7 @@ export default function FileUpload({
     const updatedFiles = [...files, ...validFiles]
     setFiles(updatedFiles)
     onFilesChange(updatedFiles)
-  }, [files, maxFiles, onFilesChange])
+  }, [files, maxFiles, onFilesChange, singleFile, unlimited])
 
   const handleDrag = (e) => {
     e.preventDefault()
@@ -118,7 +145,7 @@ export default function FileUpload({
           type="file"
           id={`file-upload-${tipo}`}
           className="hidden"
-          multiple
+          multiple={!singleFile} // Single mode: no multiple
           accept=".pdf,.jpg,.jpeg,.png"
           onChange={handleChange}
         />
@@ -145,7 +172,10 @@ export default function FileUpload({
       {files.length > 0 && (
         <div className="space-y-2">
           <p className="text-sm font-medium text-gray-700">
-            Archivos seleccionados ({files.length}{unlimited ? '' : `/${maxFiles}`})
+            {singleFile
+              ? 'Archivo seleccionado'
+              : `Archivos seleccionados (${files.length}${unlimited ? '' : `/${maxFiles}`})`
+            }
           </p>
           {files.map((file, index) => (
             <div
