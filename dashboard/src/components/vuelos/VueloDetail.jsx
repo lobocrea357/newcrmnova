@@ -202,6 +202,163 @@ export default function VueloDetail({ vuelo }) {
         </div>
       </div>
 
+      {/* Datos de Pasajeros */}
+      {vuelo.pasajeros && vuelo.pasajeros.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-purple-600" />
+            Datos de Pasajeros
+          </h3>
+
+          <div className="space-y-4">
+            {vuelo.pasajeros.map((pasajero, index) => {
+              const tipoDocumento = pasajero.tipo_documento || 'PASAPORTE'
+              const esPassaporte = tipoDocumento === 'PASAPORTE'
+
+              return (
+                <div
+                  key={pasajero.id}
+                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                        <span className="text-purple-700 font-semibold">{index + 1}</span>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900">
+                          {pasajero.nombres} {pasajero.apellidos}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded">
+                            {pasajero.tipo}
+                          </span>
+                          {pasajero.sexo && (
+                            <span className="text-xs text-gray-500">
+                              {pasajero.sexo === 'M' ? 'Masculino' : 'Femenino'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Badge de Tipo de Documento */}
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${esPassaporte
+                      ? 'bg-blue-50 border border-blue-200'
+                      : 'bg-green-50 border border-green-200'
+                      }`}>
+                      <span className="text-lg">{esPassaporte ? '🛂' : '🪪'}</span>
+                      <span className={`text-sm font-medium ${esPassaporte ? 'text-blue-700' : 'text-green-700'
+                        }`}>
+                        {esPassaporte ? 'Pasaporte' : 'Cédula'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Documento */}
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">
+                        {esPassaporte ? 'N° Pasaporte' : 'N° Cédula'}
+                      </label>
+                      <p className={`font-mono font-semibold ${esPassaporte ? 'text-blue-700' : 'text-green-700'
+                        }`}>
+                        {esPassaporte
+                          ? (pasajero.numero_pasaporte || 'N/A')
+                          : (pasajero.numero_cedula || 'N/A')
+                        }
+                      </p>
+                    </div>
+
+                    {/* País de emisión (solo para cédula) */}
+                    {!esPassaporte && pasajero.pais_emision_cedula && (
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">País de Emisión</label>
+                        <p className="text-gray-900 font-medium">{pasajero.pais_emision_cedula}</p>
+                      </div>
+                    )}
+
+                    {/* Nacionalidad */}
+                    {pasajero.nacionalidad && (
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Nacionalidad</label>
+                        <p className="text-gray-900 font-medium">{pasajero.nacionalidad}</p>
+                      </div>
+                    )}
+
+                    {/* Fecha de Nacimiento */}
+                    {pasajero.fecha_nacimiento && (
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Fecha de Nacimiento</label>
+                        <p className="text-gray-900 font-medium">{formatDate(pasajero.fecha_nacimiento)}</p>
+                      </div>
+                    )}
+
+                    {/* Precios */}
+                    <div className="md:col-span-3 pt-3 border-t border-gray-100">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Precio Pantalla</label>
+                          <p className="text-sm font-semibold text-gray-900">
+                            ${pasajero.precio_pantalla?.toFixed(2) || '0.00'}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Fee Emisión</label>
+                          <p className="text-sm font-semibold text-gray-900">
+                            ${pasajero.fee_emision?.toFixed(2) || '0.00'}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Fee Agencia</label>
+                          <p className="text-sm font-semibold text-gray-900">
+                            ${pasajero.fee_agencia?.toFixed(2) || '0.00'}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Subtotal</label>
+                          <p className="text-sm font-bold text-purple-600">
+                            ${(
+                              (parseFloat(pasajero.precio_pantalla) || 0) +
+                              (parseFloat(pasajero.fee_emision) || 0) +
+                              (parseFloat(pasajero.fee_agencia) || 0)
+                            ).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Equipaje */}
+                    {(pasajero.equipaje_completo || pasajero.equipaje_mediano || pasajero.equipaje_ligero) && (
+                      <div className="md:col-span-3">
+                        <label className="text-xs text-gray-500 mb-2 block">Equipaje</label>
+                        <div className="flex gap-2">
+                          {pasajero.equipaje_completo && (
+                            <span className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded">
+                              Completo
+                            </span>
+                          )}
+                          {pasajero.equipaje_mediano && (
+                            <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                              Mediano
+                            </span>
+                          )}
+                          {pasajero.equipaje_ligero && (
+                            <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded">
+                              Ligero
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Formato WhatsApp */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
@@ -241,14 +398,23 @@ export default function VueloDetail({ vuelo }) {
           </h3>
 
           <div className="space-y-4">
-            {['COMPROBANTE_PAGO', 'PASAPORTE'].map(tipo => {
+            {['COMPROBANTE_PAGO', 'PASAPORTE', 'CEDULA'].map(tipo => {
               const adjuntosTipo = vuelo.adjuntos.filter(a => a.tipo_adjunto === tipo)
               if (adjuntosTipo.length === 0) return null
+
+              const getTipoLabel = (tipo) => {
+                const labels = {
+                  'COMPROBANTE_PAGO': 'Comprobantes de Pago',
+                  'PASAPORTE': 'Pasaportes',
+                  'CEDULA': 'Cédulas de Identidad'
+                }
+                return labels[tipo] || tipo
+              }
 
               return (
                 <div key={tipo}>
                   <h4 className="text-sm font-medium text-gray-700 mb-2">
-                    {tipo === 'COMPROBANTE_PAGO' ? 'Comprobantes de Pago' : 'Pasaportes'}
+                    {getTipoLabel(tipo)}
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {adjuntosTipo.map(adjunto => (

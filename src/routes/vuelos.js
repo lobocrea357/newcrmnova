@@ -42,6 +42,19 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Validar tipo de documento de pasajeros
+    if (pasajeros && pasajeros.length > 0) {
+      const tiposDocumentoValidos = ['PASAPORTE', 'CEDULA'];
+      
+      for (const pasajero of pasajeros) {
+        if (pasajero.tipo_documento && !tiposDocumentoValidos.includes(pasajero.tipo_documento)) {
+          return res.status(400).json({
+            error: `tipo_documento inválido para pasajero. Debe ser: ${tiposDocumentoValidos.join(', ')}`
+          });
+        }
+      }
+    }
+
     // Crear vuelo con pasajeros y adjuntos
     const resultado = await vuelosService.crearVuelo(vuelo, pasajeros || [], adjuntos || []);
 
@@ -93,8 +106,8 @@ router.post('/:id/adjuntos', upload.single('file'), async (req, res) => {
     }
 
     // Validar tipo de adjunto
-    if (!['COMPROBANTE_PAGO', 'PASAPORTE'].includes(tipo_adjunto)) {
-      return res.status(400).json({ error: 'tipo_adjunto inválido' });
+    if (!['COMPROBANTE_PAGO', 'PASAPORTE', 'CEDULA'].includes(tipo_adjunto)) {
+      return res.status(400).json({ error: 'tipo_adjunto inválido. Debe ser: COMPROBANTE_PAGO, PASAPORTE, o CEDULA' });
     }
 
     // Subir a Supabase Storage
@@ -533,7 +546,8 @@ router.put('/:id/editar', async (req, res) => {
         // Campos editables de pasajero
         const camposEditablesPasajero = [
           'nombres', 'apellidos', 'sexo', 'fecha_nacimiento', 'nacionalidad',
-          'numero_pasaporte', 'precio_pantalla', 'fee_agencia',
+          'numero_pasaporte', 'numero_cedula', 'pais_emision_cedula', 'tipo_documento',
+          'precio_pantalla', 'fee_agencia',
           'equipaje_completo', 'equipaje_mediano', 'equipaje_ligero'
         ];
 

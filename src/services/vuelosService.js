@@ -31,10 +31,43 @@ class VuelosService {
       // 3. Insertar pasajeros si los hay
       let pasajerosCreados = [];
       if (pasajeros.length > 0) {
+        console.log(`[VuelosService] Validando ${pasajeros.length} pasajeros para vuelo ${vuelo.id}`);
+        
+        // Validar cada pasajero con manejo de errores específico
+        const validationErrors = [];
+        
+        pasajeros.forEach((pasajero, index) => {
+          try {
+            this._validarDatosDocumento(pasajero);
+            console.log(`[VuelosService] Pasajero ${index + 1} validado: ${pasajero.tipo_documento}`);
+          } catch (error) {
+            validationErrors.push({
+              pasajeroIndex: index,
+              error: error.message,
+              tipo_documento: pasajero.tipo_documento
+            });
+          }
+        });
+        
+        // Si hay errores de validación, lanzar error detallado
+        if (validationErrors.length > 0) {
+          const errorMessage = validationErrors
+            .map(err => `Pasajero ${err.pasajeroIndex + 1}: ${err.error}`)
+            .join('; ');
+          throw new Error(`Validación de pasajeros fallida: ${errorMessage}`);
+        }
+
+        // Preparar pasajeros con ID de vuelo y normalización
         const pasajerosConVueloId = pasajeros.map(p => ({
           ...p,
-          vuelo_id: vuelo.id
+          vuelo_id: vuelo.id,
+          // Normalizar datos para consistencia
+          numero_pasaporte: p.numero_pasaporte ? p.numero_pasaporte.trim().toUpperCase() : null,
+          numero_cedula: p.numero_cedula ? p.numero_cedula.trim().toUpperCase() : null,
+          pais_emision_cedula: p.pais_emision_cedula ? p.pais_emision_cedula.trim() : null
         }));
+
+        console.log(`[VuelosService] ${pasajerosConVueloId.length} pasajeros listos para inserción`);
 
         const { data: pasajerosData, error: errorPasajeros } = await supabase
           .from('vuelos_pasajeros')
@@ -412,21 +445,61 @@ class VuelosService {
     try {
       console.log(`[VuelosService] Actualizando pasajero ${pasajeroId}`);
 
+      // Obtener datos actuales del pasajero para validación y tracking
+      const { data: pasajeroActual, error: fetchError } = await supabase
+        .from('vuelos_pasajeros')
+        .select('*')
+        .eq('id', pasajeroId)
+        .single();
+
+      if (fetchError || !pasajeroActual) {
+        throw new Error(`No se pudo encontrar el pasajero ${pasajeroId}`);
+      }
+
+      // Validar datos de documento si se están actualizando campos relacionados
+      const documentFields = ['tipo_documento', 'numero_pasaporte', 'numero_cedula', 'pais_emision_cedula'];
+      const hasDocumentUpdates = documentFields.some(field => updates[field] !== undefined);
+      
+      if (hasDocumentUpdates) {
+        const pasajeroCompleto = { ...pasajeroActual, ...updates };
+        this._validarDatosDocumento(pasajeroCompleto);
+        
+        // Log de cambios de tipo de documento (importante para auditoría)
+        if (updates.tipo_documento && updates.tipo_documento !== pasajeroActual.tipo_documento) {
+          console.log(`[VuelosService] Cambio de tipo de documento: ${pasajeroActual.tipo_documento} → ${updates.tipo_documento}`);
+        }
+      }
+
+      // Preparar datos para actualización con normalización
+      const updatesNormalizados = {
+        ...updates,
+        updated_at: new Date().toISOString()
+      };
+
+      // Normalizar campos de documento si se están actualizando
+      if (updatesNormalizados.numero_pasaporte) {
+        updatesNormalizados.numero_pasaporte = updatesNormalizados.numero_pasaporte.trim().toUpperCase();
+      }
+      if (updatesNormalizados.numero_cedula) {
+        updatesNormalizados.numero_cedula = updatesNormalizados.numero_cedula.trim().toUpperCase();
+      }
+      if (updatesNormalizados.pais_emision_cedula) {
+        updatesNormalizados.pais_emision_cedula = updatesNormalizados.pais_emision_cedula.trim();
+      }
+
       const { data: pasajero, error } = await supabase
         .from('vuelos_pasajeros')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
+        .update(updatesNormalizados)
         .eq('id', pasajeroId)
         .select()
         .single();
 
       if (error) {
         console.error('[VuelosService] Error actualizando pasajero:', error);
-        throw error;
+        throw new Error(`Error al actualizar pasajero: ${error.message}`);
       }
 
+      console.log(`[VuelosService] Pasajero ${pasajeroId} actualizado exitosamente`);
       return pasajero;
 
     } catch (error) {
@@ -586,6 +659,59 @@ class VuelosService {
     } catch (error) {
       console.error('[VuelosService] Error en editarVuelo:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Validar datos de documento de pasajero con validaciones específicas
+   * @private
+   * @param {Object} pasajero - Datos del pasajero a validar
+   * @throws {Error} - Error específico con mensaje claro para el usuario
+   */
+  _validarDatosDocumento(pasajero) {
+    const TIPOS_DOCUMENTO_VALIDOS = ['PASAPORTE', 'CEDULA'];
+    
+    // Validación de tipo de documento
+    if (!pasajero.tipo_documento) {
+      throw new Error('El tipo de documento es requerido');
+    }
+    
+    if (!TIPOS_DOCUMENTO_VALIDOS.includes(pasajero.tipo_documento)) {
+      throw new Error(`Tipo de documento inválido. Debe ser: ${TIPOS_DOCUMENTO_VALIDOS.join(', ')}`);
+    }
+
+    // Validaciones específicas por tipo
+    if (pasajero.tipo_documento === 'PASAPORTE') {
+      if (!pasajero.numero_pasaporte || pasajero.numero_pasaporte.trim() === '') {
+        throw new Error('El número de pasaporte es requerido para tipo PASAPORTE');
+      }
+      
+      // Validación de formato básico para pasaportes (generalmente alfanumérico)
+      if (!/^[A-Z0-9]{6,9}$/.test(pasajero.numero_pasaporte.trim().toUpperCase())) {
+        throw new Error('El formato del pasaporte parece inválido. Debe tener 6-9 caracteres alfanuméricos');
+      }
+    } 
+    
+    else if (pasajero.tipo_documento === 'CEDULA') {
+      if (!pasajero.numero_cedula || pasajero.numero_cedula.trim() === '') {
+        throw new Error('El número de cédula es requerido para tipo CEDULA');
+      }
+      
+      if (!pasajero.pais_emision_cedula || pasajero.pais_emision_cedula.trim() === '') {
+        throw new Error('El país de emisión es requerido para cédulas');
+      }
+      
+      // Validación de formato para cédulas (formatos comunes de LATAM)
+      const cedula = pasajero.numero_cedula.trim().toUpperCase();
+      const pais = pasajero.pais_emision_cedula;
+      
+      if (pais === 'Venezuela' && !/^[VE]-\d{7,8}$/.test(cedula)) {
+        throw new Error('Formato de cédula venezolana inválido. Use V-12345678 o E-12345678');
+      }
+      
+      if (pais === 'Colombia' && !/^\d{8,10}$/.test(cedula.replace(/[^0-9]/g, ''))) {
+        throw new Error('Formato de cédula colombiana inválido. Use 8-10 dígitos');
+      }
     }
   }
 

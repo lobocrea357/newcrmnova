@@ -31,6 +31,52 @@ const SEXOS = [
   { value: 'F', label: 'Femenino' }
 ]
 
+const TIPOS_DOCUMENTO = [
+  {
+    value: 'PASAPORTE',
+    label: 'Pasaporte',
+    description: 'Documento internacional para viajes',
+    icon: '🛂',
+    color: 'blue'
+  },
+  {
+    value: 'CEDULA',
+    label: 'Cédula de Identidad (C.I.)',
+    description: 'Documento nacional para reservación temporal',
+    icon: '🪪',
+    color: 'green'
+  }
+]
+
+const PAISES_CEDULA = [
+  { value: 'Venezuela', label: 'Venezuela', code: 'VE' },
+  { value: 'Colombia', label: 'Colombia', code: 'CO' },
+  { value: 'Perú', label: 'Perú', code: 'PE' },
+  { value: 'Ecuador', label: 'Ecuador', code: 'EC' },
+  { value: 'Bolivia', label: 'Bolivia', code: 'BO' },
+  { value: 'Argentina', label: 'Argentina', code: 'AR' },
+  { value: 'Chile', label: 'Chile', code: 'CL' },
+  { value: 'Uruguay', label: 'Uruguay', code: 'UY' },
+  { value: 'Paraguay', label: 'Paraguay', code: 'PY' },
+  { value: 'Brasil', label: 'Brasil', code: 'BR' }
+]
+
+// Helper para formato automático según país
+const formatCedulaByCountry = (value, country) => {
+  const cleanValue = value.replace(/[^0-9VEve]/g, '')
+
+  switch (country) {
+    case 'Venezuela':
+      const prefix = value.toUpperCase().startsWith('E') ? 'E-' : 'V-'
+      const numbers = cleanValue.replace(/[VEve]/g, '')
+      return numbers ? `${prefix}${numbers.slice(0, 8)}` : ''
+    case 'Colombia':
+      return cleanValue.slice(0, 10)
+    default:
+      return cleanValue
+  }
+}
+
 export default function VueloFormNuevo({
   initialData,
   cotizacion,
@@ -92,7 +138,11 @@ export default function VueloFormNuevo({
         sexo: '',
         fecha_nacimiento: '',
         nacionalidad: '',
+        // Smart default: PASAPORTE como opción segura para vuelos
+        tipo_documento: 'PASAPORTE',
         numero_pasaporte: '',
+        numero_cedula: '',
+        pais_emision_cedula: 'Venezuela', // País más común
         precio_pantalla: p.precio_pantalla,
         fee_emision: p.fee_emision,
         fee_agencia: p.fee_agencia,
@@ -275,7 +325,10 @@ export default function VueloFormNuevo({
       sexo: '',
       fecha_nacimiento: '',
       nacionalidad: '',
+      tipo_documento: 'PASAPORTE', // Default seguro para vuelos
       numero_pasaporte: '',
+      numero_cedula: '',
+      pais_emision_cedula: 'Venezuela', // País más común en el sistema
       precio_pantalla: 0,
       fee_emision: feeEmisionDefault,
       fee_agencia: 30,
@@ -373,6 +426,30 @@ export default function VueloFormNuevo({
       return
     }
 
+    // Validar documentos de pasajeros
+    const validationErrors = {}
+
+    pasajeros.forEach((pasajero, index) => {
+      if (pasajero.tipo_documento === 'PASAPORTE') {
+        if (!pasajero.numero_pasaporte || pasajero.numero_pasaporte.trim() === '') {
+          validationErrors[`pasajero_${index}_pasaporte`] = 'El número de pasaporte es requerido'
+        }
+      } else if (pasajero.tipo_documento === 'CEDULA') {
+        if (!pasajero.numero_cedula || pasajero.numero_cedula.trim() === '') {
+          validationErrors[`pasajero_${index}_cedula`] = 'El número de cédula es requerido'
+        }
+        if (!pasajero.pais_emision_cedula) {
+          validationErrors[`pasajero_${index}_pais`] = 'El país de emisión es requerido'
+        }
+      }
+    })
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors)
+      toastError('Por favor completa los datos de documento de todos los pasajeros')
+      return
+    }
+
     // Calcular valores dinámicos si no hay cotización
     const subtotalCalculado = cotizacion ? parseFloat(formData.total_cotizacion) : calcularSubtotal()
     const montoVentaCalculado = cotizacion ? parseFloat(formData.monto_venta) : calcularMontoVenta()
@@ -411,7 +488,10 @@ export default function VueloFormNuevo({
         sexo: p.sexo || null,
         fecha_nacimiento: p.fecha_nacimiento || null,
         nacionalidad: p.nacionalidad || null,
+        tipo_documento: p.tipo_documento || 'PASAPORTE',
         numero_pasaporte: p.numero_pasaporte || null,
+        numero_cedula: p.numero_cedula || null,
+        pais_emision_cedula: p.pais_emision_cedula || null,
         precio_pantalla: parseFloat(p.precio_pantalla) || 0,
         fee_emision: parseFloat(p.fee_emision) || 0,
         fee_agencia: parseFloat(p.fee_agencia) || 0,
@@ -1115,26 +1195,160 @@ export default function VueloFormNuevo({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">N° Pasaporte</label>
-                  <input
-                    type="text"
-                    value={pasajero.numero_pasaporte}
-                    onChange={(e) => handlePasajeroChange(index, 'numero_pasaporte', e.target.value)}
-                    placeholder="Número de pasaporte"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase"
-                  />
+                {/* Selector de Tipo de Documento */}
+                <div className="md:col-span-3">
+                  <label className="block text-sm font-semibold text-gray-900 mb-3">
+                    Tipo de Documento del Pasajero {index + 1}
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {TIPOS_DOCUMENTO.map(tipo => (
+                      <button
+                        key={tipo.value}
+                        type="button"
+                        onClick={() => handlePasajeroChange(index, 'tipo_documento', tipo.value)}
+                        className={`
+                          relative p-4 rounded-xl border-2 transition-all duration-200
+                          ${pasajero.tipo_documento === tipo.value
+                            ? `border-${tipo.color}-500 bg-${tipo.color}-50 shadow-lg scale-[1.02]`
+                            : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
+                          }
+                        `}
+                      >
+                        <div className="flex flex-col items-center space-y-2">
+                          <span className="text-2xl">{tipo.icon}</span>
+                          <div className="text-center">
+                            <div className={`font-medium text-sm ${pasajero.tipo_documento === tipo.value
+                              ? `text-${tipo.color}-700`
+                              : 'text-gray-900'
+                              }`}>
+                              {tipo.label}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {tipo.description}
+                            </div>
+                          </div>
+                        </div>
+                        {pasajero.tipo_documento === tipo.value && (
+                          <div className={`absolute top-2 right-2 w-6 h-6 bg-${tipo.color}-500 rounded-full flex items-center justify-center`}>
+                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                {/* Upload Pasaporte */}
+                {/* Campos dinámicos según tipo de documento */}
+                {pasajero.tipo_documento === 'PASAPORTE' && (
+                  <div className="md:col-span-3 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        N° Pasaporte
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={pasajero.numero_pasaporte || ''}
+                          onChange={(e) => handlePasajeroChange(index, 'numero_pasaporte', e.target.value.toUpperCase())}
+                          placeholder="Ej: ABC123456"
+                          className={`w-full px-4 py-3 border rounded-lg text-sm uppercase font-mono transition-colors ${errors[`pasajero_${index}_pasaporte`]
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+                            }`}
+                        />
+                        {pasajero.numero_pasaporte && pasajero.numero_pasaporte.length >= 6 && (
+                          <div className="absolute right-3 top-3">
+                            <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center">
+                              <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {errors[`pasajero_${index}_pasaporte`] && (
+                        <p className="mt-1 text-sm text-red-600">{errors[`pasajero_${index}_pasaporte`]}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {pasajero.tipo_documento === 'CEDULA' && (
+                  <div className="md:col-span-3 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        N° Cédula de Identidad
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={pasajero.numero_cedula || ''}
+                          onChange={(e) => {
+                            const formatted = formatCedulaByCountry(e.target.value, pasajero.pais_emision_cedula)
+                            handlePasajeroChange(index, 'numero_cedula', formatted)
+                          }}
+                          placeholder={pasajero.pais_emision_cedula === 'Venezuela' ? 'V-12345678' : '12345678'}
+                          className={`w-full px-4 py-3 border rounded-lg text-sm uppercase font-mono transition-colors ${errors[`pasajero_${index}_cedula`]
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-300 focus:border-green-500 focus:ring-1 focus:ring-green-500'
+                            }`}
+                        />
+                        {pasajero.numero_cedula && pasajero.numero_cedula.length >= 7 && (
+                          <div className="absolute right-3 top-3">
+                            <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center">
+                              <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {errors[`pasajero_${index}_cedula`] && (
+                        <p className="mt-1 text-sm text-red-600">{errors[`pasajero_${index}_cedula`]}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        País de Emisión
+                      </label>
+                      <select
+                        value={pasajero.pais_emision_cedula || 'Venezuela'}
+                        onChange={(e) => handlePasajeroChange(index, 'pais_emision_cedula', e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                      >
+                        {PAISES_CEDULA.map(pais => (
+                          <option key={pais.value} value={pais.value}>
+                            {pais.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Tooltip informativo */}
+                    <div className="flex items-start space-x-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-amber-700">
+                        <p className="font-medium mb-1">¿Por qué Cédula de Identidad?</p>
+                        <p>Puedes reservar con la C.I. si no tienes el pasaporte a mano. Luego podrás actualizarlo cuando lo obtengas.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Upload Pasaporte/Cédula */}
                 <div className="md:col-span-3">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Pasaporte (Foto/PDF)
+                    {pasajero.tipo_documento === 'PASAPORTE' ? 'Pasaporte (Foto/PDF)' : 'Cédula (Foto/PDF)'}
                   </label>
                   {!pasajero.pasaporte_file ? (
                     <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
                       <Upload className="w-5 h-5 text-gray-400" />
-                      <span className="text-sm text-gray-600">Subir pasaporte</span>
+                      <span className="text-sm text-gray-600">
+                        Subir {pasajero.tipo_documento === 'PASAPORTE' ? 'pasaporte' : 'cédula'}
+                      </span>
                       <input
                         type="file"
                         accept="image/*,.pdf"
@@ -1158,8 +1372,8 @@ export default function VueloFormNuevo({
                         </button>
                       </div>
 
-                      {/* Botón de Extracción Automática con IA */}
-                      {pasajero.pasaporte_file.type.startsWith('image/') && (
+                        {/* Botón de Extracción Automática con IA - Solo para pasaportes */}
+                        {pasajero.tipo_documento === 'PASAPORTE' && pasajero.pasaporte_file.type.startsWith('image/') && (
                         <button
                           type="button"
                           onClick={() => extractPassportData(index)}
@@ -1174,13 +1388,22 @@ export default function VueloFormNuevo({
                           ) : (
                             <>
                               <Sparkles className="w-5 h-5" />
-                              <span className="font-medium">✨ Extraer Datos Automáticamente (GPT-4o)</span>
+                                  <span className="font-medium">✨ Extraer Datos del Pasaporte (GPT-4o)</span>
                             </>
                           )}
                         </button>
                       )}
 
-                      {pasajero.pasaporte_file.type === 'application/pdf' && (
+                        {pasajero.tipo_documento === 'CEDULA' && (
+                          <div className="w-full p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <p className="text-sm text-amber-700 flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4" />
+                              La extracción automática está disponible solo para pasaportes.
+                            </p>
+                          </div>
+                        )}
+
+                        {pasajero.tipo_documento === 'PASAPORTE' && pasajero.pasaporte_file.type === 'application/pdf' && (
                         <p className="text-xs text-amber-600 italic">
                           ⚠️ La extracción automática solo funciona con imágenes (JPG, PNG)
                         </p>
