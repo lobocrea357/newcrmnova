@@ -5,6 +5,7 @@ import { toastSuccess, toastError, toastInfo } from '@/helpers/toasts'
 import Swal from 'sweetalert2'
 import { TIPOS_VUELO, PROVEEDORES, SEXOS, TIPOS_DOCUMENTO, PAISES_CEDULA } from '@/lib/constants/vuelosConstants'
 import { formatCedulaByCountry } from '@/lib/utils/documentHelpers'
+import FileUpload from '@/components/vuelos/FileUpload' // NEW IMPORT
 
 export default function VueloFormEditar({
   vuelo,
@@ -106,14 +107,10 @@ export default function VueloFormEditar({
   const handlePasaporteUpload = (index, file) => {
     if (!file) return
 
+    // FileUpload already validates, just handle the file
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf']
     if (!validTypes.includes(file.type)) {
       toastError('Solo se permiten imágenes (JPG, PNG) o PDF')
-      return
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      toastError('El archivo no debe superar 10MB')
       return
     }
 
@@ -229,20 +226,14 @@ export default function VueloFormEditar({
     }
   }
 
-  const handleComprobanteUpload = (e) => {
-    const files = Array.from(e.target.files)
+  const handleComprobanteUpload = (files) => {
+    // FileUpload already validates files and returns array
+    const validFiles = Array.isArray(files) ? files : [files]
     
-    if (comprobantesNuevos.length + files.length > 10) {
-      toastError('Máximo 10 comprobantes nuevos permitidos')
+    if (comprobantesNuevos.length + validFiles.length > 10) {
+      toastError('Máximo 10 comprobantes permitidos')
       return
     }
-
-    const validFiles = files.filter(file => {
-      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf']
-      if (!validTypes.includes(file.type)) return false
-      if (file.size > 10 * 1024 * 1024) return false
-      return true
-    })
 
     setComprobantesNuevos(prev => [...prev, ...validFiles])
     toastSuccess(`${validFiles.length} comprobante(s) agregado(s)`)
@@ -899,21 +890,17 @@ export default function VueloFormEditar({
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Cambiar {pasajero.tipo_documento === 'PASAPORTE' ? 'Pasaporte' : 'Cédula'} (opcional)
                   </label>
-                  {!pasajero.pasaporte_file_nuevo ? (
-                    <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
-                      <Upload className="w-5 h-5 text-gray-400" />
-                      <span className="text-sm text-gray-600">
-                        Subir nuevo {pasajero.tipo_documento === 'PASAPORTE' ? 'pasaporte' : 'documento de cédula'}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={(e) => handlePasaporteUpload(index, e.target.files[0])}
-                        className="hidden"
-                      />
-                    </label>
-                  ) : (
-                    <div className="space-y-2">
+                  <FileUpload
+                    tipo="PASAPORTE"
+                    onFilesChange={(file) => handlePasaporteUpload(index, file)}
+                    maxFiles={1}
+                    singleFile={true}
+                    maxSizeMB={10}
+                  />
+
+                  {/* Existing new file display and AI extraction */}
+                  {pasajero.pasaporte_file_nuevo && (
+                    <div className="mt-2 space-y-2">
                       <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
                         <div className="flex items-center gap-2">
                           <CheckCircle className="w-5 h-5 text-green-600" />
@@ -969,17 +956,12 @@ export default function VueloFormEditar({
         </div>
 
         <div className="space-y-4">
-          <label className="flex items-center justify-center gap-2 p-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
-            <Upload className="w-6 h-6 text-gray-400" />
-            <span className="text-sm text-gray-600">Subir nuevos comprobantes</span>
-            <input
-              type="file"
-              accept="image/*,.pdf"
-              multiple
-              onChange={handleComprobanteUpload}
-              className="hidden"
-            />
-          </label>
+          <FileUpload
+            tipo="COMPROBANTE_PAGO"
+            onFilesChange={handleComprobanteUpload}
+            maxFiles={10}
+            maxSizeMB={10}
+          />
 
           {comprobantesNuevos.length > 0 && (
             <div className="space-y-2">
