@@ -1,11 +1,13 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { CheckCircle, Eye, X, Loader2, CreditCard, FileText, Calendar, Users, AlertTriangle } from 'lucide-react'
+import { CheckCircle, Loader2, Users, FileText, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { VUELOS_API } from '@/config/apiConfig'
 import { toastSuccess, toastError } from '@/helpers/toasts'
 import ImageModal from '@/components/shared/ImageModal'
 import ModalObservacionPago from '@/components/vuelos/ModalObservacionPago'
+import PagoCard from '@/components/admin/PagoCard'
+import MetricasHeader from '@/components/admin/MetricasHeader'
 
 export default function ConfirmarPagosPage() {
   const [vuelos, setVuelos] = useState([])
@@ -62,7 +64,7 @@ export default function ConfirmarPagosPage() {
 
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        toastError('Usuario no autenticado')
+        toastError('Usuario no autenticado. Inicia sesión nuevamente.')
         return
       }
 
@@ -76,15 +78,38 @@ export default function ConfirmarPagosPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
+
+        // Manejar errores específicos
+        if (errorData.error?.includes('no está en estado PENDIENTE_CONFIRMACION_PAGO')) {
+          toastError('Este vuelo ya fue procesado. Actualiza la página.')
+          await cargarVuelosPendientes()
+          return
+        }
+
+        if (errorData.error?.includes('Vuelo no encontrado')) {
+          toastError('El vuelo no existe. Actualiza la página.')
+          await cargarVuelosPendientes()
+          return
+        }
+
         throw new Error(errorData.error || 'Error al confirmar pago')
       }
 
+      const data = await response.json()
       toastSuccess('Pago confirmado exitosamente')
       cerrarModal()
       await cargarVuelosPendientes()
     } catch (error) {
       console.error('Error confirmando pago:', error)
-      toastError(error.message)
+
+      // Diferenciar tipos de error
+      if (error.message?.includes('Failed to fetch')) {
+        toastError('Error de conexión. Verifica tu internet e intenta nuevamente.')
+      } else if (error.message?.includes('timeout')) {
+        toastError('La operación tardó demasiado. Intenta nuevamente.')
+      } else {
+        toastError(error.message || 'Error al confirmar pago. Intenta nuevamente.')
+      }
     } finally {
       setConfirmingPago(false)
     }
@@ -137,10 +162,11 @@ export default function ConfirmarPagosPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Confirmación de Pagos</h1>
           <p className="text-gray-600 mt-2">
-            Vuelos pendientes de confirmación de pago
+            Revisa y aprueba los pagos de vuelos pendientes
           </p>
         </div>
 
@@ -162,83 +188,23 @@ export default function ConfirmarPagosPage() {
             </p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      ID / Cliente
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ruta
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Fecha Vuelo
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Monto
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Método Pago
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Pasajeros
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+              <>
+                {/* Métricas */}
+                <MetricasHeader vuelos={vuelos} />
+
+                {/* Grid de cards */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {vuelos.map((vuelo) => (
-                    <tr key={vuelo.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {vuelo.pax_nombre}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          ID: {vuelo.id.substring(0, 8)}...
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {vuelo.ruta}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {(() => {
-                          const [year, month, day] = vuelo.fecha_vuelo.split('-')
-                          const date = new Date(year, month - 1, day)
-                          return date.toLocaleDateString('es-ES')
-                        })()}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-semibold text-green-600">
-                          ${vuelo.monto_venta?.toFixed(2)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {vuelo.metodo_pago || 'N/A'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {vuelo.pasajeros?.length || 0}
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        <button
-                          onClick={() => verDetalles(vuelo)}
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                        >
-                          <Eye className="w-4 h-4" />
-                          Ver Detalles
-                        </button>
-                      </td>
-                    </tr>
+                    <PagoCard
+                      key={vuelo.id}
+                      vuelo={vuelo}
+                      onVerDetalles={verDetalles}
+                      onConfirmarPago={confirmarPago}
+                      onReportarObservacion={abrirModalObservacion}
+                    />
                   ))}
-                </tbody>
-              </table>
             </div>
-          </div>
+              </>
         )}
 
         {/* Modal de Detalles */}
@@ -254,7 +220,9 @@ export default function ConfirmarPagosPage() {
                   onClick={cerrarModal}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  <X className="w-6 h-6 text-gray-500" />
+                  <svg className="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
 
