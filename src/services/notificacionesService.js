@@ -139,8 +139,44 @@ export async function notificarPagoObservado(vuelo, adminNombre, motivo, montoFa
   }
 }
 
+/**
+ * Notificar al asesor cuando el pago de su vuelo es confirmado
+ */
+export async function notificarPagoConfirmado(vuelo, adminNombre) {
+  try {
+    if (!vuelo.created_by) {
+      console.warn('Vuelo sin created_by, no se puede notificar');
+      return;
+    }
+
+    const ruta = vuelo.ruta || 'sin ruta';
+
+    const notificacion = {
+      user_id: vuelo.created_by,
+      tipo: 'pago_confirmado',
+      titulo: '✅ Pago confirmado',
+      descripcion: `${adminNombre} aprobó el pago del vuelo ${ruta}. Ya puedes proceder con la emisión.`,
+      datos: {
+        vuelo_id: vuelo.id,
+        admin_nombre: adminNombre,
+        ruta,
+        pax_nombre: vuelo.pax_nombre,
+        monto: vuelo.monto_venta,
+        estado_vuelo: 'PENDIENTE_EMISION',
+        accion_requerida: 'Proceder con emisión del vuelo'
+      }
+    };
+
+    await insertarNotificaciones([notificacion]);
+    console.log(`✅ Notificación de pago confirmado enviada al asesor ${vuelo.created_by}`);
+  } catch (err) {
+    console.error('Error enviando notificación de confirmación:', err.message);
+  }
+}
+
 export default {
   notificarNuevoVuelo,
   notificarVueloEmitido,
-  notificarPagoObservado
+  notificarPagoObservado,
+  notificarPagoConfirmado
 };

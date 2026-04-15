@@ -344,6 +344,25 @@ class VuelosService {
     try {
       console.log(`[VuelosService] Confirmando pago del vuelo ${id}`);
 
+      // Primero obtener el vuelo actual
+      const { data: vueloActual, error: fetchError } = await supabase
+        .from('vuelos')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !vueloActual) {
+        throw new Error('Vuelo no encontrado');
+      }
+
+      // Validar estado - solo permitir confirmar pagos en PENDIENTE_CONFIRMACION_PAGO
+      if (vueloActual.estado !== 'PENDIENTE_CONFIRMACION_PAGO') {
+        throw new Error(
+          `El vuelo no está en estado PENDIENTE_CONFIRMACION_PAGO. Estado actual: ${vueloActual.estado}`
+        );
+      }
+
+      // Actualizar estado
       const { data: vuelo, error } = await supabase
         .from('vuelos')
         .update({

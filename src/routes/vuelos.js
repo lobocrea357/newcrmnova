@@ -3,7 +3,7 @@ import multer from 'multer';
 import vuelosService from '../services/vuelosService.js';
 import permisosService from '../services/permisosService.js';
 import { supabase } from '../config/supabase.js';
-import { notificarNuevoVuelo, notificarVueloEmitido, notificarPagoObservado } from '../services/notificacionesService.js';
+import { notificarNuevoVuelo, notificarVueloEmitido, notificarPagoObservado, notificarPagoConfirmado } from '../services/notificacionesService.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -264,6 +264,20 @@ router.patch('/:id/confirmar-pago', async (req, res) => {
     }
 
     const vuelo = await vuelosService.confirmarPago(id, userId);
+
+    // Obtener nombre del admin para notificación
+    const { data: adminProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', userId)
+      .single();
+
+    const adminNombre = adminProfile?.full_name || 'Administrador';
+
+    // Notificar al creador del vuelo (async, no bloquea respuesta)
+    notificarPagoConfirmado(vuelo, adminNombre).catch(err =>
+      console.error('Error en notificación async:', err)
+    );
 
     res.json({
       message: 'Pago confirmado exitosamente',
