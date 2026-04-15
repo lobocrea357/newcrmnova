@@ -1,15 +1,16 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { CheckCircle, Loader2, Users, FileText, AlertTriangle } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { CheckCircle, Eye, X, Loader2, CreditCard, FileText, Calendar, Users, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { VUELOS_API } from '@/config/apiConfig'
 import { toastSuccess, toastError } from '@/helpers/toasts'
 import ImageModal from '@/components/shared/ImageModal'
 import ModalObservacionPago from '@/components/vuelos/ModalObservacionPago'
-import PagoCard from '@/components/admin/PagoCard'
-import MetricasHeader from '@/components/admin/MetricasHeader'
+import { useUserProfile } from '@/contexts/UserProfileContext'
 
 export default function ConfirmarPagosPage() {
+  const router = useRouter()
   const [vuelos, setVuelos] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedVuelo, setSelectedVuelo] = useState(null)
@@ -18,6 +19,27 @@ export default function ConfirmarPagosPage() {
   const [imageModalOpen, setImageModalOpen] = useState(false)
   const [selectedImage, setSelectedImage] = useState({ url: '', name: '' })
   const [observacionModalOpen, setObservacionModalOpen] = useState(false)
+
+  // Validación de permisos
+  const { isSuperAdmin, isAdmin, isAdministracion, hasPermission } = useUserProfile()
+
+  // Solo permitir acceso a super_admin, admin y administracion
+  const puedeConfirmarPagos = isSuperAdmin || isAdmin || isAdministracion
+
+  // Verificar permiso específico de vuelos.confirm_payment
+  const tienePermisoConfirmarPagos = hasPermission('vuelos.confirm_payment') || isSuperAdmin
+
+  // Redirigir a /no-autorizado si no tiene permisos
+  useEffect(() => {
+    if (!puedeConfirmarPagos || !tienePermisoConfirmarPagos) {
+      router.push('/no-autorizado')
+    }
+  }, [puedeConfirmarPagos, tienePermisoConfirmarPagos, router])
+
+  // Si no tiene permisos, no renderizar nada (se está redirigiendo)
+  if (!puedeConfirmarPagos || !tienePermisoConfirmarPagos) {
+    return null
+  }
 
   useEffect(() => {
     cargarVuelosPendientes()
