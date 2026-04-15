@@ -250,7 +250,7 @@ router.get('/estado/:estado', async (req, res) => {
 });
 
 /**
- * PATCH /api/vuelos/:id/confirmar-pago - Confirmar pago (Admin)
+ * PATCH /api/vuelos/:id/confirmar-pago - Confirmar pago (Solo admin, super_admin, administracion)
  */
 router.patch('/:id/confirmar-pago', async (req, res) => {
   try {
@@ -263,19 +263,47 @@ router.patch('/:id/confirmar-pago', async (req, res) => {
       });
     }
 
+    // Validar que el usuario tenga un rol permitido
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select(`
+        role:roles(
+          name
+        )
+      `)
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(404).json({
+        error: 'Usuario no encontrado'
+      });
+    }
+
+    const userRole = profile?.role?.name;
+    const rolesPermitidos = ['administracion', 'admin', 'super_admin'];
+
+    if (!rolesPermitidos.includes(userRole)) {
+      return res.status(403).json({
+        error: 'No tienes permisos para confirmar pagos. Esta acción está restringida a roles administrativos.',
+        roles_permitidos: rolesPermitidos,
+        tu_rol: userRole
+      });
+    }
+
     const vuelo = await vuelosService.confirmarPago(id, userId);
 
-    // Obtener nombre del admin para notificación
-    const { data: adminProfile } = await supabase
+    // Obtener nombre del usuario para notificación
+    const { data: userProfile } = await supabase
       .from('profiles')
       .select('full_name')
       .eq('id', userId)
       .single();
 
-    const adminNombre = adminProfile?.full_name || 'Administrador';
+    const nombreUsuario = userProfile?.full_name || userRole;
 
     // Notificar al creador del vuelo (async, no bloquea respuesta)
-    notificarPagoConfirmado(vuelo, adminNombre).catch(err =>
+    notificarPagoConfirmado(vuelo, nombreUsuario).catch(err =>
       console.error('Error en notificación async:', err)
     );
 
@@ -294,7 +322,7 @@ router.patch('/:id/confirmar-pago', async (req, res) => {
 });
 
 /**
- * POST /api/vuelos/:id/observar-pago - Reportar observación en pago
+ * POST /api/vuelos/:id/observar-pago - Reportar observación en pago (Solo admin, super_admin, administracion)
  */
 router.post('/:id/observar-pago', async (req, res) => {
   try {
@@ -304,6 +332,34 @@ router.post('/:id/observar-pago', async (req, res) => {
     if (!adminId || !motivo || !observaciones) {
       return res.status(400).json({
         error: 'Campos requeridos: adminId, motivo, observaciones'
+      });
+    }
+
+    // Validar que el usuario tenga un rol permitido
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select(`
+        role:roles(
+          name
+        )
+      `)
+      .eq('id', adminId)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(404).json({
+        error: 'Usuario no encontrado'
+      });
+    }
+
+    const userRole = profile?.role?.name;
+    const rolesPermitidos = ['administracion', 'admin', 'super_admin'];
+
+    if (!rolesPermitidos.includes(userRole)) {
+      return res.status(403).json({
+        error: 'No tienes permisos para reportar observaciones de pago. Esta acción está restringida a roles administrativos.',
+        roles_permitidos: rolesPermitidos,
+        tu_rol: userRole
       });
     }
 
