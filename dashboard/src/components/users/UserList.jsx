@@ -2,7 +2,7 @@
 
 import { Mail, Edit2, Shield, CheckCircle, XCircle, User } from "lucide-react";
 
-export default function UserList({ users, roles, onEdit, onToggleStatus, loading }) {
+export default function UserList({ users, roles, onEdit, onToggleStatus, loading, currentUserRole }) {
   if (loading) {
     return (
       <div className="p-12 text-center">
@@ -16,9 +16,9 @@ export default function UserList({ users, roles, onEdit, onToggleStatus, loading
     return (
       <div className="p-12 text-center">
         <User className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-        <p className="text-gray-500 text-lg">No hay usuarios registrados</p>
+        <p className="text-gray-500 text-lg">No hay usuarios visibles</p>
         <p className="text-gray-400 text-sm mt-2">
-          Comienza agregando tu primer usuario
+          Según tu rol, solo puedes ver usuarios de nivel inferior
         </p>
       </div>
     );
@@ -44,6 +44,22 @@ export default function UserList({ users, roles, onEdit, onToggleStatus, loading
     return colors[roleName?.toLowerCase()] || "bg-gray-100 text-gray-800 border-gray-200";
   };
 
+  const canEditUser = (user) => {
+    if (!currentUserRole) return false;
+
+    // Super admin can edit everyone
+    if (currentUserRole === 'super_admin') return true;
+
+    // Admin cannot edit other admins or super_admin
+    if (currentUserRole === 'admin') {
+      const userRanking = user.role?.ranking || 0;
+      const currentRanking = roles.find(r => r.name === currentUserRole)?.ranking || 0;
+      return userRanking < currentRanking;
+    }
+
+    return false;
+  };
+
   return (
     <div className="space-y-4">
       {/* Mobile/Tablet/Small Desktop Card View */}
@@ -62,13 +78,15 @@ export default function UserList({ users, roles, onEdit, onToggleStatus, loading
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => onEdit(user)}
-                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                title="Editar"
-              >
-                <Edit2 className="h-4 w-4" />
-              </button>
+              {canEditUser(user) && (
+                <button
+                  onClick={() => onEdit(user)}
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Editar"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
             
             <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-gray-50">
@@ -151,9 +169,11 @@ export default function UserList({ users, roles, onEdit, onToggleStatus, loading
                   {new Date(user.created_at).toLocaleDateString("es-ES", { year: "numeric", month: "short", day: "numeric" })}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button onClick={() => onEdit(user)} className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded-lg transition-all">
-                    <Edit2 className="h-4 w-4" />
-                  </button>
+                  {canEditUser(user) && (
+                    <button onClick={() => onEdit(user)} className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded-lg transition-all">
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
