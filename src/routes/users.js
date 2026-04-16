@@ -45,9 +45,13 @@ router.get('/', async (req, res) => {
   try {
     const userId = req.headers['x-user-id'];
     if (!userId) {
+      console.error('[GET /api/users] Error: x-user-id header missing', {
+        headers: Object.keys(req.headers),
+        query: req.query
+      });
       return res.status(400).json({
         success: false,
-        error: 'User ID required'
+        error: 'User ID required in x-user-id header'
       });
     }
 
@@ -83,9 +87,13 @@ router.get('/roles', async (req, res) => {
   try {
     const userId = req.headers['x-user-id'];
     if (!userId) {
+      console.error('[GET /api/users/roles] Error: x-user-id header missing', {
+        headers: Object.keys(req.headers),
+        query: req.query
+      });
       return res.status(400).json({
         success: false,
-        error: 'User ID required'
+        error: 'User ID required in x-user-id header'
       });
     }
 

@@ -97,11 +97,20 @@ export default function UsuariosPage() {
       
       // Pasar userId para filtrado jerárquico (solo verás usuarios/roles debajo de tu ranking)
       const userId = user?.id;
-      const queryParams = userId ? `?userId=${userId}` : '';
+      
+      if (!userId) {
+        console.error('No se puede cargar usuarios sin userId');
+        setLoadingData(false);
+        return;
+      }
+
+      const headers = {
+        'x-user-id': userId
+      };
 
       const [usersResponse, rolesResponse] = await Promise.all([
-        fetch(`${apiUrl}/api/users${queryParams}`),
-        fetch(`${apiUrl}/api/users/roles${queryParams}`),
+        fetch(`${apiUrl}/api/users`, { headers }),
+        fetch(`${apiUrl}/api/users/roles`, { headers }),
       ]);
 
       if (usersResponse.ok) {
