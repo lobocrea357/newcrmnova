@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { UserCheck, Plus, X, Search } from 'lucide-react'
 import { toastSuccess, toastError } from '@/helpers/toasts'
+import Swal from 'sweetalert2'
 
 export default function UserPermissionsManager() {
   const [users, setUsers] = useState([])
@@ -82,12 +83,20 @@ export default function UserPermissionsManager() {
   const handleGrantPermission = async (permissionId, granted = true) => {
     if (!selectedUser) return
 
-    const reason = prompt(granted
-      ? '¿Por qué se otorga este permiso especial?'
-      : '¿Por qué se revoca este permiso del rol?'
-    )
+    const { value: reason } = await Swal.fire({
+      title: granted ? 'Otorgar Permiso Especial' : 'Revocar Permiso',
+      input: 'text',
+      inputLabel: granted ? '¿Por qué se otorga este permiso especial?' : '¿Por qué se revoca este permiso?',
+      inputPlaceholder: 'Escribe el motivo...',
+      inputAttributes: {
+        'aria-label': 'Escribe el motivo'
+      },
+      showCancelButton: true,
+      confirmButtonText: 'Confirmar',
+      cancelButtonText: 'Cancelar'
+    });
 
-    if (reason === null) return
+    if (!reason) return;
 
     try {
       const { error } = await supabase
@@ -111,7 +120,18 @@ export default function UserPermissionsManager() {
   }
 
   const handleRevokePermission = async (userPermissionId) => {
-    if (!confirm('¿Estás seguro de eliminar este permiso?')) return
+    const result = await Swal.fire({
+      title: '¿Estás seguro de eliminar este permiso?',
+      text: 'Esta acción no se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return
 
     try {
       const { error } = await supabase

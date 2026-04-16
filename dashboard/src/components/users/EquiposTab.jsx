@@ -2,8 +2,9 @@
 import { useState, useEffect } from 'react'
 import { Users, Plus, Trash2, UserMinus, UserPlus, Edit2, Check, X, ChevronDown, ChevronRight } from 'lucide-react'
 import { EQUIPOS_API } from '@/config/apiConfig'
+import Swal from 'sweetalert2'
 
-export default function EquiposTab({ allUsers = [], roles = [], onDataChange }) {
+export default function EquiposTab({ allUsers = [], roles = [], onDataChange, user }) {
   const [equipos, setEquipos] = useState([])
   const [sinEquipo, setSinEquipo] = useState([])
   const [loading, setLoading] = useState(true)
@@ -25,9 +26,18 @@ export default function EquiposTab({ allUsers = [], roles = [], onDataChange }) 
   const loadData = async () => {
     setLoading(true)
     try {
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+
+      // Agregar ID del usuario actual para filtrado
+      if (user?.id) {
+        headers['x-user-id'] = user.id;
+      }
+
       const [equiposRes, sinEquipoRes] = await Promise.all([
-        fetch(EQUIPOS_API.listar),
-        fetch(EQUIPOS_API.sinEquipo)
+        fetch(EQUIPOS_API.listar, { headers }),
+        fetch(EQUIPOS_API.sinEquipo, { headers })
       ])
       if (equiposRes.ok) {
         const d = await equiposRes.json()
@@ -51,9 +61,17 @@ export default function EquiposTab({ allUsers = [], roles = [], onDataChange }) 
     if (!nuevoEquipo.nombre || !nuevoEquipo.gerenteId) return
     setSaving(true)
     try {
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+
+      if (user?.id) {
+        headers['x-user-id'] = user.id;
+      }
+
       const res = await fetch(EQUIPOS_API.crear, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(nuevoEquipo)
       })
       if (res.ok) {
@@ -71,9 +89,17 @@ export default function EquiposTab({ allUsers = [], roles = [], onDataChange }) 
     if (!editingEquipo?.nombre) return
     setSaving(true)
     try {
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+
+      if (user?.id) {
+        headers['x-user-id'] = user.id;
+      }
+
       const res = await fetch(EQUIPOS_API.actualizar(equipoId), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           nombre: editingEquipo.nombre,
           color: editingEquipo.color,
@@ -104,8 +130,31 @@ export default function EquiposTab({ allUsers = [], roles = [], onDataChange }) 
   }
 
   const handleEliminarEquipo = async (equipoId) => {
-    if (!confirm('¿Eliminar este equipo? Los miembros quedarán sin equipo asignado.')) return
-    const res = await fetch(EQUIPOS_API.eliminar(equipoId), { method: 'DELETE' })
+    const result = await Swal.fire({
+      title: '¿Eliminar este equipo?',
+      text: 'Los miembros quedarán sin equipo asignado.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return;
+
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    if (user?.id) {
+      headers['x-user-id'] = user.id;
+    }
+
+    const res = await fetch(EQUIPOS_API.eliminar(equipoId), {
+      method: 'DELETE',
+      headers
+    })
     if (res.ok) { loadData(); onDataChange?.() }
   }
 

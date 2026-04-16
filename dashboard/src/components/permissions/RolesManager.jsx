@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Shield, Plus, Edit2, Trash2, Save, X } from 'lucide-react'
 import { toastSuccess, toastError } from '@/helpers/toasts'
+import Swal from 'sweetalert2'
 
 export default function RolesManager() {
   const [roles, setRoles] = useState([])
@@ -90,8 +91,19 @@ export default function RolesManager() {
   }
 
   const handleDelete = async (roleId, roleName) => {
-    if (!confirm(`¿Estás seguro de eliminar el rol "${roleName}"? Esta acción no se puede deshacer.`)) {
-      return
+    const result = await Swal.fire({
+      title: '¿Estás seguro de eliminar el rol?',
+      text: `Esta acción no se puede deshacer.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) {
+      return;
     }
 
     try {
