@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Key, Plus, Edit2, Trash2, Save, X, Filter } from 'lucide-react'
 import { toastSuccess, toastError } from '@/helpers/toasts'
+import Swal from 'sweetalert2'
 
 export default function PermissionsManager() {
   const [permissions, setPermissions] = useState([])
@@ -97,8 +98,19 @@ export default function PermissionsManager() {
   }
 
   const handleDelete = async (permissionId, permissionName) => {
-    if (!confirm(`¿Estás seguro de eliminar el permiso "${permissionName}"?`)) {
-      return
+    const result = await Swal.fire({
+      title: '¿Estás seguro de eliminar el permiso?',
+      text: `Esta acción no se puede deshacer.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) {
+      return;
     }
 
     try {
@@ -148,6 +160,17 @@ export default function PermissionsManager() {
       analisis: 'bg-yellow-100 text-yellow-700'
     }
     return colors[category] || 'bg-slate-100 text-slate-700'
+  }
+
+  const getSystemBadge = (permission) => {
+    if (permission.is_system) {
+      return (
+        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+          Sistema
+        </span>
+      );
+    }
+    return null;
   }
 
   if (loading) {
@@ -275,6 +298,7 @@ export default function PermissionsManager() {
               <tr key={permission.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4 text-sm font-mono text-slate-800">
                   {permission.name}
+                  {getSystemBadge(permission)}
                 </td>
                 <td className="px-6 py-4">
                   <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getCategoryBadgeColor(permission.category)}`}>
@@ -293,13 +317,15 @@ export default function PermissionsManager() {
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
-                    <button
-                      onClick={() => handleDelete(permission.id, permission.name)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Eliminar"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {!permission.is_system && (
+                      <button
+                        onClick={() => handleDelete(permission.id, permission.name)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Eliminar"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
