@@ -178,3 +178,101 @@ export async function deleteEquipo(equipoId) {
     return { error: error.message };
   }
 }
+
+/**
+ * Validar si un usuario puede gestionar un equipo específico
+ * @param {string} currentUserId - ID del usuario actual
+ * @param {string} teamId - ID del equipo
+ * @returns {Promise<boolean>}
+ */
+export async function canManageTeam(currentUserId, teamId) {
+  try {
+    // Obtener rol del usuario actual
+    const { data: currentUser } = await supabase
+      .from('profiles')
+      .select('role:roles(name)')
+      .eq('id', currentUserId)
+      .single();
+
+    if (!currentUser?.role) {
+      return false;
+    }
+
+    // Super admin y admin pueden gestionar todos los equipos
+    if (['super_admin', 'admin'].includes(currentUser.role.name)) {
+      return true;
+    }
+
+    // Gerente solo puede gestionar su propio equipo
+    if (currentUser.role.name === 'gerente') {
+      const { data: team } = await supabase
+        .from('equipos')
+        .select('gerente_id')
+        .eq('id', teamId)
+        .eq('gerente_id', currentUserId)
+        .single();
+
+      return !!team;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Error validando permisos de equipo:', error);
+    return false;
+  }
+}
+
+/**
+ * Obtener equipos filtrados según el rol del usuario actual
+ * @param {string} currentUserId - ID del usuario actual
+ * @returns {Promise<{data: Array, error: string|null}>}
+ */
+export async function getTeamsFilteredByUser(currentUserId) {
+  try {
+    // Obtener rol del usuario actual
+    const { data: currentUser } = await supabase
+      .from('profiles')
+      .select('role:roles(name)')
+      .eq('id', currentUserId)
+      .single();
+
+    if (!currentUser?.role) {
+      return { data: [], error: 'Usuario no encontrado' };
+    }
+
+    let query = supabase
+      .from('equipos')
+      .select(`
+        id,
+        nombre,
+        descripcion,
+        color,
+        is_active,
+        created_at,
+        gerente:profiles!gerente_id(id, full_name, email),
+        miembros:profiles!equipo_id(id, full_name, email, role:roles(id, name))
+      `)
+      .eq('is_active', true)
+      .order('nombre');
+
+    // Super admin y admin ven todos los equipos
+    if (['super_admin', 'admin'].includes(currentUser.role.name)) {
+      const { data, error } = await query;
+      if (error) throw error;
+      return { data: data || [], error: null };
+    }
+
+    // Gerente solo ve su propio equipo
+    if (currentUser.role.name === 'gerente') {
+      const { data, error } = await query.eq('gerente_id', currentUserId);
+      if (error) throw error;
+      return { data: data || [], error: null };
+    }
+
+    // Otros roles no deberían acceder a equipos
+    return { data: [], error: null };
+  } catch (error) {
+    console.error('Error al obtener equipos filtrados:', error);
+    return { data: [], error: error.message };
+  }
+}
