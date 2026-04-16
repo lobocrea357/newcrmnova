@@ -122,11 +122,12 @@ router.get('/:id/users', async (req, res) => {
 
 /**
  * POST / - Crear un nuevo rol
- * Body: { name, description, permissions }
+ * Body: { name, description, permissions, ranking }
  */
 router.post('/', async (req, res) => {
   try {
-    const { name, description, permissions } = req.body;
+    const { name, description, permissions, ranking } = req.body;
+    const currentUserId = req.headers['x-user-id'];
 
     if (!name || !name.trim()) {
       return res.status(400).json({
@@ -140,6 +141,17 @@ router.post('/', async (req, res) => {
         success: false,
         error: 'El nombre del rol debe tener al menos 2 caracteres'
       });
+    }
+
+    // Validación jerárquica: verificar que puede crear rol con este ranking
+    if (currentUserId && ranking !== undefined) {
+      const canManage = await roleService.canManageRole(currentUserId, ranking);
+      if (!canManage) {
+        return res.status(403).json({
+          success: false,
+          error: 'No puedes crear roles con ranking igual o superior al tuyo'
+        });
+      }
     }
 
     const { data, error } = await roleService.createRole({
