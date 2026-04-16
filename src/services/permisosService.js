@@ -97,7 +97,37 @@ async function guardarHistorialEdicion(vueloId, userId, razonEdicion, vueloAnter
   }
 }
 
+/**
+ * Validar si un permiso puede ser eliminado
+ * @param {string} permissionId - ID del permiso
+ * @returns {Promise<boolean>}
+ */
+async function canDeletePermission(permissionId) {
+  try {
+    const { data: permission } = await supabase
+      .from('permissions')
+      .select('is_system')
+      .eq('id', permissionId)
+      .single();
+  
+    if (!permission) {
+      return false;
+    }
+
+    // Cannot delete system permissions
+    if (permission.is_system) {
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error validando eliminación de permiso:', error);
+    return false;
+  }
+}
+
 export default {
   validarPermisosEdicionVuelo,
-  guardarHistorialEdicion
+  guardarHistorialEdicion,
+  canDeletePermission
 }
