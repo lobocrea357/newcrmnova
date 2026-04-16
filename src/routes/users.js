@@ -4,24 +4,67 @@ import * as userService from '../services/userService.js';
 const router = express.Router();
 
 /**
+ * Helper function to validate if current user can edit target user
+ * @param {string} currentUserId - ID of the user attempting to edit
+ * @param {string} targetUserId - ID of the user being edited
+ * @returns {Promise<boolean>}
+ */
+async function canEditUser(currentUserId, targetUserId) {
+  try {
+    const currentUser = await userService.getUserById(currentUserId);
+    const targetUser = await userService.getUserById(targetUserId);
+
+    if (!currentUser.data || !targetUser.data) {
+      return false;
+    }
+
+    // Super admin can edit everyone
+    if (currentUser.data.role?.name === 'super_admin') {
+      return true;
+    }
+
+    // Admin cannot edit other admins or super_admin
+    if (currentUser.data.role?.name === 'admin') {
+      const targetRanking = targetUser.data.role?.ranking || 0;
+      const currentRanking = currentUser.data.role?.ranking || 0;
+      return targetRanking < currentRanking;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Error validating edit permission:', error);
+    return false;
+  }
+}
+
+/**
  * GET / - Obtener todos los usuarios
  * Query params: userId (opcional, para filtrado jerárquico)
  */
 router.get('/', async (req, res) => {
   try {
-    const currentUserId = req.query.userId || req.headers['x-user-id'];
-    const { data, error } = await userService.getUsers(currentUserId);
-
-    if (error) {
+    const userId = req.headers['x-user-id'];
+    if (!userId) {
       return res.status(400).json({
         success: false,
-        error
+        error: 'User ID required'
       });
     }
 
+    // Get current user's ranking
+    const currentRanking = await userService.getUserRanking(userId);
+    if (!currentRanking) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const users = await userService.getUsersFilteredByRanking(userId, currentRanking);
+
     res.json({
       success: true,
-      data
+      data: users
     });
   } catch (error) {
     console.error('Error en GET /api/users:', error);
@@ -38,19 +81,30 @@ router.get('/', async (req, res) => {
  */
 router.get('/roles', async (req, res) => {
   try {
-    const currentUserId = req.query.userId || req.headers['x-user-id'];
-    const { data, error } = await userService.getRoles(currentUserId);
-
-    if (error) {
+    const userId = req.headers['x-user-id'];
+    if (!userId) {
       return res.status(400).json({
         success: false,
-        error
+        error: 'User ID required'
       });
     }
 
+    // Get current user's ranking
+    const currentRanking = await userService.getUserRanking(userId);
+    if (!currentRanking) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Import roleService dynamically
+    const { getRolesFilteredByRanking } = await import('../services/roleService.js');
+    const roles = await getRolesFilteredByRanking(userId, currentRanking);
+
     res.json({
       success: true,
-      data
+      data: roles
     });
   } catch (error) {
     console.error('Error en GET /api/users/roles:', error);
@@ -155,9 +209,17 @@ router.post('/', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
+    const currentUserId = req.headers['x-user-id'];
+    const targetUserId = req.params.id;
     const { email, password, fullName, roleId } = req.body;
     const updatedBy = req.headers['x-user-id'];
+
+    if (!await canEditUser(currentUserId, targetUserId)) {
+      return res.status(403).json({
+        success: false,
+        error: 'No puedes editar usuarios de igual o superior nivel'
+      });
+    }
 
     if (!email && !password && !fullName && !roleId) {
       return res.status(400).json({
@@ -173,7 +235,7 @@ router.put('/:id', async (req, res) => {
       });
     }
 
-    const { data, error } = await userService.updateUser(id, {
+    const { data, error } = await userService.updateUser(targetUserId, {
       email,
       password,
       fullName,
@@ -208,9 +270,17 @@ router.put('/:id', async (req, res) => {
  */
 router.patch('/:id/status', async (req, res) => {
   try {
-    const { id } = req.params;
+    const currentUserId = req.headers['x-user-id'];
+    const targetUserId = req.params.id;
     const { isActive } = req.body;
     const changedBy = req.headers['x-user-id'];
+
+    if (!await canEditUser(currentUserId, targetUserId)) {
+      return res.status(403).json({
+        success: false,
+        error: 'No puedes eliminar usuarios de igual o superior nivel'
+      });
+    }
 
     if (typeof isActive !== 'boolean') {
       return res.status(400).json({
@@ -219,7 +289,7 @@ router.patch('/:id/status', async (req, res) => {
       });
     }
 
-    const { data, error } = await userService.toggleUserStatus(id, isActive, changedBy);
+    const { data, error } = await userService.toggleUserStatus(targetUserId, isActive, changedBy);
 
     if (error) {
       return res.status(400).json({

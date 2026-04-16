@@ -453,3 +453,79 @@ async function validateUserEdit(editorId, targetId) {
     return false;
   }
 }
+
+/**
+ * Obtener usuarios filtrados por ranking del usuario actual
+ * @param {string} currentUserId - ID del usuario actual
+ * @param {string} currentRanking - Nombre del rol del usuario actual
+ * @returns {Promise<Array>}
+ */
+export async function getUsersFilteredByRanking(currentUserId, currentRanking) {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select(`
+        id,
+        email,
+        full_name,
+        is_active,
+        created_at,
+        updated_at,
+        role:roles(
+          id,
+          name,
+          description,
+          ranking
+        )
+      `)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    // Super admin ve todos los usuarios
+    if (currentRanking === 'super_admin') {
+      return data;
+    }
+
+    // Admin ve usuarios con ranking menor (asesores, gerentes)
+    if (currentRanking === 'admin') {
+      return data.filter(user => {
+        const userRanking = user.role?.ranking || 0;
+        return userRanking < 100; // admin tiene ranking 100
+      });
+    }
+
+    // Otros roles no deberían acceder a este endpoint
+    return [];
+  } catch (error) {
+    console.error('Error al obtener usuarios filtrados por ranking:', error);
+    return [];
+  }
+}
+
+/**
+ * Obtener el ranking de un usuario
+ * @param {string} userId - ID del usuario
+ * @returns {Promise<string|null>}
+ */
+export async function getUserRanking(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('role:roles(ranking, name)')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return data?.role?.name || null;
+  } catch (error) {
+    console.error('Error al obtener ranking del usuario:', error);
+    return null;
+  }
+}
