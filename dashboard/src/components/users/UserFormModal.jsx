@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Save, Loader2, User, Mail, Lock, Shield } from "lucide-react";
+import { toast } from 'react-hot-toast';
 
 export default function UserFormModal({ user, roles, onClose, onSave, currentUserId }) {
   const [formData, setFormData] = useState({
@@ -96,11 +97,11 @@ export default function UserFormModal({ user, roles, onClose, onSave, currentUse
         onSave();
       } else {
         const errorData = await response.json();
-        alert(`Error: ${errorData.error || "Error al guardar usuario"}`);
+        toast.error(`Error: ${errorData.error || "Error al guardar usuario"}`);
       }
     } catch (error) {
       console.error("Error al guardar usuario:", error);
-      alert("Error al guardar el usuario");
+      toast.error("Error al guardar el usuario");
     } finally {
       setLoading(false);
     }
