@@ -660,7 +660,7 @@ CREATE TABLE public.vuelos (
 CREATE TABLE public.vuelos_adjuntos (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   vuelo_id uuid NOT NULL,
-  tipo_adjunto text NOT NULL CHECK (tipo_adjunto = ANY (ARRAY['COMPROBANTE_PAGO'::text, 'PASAPORTE'::text])),
+  tipo_adjunto text NOT NULL CHECK (tipo_adjunto = ANY (ARRAY['COMPROBANTE_PAGO'::text, 'PASAPORTE'::text, 'CEDULA'::text])),
   nombre_archivo text NOT NULL,
   url_storage text NOT NULL,
   mime_type text,
@@ -707,6 +707,9 @@ CREATE TABLE public.vuelos_pasajeros (
   equipaje_ligero boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  tipo_documento character varying CHECK (tipo_documento::text = ANY (ARRAY['PASAPORTE'::character varying, 'CEDULA'::character varying]::text[])),
+  numero_cedula text,
+  pais_emision_cedula character varying,
   CONSTRAINT vuelos_pasajeros_pkey PRIMARY KEY (id),
   CONSTRAINT vuelos_pasajeros_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id),
   CONSTRAINT vuelos_pasajeros_cotizacion_pasajero_id_fkey FOREIGN KEY (cotizacion_pasajero_id) REFERENCES public.cotizaciones_pasajeros(id)

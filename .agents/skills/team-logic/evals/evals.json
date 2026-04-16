@@ -1,0 +1,35 @@
+{
+  "skill_name": "team-logic",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I need to implement a validation so that managers can edit flights created by their team members but not flights from other teams. The current code isn't working - managers can only edit their own flights. How should I structure the permission check?",
+      "expected_output": "Explanation of using equipoLiderado.id instead of equipo_id for manager validation, with code example showing proper permission logic pattern",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I'm building a dashboard that shows all flights for a manager's team. I need to filter the vuelos table to only include flights created by members of the manager's team. What's the most efficient way to query this?",
+      "expected_output": "Step-by-step query pattern: 1) Get manager's team from equipos.gerente_id, 2) Get team member profiles from profiles.equipo_id, 3) Filter vuelos by member IDs",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I'm confused about the team schema. Why do managers have equipo_id = null but advisors have equipo_id set? Shouldn't managers also belong to a team?",
+      "expected_output": "Clear explanation of the schema design: managers lead teams (equipos.gerente_id) while advisors belong to teams (profiles.equipo_id), with examples of how this works in practice",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "I need to add debug logging to understand why a manager can't see the edit button on a flight card. What should I log to diagnose the team permission issue?",
+      "expected_output": "Specific debug log pattern showing manager ID, equipoLiderado.id, creator.equipo_id, and the permission logic result with clear labels",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "How do I handle team reassignment? When I move an advisor from Team A to Team B, what permission cascades should I consider?",
+      "expected_output": "Explanation of permission implications: advisor loses access to old team resources, gains access to new team resources, manager permissions update automatically via equipo_id comparison",
+      "files": []
+    }
+  ]
+}

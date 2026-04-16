@@ -29,6 +29,18 @@ export default function UsuariosPage() {
   const [activeTab, setActiveTab] = useState('usuarios');
   const tabsRef = useRef(null);
 
+  // Tab configuration based on user role
+  const visibleTabs = [
+    { id: 'usuarios', label: 'Usuarios', icon: Users, show: true },
+    { id: 'roles', label: 'Roles', icon: Shield, show: true },
+    { id: 'permisos', label: 'Permisos', icon: Key, show: isSuperAdmin }, // Solo super_admin
+    { id: 'permisos-roles', label: 'Permisos por Rol', icon: ShieldCheck, show: isSuperAdmin }, // Solo super_admin
+    { id: 'permisos-usuarios', label: 'Permisos Especiales', icon: UserCheck, show: isSuperAdmin }, // Solo super_admin
+    { id: 'equipos', label: 'Equipos', icon: UsersRound, show: true },
+    { id: 'agencias', label: 'Agencias', icon: Building2, show: true },
+    { id: 'sedes', label: 'Sedes', icon: MapPin, show: true }
+  ].filter(tab => tab.show);
+
   // Estados y refs para el drag-to-scroll (arrastre con mouse)
   const [isDragging, setIsDragging] = useState(false);
   const startX = useRef(0);
@@ -272,94 +284,20 @@ export default function UsuariosPage() {
                     scrollBehavior: isDragging ? 'auto' : 'smooth'
                   }}
                 >
-                <button
-                  onClick={() => setActiveTab('usuarios')}
-                  className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
-                    activeTab === 'usuarios'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Users className="w-4 h-4" />
-                  Usuarios
-                </button>
-                <button
-                  onClick={() => setActiveTab('roles')}
-                  className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
-                    activeTab === 'roles'
-                      ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Shield className="w-4 h-4" />
-                  Roles
-                </button>
-                <button
-                  onClick={() => setActiveTab('permisos')}
-                  className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
-                    activeTab === 'permisos'
-                      ? 'border-green-600 text-green-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Key className="w-4 h-4" />
-                  Permisos
-                </button>
-                <button
-                  onClick={() => setActiveTab('permisos-roles')}
-                  className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
-                    activeTab === 'permisos-roles'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  Permisos por Rol
-                </button>
-                <button
-                  onClick={() => setActiveTab('permisos-usuarios')}
-                  className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
-                    activeTab === 'permisos-usuarios'
-                      ? 'border-purple-600 text-purple-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <UserCheck className="w-4 h-4" />
-                  Permisos Especiales
-                </button>
-                <button
-                  onClick={() => setActiveTab('equipos')}
-                  className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
-                    activeTab === 'equipos'
-                      ? 'border-orange-600 text-orange-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <UsersRound className="w-4 h-4" />
-                  Equipos
-                </button>
-                <button
-                  onClick={() => setActiveTab('agencias')}
-                  className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap snap-start ${
-                    activeTab === 'agencias'
-                      ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Building2 className="w-4 h-4" />
-                  Agencias
-                </button>
-                <button
-                  onClick={() => setActiveTab('sedes')}
-                  className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap snap-start ${
-                    activeTab === 'sedes'
-                      ? 'border-emerald-600 text-emerald-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <MapPin className="w-4 h-4" />
-                  Sedes
-                </button>
+                  {visibleTabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
+                        activeTab === tab.id
+                          ? 'border-blue-600 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <tab.icon className="w-4 h-4" />
+                      {tab.label}
+                    </button>
+                  ))}
               </nav>
             </div>
           </div>
@@ -383,6 +321,7 @@ export default function UsuariosPage() {
                     onEdit={handleEditUser}
                     onToggleStatus={handleToggleStatus}
                     loading={loadingData}
+                    currentUserRole={profile?.role?.name}
                   />
                 </div>
               )}
@@ -395,7 +334,7 @@ export default function UsuariosPage() {
               
               {activeTab === 'permisos-usuarios' && <UserPermissionsManager />}
               
-              {activeTab === 'equipos' && <EquiposTab allUsers={users} roles={roles} onDataChange={loadData} />}
+              {activeTab === 'equipos' && <EquiposTab allUsers={users} roles={roles} onDataChange={loadData} user={user} />}
 
               {activeTab === 'agencias' && <AgenciasManager />}
 
