@@ -4,7 +4,6 @@ import { useState } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Sidebar from "@/components/layout/Sidebar";
 import { useAuthRequired } from "@/hooks/useRouteGuard";
-import { NotificacionesProvider } from "@/contexts/NotificacionesContext";
 import { RankingProvider } from "@/contexts/RankingContext";
 import ToastContainer from "@/components/ui/ToastContainer";
 import { useMetaNotifications } from "@/hooks/useMetaNotifications";
@@ -30,31 +29,28 @@ export default function CRMLayout({ children }) {
   }
 
   return (
-    <NotificacionesProvider>
-      <RankingProvider>
-        <div className="min-h-screen overflow-x-hidden">
-          <Sidebar
-            isOpen={sidebarOpen}
-            onClose={() => setSidebarOpen(false)}
-            collapsed={sidebarCollapsed}
+    <RankingProvider>
+      <div className="min-h-screen overflow-x-hidden">
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          collapsed={sidebarCollapsed}
+        />
+        <div
+          className={`transition-all duration-300 ${
+            sidebarCollapsed ? "lg:ml-20" : "lg:ml-64"
+          }`}
+        >
+          <Navbar
+            onMenuClick={() => setSidebarOpen(true)}
+            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+            sidebarCollapsed={sidebarCollapsed}
           />
-          <div
-            className={`transition-all duration-300 ${
-              sidebarCollapsed ? "lg:ml-20" : "lg:ml-64"
-            }`}
-          >
-            <Navbar
-              onMenuClick={() => setSidebarOpen(true)}
-              onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-              sidebarCollapsed={sidebarCollapsed}
-            />
-            <main>{children}</main>
-          </div>
+          <main>{children}</main>
         </div>
-        {/* Toasts globales */}
-        <ToastContainer />
-      </RankingProvider>
-    </NotificacionesProvider>
+      </div>
+      {/* Toasts específicos del CRM */}
+      <ToastContainer />
+    </RankingProvider>
   );
 }
-

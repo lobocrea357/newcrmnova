@@ -66,17 +66,25 @@ ${messagesText}
 ---`;
     }).join('\n\n');
 
-    const systemPrompt = `Eres un analista de rendimiento comercial experto. Tu tarea es evaluar múltiples conversaciones de ventas de manera consistente y objetiva.
+    const systemPrompt = `Eres un auditor de rendimiento comercial de élite. Tu tarea es auditar múltiples conversaciones de ventas de manera extremadamente rigurosa y objetiva.
 
-Para CADA conversación, evalúa los siguientes 7 parámetros (true/false):
+Para CADA conversación, evalúa los siguientes parámetros (devuelve true/false):
 
-1. tiempo_contacto: El asesor respondió dentro de las primeras 2-3 horas desde el primer mensaje del cliente
-2. tiempo_respuesta: El asesor responde rápidamente (< 10 minutos entre mensajes)
-3. tiempo_cotizacion: Si el cliente pidió cotización, el asesor respondió en menos de 1 hora
-4. cierre_intencion: El asesor intentó cerrar la venta o programar seguimiento
-5. ofrecio_scalapay: El asesor mencionó opciones de financiamiento o pago (Scalapay, cuotas, etc.)
-6. mas_dos_opciones: El asesor presentó al menos 2-3 opciones de productos/servicios
-7. seguimiento_intencion: El asesor mostró intención de dar seguimiento futuro
+CRÍTICOS (TIEMPOS):
+1. tiempo_contacto: El asesor respondió el PRIMER mensaje del cliente en menos de 5 minutos.
+2. tiempo_respuesta: El asesor mantuvo un ritmo de respuesta menor a 5 minutos entre mensajes durante toda la charla.
+3. tiempo_cotizacion: Desde que el cliente pidió precio o cotización, el asesor la envió en menos de 15 minutos.
+
+AUDITORÍA COMERCIAL:
+4. lead_respondio: El cliente respondió al menos una vez al asesor.
+5. cierre_intencion: El asesor intentó activamente concretar un cierre (cita, pago, reserva, llamada).
+6. ofrecio_scalapay: El asesor mencionó explícitamente "Scalapay" o opciones de financiamiento.
+7. mas_dos_opciones: El asesor presentó al menos 2-3 opciones o paquetes diferentes al cliente.
+8. seguimiento_estructurado: El asesor definió un paso siguiente claro o hizo seguimiento después de una pausa.
+9. preguntas_negociacion: El asesor hizo preguntas para descubrir necesidades (presupuesto, acompañantes, fechas).
+10. calidad_cotizacion: La información enviada es profesional, detallada y aporta valor (no solo el precio).
+11. manejo_objeciones: El asesor respondió con argumentos sólidos a dudas o "peros" del cliente.
+12. venta: Se concretó una intención clara de compra, reserva o se confirmó el pago.
 
 Devuelve un JSON con este formato EXACTO:
 {
@@ -85,37 +93,40 @@ Devuelve un JSON con este formato EXACTO:
       "tiempo_contacto": true,
       "tiempo_respuesta": false,
       "tiempo_cotizacion": true,
+      "lead_respondio": true,
       "cierre_intencion": true,
       "ofrecio_scalapay": false,
       "mas_dos_opciones": true,
-      "seguimiento_intencion": true,
-      "ai_feedback": "Breve análisis de la conversación (2-3 oraciones)"
+      "seguimiento_efectivo": true,
+      "preguntas_negociacion": true,
+      "calidad_cotizacion": true,
+      "objeciones_superadas": true,
+      "venta_confirmada": false,
+      "ai_feedback": "Análisis profesional breve resaltando por qué falló o cumplió lo más relevante."
     },
-    "chat_id_2": { ... },
     ...
   }
 }
 
 IMPORTANTE:
-- Usa los chat_id exactos que se te proporcionan
-- Sé consistente en los criterios para todas las conversaciones
-- El ai_feedback debe ser breve pero específico`;
+- Sé extremadamente estricto con los tiempos. Si el cliente escribe a las 10:00 y el asesor a las 10:06, tiempo_contacto es FALSE.
+- Usa los chat_id exactos.`;
 
-    const userMessage = `Analiza las siguientes ${conversations.length} conversaciones y evalúalas según los 7 parámetros:
+    const userMessage = `Analiza estas conversaciones y audítalas según los 12 parámetros comerciales:
 
 ${conversationsText}
 
-Devuelve el JSON con las evaluaciones.`;
+Devuelve el JSON de auditoría.`;
 
     // Llamar a OpenAI
-    console.log('🤖 Llamando a OpenAI API...');
+    console.log('🤖 Llamando a OpenAI API (gpt-4o-mini)...');
     const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo-16k', // Modelo con más contexto
+      model: 'gpt-4o-mini', 
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
-      temperature: 0.3, // Más determinístico para consistencia
+      temperature: 0.2, 
       max_tokens: 4000,
       response_format: { type: 'json_object' },
     });

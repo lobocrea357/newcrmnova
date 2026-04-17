@@ -119,10 +119,10 @@ Una venta NO está concretada (sale_completed: false) si:
         <>
             <button
                 onClick={() => setIsPanelOpen(true)}
-                className="fixed bottom-20 right-6 z-40 flex items-center gap-2 rounded-full bg-purple-700 px-5 py-3 text-white font-semibold shadow-2xl hover:bg-purple-800 transition-all"
+                className="absolute bottom-24 right-4 sm:bottom-28 sm:right-6 z-40 flex items-center justify-center sm:gap-2 rounded-full bg-purple-700 p-3 sm:px-5 sm:py-3 text-white font-semibold shadow-2xl hover:bg-purple-800 transition-all hover:scale-105 active:scale-95"
             >
                 <Sparkles className="h-5 w-5" />
-                Análisis IA
+                <span className="hidden sm:inline">Análisis IA</span>
             </button>
 
             {isPanelOpen && (

@@ -420,7 +420,7 @@ export default function ChatView({ chatId, onClose, onMessagesLoaded, readOnly =
       {!readOnly && (
         <div className="bg-white border-t border-gray-200">
           {/* Info del bot (más compacta) */}
-          <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+          <div className="px-4 py-1.5 bg-gray-50 border-b border-gray-100 hidden sm:block">
             <div className="max-w-4xl mx-auto flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 text-gray-600">
                 <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -442,7 +442,7 @@ export default function ChatView({ chatId, onClose, onMessagesLoaded, readOnly =
           </div>
 
           {/* Input de mensaje */}
-          <form onSubmit={handleSendMessage} className="px-4 py-3">
+          <form onSubmit={handleSendMessage} className="px-3 py-2 sm:px-4 sm:py-3">
             <div className="max-w-4xl mx-auto flex gap-2 items-end">
               <div className="flex-1 relative">
                 <textarea
@@ -456,28 +456,28 @@ export default function ChatView({ chatId, onClose, onMessagesLoaded, readOnly =
                     }
                   }}
                   placeholder="Escribe un mensaje..."
-                  className="w-full px-4 py-3 pr-12 bg-white text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
+                  className="w-full px-4 py-2.5 sm:py-3 pr-10 bg-gray-50 text-gray-900 placeholder-gray-500 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none disabled:bg-gray-100 disabled:cursor-not-allowed text-sm transition-all"
                   rows={1}
                   style={{
-                    minHeight: '44px',
-                    maxHeight: '120px',
+                    minHeight: '40px',
+                    maxHeight: '100px',
                     height: 'auto'
                   }}
                   onInput={(e) => {
                     e.target.style.height = 'auto'
-                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
+                    e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px'
                   }}
                 />
                 {isSending && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                   </div>
                 )}
               </div>
               <button
                 type="submit"
                 disabled={!messageText.trim()}
-                className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg px-4 py-3 transition-colors flex items-center justify-center gap-2 font-medium text-sm"
+                className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full p-2.5 sm:rounded-lg sm:px-4 sm:py-3 transition-all flex items-center justify-center gap-2 font-medium text-sm shadow-sm active:scale-95"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -485,7 +485,7 @@ export default function ChatView({ chatId, onClose, onMessagesLoaded, readOnly =
                 <span className="hidden sm:inline">Enviar</span>
               </button>
             </div>
-            <p className="text-xs text-gray-500 mt-2 max-w-4xl mx-auto">
+            <p className="hidden sm:block text-[10px] text-gray-400 mt-1.5 max-w-4xl mx-auto">
               Presiona Enter para enviar, Shift+Enter para nueva línea
             </p>
           </form>

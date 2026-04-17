@@ -6,7 +6,7 @@ import ChatView from '@/components/ChatView'
 import ContactAvatar from '@/components/ContactAvatar'
 import HighlightText from '@/components/HighlightText'
 import { globalSearchChats } from '@/lib/supabase'
-import { Search, X, RefreshCw, Phone, Bot, CheckCheck } from 'lucide-react'
+import { Search, X, RefreshCw, Phone, Bot, CheckCheck, Sparkles } from 'lucide-react'
 import ChatAnalysis from '@/components/ChatAnalysis'
 import MessageInsightsPanel from '@/components/MessageInsightsPanel'
 
@@ -22,6 +22,7 @@ export default function ChatPage() {
   const [loadingGlobalSearch, setLoadingGlobalSearch] = useState(false)
   const [showSearchSidebar, setShowSearchSidebar] = useState(false)
   const [messages, setMessages] = useState([]) // Estado para mensajes cargados desde ChatView
+  const [showInsights, setShowInsights] = useState(false) // Toggle para móvil
 
   // Restaurar búsqueda global si viene desde búsqueda
   useEffect(() => {
@@ -123,10 +124,10 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="max-w-[1800px] mx-auto h-[calc(100vh-2rem)]">
+    <div className="h-dvh sm:h-auto sm:min-h-dvh bg-gradient-to-br from-blue-50 to-indigo-100 sm:p-4 p-0 overflow-hidden text-slate-900">
+      <div className="max-w-[1800px] mx-auto h-[calc(100dvh-64px)] sm:h-[calc(100dvh-120px)]">
         {/* Contenedor con overflow-x para mobile */}
-        <div className="flex gap-4 h-full overflow-x-auto">
+        <div className="flex sm:gap-4 gap-0 h-full overflow-x-auto">
           {/* Sidebar de búsqueda global (solo si viene desde búsqueda) */}
           {showSearchSidebar && (
             <div className="w-[280px] md:w-80 min-w-[280px] md:min-w-[320px] bg-white rounded-lg shadow-xl flex-shrink-0 flex flex-col overflow-hidden">
@@ -258,19 +259,30 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Insights Panel */}
-          <MessageInsightsPanel messages={messages} />
+          {/* Insights Panel - Oculto en móviles a menos que se active */}
+          <div className={`${showInsights ? 'flex' : 'hidden'} lg:flex`}>
+            <MessageInsightsPanel messages={messages} />
+          </div>
+          
+          {/* Botón para alternar Insights en móvil */}
+          <button 
+            onClick={() => setShowInsights(!showInsights)}
+            className="lg:hidden fixed bottom-6 left-4 z-50 bg-white p-3 rounded-full shadow-lg border border-gray-200 text-indigo-600 active:scale-95 transition-transform"
+            title="Ver Insights"
+          >
+            {showInsights ? <X className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
+          </button>
 
           {/* Chat Area */}
-          <div className="flex-1 min-w-[85vw] lg:min-w-0 bg-white rounded-lg shadow-xl overflow-hidden">
+          <div className="flex-1 min-w-full lg:min-w-0 bg-white sm:rounded-lg shadow-xl overflow-hidden relative">
             <ChatView 
               chatId={chatId} 
               onClose={handleClose}
               onMessagesLoaded={setMessages}
             />
+            {/* El botón de Análisis IA ahora es absoluto dentro de este contenedor */}
+            <ChatAnalysis messages={messages} chatId={chatId} />
           </div>
-
-          <ChatAnalysis messages={messages} chatId={chatId} />
         </div>
       </div>
     </div>

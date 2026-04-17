@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import OpenAI from 'openai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-})
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY)
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -87,9 +85,9 @@ export async function POST(request) {
       )
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.GOOGLE_API_KEY) {
       return NextResponse.json(
-        { error: 'OPENAI_API_KEY is not configured' },
+        { error: 'GOOGLE_API_KEY is not configured' },
         { status: 500 }
       )
     }
@@ -119,12 +117,16 @@ export async function POST(request) {
         : undefined
     )
 
+    // Regla de Negocio Gerencial: Analizar estrictamente las últimas 24 horas
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
     const { data: chats, error: chatsError } = await supabase
       .from('chats')
       .select('id, contact_name, contact_number, last_message_time, ai_analysis, last_message')
       .eq('bot_id', botId)
+      .gte('last_message_time', twentyFourHoursAgo)
       .order('last_message_time', { ascending: false, nullsLast: true })
-      .limit(120)
+      .limit(100)
 
     if (chatsError) {
       console.error('Error fetching chats for report:', chatsError)
@@ -223,94 +225,124 @@ export async function POST(request) {
     evidence.lateResponses = evidence.lateResponses.slice(0, 6)
     evidence.improvementReasons = evidence.improvementReasons.slice(0, 6)
 
+    // Construir payload para Gemini: top 15 chats con más mensajes, 25 mensajes cada uno
+    const chatsConMensajes = chats
+      .map((chat) => ({
+        chat,
+        msgs: (messagesByChat.get(chat.id) || []).slice(-25)
+      }))
+      .sort((a, b) => b.msgs.length - a.msgs.length)  // priorizar chats con más actividad
+      .slice(0, 15)
+
+    const chatsForGemini = chatsConMensajes.map(({ chat, msgs }) => ({
+      cliente: chat.contact_name || chat.contact_number || 'Sin nombre',
+      telefono: chat.contact_number || '',
+      mensajes: msgs.map(m => ({
+        de: m.from_me ? 'asesor' : 'cliente',
+        texto: (m.body || '').slice(0, 250),
+        hora: m.timestamp
+      }))
+    }))
+
+    console.log(`[QA-REPORT] Chats 24h: ${chats.length} | Enviando top ${chatsForGemini.length} a Gemini`)
+
     const analysisPayload = {
-      summary,
-      evidence
+      totalChats: chats.length,
+      chats: chatsForGemini
     }
 
-    const jsonPrompt = customPrompt || `Eres un director comercial senior y debes redactar un informe extenso (mínimo 4 párrafos en total) en español. Analiza TODOS los datos entregados y responde EXCLUSIVAMENTE con un JSON válido usando la siguiente estructura exacta. Cada campo debe contener texto corrido (sin Markdown ni viñetas automáticas) y, cuando aplique, al menos 3 oraciones usando cifras concretas y citas entre comillas:
+    // SIEMPRE usar el prompt QA estándar (ignoramos customPrompt obsoleto)
+    const jsonPrompt = `RESPONDE ÚNICAMENTE CON UN OBJETO JSON VÁLIDO. SIN TEXTO ANTES NI DESPUÉS. SIN MARKDOWN.
+
+Eres el Director de Auditoría Comercial. Analiza las conversaciones de WhatsApp de este asesor de viajes y devuelve el siguiente JSON:
+
 {
-  "introduction": "Párrafo introductorio que mencione cantidad de conversaciones, mensajes y contexto temporal.",
-  "findings": [
+  "summary": "2 frases ejecutivas sobre el desempeño general del asesor",
+  "totalAnalyzed": 7,
+  "audits": [
     {
-      "title": "Título del hallazgo",
-      "description": "Redacción completa (mínimo 3 frases) con métricas y comparaciones.",
-      "evidence_quotes": ["cita textual de cliente o asesor", "otra cita"],
-      "impact": "Describe por qué esto favorece o afecta el negocio."
+      "client": "Nombre o teléfono del cliente",
+      "type": "turismo|migratorio|tour|billete",
+      "score": 7,
+      "sale_closed": false,
+      "kpis": {
+        "contact_time": true,
+        "response_time": false,
+        "product_knowledge": true,
+        "customer_filtering": true,
+        "quote_quality": false,
+        "options_presented": false,
+        "financing_offered": false,
+        "negotiation_closing": true,
+        "objection_handling": true,
+        "follow_up": false
+      },
+      "analysis": "Párrafo ejecutivo: qué pasó, qué falló, qué hizo bien, y recomendación."
     }
-  ],
-  "improvements": [
-    {"title": "Área a mejorar", "actions": ["Acción concreta 1", "Acción concreta 2", "Acción concreta 3"]}
-  ],
-  "conclusion": "Cierre estratégico con próximos pasos (mínimo 3 frases)."
+  ]
 }
-Usa únicamente texto plano (sin *, -, ni listas automáticas). Si detectas fragmentos relevantes, inclúyelos entre comillas dentro de evidence_quotes.`
 
-    const aiResponse = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: jsonPrompt
-        },
-        {
-          role: 'user',
-          content: JSON.stringify({
-            descripcion: `Información consolidada para el bot ${botId}`,
-            payload: analysisPayload
-          })
-        }
-      ],
-      temperature: 0.15,
-      max_tokens: 1400
+REGLAS:
+- Selecciona las 7 conversaciones MÁS RELEVANTES (ventas cerradas, objeciones, chats largos, abandonos graves)
+- Evalúa cada KPI como true/false basándote en los mensajes reales
+- El score es la suma de KPIs true (máximo 10)
+- El analysis debe ser un párrafo de 3-5 oraciones con datos concretos del chat
+- NADA DE TEXTO FUERA DEL JSON`
+
+    // Configuración de Gemini 2.5 Pro (Nivel 3)
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-2.5-pro',
+      generationConfig: {
+        temperature: 0.15,
+        maxOutputTokens: 8000
+      }
     })
 
-    let aiNarrative = {
-      introduction: '',
-      findings: [],
-      improvements: [],
-      conclusion: ''
+    const promptFinal = `
+      ${jsonPrompt}
+
+      INFORMACIÓN DEL ASESOR PARA AUDITAR:
+      ${JSON.stringify({
+        descripcion: `Información consolidada para el bot ${botId}`,
+        payload: analysisPayload
+      })}
+    `
+
+    const result = await model.generateContent(promptFinal)
+    const aiResponse = await result.response
+    let aiContent = aiResponse.text() || ''
+    
+    // Limpieza agresiva de Markdown para garantizar JSON.parse
+    aiContent = aiContent.replace(/```json/gi, '').replace(/```/g, '').trim()
+
+    let finalQA = {
+      summary: '',
+      totalAnalyzed: 0,
+      audits: []
     }
 
-    const aiContent = aiResponse.choices?.[0]?.message?.content || ''
     try {
       const parsed = JSON.parse(aiContent)
-      aiNarrative = {
-        introduction: parsed.introduction || '',
-        findings: Array.isArray(parsed.findings) ? parsed.findings : [],
-        improvements: Array.isArray(parsed.improvements) ? parsed.improvements : [],
-        conclusion: parsed.conclusion || ''
+      console.log('[QA-REPORT] Parsed OK. Audits count:', parsed.audits?.length ?? 'undefined')
+      finalQA = {
+        summary: parsed.summary || parsed.introduction || '',
+        totalAnalyzed: parsed.totalAnalyzed || (parsed.audits ? parsed.audits.length : 0),
+        audits: Array.isArray(parsed.audits) ? parsed.audits : []
       }
     } catch (error) {
-      console.warn('No se pudo parsear la respuesta de IA, usando fallback.', error)
-      aiNarrative = {
-        introduction: `Se evaluó el bot ${botId} sobre ${summary.totalChats} conversaciones recientes y ${summary.totalMessages} mensajes para identificar oportunidades comerciales y fallos de servicio.`,
-        findings: [
-          {
-            title: 'Baja conversión y tiempos altos',
-            description: `Se registraron ${summary.salesCompleted} ventas frente a ${summary.salesFailed} oportunidades perdidas. El tiempo promedio de respuesta fue de ${summary.averageResponseMinutes ?? 'N/D'} minutos con máximos de ${summary.worstResponseMinutes ?? 'N/D'} minutos, lo que evidencia cuellos de botella en el seguimiento.`,
-            evidence_quotes: [],
-            impact: 'El volumen de oportunidades sin cerrar puede impactar ingresos mensuales y satisfacción del cliente.'
-          }
-        ],
-        improvements: [
-          {
-            title: 'Seguimiento comercial',
-            actions: [
-              'Implementar recordatorios diarios para contactos sin respuesta.',
-              'Definir plantillas para acelerar el primer mensaje del asesor.',
-              'Medir tiempos de respuesta por asesor y publicar métricas en reuniones.'
-            ]
-          }
-        ],
-        conclusion: 'Es imprescindible fortalecer la disciplina comercial y acortar los tiempos de respuesta para capturar más oportunidades y proteger la reputación del servicio.'
+      console.error('[QA-REPORT] JSON.parse FAILED. Raw AI content (primeros 500 chars):', aiContent.slice(0, 500))
+      finalQA = {
+        summary: `Fallo detectado al parsear QA de IA. Revisa consola. Total chats provistos: ${summary.totalChats}`,
+        totalAnalyzed: 0,
+        audits: []
       }
     }
 
     return NextResponse.json({
       summary,
       evidence,
-      aiNarrative
+      aiNarrative: finalQA,
+      _debug: { rawAILength: aiContent.length, rawAIPreview: aiContent.slice(0, 300) }
     })
   } catch (error) {
     console.error('Error generating report:', error)
