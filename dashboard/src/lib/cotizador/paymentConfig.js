@@ -191,7 +191,6 @@ export const PAYMENT_DATA = {
       'Banco: Chase Bank',
       'Número de cuenta: 900700953',
       'Número de tránsito interbancario (Routing): 267084131',
-    
     ]
   },
   [PAYMENT_METHODS.BIZUM]: {
