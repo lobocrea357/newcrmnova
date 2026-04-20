@@ -27,7 +27,7 @@ export default function TablaEvaluaciones({
             const evaluacionVacia = {
                 ...Object.fromEntries(PARAMETROS_EVALUACION.map(p => [p.key, false])),
                 score: 0,
-                maxScore: 7,
+                maxScore: 10,
                 percentage: '0.0',
                 ai_feedback: '',
                 manually_edited: true,
@@ -60,12 +60,19 @@ export default function TablaEvaluaciones({
             manually_edited: true
         }
 
-        let newScore = 0
-        PARAMETROS_EVALUACION.forEach(param => {
-            if (newEvaluacion[param.key]) newScore++
-        })
-        newEvaluacion.score = newScore
-        newEvaluacion.percentage = ((newScore / 7) * 100).toFixed(1)
+        const criticalMetrics = PARAMETROS_EVALUACION.filter(p => p.isCritical).map(p => p.key);
+        const normalMetrics = PARAMETROS_EVALUACION.filter(p => !p.isCritical && !p.isInfo).map(p => p.key);
+
+        let newScore = 0;
+        criticalMetrics.forEach(key => {
+            if (newEvaluacion[key]) newScore += 2.0;
+        });
+        normalMetrics.forEach(key => {
+            if (newEvaluacion[key]) newScore += (4.0 / normalMetrics.length);
+        });
+
+        newEvaluacion.score = parseFloat(newScore.toFixed(1));
+        newEvaluacion.percentage = (newEvaluacion.score * 10).toFixed(1);
 
         onEvaluacionChange(chatId, newEvaluacion)
     }
@@ -181,8 +188,8 @@ export default function TablaEvaluaciones({
                                             <td className="px-4 py-3 text-center">
                                                 {evaluacion ? (
                                                     <div>
-                                                        <span className="text-lg font-bold text-gray-900">
-                                                            {evaluacion.score}/7
+                                                        <span className={`text-lg font-bold ${evaluacion.score >= 7 ? 'text-green-600' : 'text-red-600'}`}>
+                                                            {evaluacion.score}/10
                                                         </span>
                                                         <div className="text-xs text-gray-500">
                                                             {evaluacion.percentage}%
@@ -245,22 +252,31 @@ export default function TablaEvaluaciones({
                                         {isExpanded && evaluacion && (
                                             <tr>
                                                 <td colSpan="6" className="px-4 py-4 bg-gray-50">
-                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                                         {PARAMETROS_EVALUACION.map((param) => (
-                                                            <label
+                                                            <div
                                                                 key={param.key}
-                                                                className="flex items-center gap-2 cursor-pointer group"
+                                                                className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${param.isCritical ? 'bg-indigo-50/50 border-indigo-100' : 'border-transparent'}`}
                                                             >
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={evaluacion[param.key] || false}
                                                                     onChange={() => toggleParametro(conv.id, param.key)}
-                                                                    className="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                                                    disabled={param.isInfo}
+                                                                    className={`h-4 w-4 rounded border-gray-300 focus:ring-indigo-500 ${param.isCritical ? 'text-indigo-600' : 'text-gray-600'}`}
                                                                 />
-                                                                <span className="text-sm text-gray-700 group-hover:text-gray-900">
-                                                                    {param.icon} {param.label}
-                                                                </span>
-                                                            </label>
+                                                                <div className="flex flex-col">
+                                                                    <span className={`text-xs font-semibold flex items-center gap-1 ${param.isCritical ? 'text-indigo-700' : 'text-gray-700'}`}>
+                                                                        {param.icon} {param.label}
+                                                                        {param.isCritical && <span className="text-[8px] bg-indigo-100 text-indigo-600 px-1 rounded uppercase">KPI</span>}
+                                                                    </span>
+                                                                    {param.isInfo && evaluacion[param.key] && (
+                                                                        <span className="text-[10px] text-gray-500 font-mono">
+                                                                            {evaluacion[param.key]}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
                                                         ))}
                                                     </div>
                                                     {evaluacion.ai_feedback && (

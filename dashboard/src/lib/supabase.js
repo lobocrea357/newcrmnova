@@ -1116,14 +1116,19 @@ export async function getCompletedSalesCount() {
       .order("last_message_time", { ascending: false });
 
     if (error) {
-      console.error("❌ Error obteniendo ventas concretadas:", error);
+      console.error("❌ Error obteniendo ventas concretadas:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       return 0;
     }
 
     // console.log(`✅ ${chatsWithSales?.length || 0} ventas concretadas encontradas`)
     return chatsWithSales?.length || 0;
   } catch (error) {
-    console.error("❌ Error en getCompletedSalesCount:", error);
+    console.error("❌ Exception en getCompletedSalesCount:", error.message || error);
     return 0;
   }
 }

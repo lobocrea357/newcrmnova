@@ -196,10 +196,16 @@ async function simulateConversationAnalysis(convData) {
     tiempo_contacto: hasGoodResponse && randomFactor > 0.3,
     tiempo_respuesta: agentMessages.length > 0 && randomFactor > 0.2,
     tiempo_cotizacion: hasEnoughInteraction && randomFactor > 0.4,
+    lead_respondio: hasCustomerEngagement,
     cierre_intencion: hasCustomerEngagement && randomFactor > 0.5,
     ofrecio_scalapay: randomFactor > 0.6,
     mas_dos_opciones: hasEnoughInteraction && randomFactor > 0.45,
-    seguimiento_intencion: hasCustomerEngagement && randomFactor > 0.55,
+    seguimiento_efectivo: hasCustomerEngagement && randomFactor > 0.55,
+    preguntas_negociacion: randomFactor > 0.4,
+    calidad_cotizacion: randomFactor > 0.35,
+    objeciones_superadas: randomFactor > 0.5,
+    venta_confirmada: randomFactor > 0.8,
+    numero_telefono: "Información simulada",
     ai_feedback: `[FALLBACK] Análisis de conversación con ${convData.contact_name}. Total de mensajes: ${messageCount}. La interacción ${hasGoodResponse ? 'presenta' : 'no presenta'} respuestas del asesor.`,
   };
 
@@ -213,40 +219,49 @@ async function simulateConversationAnalysis(convData) {
  * @returns {Object} - Evaluación con score y percentage calculados
  */
 export function calculateEvaluationScore(evaluation) {
-  const metrics = [
+  const criticalMetrics = [
     'tiempo_contacto',
     'tiempo_respuesta',
     'tiempo_cotizacion',
+  ];
+
+  const normalMetrics = [
+    'lead_respondio',
     'cierre_intencion',
     'ofrecio_scalapay',
     'mas_dos_opciones',
-    'seguimiento_intencion',
+    'seguimiento_efectivo',
+    'preguntas_negociacion',
+    'calidad_cotizacion',
+    'objeciones_superadas',
+    'venta_confirmada',
   ];
 
-  console.log('🎯 calculateEvaluationScore - Evaluación entrada:', {
-    tiempo_contacto: evaluation.tiempo_contacto,
-    tiempo_respuesta: evaluation.tiempo_respuesta,
-    tiempo_cotizacion: evaluation.tiempo_cotizacion,
-    cierre_intencion: evaluation.cierre_intencion,
-    ofrecio_scalapay: evaluation.ofrecio_scalapay,
-    mas_dos_opciones: evaluation.mas_dos_opciones,
-    seguimiento_intencion: evaluation.seguimiento_intencion,
-  });
+  console.log('🎯 calculateEvaluationScore - Iniciando cálculo ponderado');
 
-  const score = metrics.reduce((sum, metric) => {
-    const value = evaluation[metric] ? 1 : 0;
-    console.log(`    ${metric}: ${evaluation[metric]} -> ${value}`);
+  // Calcular score de críticos (base 6.0)
+  const scoreCriticos = criticalMetrics.reduce((sum, metric) => {
+    const value = evaluation[metric] ? 2.0 : 0;
+    if (evaluation[metric]) console.log(`  ✅ CRÍTICO Cumplido: ${metric} (+2.0)`);
     return sum + value;
   }, 0);
 
-  const maxScore = metrics.length;
-  const percentage = parseFloat(((score / maxScore) * 100).toFixed(1));
+  // Calcular score de auditoría (base 4.0)
+  const scoreNormal = normalMetrics.reduce((sum, metric) => {
+    const value = evaluation[metric] ? (4.0 / normalMetrics.length) : 0;
+    if (evaluation[metric]) console.log(`  🔹 Auditoría Cumplida: ${metric} (+${(4.0 / normalMetrics.length).toFixed(2)})`);
+    return sum + value;
+  }, 0);
 
-  console.log(`📊 Score calculado: ${score}/${maxScore} = ${percentage}%`);
+  const scoreFinal = parseFloat((scoreCriticos + scoreNormal).toFixed(1));
+  const maxScore = 10;
+  const percentage = parseFloat((scoreFinal * 10).toFixed(1));
+
+  console.log(`📊 Score Final: ${scoreFinal}/${maxScore} (${percentage}%)`);
 
   return {
     ...evaluation,
-    score,
+    score: scoreFinal,
     max_score: maxScore,
     percentage,
   };

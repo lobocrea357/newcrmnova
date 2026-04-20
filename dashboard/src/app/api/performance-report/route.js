@@ -29,10 +29,15 @@ export async function POST(request) {
       tiempo_contacto: 0,
       tiempo_respuesta: 0,
       tiempo_cotizacion: 0,
+      lead_respondio: 0,
       cierre_intencion: 0,
       ofrecio_scalapay: 0,
       mas_dos_opciones: 0,
-      seguimiento_intencion: 0,
+      seguimiento_efectivo: 0,
+      preguntas_negociacion: 0,
+      calidad_cotizacion: 0,
+      objeciones_superadas: 0,
+      venta_confirmada: 0,
     };
 
     evaluations.forEach((evaluation) => {
@@ -54,14 +59,21 @@ export async function POST(request) {
 Asesor: ${advisorName || 'Sin nombre'}
 Total de conversaciones analizadas: ${totalConversations}
 
-Métricas de rendimiento:
-- Tiempo de contacto adecuado: ${metricsPercentage.tiempo_contacto}% (${metricsCount.tiempo_contacto}/${totalConversations})
-- Tiempo de respuesta rápido: ${metricsPercentage.tiempo_respuesta}% (${metricsCount.tiempo_respuesta}/${totalConversations})
-- Tiempo de cotización eficiente: ${metricsPercentage.tiempo_cotizacion}% (${metricsCount.tiempo_cotizacion}/${totalConversations})
-- Cierre con intención de compra: ${metricsPercentage.cierre_intencion}% (${metricsCount.cierre_intencion}/${totalConversations})
-- Ofrecimiento de Scalapay: ${metricsPercentage.ofrecio_scalapay}% (${metricsCount.ofrecio_scalapay}/${totalConversations})
-- Más de dos opciones presentadas: ${metricsPercentage.mas_dos_opciones}% (${metricsCount.mas_dos_opciones}/${totalConversations})
-- Seguimiento de intención: ${metricsPercentage.seguimiento_intencion}% (${metricsCount.seguimiento_intencion}/${totalConversations})
+Métricas Críticas (KPIs de Tiempo):
+- Tiempo de contacto (<5m): ${metricsPercentage.tiempo_contacto}% (${metricsCount.tiempo_contacto}/${totalConversations})
+- Tiempo de respuesta (<5m): ${metricsPercentage.tiempo_respuesta}% (${metricsCount.tiempo_respuesta}/${totalConversations})
+- Tiempo de cotización (<15m): ${metricsPercentage.tiempo_cotizacion}% (${metricsCount.tiempo_cotizacion}/${totalConversations})
+
+Auditoría Comercial y de Calidad:
+- Lead respondió: ${metricsPercentage.lead_respondio}%
+- Cierre con intención: ${metricsPercentage.cierre_intencion}%
+- Ofrecimiento de Scalapay: ${metricsPercentage.ofrecio_scalapay}%
+- Más de dos opciones: ${metricsPercentage.mas_dos_opciones}%
+- Seguimiento estructurado: ${metricsPercentage.seguimiento_efectivo}%
+- Preguntas de negociación: ${metricsPercentage.preguntas_negociacion}%
+- Calidad de cotizaciones: ${metricsPercentage.calidad_cotizacion}%
+- Manejo de objeciones: ${metricsPercentage.objeciones_superadas}%
+- Venta concretada: ${metricsPercentage.venta_confirmada}%
 `;
 
     // Prompt para IA
@@ -103,12 +115,12 @@ Genera el reporte en formato JSON.`;
 
     // Llamar a OpenAI
     const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
-      temperature: 0.7,
+      temperature: 0.5,
       max_tokens: 1500,
       response_format: { type: 'json_object' },
     });

@@ -73,15 +73,32 @@ function DashboardContent() {
   const [syncLogs, setSyncLogs] = useState([]);
   const [sessionToken, setSessionToken] = useState(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
-  const [reportPrompt, setReportPrompt] = useState(`Eres un director comercial senior. Bajo ningún motivo inventes datos.
-Analiza TODAS las conversaciones del asesor y elabora un reporte ejecutivo con:
-- Resumen ejecutivo con métricas fuertes.
-- Momentos destacados (ventas logradas o buenas respuestas) citando fragmentos.
-- Momentos con demoras o riesgos, citando fragmentos y tiempos.
-- Razones de no venta u oportunidades de mejora.
-- Recomendaciones accionables para el equipo.
+  const [reportPrompt, setReportPrompt] = useState(`Eres un Auditor Comercial Senior especializado en ventas de alto impacto. 
+Tu misión es auditar al asesor basándote ESTRICTAMENTE en los siguientes 13 KPIs:
 
-El tono debe ser profesional y directo.`);
+CRÍTICOS (TIEMPOS):
+1. Tiempo de contacto inicial: Máximo 5 minutos.
+2. Tiempo de respuesta promedio: Máximo 5 minutos.
+3. Tiempo de envío de cotización: Máximo 15 minutos.
+
+AUDITORÍA COMERCIAL:
+4. Lead respondió: ¿Hubo interacción real?
+5. Número de teléfono: ¿Se obtuvo o validó?
+6. Cierre con intención: ¿El asesor presionó por el cierre de forma profesional?
+7. Ofreció Scalapay/Financiamiento: ¿Mencionó opciones de pago flexible?
+8. Más de 2 opciones: ¿Presentó alternativas al cliente?
+9. Seguimiento estructurado: ¿Hubo un plan de contacto posterior?
+10. Preguntas de negociación: ¿Indagó sobre necesidades y presupuesto?
+11. Calidad de cotización: ¿Es clara, atractiva y profesional?
+12. Manejo de objeciones: ¿Supo rebatir dudas del cliente?
+13. Venta confirmada: ¿Se cerró la transacción?
+
+INSTRUCCIONES DE REPORTE:
+- Identifica faltas en los tiempos críticos de forma prioritaria (¡Es vital!).
+- Cita fragmentos del chat que demuestren el manejo de objeciones o cierres.
+- Si el asesor tardó más de 5m en responder o 15m en cotizar, señalalo como ERROR CRÍTICO.
+- No inventes datos. Si algo no está presente, márcalo como "No detectado".
+- Usa un tono ejecutivo y directo.`);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [reportError, setReportError] = useState(null);
@@ -469,313 +486,403 @@ El tono debe ser profesional y directo.`);
     if (!payload) return;
 
     const doc = new jsPDF({ unit: "mm", format: "a4" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const marginX = 15;
-    const contentWidth = pageWidth - marginX * 2;
-    let cursorY = 42;
+    const PW = doc.internal.pageSize.getWidth();
+    const PH = doc.internal.pageSize.getHeight();
+    const ML = 0, MR = 0;          // sin margen lateral en header
+    const IX = 16;                  // margen interior de contenido
+    const CW = PW - IX * 2;
+    let Y = 0;
 
-    const ensureSpace = (space = 12) => {
-      if (cursorY + space > 280) {
-        doc.addPage();
-        cursorY = 20;
-      }
-    };
+    /* ── PALETA EJECUTIVA ────────────────────────────────── */
+    const NAVY   = [15,  31,  72];   // azul marino oscuro
+    const BLUE   = [30,  80, 180];   // azul corporativo
+    const GOLD   = [180,140,  30];   // dorado acento
+    const GREEN  = [22, 163, 104];
+    const ORANGE = [234,130,  20];
+    const RED    = [210,  40,  40];
+    const G1     = [20,  20,  20];   // texto darkest
+    const G2     = [60,  60,  60];
+    const G3     = [110, 110, 110];
+    const G4     = [180, 180, 180];
+    const G5     = [238, 240, 244];  // fondo hilera par
+    const WHITE  = [255, 255, 255];
 
-    const addParagraph = (text) => {
-      if (!text) return;
-      const lines = doc.splitTextToSize(text, contentWidth);
-      lines.forEach((line) => {
-        ensureSpace(6);
-        doc.text(line, marginX, cursorY);
-        cursorY += 6;
-      });
-      cursorY += 2;
-    };
+    const scoreColor = s => s >= 8 ? GREEN : s >= 6 ? ORANGE : RED;
+    const scoreBg    = s => s >= 8 ? [230,248,240] : s >= 6 ? [255,243,215] : [254,226,226];
 
-    const addSectionTitle = (title, subtitle) => {
-      ensureSpace(10);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.setTextColor(40, 44, 60);
-      doc.text(title, marginX, cursorY);
-      cursorY += 5;
-      if (subtitle) {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.setTextColor(106, 109, 122);
-        doc.text(subtitle, marginX, cursorY);
-        cursorY += 6;
-      }
+    /* ── HELPERS ─────────────────────────────────────────── */
+    let pageNum = 1;
+
+    const drawPageFooter = () => {
+      doc.setFillColor(...G5);
+      doc.rect(0, PH - 9, PW, 9, "F");
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(39, 40, 45);
+      doc.setFontSize(6.5);
+      doc.setTextColor(...G3);
+      doc.text("CONFIDENCIAL · USO INTERNO · VIAJES NOVA", IX, PH - 3.5);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Página ${pageNum}`, PW - IX, PH - 3.5, { align: "right" });
     };
 
-    const drawStatsGrid = (items) => {
-      if (!items.length) return;
-      const cardWidth = (contentWidth - 8) / 2;
-      let column = 0;
-      items.forEach((item) => {
-        ensureSpace(28);
-        const x = marginX + column * (cardWidth + 8);
-        doc.setDrawColor(215, 218, 245);
-        doc.setFillColor(247, 248, 255);
-        doc.roundedRect(x, cursorY, cardWidth, 24, 3, 3, "FD");
-        doc.setTextColor(116, 120, 138);
-        doc.setFontSize(8);
-        doc.text(item.label, x + 4, cursorY + 8);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(13);
-        doc.setTextColor(34, 34, 44);
-        doc.text(String(item.value ?? "—"), x + 4, cursorY + 18);
-        doc.setFont("helvetica", "normal");
-        column += 1;
-        if (column === 2) {
-          column = 0;
-          cursorY += 28;
-        }
-      });
-      if (column !== 0) {
-        cursorY += 28;
-      }
-      doc.setTextColor(40, 44, 60);
+    const newPage = () => {
+      drawPageFooter();
+      doc.addPage();
+      pageNum++;
+      Y = 14;
     };
 
-    const drawChatSection = (title, items, palette) => {
-      if (!items || !items.length) return;
-      addSectionTitle(title);
-      const cardWidth = contentWidth;
-      items.forEach((item, idx) => {
-        const metaParts = [];
-        if (item.contact) metaParts.push(item.contact);
-        if (item.responseMinutes !== undefined)
-          metaParts.push(`${item.responseMinutes} min`);
-        const meta = metaParts.join(" · ") || `Caso ${idx + 1}`;
-        const clientText = item.clientSnippet
-          ? `Cliente: ${item.clientSnippet}`
-          : item.reason
-            ? item.reason
-            : "";
-        const advisorText = item.advisorSnippet ? item.advisorSnippet : "";
-        const clientLines = clientText
-          ? doc.splitTextToSize(clientText, cardWidth - 20)
-          : [];
-        const advisorLines = advisorText
-          ? doc.splitTextToSize(`Asesor: ${advisorText}`, cardWidth - 24)
-          : [];
-        const clientHeight = clientLines.length
-          ? clientLines.length * 5 + 10
-          : 0;
-        const advisorHeight = advisorLines.length
-          ? advisorLines.length * 5 + 10
-          : 0;
-        const baseHeight =
-          18 +
-          clientHeight +
-          advisorHeight +
-          (clientHeight && advisorHeight ? 4 : 0);
-
-        ensureSpace(baseHeight + 10);
-        doc.setDrawColor(...palette.border);
-        doc.setFillColor(...palette.fill);
-        doc.roundedRect(marginX, cursorY, cardWidth, baseHeight, 4, 4, "FD");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10.5);
-        doc.setTextColor(42, 44, 61);
-        doc.text(meta, marginX + 4, cursorY + 7);
-        let blockY = cursorY + 12;
-
-        if (clientLines.length) {
-          doc.setDrawColor(221, 228, 255);
-          doc.setFillColor(255, 255, 255);
-          doc.roundedRect(
-            marginX + 4,
-            blockY,
-            cardWidth - 8,
-            clientHeight,
-            3,
-            3,
-            "FD",
-          );
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(9);
-          doc.setTextColor(78, 82, 120);
-          doc.text("Cliente", marginX + 8, blockY + 5);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(60, 63, 92);
-          let textY = blockY + 10;
-          clientLines.forEach((line) => {
-            doc.text(line, marginX + 8, textY);
-            textY += 5;
-          });
-          blockY += clientHeight + 4;
-        }
-
-        if (advisorLines.length) {
-          doc.setDrawColor(255, 222, 203);
-          doc.setFillColor(255, 255, 255);
-          doc.roundedRect(
-            marginX + 4,
-            blockY,
-            cardWidth - 8,
-            advisorHeight,
-            3,
-            3,
-            "FD",
-          );
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(9);
-          doc.setTextColor(104, 74, 54);
-          doc.text("Asesor", marginX + cardWidth - 12, blockY + 5, {
-            align: "right",
-          });
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(78, 62, 48);
-          let textY = blockY + 10;
-          advisorLines.forEach((line) => {
-            doc.text(line, marginX + 8, textY);
-            textY += 5;
-          });
-          blockY += advisorHeight + 4;
-        }
-
-        cursorY = blockY + 6;
-        doc.setTextColor(39, 40, 45);
-      });
+    const need = space => { if (Y + space > PH - 14) newPage(); };
+    const hLine = (x1, x2, y, color = G4, lw = 0.2) => {
+      doc.setDrawColor(...color); doc.setLineWidth(lw);
+      doc.line(x1, y, x2, y);
     };
 
-    // Header
-    doc.setFillColor(36, 33, 93);
-    doc.setDrawColor(36, 33, 93);
-    doc.roundedRect(marginX, 15, contentWidth, 22, 4, 4, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.setTextColor(255, 255, 255);
-    doc.text(`Informe IA · ${advisorName || "Asesor"}`, marginX + 6, 29);
-    doc.setFontSize(10);
-    doc.text(
-      new Date().toLocaleDateString("es-ES"),
-      marginX + contentWidth - 6,
-      29,
-      {
-        align: "right",
-      },
-    );
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(39, 40, 45);
-
-    const summary = payload.summary || {};
+    /* ── DATOS ───────────────────────────────────────────── */
     const narrative = payload.aiNarrative || {};
-    const summaryParagraph = `Se analizaron ${summary.totalChats ?? 0} conversaciones (${
-      summary.totalMessages ?? 0
-    } mensajes) para comprender el desempeño del asesor. Se confirmaron ${
-      summary.salesCompleted ?? 0
-    } ventas y se identificaron ${summary.salesFailed ?? 0} oportunidades perdidas. El tiempo de respuesta promedio fue de ${
-      summary.averageResponseMinutes ?? "N/D"
-    } minutos, con picos de hasta ${summary.worstResponseMinutes ?? "N/D"} minutos en los casos más lentos.`;
-    addParagraph(summaryParagraph);
+    const audits    = narrative.audits || [];
+    const N         = audits.length;
 
-    drawStatsGrid([
-      { label: "Conversaciones", value: summary.totalChats ?? "—" },
-      { label: "Mensajes", value: summary.totalMessages ?? "—" },
-      { label: "Ventas concretadas", value: summary.salesCompleted ?? 0 },
-      { label: "Oportunidades perdidas", value: summary.salesFailed ?? 0 },
-      {
-        label: "Tiempo respuesta promedio",
-        value: summary.averageResponseMinutes
-          ? `${summary.averageResponseMinutes} min`
-          : "N/D",
-      },
-      {
-        label: "Respuesta más lenta",
-        value: summary.worstResponseMinutes
-          ? `${summary.worstResponseMinutes} min`
-          : "N/D",
-      },
-    ]);
-
-    addSectionTitle(
-      "Narrativa general",
-      "Resumen elaborado automáticamente por la IA",
-    );
-    addParagraph(
-      cleanText(narrative.introduction || narrative.executive_summary || "") ||
-        "No se pudo generar un resumen automático.",
-    );
-
-    const addFindings = () => {
-      if (!Array.isArray(narrative.findings) || !narrative.findings.length)
-        return;
-      narrative.findings.forEach((finding, idx) => {
-        addSectionTitle(
-          `Hallazgo ${idx + 1}: ${cleanText(finding.title || "")}`,
-        );
-        addParagraph(cleanText(finding.description || ""));
-        if (
-          Array.isArray(finding.evidence_quotes) &&
-          finding.evidence_quotes.length
-        ) {
-          finding.evidence_quotes.forEach((quote) =>
-            addParagraph(`Cita: "${cleanText(quote)}"`),
-          );
-        }
-        if (finding.impact) {
-          addParagraph(`Impacto: ${cleanText(finding.impact)}`);
-        }
-      });
-    };
-
-    const addImprovements = () => {
-      if (
-        !Array.isArray(narrative.improvements) ||
-        !narrative.improvements.length
-      )
-        return;
-      narrative.improvements.forEach((improvement, idx) => {
-        addSectionTitle(
-          `Area de mejora ${idx + 1}: ${cleanText(improvement.title || "")}`,
-        );
-        if (Array.isArray(improvement.actions) && improvement.actions.length) {
-          improvement.actions.forEach((action) =>
-            addParagraph(`• ${cleanText(action)}`),
-          );
-        }
-      });
-    };
-
-    addFindings();
-    addImprovements();
-
-    if (narrative.conclusion || narrative.closing_statement) {
-      addSectionTitle("Conclusión y próximos pasos");
-      addParagraph(
-        cleanText(narrative.conclusion || narrative.closing_statement || ""),
-      );
+    if (N === 0) {
+      doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+      doc.setTextColor(...G2);
+      doc.text("No se encontraron auditorías para las últimas 24 horas.", IX, 40);
+      drawPageFooter();
+      doc.save(`reporte_${advisorName || "asesor"}.pdf`);
+      return;
     }
 
-    drawChatSection("Momentos destacados", payload.evidence?.highlightedWins, {
-      fill: [244, 243, 255],
-      border: [195, 188, 255],
+    const KPI = {
+      contact_time:        "Tiempo de contacto",
+      response_time:       "Tiempo de respuesta",
+      product_knowledge:   "Conocimiento del producto",
+      customer_filtering:  "Filtrado del cliente",
+      quote_quality:       "Cotización (tiempo + calidad)",
+      options_presented:   "Opciones presentadas (+2)",
+      financing_offered:   "Financiamiento / métodos pago",
+      negotiation_closing: "Negociación y cierre",
+      objection_handling:  "Manejo de objeciones",
+      follow_up:           "Seguimiento + asesoría",
+    };
+    const KEYS = Object.keys(KPI);
+
+    let totalScore = 0, salesCount = 0;
+    const agg = {};  KEYS.forEach(k => agg[k] = 0);
+    audits.forEach(a => {
+      totalScore += a.score || 0;
+      if (a.sale_closed) salesCount++;
+      KEYS.forEach(k => { if ((a.kpis || {})[k]) agg[k]++; });
+    });
+    const avg = parseFloat((totalScore / N).toFixed(1));
+
+    /* ══════════════════════════════════════════════════════
+       PÁGINA 1 – PORTADA EJECUTIVA
+    ══════════════════════════════════════════════════════ */
+
+    /* --- Banda superior NAVY ----------------------------- */
+    doc.setFillColor(...NAVY);
+    doc.rect(0, 0, PW, 36, "F");
+
+    /* Logo / nombre empresa */
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...WHITE);
+    doc.text("VIAJES NOVA", IX, 12);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(180, 200, 240);
+    doc.text("Agencia de Viajes", IX, 17);
+
+    /* Título del reporte */
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...WHITE);
+    doc.text("REPORTE DE AUDITORÍA COMERCIAL", PW - IX, 13, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(180, 200, 240);
+    doc.text(`Período: Últimas 24 horas  ·  ${new Date().toLocaleDateString("es-ES", { day:"2-digit", month:"long", year:"numeric" })}`, PW - IX, 19, { align: "right" });
+
+    /* Línea dorada decorativa */
+    doc.setFillColor(...GOLD);
+    doc.rect(0, 36, PW, 1.5, "F");
+
+    /* --- Bloque asesor ----------------------------------- */
+    // Limpiar el session_name: quitar país, coordinador y sede
+    const STOP_WORDS = ["colombia", "venezuela", "endry", "moises", "jesus", "nova", "apolo", "flash"];
+    const cleanAdvisorName = (name = "") => {
+      return (name || "Asesor")
+        .split("_")
+        .filter(part => !STOP_WORDS.includes(part.toLowerCase()))
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(" ")
+        .trim() || "Asesor";
+    };
+    const displayName = cleanAdvisorName(advisorName);
+
+    Y = 46;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...G3);
+    doc.text("ASESOR EVALUADO", IX, Y);
+    Y += 6;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.setTextColor(...G1);
+    doc.text(displayName, IX, Y);
+    Y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...G1);  // más oscuro
+    doc.text(`${N} conversaciones auditadas  ·  Generado el ${new Date().toLocaleDateString("es-ES")}`, IX, Y);
+    Y += 10;
+    hLine(IX, PW - IX, Y, G4, 0.4);
+    Y += 9;
+
+    /* --- 4 KPIs de resumen ------------------------------ */
+    const BW = (CW - 9) / 4;
+    const KPI_BOXES = [
+      { label: "PROM. 24H",    value: String(avg),         sub: "/ 10 puntos",      color: scoreColor(avg), bg: scoreBg(avg) },
+      { label: `EVALUADAS`,    value: String(N),            sub: "conversaciones",   color: BLUE,            bg: [234,242,255] },
+      { label: "VENTAS",       value: String(salesCount),   sub: `de ${N} chats`,    color: GREEN,           bg: [230,248,240] },
+      { label: "SIN VENTA",    value: String(N-salesCount), sub: `de ${N} chats`,    color: RED,             bg: [254,226,226] },
+    ];
+    KPI_BOXES.forEach((b, i) => {
+      const bx = IX + i * (BW + 3);
+      // Fondo caja
+      doc.setFillColor(...b.bg);
+      doc.setDrawColor(...G4);
+      doc.roundedRect(bx, Y, BW, 24, 2, 2, "FD");
+      // Borde de color en la parte superior
+      doc.setFillColor(...b.color);
+      doc.roundedRect(bx, Y, BW, 2.5, 1, 1, "F");
+      // Label
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6);
+      doc.setTextColor(...b.color);
+      doc.text(b.label, bx + BW/2, Y + 7, { align:"center" });
+      // Valor
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(...b.color);
+      doc.text(b.value, bx + BW/2, Y + 16, { align:"center" });
+      // Sub
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(5.5);
+      doc.setTextColor(...G3);
+      doc.text(b.sub, bx + BW/2, Y + 21, { align:"center" });
+    });
+    Y += 33;
+
+    /* --- Tabla cumplimiento por criterio ---------------- */
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...G1);  // más oscuro
+    doc.text("CUMPLIMIENTO POR CRITERIO", IX, Y);
+    // Línea azul bajo el título
+    doc.setFillColor(...BLUE);
+    doc.rect(IX, Y + 1.5, 55, 0.8, "F");
+    Y += 7;
+
+    const R = 7; // row height
+    KEYS.forEach((key, idx) => {
+      const v = agg[key] || 0;
+      const pct = N > 0 ? Math.round(v / N * 100) : 0;
+      // Fondo alterno
+      if (idx % 2 === 0) { doc.setFillColor(...G5); doc.rect(IX, Y, CW, R, "F"); }
+      else                { doc.setFillColor(...WHITE); doc.rect(IX, Y, CW, R, "F"); }
+      // Nombre criterio
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(...G2);
+      doc.text(KPI[key], IX + 3, Y + R * 0.67);
+      // Barra de progreso
+      const barX = IX + CW * 0.55;
+      const barW = CW * 0.26;
+      doc.setFillColor(220, 225, 235);
+      doc.roundedRect(barX, Y + R*0.25, barW, R*0.5, 1, 1, "F");
+      const fill = pct >= 80 ? GREEN : pct >= 50 ? ORANGE : RED;
+      doc.setFillColor(...fill);
+      doc.roundedRect(barX, Y + R*0.25, Math.max(barW * pct / 100, 1), R*0.5, 1, 1, "F");
+      // Porcentaje
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(...fill);
+      doc.text(`${v}/${N} (${pct}%)`, IX + CW - 2, Y + R * 0.67, { align:"right" });
+      Y += R;
     });
 
-    drawChatSection("Respuestas con demora", payload.evidence?.lateResponses, {
-      fill: [255, 247, 236],
-      border: [253, 213, 152],
+    hLine(IX, IX + CW, Y, G4, 0.3);
+    Y += 8;
+
+    /* ══════════════════════════════════════════════════════
+       TARJETAS INDIVIDUALES — encabezado de sección en primera tarjeta
+    ══════════════════════════════════════════════════════ */
+    audits.forEach((audit, auditIdx) => {
+      const kpis  = audit.kpis || {};
+      const score = audit.score || 0;
+      const sc    = scoreColor(score);
+      const scBg  = scoreBg(score);
+
+      // Separar nombre y teléfono si Gemini los pone juntos
+      const rawClient = audit.client || "Sin nombre";
+      const slashIdx  = rawClient.indexOf("/");
+      const clientName  = slashIdx !== -1 ? rawClient.slice(0, slashIdx).trim() : rawClient;
+      const clientPhone = slashIdx !== -1 ? rawClient.slice(slashIdx + 1).trim() : "";
+
+      const rawAnal = (audit.analysis || "")
+        .replace(/ \| /g, " ")
+        .replace(/Errores:/gi,       "\nErrores:")
+        .replace(/Aciertos:/gi,      "\nAciertos:")
+        .replace(/Recomendación:/gi, "\nRecomendación:");
+      const analLines = doc.splitTextToSize(rawAnal, CW - 8);
+
+      const KPI_H  = 6.8;
+      const cardH  = 34 + KEYS.length * KPI_H + analLines.length * 3.9 + 10;
+      need(cardH + 8);
+
+      /* Sombra simulada (rect gris desplazado) */
+      doc.setFillColor(215, 220, 230);
+      doc.roundedRect(IX + 0.8, Y + 0.8, CW, cardH, 3, 3, "F");
+      /* Cuerpo tarjeta */
+      doc.setFillColor(...WHITE);
+      doc.setDrawColor(210, 218, 232);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(IX, Y, CW, cardH, 3, 3, "FD");
+
+      /* Banda de color en borde izquierdo */
+      doc.setFillColor(...sc);
+      doc.rect(IX, Y + 3, 3, cardH - 6, "F");
+
+      let cy = Y + 7;
+
+      /* --- Cabecera de tarjeta --- */
+      /* Título de sección solo en la primera tarjeta */
+      if (auditIdx === 0) {
+        need(16);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...G1);
+        doc.text(`DETALLE DE EVALUACIONES (${N} CONVERSACIONES)`, IX, Y);
+        doc.setFillColor(...BLUE);
+        doc.rect(IX, Y + 1.5, 75, 0.8, "F");
+        Y += 8;
+        cy = Y + 7;
+      }
+      /* Número de evaluación */
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.setTextColor(...G1);
+      doc.text(`EVALUACIÓN #${auditIdx + 1}  ·  ${new Date().toLocaleDateString("es-ES")}  ·  ${displayName}`, IX + 6, cy);
+
+      /* Score en badge redondo — score + /10 DENTRO del rect */
+      const BADGE_W = 24;
+      const scoreX = IX + CW - BADGE_W - 2;
+      doc.setFillColor(...scBg);
+      doc.setDrawColor(...sc);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(scoreX, cy - 5, BADGE_W, 10, 2, 2, "FD");
+      // Número grande, posición relativa al centro-izquierda del badge
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(...sc);
+      doc.text(String(score), scoreX + 6, cy + 2.5);
+      // "/10" pequeño justo a la derecha del número, DENTRO del badge
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(...sc);
+      doc.text("/10", scoreX + 14, cy + 2.5);
+
+      cy += 7;
+
+      /* Nombre del cliente */
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(...G1);
+      doc.text(clientName, IX + 6, cy);
+
+      /* Tipo de gestión (badge pequeño) */
+      if (audit.type) {
+        const typeLabel = (audit.type || "").toUpperCase();
+        const tw = doc.getTextWidth(typeLabel) + 4;
+        const nameW = doc.getTextWidth(clientName);
+        doc.setFillColor(...G5);
+        doc.setDrawColor(...G4);
+        doc.roundedRect(IX + 8 + nameW, cy - 4, tw, 5, 1.5, 1.5, "FD");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(5.5);
+        doc.setTextColor(...BLUE);
+        doc.text(typeLabel, IX + 10 + nameW, cy - 0.5);
+      }
+      cy += 4.5;
+
+      /* Teléfono + tags */
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...G3);
+      if (clientPhone) doc.text(clientPhone, IX + 6, cy);
+      cy += 4;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      let tagX = IX + 6;
+      doc.setFillColor(230, 248, 240); doc.setDrawColor(...GREEN); doc.roundedRect(tagX - 1, cy - 4, 20, 5.5, 1.5, 1.5, "FD");
+      doc.setTextColor(...GREEN); doc.text("Respondió", tagX + 1, cy);
+      tagX += 23;
+      if (audit.sale_closed) {
+        doc.setFillColor(219, 234, 254); doc.setDrawColor(...BLUE); doc.roundedRect(tagX - 1, cy - 4, 16, 5.5, 1.5, 1.5, "FD");
+        doc.setTextColor(...BLUE); doc.text("Venta ✓", tagX + 1, cy);
+      }
+      cy += 8;
+
+      /* Línea divisora */
+      hLine(IX + 4, IX + CW - 4, cy, G4, 0.2);
+      cy += 1;
+
+      /* --- Checklist KPIs --- */
+      KEYS.forEach((key, ki) => {
+        const passed = kpis[key] === true;
+        cy += KPI_H;
+        /* Fondo alterno */
+        if (ki % 2 === 0) { doc.setFillColor(250, 251, 253); doc.rect(IX + 4, cy - KPI_H + 1, CW - 8, KPI_H, "F"); }
+        /* Icono */
+        if (passed) {
+          doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...GREEN);
+          doc.text("✓", IX + 7, cy - 1);
+        } else {
+          doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(200, 205, 215);
+          doc.text("✗", IX + 7, cy - 1);
+        }
+        /* Label */
+        doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...G2);
+        doc.text(KPI[key], IX + 13, cy - 1);
+        /* Indicador 1 / 0 */
+        doc.setFont("helvetica", "bold"); doc.setFontSize(7.5);
+        if (passed) { doc.setTextColor(...GREEN); doc.text("1", IX + CW - 7, cy - 1, { align:"right" }); }
+        else        { doc.setTextColor(...RED);   doc.text("0", IX + CW - 7, cy - 1, { align:"right" }); }
+        /* Línea sutil */
+        hLine(IX + 4, IX + CW - 4, cy + 1.5, G5, 0.15);
+      });
+      cy += 6;
+
+      /* --- Análisis ejecutivo --- */
+      hLine(IX + 4, IX + CW - 4, cy, G4, 0.25);
+      cy += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      analLines.forEach(line => {
+        if      (line.startsWith("Errores:"))        doc.setTextColor(...RED);
+        else if (line.startsWith("Aciertos:"))       doc.setTextColor(...GREEN);
+        else if (line.startsWith("Recomendación:"))  doc.setTextColor(...BLUE);
+        else                                         doc.setTextColor(...G2);
+        doc.text(line, IX + 6, cy);
+        cy += 4;
+      });
+
+      Y = cy + 10;
     });
 
-    drawChatSection(
-      "Oportunidades de mejora",
-      (payload.evidence?.improvementReasons || []).map((item) => ({
-        contact: item.contact,
-        clientSnippet: item.reason,
-      })),
-      {
-        fill: [242, 248, 248],
-        border: [188, 218, 218],
-      },
-    );
-
+    drawPageFooter();
     doc.save(`reporte_${advisorName || "asesor"}.pdf`);
   };
 
@@ -806,6 +913,9 @@ El tono debe ser profesional y directo.`);
         throw new Error(data.error || "No se pudo generar el reporte.");
       }
       setReportData(data);
+      console.log('[PDF-DEBUG] API response aiNarrative:', JSON.stringify(data.aiNarrative));
+      console.log('[PDF-DEBUG] _debug field:', JSON.stringify(data._debug));
+      console.log('[PDF-DEBUG] audits count:', data.aiNarrative?.audits?.length ?? 'UNDEFINED');
       generatePdfReport(data, selectedBot?.session_name);
     } catch (error) {
       console.error("Error generating report:", error);

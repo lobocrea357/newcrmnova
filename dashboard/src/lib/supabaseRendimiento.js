@@ -545,17 +545,12 @@ export async function getRecentAnalyses(limit = 10) {
 // ============================================
 
 export function calculateAnalysisStats(evaluaciones) {
-  console.log("📈 calculateAnalysisStats - Iniciando cálculo");
-  console.log("   Tipo de evaluaciones:", typeof evaluaciones);
-  console.log("   Es array?:", Array.isArray(evaluaciones));
+  console.log("📈 calculateAnalysisStats - Iniciando cálculo para Auditoría Premium");
 
   const evaluacionesArray = Object.values(evaluaciones);
   const totalConversations = evaluacionesArray.length;
 
-  console.log(`   Total conversaciones: ${totalConversations}`);
-
   if (totalConversations === 0) {
-    console.warn("⚠️ No hay evaluaciones para calcular stats");
     return {
       total_conversations_analyzed: 0,
       average_score: 0,
@@ -563,19 +558,17 @@ export function calculateAnalysisStats(evaluaciones) {
       tiempo_contacto_count: 0,
       tiempo_respuesta_count: 0,
       tiempo_cotizacion_count: 0,
+      lead_respondio_count: 0,
       cierre_intencion_count: 0,
       ofrecio_scalapay_count: 0,
       mas_dos_opciones_count: 0,
-      seguimiento_intencion_count: 0,
+      seguimiento_estructurado_count: 0,
+      preguntas_negociacion_count: 0,
+      calidad_cotizacion_count: 0,
+      manejo_objeciones_count: 0,
+      venta_count: 0,
     };
   }
-
-  // Mostrar primera evaluación como ejemplo
-  console.log("   Primera evaluación (ejemplo):", {
-    score: evaluacionesArray[0]?.score,
-    percentage: evaluacionesArray[0]?.percentage,
-    tiempo_contacto: evaluacionesArray[0]?.tiempo_contacto,
-  });
 
   const totals = evaluacionesArray.reduce(
     (acc, ev) => {
@@ -584,13 +577,16 @@ export function calculateAnalysisStats(evaluaciones) {
         percentage: acc.percentage + parseFloat(ev.percentage || 0),
         tiempo_contacto: acc.tiempo_contacto + (ev.tiempo_contacto ? 1 : 0),
         tiempo_respuesta: acc.tiempo_respuesta + (ev.tiempo_respuesta ? 1 : 0),
-        tiempo_cotizacion:
-          acc.tiempo_cotizacion + (ev.tiempo_cotizacion ? 1 : 0),
+        tiempo_cotizacion: acc.tiempo_cotizacion + (ev.tiempo_cotizacion ? 1 : 0),
+        lead_respondio: acc.lead_respondio + (ev.lead_respondio ? 1 : 0),
         cierre_intencion: acc.cierre_intencion + (ev.cierre_intencion ? 1 : 0),
         ofrecio_scalapay: acc.ofrecio_scalapay + (ev.ofrecio_scalapay ? 1 : 0),
         mas_dos_opciones: acc.mas_dos_opciones + (ev.mas_dos_opciones ? 1 : 0),
-        seguimiento_intencion:
-          acc.seguimiento_intencion + (ev.seguimiento_intencion ? 1 : 0),
+        seguimiento_efectivo: acc.seguimiento_efectivo + (ev.seguimiento_efectivo ? 1 : 0),
+        preguntas_negociacion: acc.preguntas_negociacion + (ev.preguntas_negociacion ? 1 : 0),
+        calidad_cotizacion: acc.calidad_cotizacion + (ev.calidad_cotizacion ? 1 : 0),
+        objeciones_superadas: acc.objeciones_superadas + (ev.objeciones_superadas ? 1 : 0),
+        venta_confirmada: acc.venta_confirmada + (ev.venta_confirmada ? 1 : 0),
       };
     },
     {
@@ -599,10 +595,15 @@ export function calculateAnalysisStats(evaluaciones) {
       tiempo_contacto: 0,
       tiempo_respuesta: 0,
       tiempo_cotizacion: 0,
+      lead_respondio: 0,
       cierre_intencion: 0,
       ofrecio_scalapay: 0,
       mas_dos_opciones: 0,
-      seguimiento_intencion: 0,
+      seguimiento_efectivo: 0,
+      preguntas_negociacion: 0,
+      calidad_cotizacion: 0,
+      objeciones_superadas: 0,
+      venta_confirmada: 0,
     },
   );
 
@@ -613,12 +614,17 @@ export function calculateAnalysisStats(evaluaciones) {
     tiempo_contacto_count: totals.tiempo_contacto,
     tiempo_respuesta_count: totals.tiempo_respuesta,
     tiempo_cotizacion_count: totals.tiempo_cotizacion,
+    lead_respondio_count: totals.lead_respondio,
     cierre_intencion_count: totals.cierre_intencion,
     ofrecio_scalapay_count: totals.ofrecio_scalapay,
     mas_dos_opciones_count: totals.mas_dos_opciones,
-    seguimiento_intencion_count: totals.seguimiento_intencion,
+    seguimiento_efectivo_count: totals.seguimiento_efectivo,
+    preguntas_negociacion_count: totals.preguntas_negociacion,
+    calidad_cotizacion_count: totals.calidad_cotizacion,
+    objeciones_superadas_count: totals.objeciones_superadas,
+    venta_confirmada_count: totals.venta_confirmada,
   };
 
-  console.log("✅ Stats calculados:", stats);
+  console.log("✅ Stats Auditoría calculados:", stats);
   return stats;
 }

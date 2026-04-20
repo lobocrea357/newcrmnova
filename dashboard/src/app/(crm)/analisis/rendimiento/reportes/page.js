@@ -242,13 +242,18 @@ export default function ReportesPage() {
   // Transformar datos de API a formato de ReportModal
   const transformReportData = (apiReport, analysis) => {
     const METRIC_LABELS = {
-      tiempo_contacto: "Tiempo de contacto adecuado",
-      tiempo_respuesta: "Tiempo de respuesta rápido",
-      tiempo_cotizacion: "Tiempo de cotización eficiente",
-      cierre_intencion: "Cierre con intención de compra",
-      ofrecio_scalapay: "Ofrecimiento de Scalapay",
-      mas_dos_opciones: "Más de dos opciones presentadas",
-      seguimiento_intencion: "Seguimiento de intención",
+      tiempo_contacto: "Tiempo de contacto adecuado (5m)",
+      tiempo_respuesta: "Tiempo de respuesta ágil (5m)",
+      tiempo_cotizacion: "Tiempo de cotización eficiente (15m)",
+      lead_respondio: "Interacción del Lead",
+      cierre_intencion: "Cierre con intención comercial",
+      ofrecio_scalapay: "Ofreció Scalapay / Financiamiento",
+      mas_dos_opciones: "Presentó 2+ opciones de viaje",
+      seguimiento_efectivo: "Seguimiento estructurado",
+      preguntas_negociacion: "Preguntas de negociación",
+      calidad_cotizacion: "Calidad y valor de cotización",
+      objeciones_superadas: "Capacidad de manejo de objeciones",
+      venta_confirmada: "Cierre de venta / Confirmación",
     };
 
     // Construir métricas detalladas

@@ -253,23 +253,37 @@ Este reporte fue generado automáticamente por IA analizando tus conversaciones.
 
   const passCount = report.detailedMetrics.filter((m) => m.status === "pass").length;
   const failCount = report.detailedMetrics.filter((m) => m.status === "fail").length;
+  
+  // Identificar KPIs Críticos fallidos
+  const criticalFails = report.detailedMetrics.filter(
+    (m) => m.status === "fail" && m.parameter.includes("(5m)") || m.parameter.includes("(15m)")
+  );
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="print-content bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col print:max-h-none print:overflow-visible">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 flex items-center justify-between print:bg-blue-600">
-          <div className="flex items-center gap-3">
-            <FileText className="h-8 w-8" />
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="print-content bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col border border-gray-100 print:max-h-none print:overflow-visible print:rounded-none">
+        {/* Header Premium */}
+        <div className="bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 text-white p-8 flex items-center justify-between print:bg-slate-900">
+          <div className="flex items-center gap-5">
+            <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-md border border-white/20">
+              <FileText className="h-10 w-10 text-blue-400" />
+            </div>
             <div>
-              <h2 className="text-2xl font-bold">Reporte de Rendimiento</h2>
-              <p className="text-blue-100 text-sm">
-                {report.advisorName} •{" "}
-                {new Date(report.analysisDate).toLocaleDateString("es-ES", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
+              <div className="flex items-center gap-2 mb-1">
+                <span className="bg-blue-500/20 text-blue-300 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-blue-500/30">
+                  Auditoría Premium
+                </span>
+                {criticalFails.length > 0 && (
+                  <span className="bg-red-500/20 text-red-300 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-red-500/30 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" /> Riesgo Crítico
+                  </span>
+                )}
+              </div>
+              <h2 className="text-3xl font-extrabold tracking-tight">Reporte de Auditoría Comercial</h2>
+              <p className="text-blue-200/80 text-sm font-medium flex items-center gap-2 mt-1">
+                <span className="text-white">{report.advisorName}</span>
+                <span>•</span>
+                <span>{new Date(report.analysisDate).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}</span>
               </p>
             </div>
           </div>
@@ -316,108 +330,150 @@ Este reporte fue generado automáticamente por IA analizando tus conversaciones.
         </div>
 
         {/* Content */}
-        <div ref={contentRef} className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* KPIs */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white">
-              <div className="text-sm font-medium text-blue-100 mb-1">Score</div>
-              <div className="text-3xl font-bold">{report.score}</div>
-              <div className="text-xs text-blue-100">De 10.0</div>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white">
-              <div className="text-sm font-medium text-purple-100 mb-1">
-                Porcentaje
+        <div ref={contentRef} className="flex-1 overflow-y-auto p-8 space-y-8 bg-gray-50/50">
+          
+          {/* Alertas Rojas (SI FALLA CRÍTICOS) */}
+          {criticalFails.length > 0 && (
+            <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-6 shadow-sm animate-pulse-subtle">
+              <div className="flex items-center gap-3 mb-4 text-red-700">
+                <div className="bg-red-100 p-2 rounded-xl">
+                  <AlertCircle className="h-6 w-6" />
+                </div>
+                <h3 className="text-xl font-black uppercase tracking-tight">Alerta Roja: Fallos en KPIs Críticos</h3>
               </div>
-              <div className="text-3xl font-bold">{report.percentage}%</div>
-              <div className="text-xs text-purple-100">Cumplimiento</div>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white">
-              <div className="text-sm font-medium text-green-100 mb-1">Aprobados</div>
-              <div className="text-3xl font-bold">{passCount}</div>
-              <div className="text-xs text-green-100">De 7 parámetros</div>
-            </div>
-
-            <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl p-4 text-white">
-              <div className="text-sm font-medium text-amber-100 mb-1">
-                Conversaciones
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {criticalFails.map((fail, idx) => (
+                  <div key={idx} className="bg-white border border-red-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
+                    <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                    <div>
+                      <div className="text-[10px] font-bold text-red-500 uppercase">KPI Incumplido</div>
+                      <div className="text-sm font-bold text-gray-900 leading-tight">{fail.parameter}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="text-3xl font-bold">{report.totalConversations}</div>
-              <div className="text-xs text-amber-100">Analizadas</div>
+              <p className="mt-4 text-sm text-red-800 font-medium">
+                ⚠️ El incumplimiento de los tiempos de respuesta afecta severamente la conversión. Se requiere acción inmediata del gerente.
+              </p>
+            </div>
+          )}
+
+          {/* KPIs Premium Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-2 bg-blue-50 rounded-bl-xl text-blue-600">
+                <BarChart3 className="h-4 w-4" />
+              </div>
+              <div className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Score Auditoría</div>
+              <div className="text-4xl font-black text-gray-900">{report.score}</div>
+              <div className="text-xs font-semibold text-blue-600 mt-1">Escala de 1 a 10.0</div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-2 bg-purple-50 rounded-bl-xl text-purple-600">
+                <TrendingUp className="h-4 w-4" />
+              </div>
+              <div className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Cumplimiento</div>
+              <div className="text-4xl font-black text-gray-900">{report.percentage}%</div>
+              <div className="text-xs font-semibold text-purple-600 mt-1">Nivel de excelencia</div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-2 bg-green-50 rounded-bl-xl text-green-600">
+                <CheckCircle2 className="h-4 w-4" />
+              </div>
+              <div className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">KPIs Aprobados</div>
+              <div className="text-4xl font-black text-gray-900">{passCount}</div>
+              <div className="text-xs font-semibold text-green-600 mt-1">De 12 parámetros evaluables</div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-2 bg-amber-50 rounded-bl-xl text-amber-600">
+                <MessageSquare className="h-4 w-4" />
+              </div>
+              <div className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Muestra Chat</div>
+              <div className="text-4xl font-black text-gray-900">{report.totalConversations}</div>
+              <div className="text-xs font-semibold text-amber-600 mt-1">Mensajes analizados</div>
             </div>
           </div>
 
-          {/* Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Summary Premium */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Strengths */}
-            <div className="bg-green-50 border border-green-200 rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <CheckCircle2 className="h-6 w-6 text-green-600" />
-                <h3 className="text-lg font-bold text-green-900">Fortalezas</h3>
+            <div className="bg-white border border-gray-100 rounded-3xl p-8 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
+              <div className="absolute top-0 left-0 w-1.5 h-full bg-green-500"></div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-green-100 p-2 rounded-xl">
+                  <CheckCircle2 className="h-6 w-6 text-green-600" />
+                </div>
+                <h3 className="text-xl font-black text-gray-900 tracking-tight">Fortalezas Identificadas</h3>
               </div>
-              <ul className="space-y-2">
+              <ul className="space-y-4">
                 {report.summary.strengths.map((strength, index) => (
-                  <li key={index} className="flex gap-2 text-sm text-green-800">
-                    <span className="text-green-600 font-bold">✓</span>
-                    <span>{strength}</span>
+                  <li key={index} className="flex gap-3 text-sm text-gray-700 leading-relaxed group/item">
+                    <span className="flex-shrink-0 w-5 h-5 bg-green-50 rounded-full flex items-center justify-center text-green-600 font-bold text-[10px]">✓</span>
+                    <span className="font-medium">{strength}</span>
                   </li>
                 ))}
               </ul>
             </div>
 
             {/* Weaknesses */}
-            <div className="bg-red-50 border border-red-200 rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <AlertCircle className="h-6 w-6 text-red-600" />
-                <h3 className="text-lg font-bold text-red-900">Áreas de Mejora</h3>
+            <div className="bg-white border border-gray-100 rounded-3xl p-8 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
+              <div className="absolute top-0 left-0 w-1.5 h-full bg-red-500"></div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-red-100 p-2 rounded-xl">
+                  <AlertCircle className="h-6 w-6 text-red-600" />
+                </div>
+                <h3 className="text-xl font-black text-gray-900 tracking-tight">Oportunidades de Mejora</h3>
               </div>
-              <ul className="space-y-2">
+              <ul className="space-y-4">
                 {report.summary.weaknesses.map((weakness, index) => (
-                  <li key={index} className="flex gap-2 text-sm text-red-800">
-                    <span className="text-red-600 font-bold">⚠</span>
-                    <span>{weakness}</span>
+                  <li key={index} className="flex gap-3 text-sm text-gray-700 leading-relaxed">
+                    <span className="flex-shrink-0 w-5 h-5 bg-red-50 rounded-full flex items-center justify-center text-red-600 font-bold text-[10px]">!</span>
+                    <span className="font-medium">{weakness}</span>
                   </li>
                 ))}
               </ul>
             </div>
           </div>
 
-          {/* Detailed Metrics */}
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-blue-600" />
-                Métricas Detalladas
+          {/* Detailed Metrics Table Premium */}
+          <div className="bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden">
+            <div className="bg-slate-900 px-8 py-5 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                <Layout className="h-5 w-5 text-blue-400" />
+                Desglose de Auditoría por Punto
               </h3>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                12 KPIs Evaluados
+              </div>
             </div>
-            <div className="divide-y divide-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 divide-x divide-y divide-gray-100">
               {report.detailedMetrics.map((metric, index) => (
-                <div key={index} className="p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 mt-1">
-                      {metric.status === "pass" ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-600" />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <h4 className="font-semibold text-gray-900">
-                          {metric.parameter}
-                        </h4>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${metric.status === "pass"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
-                            }`}
-                        >
-                          {metric.status === "pass" ? "Aprobado" : "Necesita Mejorar"}
-                        </span>
+                <div key={index} className="p-6 hover:bg-gray-50/80 transition-colors flex flex-col justify-between">
+                  <div className="flex items-start justify-between mb-4">
+                    <h4 className="text-sm font-bold text-gray-800 leading-tight pr-4">
+                      {metric.parameter}
+                    </h4>
+                    {metric.status === "pass" ? (
+                      <div className="bg-green-100 text-green-600 p-1 rounded-lg">
+                        <Check className="h-4 w-4" />
                       </div>
-                      <p className="text-sm text-gray-600">{metric.details}</p>
+                    ) : (
+                      <div className="bg-red-100 text-red-600 p-1 rounded-lg">
+                        <X className="h-4 w-4" />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="w-full bg-gray-100 h-1.5 rounded-full mb-2 overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full ${metric.status === 'pass' ? 'bg-green-500' : 'bg-red-400'}`}
+                        style={{ width: metric.status === 'pass' ? '100%' : '30%' }}
+                      ></div>
                     </div>
+                    <p className="text-[11px] font-medium text-gray-500 italic">{metric.details}</p>
                   </div>
                 </div>
               ))}
