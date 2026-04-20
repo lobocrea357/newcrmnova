@@ -79,10 +79,6 @@ export async function calcularConversionInteligente({
       recargos = baseConvertida * 0.045 // 4.5%
       descripcionRecargos = `+4.5% Depósito en dólares`
       montoConvertido = baseConvertida + recargos
-    } else if (metodoPago === 'Chase Bank (Estados Unidos)') {
-      recargos = baseConvertida * 0.05 // 5%
-      descripcionRecargos = `+5% Chase Bank`
-      montoConvertido = baseConvertida + recargos
     } else if (metodoPago === 'Tarjeta de Crédito (USD)') {
       recargos = baseConvertida * 0.05 // 5%
       descripcionRecargos = `+5% Tarjeta de Crédito`

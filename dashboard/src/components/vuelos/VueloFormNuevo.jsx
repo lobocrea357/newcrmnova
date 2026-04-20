@@ -1522,7 +1522,7 @@ export default function VueloFormNuevo({
             tipo="COMPROBANTE_PAGO"
             onFilesChange={handleComprobanteUpload}
             maxFiles={10}
-            unlimited={formData.metodo_pago?.includes('Depósito oficina') || formData.metodo_pago?.includes('efectivo')}
+            unlimited={formData.metodo_pago?.includes('Efectivo')}
             maxSizeMB={10}
           />
 

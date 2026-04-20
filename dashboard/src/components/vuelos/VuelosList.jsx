@@ -19,12 +19,18 @@ const ESTADOS_VUELO = [
 ]
 
 const METODOS_PAGO = [
-  { value: 'Zelle', label: 'Zelle' },
-  { value: 'Transferencia', label: 'Transferencia' },
-  { value: 'Efectivo', label: 'Efectivo' },
+  { value: 'Efectivo (USD)', label: 'Efectivo (USD)' },
+  { value: 'Efectivo (COP)', label: 'Efectivo (COP)' },
+  { value: 'Efectivo (EUR)', label: 'Efectivo (EUR)' },
   { value: 'Tarjeta de Crédito', label: 'Tarjeta de Crédito' },
   { value: 'Scalapay', label: 'Scalapay' },
-  { value: 'Chase Bank', label: 'Chase Bank' }
+  { value: 'Chase Bank Nova', label: 'Chase Bank Nova' },
+  { value: 'Chase Bank Apolo', label: 'Chase Bank Apolo' },
+  { value: 'Zelle', label: 'Zelle' },
+  { value: 'BBVA', label: 'BBVA' },
+  { value: 'Revolut', label: 'Revolut' },
+  { value: 'Transferencia (BNC)', label: 'Transferencia (BNC)' },
+  { value: 'Binance', label: 'Binance' }
 ]
 
 const PROVEEDORES = [

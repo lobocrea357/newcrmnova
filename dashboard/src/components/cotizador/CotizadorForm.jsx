@@ -1231,32 +1231,32 @@ export default function CotizadorForm({ showBannerOutside = false, onBannerState
                   <p className="text-xs text-blue-700 font-semibold">💵 Cotización en USD (+5.6% + $10)</p>
                 </div>
               )}
-              {metodoPago === 'BNC - Transferencia en Bs' && (
+              {metodoPago === 'Transferencia (BNC)' && (
                 <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-100">
                   <p className="text-xs text-purple-700 font-semibold">Bs Cotización en Bolívares (VES)</p>
                 </div>
               )}
-              {metodoPago === 'Depósito oficina Venezuela (efectivo)' && (
+              {metodoPago === 'Efectivo (USD)' && (
                 <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
                   <p className="text-xs text-amber-700 font-semibold">💰 Pago en efectivo USD - Seleccione moneda de cotización</p>
                 </div>
               )}
-              {(metodoPago === 'Davivienda' || metodoPago === 'Bancacolombia' || metodoPago === 'Depósito oficina Colombia (efectivo)') && (
+              {(metodoPago === 'Davivienda' || metodoPago === 'Bancacolombia' || metodoPago === 'Efectivo (COP)') && (
                 <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-100">
                   <p className="text-xs text-yellow-700 font-semibold">🇨🇴 Cotización en Pesos Colombianos (COP)</p>
                 </div>
               )}
-              {(metodoPago === 'Cuenta en Euros' || metodoPago === 'Depósito oficina Europa (efectivo)' || metodoPago === 'Bizum (España)') && (
+              {(metodoPago === 'BBVA' || metodoPago === 'Revolut' || metodoPago === 'Efectivo (EUR)' || metodoPago === 'Bizum (España)') && (
                 <div className="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
                   <p className="text-xs text-indigo-700 font-semibold">€ Cotización en Euros (EUR)</p>
                 </div>
               )}
-              {(metodoPago === 'Zelle' || metodoPago === 'Banesco Panamá (ViajesNova)' || metodoPago === 'Chase Bank (Estados Unidos)') && (
+              {(metodoPago === 'Zelle' || metodoPago === 'Banesco Panamá (ViajesNova)' || metodoPago === 'Chase Bank Nova' || metodoPago === 'Chase Bank Apolo') && (
                 <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
                   <p className="text-xs text-blue-700 font-semibold">💵 Cotización en Dólares (USD)</p>
                 </div>
               )}
-              {metodoPago === 'Binance (USDT)' && (
+              {metodoPago === 'Binance' && (
                 <div className="mt-3 p-3 bg-emerald-50 rounded-lg border border-emerald-100">
                   <p className="text-xs text-emerald-700 font-semibold">₮ Cotización en USDT</p>
                 </div>

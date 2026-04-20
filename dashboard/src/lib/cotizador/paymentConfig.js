@@ -10,19 +10,21 @@ export const AGENCY_CONFIG = {
 export const PAYMENT_METHODS = {
   SCALAPAY: 'Scalapay',
   BNC_USD: 'Depósitos en dólares (BNC USD)',
-  BINANCE: 'Binance (USDT)',
+  BINANCE: 'Binance',
   ARCADIA: 'Arcadia Service',
   ZELLE: 'Zelle',
   BANCACOLOMBIA: 'Bancacolombia',
   DAVIVIENDA: 'Davivienda',
-  CUENTA_EUROS: 'Cuenta en Euros',
+  BBVA: 'BBVA',
+  REVOLUT: 'Revolut',
   BANESCO_PANAMA: 'Banesco Panamá (ViajesNova)',
-  BNC_VES: 'BNC - Transferencia en Bs',
+  BNC_VES: 'Transferencia (BNC)',
   PAGO_MOVIL: 'Pago móvil',
-  DEPOSITO_VENEZUELA: 'Depósito oficina Venezuela (efectivo)',
-  DEPOSITO_COLOMBIA: 'Depósito oficina Colombia (efectivo)',
-  DEPOSITO_EUROPA: 'Depósito oficina Europa (efectivo)',
-  CHASE: 'Chase Bank (Estados Unidos)',
+  EFECTIVO_USD: 'Efectivo (USD)',
+  EFECTIVO_COP: 'Efectivo (COP)',
+  EFECTIVO_EUR: 'Efectivo (EUR)',
+  CHASE_NOVA: 'Chase Bank Nova',
+  CHASE_APOLO: 'Chase Bank Apolo',
   BIZUM: 'Bizum (España)',
   TARJETA_CREDITO_USD: 'Tarjeta de Crédito (USD)'
 }
@@ -48,7 +50,7 @@ export const PAYMENT_DATA = {
     ]
   },
   [PAYMENT_METHODS.BINANCE]: {
-    titulo: 'Pago con Binance (USDT)',
+    titulo: 'Pago con Binance',
     descripcion: 'Transferencia en USDT a través de Binance.',
     detalles: [
       'Correo: pagosvuelosnova@gmail.com',
@@ -94,19 +96,22 @@ export const PAYMENT_DATA = {
       'NIT: 901.852.156-4'
     ]
   },
-  [PAYMENT_METHODS.CUENTA_EUROS]: {
-    titulo: 'Transferencia a cuenta en Euros',
-    descripcion: 'Transferencia SEPA en Euros.',
+  [PAYMENT_METHODS.BBVA]: {
+    titulo: 'Transferencia BBVA (EUR)',
+    descripcion: 'Transferencia SEPA en Euros a cuenta BBVA.',
     detalles: [
-      '--- OPCIÓN PRINCIPAL ---',
       'Banco: BBVA',
       'Titular: Grupo Travel BA',
-      'IBAN: ES2301821876830201934375',
-      '',
-      '--- OPCIÓN SECUNDARIA ---',
+      'IBAN: ES2301821876830201934375'
+    ]
+  },
+  [PAYMENT_METHODS.REVOLUT]: {
+    titulo: 'Transferencia Revolut (EUR)',
+    descripcion: 'Transferencia SEPA en Euros a cuenta Revolut.',
+    detalles: [
       'Banco: Revolut',
       'IBAN: ES5415830001169083916022',
-      'Titular: Gaddiel Montero Yepez'
+      'Titular: Gaddiel Montero Yepez',
     ]
   },
   [PAYMENT_METHODS.BANESCO_PANAMA]: {
@@ -120,7 +125,7 @@ export const PAYMENT_DATA = {
     ]
   },
   [PAYMENT_METHODS.BNC_VES]: {
-    titulo: 'Transferencia BNC (VES)',
+    titulo: 'Transferencia (BNC)',
     descripcion: 'Transferencia en bolívares a Banco Nacional de Crédito.',
     detalles: [
       'Banco: BNC (Banco Nacional de Crédito)',
@@ -139,8 +144,8 @@ export const PAYMENT_DATA = {
       'Titular: Josni Bonito'
     ]
   },
-  [PAYMENT_METHODS.DEPOSITO_VENEZUELA]: {
-    titulo: 'Pago en efectivo - Oficinas Venezuela',
+  [PAYMENT_METHODS.EFECTIVO_USD]: {
+    titulo: 'Pago en Efectivo (USD)',
     descripcion: 'Pago en dólares estadounidenses (USD) en efectivo en nuestras oficinas de Venezuela.',
     detalles: [
       'Oficinas disponibles:',
@@ -152,8 +157,8 @@ export const PAYMENT_DATA = {
       'Consulta con tu asesor la dirección exacta de la oficina más cercana.'
     ]
   },
-  [PAYMENT_METHODS.DEPOSITO_COLOMBIA]: {
-    titulo: 'Pago en efectivo - Oficina Colombia',
+  [PAYMENT_METHODS.EFECTIVO_COP]: {
+    titulo: 'Pago en Efectivo (COP)',
     descripcion: 'Pago en pesos colombianos (COP) en efectivo en nuestra oficina de Colombia.',
     detalles: [
       'Oficina disponible:',
@@ -161,8 +166,8 @@ export const PAYMENT_DATA = {
       'Consulta con tu asesor la dirección exacta de la oficina.'
     ]
   },
-  [PAYMENT_METHODS.DEPOSITO_EUROPA]: {
-    titulo: 'Pago en efectivo - Oficina Europa',
+  [PAYMENT_METHODS.EFECTIVO_EUR]: {
+    titulo: 'Pago en Efectivo (EUR)',
     descripcion: 'Pago en euros (EUR) en efectivo en nuestra oficina de Europa.',
     detalles: [
       'Oficina disponible:',
@@ -170,13 +175,23 @@ export const PAYMENT_DATA = {
       'Consulta con tu asesor la dirección exacta de la oficina.'
     ]
   },
-  [PAYMENT_METHODS.CHASE]: {
+  [PAYMENT_METHODS.CHASE_NOVA]: {
     titulo: 'Transferencia Chase Bank (USD)',
     descripcion: 'Transferencia internacional en dólares estadounidenses a cuenta Chase Bank.',
     detalles: [
       'Banco: Chase Bank',
       'Número de cuenta: 900700953',
       'Número de tránsito interbancario (Routing): 267084131'
+    ]
+  },
+  [PAYMENT_METHODS.CHASE_APOLO]: {
+    titulo: 'Transferencia Chase Bank (USD)',
+    descripcion: 'Transferencia internacional en dólares estadounidenses a cuenta Chase Bank.',
+    detalles: [
+      'Banco: Chase Bank',
+      'Número de cuenta: [EJEMPLO-123456]',
+      'Número de tránsito interbancario (Routing): [EJEMPLO-987654]',
+    
     ]
   },
   [PAYMENT_METHODS.BIZUM]: {
@@ -211,15 +226,17 @@ export const METHODS_BY_CURRENCY = {
     PAYMENT_METHODS.BNC_USD,
     PAYMENT_METHODS.ZELLE,
     PAYMENT_METHODS.BANESCO_PANAMA,
-    PAYMENT_METHODS.CHASE,
-    PAYMENT_METHODS.DEPOSITO_VENEZUELA,
+    PAYMENT_METHODS.CHASE_NOVA,
+    PAYMENT_METHODS.CHASE_APOLO,
+    PAYMENT_METHODS.EFECTIVO_USD,
     PAYMENT_METHODS.ARCADIA,
     PAYMENT_METHODS.TARJETA_CREDITO_USD
   ],
   EUR: [
-    PAYMENT_METHODS.CUENTA_EUROS,
-    PAYMENT_METHODS.DEPOSITO_EUROPA,
+    PAYMENT_METHODS.BBVA,
+    PAYMENT_METHODS.REVOLUT,
     PAYMENT_METHODS.BIZUM,
+    PAYMENT_METHODS.EFECTIVO_EUR,
     PAYMENT_METHODS.SCALAPAY
   ],
   VES: [
@@ -229,7 +246,7 @@ export const METHODS_BY_CURRENCY = {
   COP: [
     PAYMENT_METHODS.BANCACOLOMBIA,
     PAYMENT_METHODS.DAVIVIENDA,
-    PAYMENT_METHODS.DEPOSITO_COLOMBIA
+    PAYMENT_METHODS.EFECTIVO_COP
   ],
   USDT: [
     PAYMENT_METHODS.BINANCE
@@ -244,27 +261,38 @@ export const ALL_PAYMENT_METHODS = [
   PAYMENT_METHODS.ZELLE,
   PAYMENT_METHODS.BANCACOLOMBIA,
   PAYMENT_METHODS.DAVIVIENDA,
-  PAYMENT_METHODS.CUENTA_EUROS,
+  PAYMENT_METHODS.BBVA,
+  PAYMENT_METHODS.REVOLUT,
   PAYMENT_METHODS.BANESCO_PANAMA,
   PAYMENT_METHODS.BNC_VES,
   PAYMENT_METHODS.PAGO_MOVIL,
-  PAYMENT_METHODS.DEPOSITO_VENEZUELA,
-  PAYMENT_METHODS.DEPOSITO_COLOMBIA,
-  PAYMENT_METHODS.DEPOSITO_EUROPA,
-  PAYMENT_METHODS.CHASE,
+  PAYMENT_METHODS.EFECTIVO_USD,
+  PAYMENT_METHODS.EFECTIVO_COP,
+  PAYMENT_METHODS.EFECTIVO_EUR,
+  PAYMENT_METHODS.CHASE_NOVA,
+  PAYMENT_METHODS.CHASE_APOLO,
   PAYMENT_METHODS.BIZUM,
   PAYMENT_METHODS.TARJETA_CREDITO_USD
 ]
 
 /**
  * Obtener datos de pago según método y agencia
- * Zelle tiene lógica condicional por agencia
+ * Zelle y Chase tienen lógica condicional por agencia
  */
 export function getPaymentData(metodo, agencia) {
+  // Zelle: variante por agencia
   if (metodo === PAYMENT_METHODS.ZELLE) {
     return agencia === 'apolo' 
       ? PAYMENT_DATA_ZELLE_APOLO 
       : PAYMENT_DATA[PAYMENT_METHODS.ZELLE]
   }
+  
+  // Chase Bank: variante por agencia
+  if (metodo === PAYMENT_METHODS.CHASE_NOVA || metodo === PAYMENT_METHODS.CHASE_APOLO) {
+    return agencia === 'apolo'
+      ? PAYMENT_DATA[PAYMENT_METHODS.CHASE_APOLO]
+      : PAYMENT_DATA[PAYMENT_METHODS.CHASE_NOVA]
+  }
+  
   return PAYMENT_DATA[metodo] || null
 }

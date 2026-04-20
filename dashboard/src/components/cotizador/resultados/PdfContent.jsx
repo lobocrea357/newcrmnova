@@ -400,7 +400,9 @@ const PdfContent = forwardRef(({
                   Método de pago seleccionado
                 </p>
                 <p className="mt-1 text-base font-semibold text-slate-900">
-                  {metodoPago || 'Sin definir'}
+                  {metodoPago === 'Chase Bank Nova' || metodoPago === 'Chase Bank Apolo'
+                    ? 'Chase Bank'
+                    : metodoPago || 'Sin definir'}
                 </p>
               </div>
             </div>
@@ -427,7 +429,7 @@ const PdfContent = forwardRef(({
                   )
                 }
 
-                if (metodoPago === 'Depósito oficina Venezuela (efectivo)') {
+                if (metodoPago === 'Efectivo (USD)') {
                   return (
                     <>
                       <p className="font-semibold text-slate-800">{datos.titulo}</p>
@@ -442,29 +444,6 @@ const PdfContent = forwardRef(({
                         ))}
                       </div>
                       <p className="mt-2 text-slate-500 text-xs italic">Consulta con tu asesor la dirección exacta de la oficina más cercana.</p>
-                    </>
-                  )
-                }
-
-                if (metodoPago === 'Cuenta en Euros') {
-                  return (
-                    <>
-                      <p className="font-semibold text-slate-800">{datos.titulo}</p>
-                      <p className="text-slate-600">{datos.descripcion}</p>
-                      <div className="grid grid-cols-2 gap-4 mt-2">
-                        <div className="space-y-1">
-                          <p className="text-xs font-bold text-slate-700 uppercase">Opción Principal</p>
-                          <p className="text-slate-600">Banco: BBVA</p>
-                          <p className="text-slate-600">Titular: Grupo Travel BA</p>
-                          <p className="text-slate-600 text-xs break-all">IBAN: ES2301821876830201934375</p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-xs font-bold text-slate-700 uppercase">Opción Secundaria</p>
-                          <p className="text-slate-600">Banco: Revolut</p>
-                          <p className="text-slate-600">Titular: Gaddiel Montero Yepez</p>
-                          <p className="text-slate-600 text-xs break-all">IBAN: ES5415830001169083916022</p>
-                        </div>
-                      </div>
                     </>
                   )
                 }
