@@ -189,8 +189,8 @@ export const PAYMENT_DATA = {
     descripcion: 'Transferencia internacional en dólares estadounidenses a cuenta Chase Bank.',
     detalles: [
       'Banco: Chase Bank',
-      'Número de cuenta: [EJEMPLO-123456]',
-      'Número de tránsito interbancario (Routing): [EJEMPLO-987654]',
+      'Número de cuenta: 900700953',
+      'Número de tránsito interbancario (Routing): 267084131',
     
     ]
   },
