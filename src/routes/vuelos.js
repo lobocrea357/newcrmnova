@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import vuelosService from '../services/vuelosService.js';
 import permisosService from '../services/permisosService.js';
+import emisionesService from '../services/emisionesService.js';
 import { supabase } from '../config/supabase.js';
 import { notificarNuevoVuelo, notificarVueloEmitido, notificarPagoObservado, notificarPagoConfirmado } from '../services/notificacionesService.js';
 
@@ -837,6 +838,124 @@ router.post('/:vueloId/copiar-pasajeros', async (req, res) => {
       error: 'Error al copiar pasajeros',
       details: error.message
     });
+  }
+});
+
+/**
+ * PATCH /api/vuelos/:id/autorizar-emision - Autorizar emisión (Solo administracion, admin, super_admin)
+ */
+router.patch('/:id/autorizar-emision', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, cuenta_emision_asignada, observaciones_emision } = req.body;
+
+    // Validar userId
+    if (!userId) {
+      return res.status(400).json({ error: 'userId es requerido' });
+    }
+
+    // Validar cuenta de emisión
+    if (!cuenta_emision_asignada) {
+      return res.status(400).json({ error: 'cuenta_emision_asignada es requerida' });
+    }
+
+    // Validar rol del usuario
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role:roles(name)')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(403).json({ error: 'Usuario no encontrado' });
+    }
+
+    const userRole = profile?.role?.name;
+    const rolesPermitidos = ['administracion', 'admin', 'super_admin'];
+
+    if (!rolesPermitidos.includes(userRole)) {
+      return res.status(403).json({
+        error: 'Acceso denegado',
+        message: 'Solo administración puede autorizar emisiones'
+      });
+    }
+
+    // Autorizar emisión
+    const resultado = await emisionesService.autorizarEmision(
+      id,
+      userId,
+      cuenta_emision_asignada,
+      observaciones_emision
+    );
+
+    res.json({
+      message: 'Vuelo autorizado para emisión',
+      vuelo: resultado.vuelo,
+      deuda_creada: resultado.deuda
+    });
+
+  } catch (error) {
+    console.error('Error en PATCH /api/vuelos/:id/autorizar-emision:', error);
+    res.status(500).json({
+      error: 'Error al autorizar emisión',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/vuelos/autorizar-emision-batch - Autorizar múltiples emisiones
+ */
+router.post('/autorizar-emision-batch', async (req, res) => {
+  try {
+    const { userId, vuelo_ids, cuenta_emision_asignada, observaciones_emision } = req.body;
+
+    // Validaciones
+    if (!userId || !vuelo_ids || !Array.isArray(vuelo_ids)) {
+      return res.status(400).json({ 
+        error: 'userId y vuelo_ids (array) son requeridos' 
+      });
+    }
+
+    if (!cuenta_emision_asignada) {
+      return res.status(400).json({ error: 'cuenta_emision_asignada es requerida' });
+    }
+
+    // Validar rol
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role:roles(name)')
+      .eq('id', userId)
+      .single();
+
+    const userRole = profile?.role?.name;
+    const rolesPermitidos = ['administracion', 'admin', 'super_admin'];
+
+    if (!rolesPermitidos.includes(userRole)) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+
+    // Autorizar batch
+    const resultados = await emisionesService.autorizarEmisionBatch(
+      vuelo_ids,
+      userId,
+      cuenta_emision_asignada,
+      observaciones_emision
+    );
+
+    const exitosos = resultados.filter(r => r.success).length;
+    const fallidos = resultados.filter(r => !r.success).length;
+
+    res.json({
+      message: `${exitosos} vuelos autorizados`,
+      vuelos_autorizados: exitosos,
+      vuelos_fallidos: fallidos,
+      resultados
+    });
+
+  } catch (error) {
+    console.error('Error en POST /api/vuelos/autorizar-emision-batch:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
