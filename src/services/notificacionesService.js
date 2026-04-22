@@ -275,11 +275,56 @@ export async function notificarDeudaGenerada(deuda, vuelo) {
   }
 }
 
+/**
+ * Notificar a administración cuando emisor solicita autorización
+ */
+export async function notificarRecordatorioAutorizacion(vuelo, solicitanteNombre) {
+  try {
+    // Obtener usuarios con rol administracion, admin o super_admin
+    const { data: admins, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .in('rol', ['administracion', 'admin', 'super_admin']);
+
+    if (error || !admins || admins.length === 0) {
+      console.warn('No se encontraron administradores para notificar');
+      return;
+    }
+
+    const ruta = vuelo.ruta || 'sin ruta';
+    const cuentaEmision = vuelo.cuenta_emision_asignada || 'N/A';
+    const precioBase = vuelo.precio_base || 0;
+    const localizador = vuelo.localizador || 'N/A';
+
+    const notificaciones = admins.map(admin => ({
+      user_id: admin.id,
+      tipo: 'recordatorio_autorizacion',
+      titulo: '📌 Solicitud de autorización de emisión',
+      descripcion: `${solicitanteNombre} solicita autorización para emitir el vuelo ${ruta}. Favor revisar saldo en ${cuentaEmision}.`,
+      datos: {
+        vuelo_id: vuelo.id,
+        solicitante_nombre: solicitanteNombre,
+        ruta,
+        cuenta_emision: cuentaEmision,
+        precio_base: precioBase,
+        localizador,
+        accion_requerida: 'Revisar saldo y autorizar emisión'
+      }
+    }));
+
+    await insertarNotificaciones(notificaciones);
+    console.log(`✅ Notificación de recordatorio enviada a ${admins.length} administradores`);
+  } catch (err) {
+    console.error('Error enviando notificación de recordatorio:', err.message);
+  }
+}
+
 export default {
   notificarNuevoVuelo,
   notificarVueloEmitido,
   notificarPagoObservado,
   notificarPagoConfirmado,
   notificarEmisionAutorizada,
-  notificarDeudaGenerada
+  notificarDeudaGenerada,
+  notificarRecordatorioAutorizacion
 };

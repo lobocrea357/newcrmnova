@@ -21,7 +21,10 @@ import {
     X,
     CheckCircle,
     Send,
-    UserPlus
+    UserPlus,
+    Package,
+    CreditCard,
+    BarChart3
 } from 'lucide-react'
 
 const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
@@ -43,6 +46,9 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         { href: '/ventas/vuelos', label: 'Vuelos', icon: PlaneTakeoff },
         { href: '/ventas/anulables', label: 'Anulables', icon: XCircle },
         { href: '/admin/confirmar-pagos', label: 'Confirmar Pagos', icon: CheckCircle },
+        { href: '/admin/control-emisiones', label: 'Control Emisiones', icon: Package },
+        { href: '/admin/deudas', label: 'Gestión Deudas', icon: CreditCard },
+        { href: '/admin/dashboard-emisiones', label: 'Dashboard Emisiones', icon: BarChart3 },
         { href: '/emisiones', label: 'Emisiones', icon: Send },
         { href: '/analisis/reportes', label: 'Reportes', icon: FileText },
         { href: '/inteligencia-artificial', label: 'IA', icon: Brain },
@@ -62,8 +68,8 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         gerente: [
             '/', '/conversaciones', '/rutas-riesgo', '/analisis/rendimiento',
             '/gestion-equipos', '/cotizador', '/ventas', '/ventas/cotizaciones',
-            '/ventas/vuelos', '/admin/confirmar-pagos', '/emisiones',
-            '/inteligencia-artificial', '/configuracion', '/configuracion/mi-equipo'
+            '/ventas/vuelos', '/admin/confirmar-pagos', '/admin/control-emisiones', '/admin/deudas',
+            '/admin/dashboard-emisiones', '/emisiones', '/inteligencia-artificial', '/configuracion', '/configuracion/mi-equipo'
         ],
         asesor: [
             '/', '/cotizador', '/ventas', '/ventas/cotizaciones',
@@ -71,7 +77,8 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         ],
         administracion: [
             '/', '/cotizador', '/ventas', '/ventas/cotizaciones',
-            '/ventas/vuelos', '/ventas/vuelos/nuevo', '/admin/confirmar-pagos'
+            '/ventas/vuelos', '/ventas/vuelos/nuevo', '/admin/confirmar-pagos',
+            '/admin/control-emisiones', '/admin/deudas', '/admin/dashboard-emisiones'
         ],
         emisor: ['/', '/emisiones'],
     }

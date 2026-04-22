@@ -1,50 +1,85 @@
 import express from 'express';
+import multer from 'multer';
 import { supabase } from '../config/supabase.js';
+import { subirComprobantePago } from '../services/storageService.js';
 
 const router = express.Router();
+
+// Configurar multer para memoria (no guardar en disco)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de archivo no permitido. Solo PDF, PNG, JPG.'));
+    }
+  }
+});
 
 /**
  * GET /api/deudas-proveedores - Listar deudas con proveedores
  */
 router.get('/', async (req, res) => {
   try {
-    const { proveedor, estado } = req.query;
+    const {
+      proveedor,
+      estado,
+      page = 1,
+      limit = 20
+    } = req.query;
 
+    const offset = (page - 1) * limit;
+    const limitNum = parseInt(limit);
+
+    // Query base con paginación
     let query = supabase
       .from('deudas_proveedores')
       .select(`
         *,
-        vuelo:vuelos(id, ruta, pax_nombre, localizador),
-        pagos:pagos_deudas(*)
-      `)
-      .order('created_at', { ascending: false });
+        vuelo:vuelos(id, ruta, pax_nombre, estado)
+      `,
+      { count: 'exact' }
+      );
 
+    // Filtros
     if (proveedor) {
       query = query.eq('proveedor', proveedor);
     }
-
     if (estado) {
       query = query.eq('estado', estado);
     }
 
-    const { data: deudas, error } = await query;
+    // Paginación
+    query = query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limitNum - 1);
+
+    const { data, error, count } = await query;
 
     if (error) throw error;
 
-    // Calcular resumen
-    const resumen = {
-      total_adeudado: deudas.reduce((sum, d) => sum + parseFloat(d.monto_deuda), 0),
-      total_pagado: deudas.reduce((sum, d) => 
-        sum + (parseFloat(d.monto_deuda) - parseFloat(d.saldo_pendiente)), 0
-      ),
-      total_pendiente: deudas.reduce((sum, d) => sum + parseFloat(d.saldo_pendiente), 0)
-    };
+    // Calcular totales
+    const total = count || 0;
+    const totalPages = Math.ceil(total / limitNum);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
 
     res.json({
-      deudas,
-      resumen
+      deudas: data || [],
+      pagination: {
+        current_page: parseInt(page),
+        per_page: limitNum,
+        total,
+        total_pages: totalPages,
+        has_next_page: hasNextPage,
+        has_prev_page: hasPrevPage
+      }
     });
-
   } catch (error) {
     console.error('Error en GET /api/deudas-proveedores:', error);
     res.status(500).json({ error: error.message });
@@ -52,9 +87,9 @@ router.get('/', async (req, res) => {
 });
 
 /**
- * POST /api/deudas-proveedores/pagos - Registrar pago de deuda
+ * POST /api/deudas-proveedores/pagos - Registrar pago de deuda (con upload de comprobante)
  */
-router.post('/pagos', async (req, res) => {
+router.post('/pagos', upload.single('comprobante'), async (req, res) => {
   try {
     const {
       deuda_id,
@@ -62,14 +97,15 @@ router.post('/pagos', async (req, res) => {
       moneda,
       metodo_pago,
       referencia_pago,
-      comprobante_url,
       fecha_pago,
       registrado_por,
       observaciones
     } = req.body;
 
+    const userId = req.user?.id || registrado_por;
+
     // Validaciones
-    if (!deuda_id || !monto_pagado || !fecha_pago || !registrado_por) {
+    if (!deuda_id || !monto_pagado || !fecha_pago || !userId) {
       return res.status(400).json({
         error: 'deuda_id, monto_pagado, fecha_pago y registrado_por son requeridos'
       });
@@ -79,7 +115,7 @@ router.post('/pagos', async (req, res) => {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role:roles(name)')
-      .eq('id', registrado_por)
+      .eq('id', userId)
       .single();
 
     const rolesPermitidos = ['administracion', 'admin', 'super_admin'];
@@ -98,6 +134,17 @@ router.post('/pagos', async (req, res) => {
       return res.status(404).json({ error: 'Deuda no encontrada' });
     }
 
+    // Subir comprobante si se proporcionó
+    let comprobanteUrl = null;
+    if (req.file) {
+      const uploadResult = await subirComprobantePago(
+        req.file,
+        deuda_id,
+        userId
+      );
+      comprobanteUrl = uploadResult.url;
+    }
+
     // Registrar pago
     const { data: pago, error: errorPago } = await supabase
       .from('pagos_deudas')
@@ -107,9 +154,9 @@ router.post('/pagos', async (req, res) => {
         moneda: moneda || 'USD',
         metodo_pago,
         referencia_pago,
-        comprobante_url,
+        comprobante_url: comprobanteUrl,
         fecha_pago,
-        registrado_por,
+        registrado_por: userId,
         observaciones
       })
       .select()

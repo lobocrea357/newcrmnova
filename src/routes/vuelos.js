@@ -3,8 +3,9 @@ import multer from 'multer';
 import vuelosService from '../services/vuelosService.js';
 import permisosService from '../services/permisosService.js';
 import emisionesService from '../services/emisionesService.js';
+import { obtenerHistorialCambios } from '../services/auditoriaService.js';
+import { notificarNuevoVuelo, notificarVueloEmitido, notificarPagoObservado, notificarPagoConfirmado, notificarRecordatorioAutorizacion } from '../services/notificacionesService.js';
 import { supabase } from '../config/supabase.js';
-import { notificarNuevoVuelo, notificarVueloEmitido, notificarPagoObservado, notificarPagoConfirmado } from '../services/notificacionesService.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -955,6 +956,70 @@ router.post('/autorizar-emision-batch', async (req, res) => {
 
   } catch (error) {
     console.error('Error en POST /api/vuelos/autorizar-emision-batch:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/vuelos/:id/historial - Obtener historial de cambios de estado
+ */
+router.get('/:id/historial', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const historial = await obtenerHistorialCambios('vuelo', id);
+
+    res.json({
+      historial,
+      total: historial.length
+    });
+  } catch (error) {
+    console.error('Error obteniendo historial:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/vuelos/:id/solicitar-autorizacion - Solicitar autorización de emisión
+ */
+router.post('/:id/solicitar-autorizacion', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId es requerido' });
+    }
+
+    // Obtener vuelo
+    const { data: vuelo, error: vueloError } = await supabase
+      .from('vuelos')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (vueloError || !vuelo) {
+      return res.status(404).json({ error: 'Vuelo no encontrado' });
+    }
+
+    // Obtener nombre del solicitante
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', userId)
+      .single();
+
+    const solicitanteNombre = profile?.full_name || 'Usuario';
+
+    // Enviar notificación a admins
+    await notificarRecordatorioAutorizacion(vuelo, solicitanteNombre);
+
+    res.json({
+      message: 'Solicitud de autorización enviada a administración',
+      vuelo_id: id
+    });
+  } catch (error) {
+    console.error('Error solicitando autorización:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -28,6 +28,7 @@ import rankingsRoutes from './routes/rankings.js';
 import agenciasRoutes from './routes/agencias.js';
 import sedesRoutes from './routes/sedes.js';
 import deudasRoutes from './routes/deudas.js';
+import metricasRoutes from './routes/metricas.js';
 
 // Importar servicio de auto-sincronización
 import autoSyncService from './services/autoSyncService.js';
@@ -68,6 +69,7 @@ app.use('/api/rankings', rankingsRoutes);
 app.use('/api/agencias', agenciasRoutes);
 app.use('/api/sedes', sedesRoutes);
 app.use('/api/deudas-proveedores', deudasRoutes);
+app.use('/api/metricas', metricasRoutes);
 
 // Ruta de health check
 app.get('/health', (req, res) => {

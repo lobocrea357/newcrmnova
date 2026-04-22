@@ -5,6 +5,7 @@ import { CreditCard, DollarSign, TrendingUp, AlertTriangle, CheckCircle, Clock, 
 import { useRouteGuard } from '@/hooks/useRouteGuard'
 import { DEUDAS_API } from '@/config/apiConfig'
 import { toastSuccess, toastError } from '@/helpers/toasts'
+import UploadComprobante from '@/components/deudas/UploadComprobante'
 
 export default function DeudasPage() {
   const { user, profile, loading: authLoading } = useRouteGuard({
@@ -20,6 +21,12 @@ export default function DeudasPage() {
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
   const [deudaSeleccionada, setDeudaSeleccionada] = useState(null)
   const [mostrarModalPago, setMostrarModalPago] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(20)
+  const [totalItems, setTotalItems] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [comprobanteFile, setComprobanteFile] = useState(null)
+  const [registrandoPago, setRegistrandoPago] = useState(false)
 
   const [formDataPago, setFormDataPago] = useState({
     monto_pagado: '',
@@ -33,24 +40,28 @@ export default function DeudasPage() {
     if (user) {
       cargarDeudas()
     }
-  }, [user, filtroProveedor, filtroEstado])
+  }, [user, currentPage, filtroProveedor, filtroEstado])
 
   const cargarDeudas = async () => {
     try {
       setLoading(true)
-      
+
       const params = new URLSearchParams()
+      params.append('page', currentPage)
+      params.append('limit', itemsPerPage)
       if (filtroProveedor) params.append('proveedor', filtroProveedor)
       if (filtroEstado) params.append('estado', filtroEstado)
 
       const response = await fetch(`${DEUDAS_API.listar}?${params.toString()}`)
-      
+
       if (!response.ok) {
         throw new Error('Error al cargar deudas')
       }
 
       const data = await response.json()
       setDeudas(data.deudas || [])
+      setTotalItems(data.pagination?.total || 0)
+      setTotalPages(data.pagination?.total_pages || 1)
     } catch (error) {
       console.error('Error cargando deudas:', error)
       toastError('Error al cargar deudas')
@@ -64,19 +75,25 @@ export default function DeudasPage() {
 
     if (!deudaSeleccionada) return
 
+    setRegistrandoPago(true)
+
     try {
+      const formData = new FormData()
+      formData.append('deuda_id', deudaSeleccionada.id)
+      formData.append('monto_pagado', formDataPago.monto_pagado)
+      formData.append('metodo_pago', formDataPago.metodo_pago)
+      formData.append('referencia_pago', formDataPago.referencia_pago)
+      formData.append('fecha_pago', formDataPago.fecha_pago)
+      formData.append('registrado_por', user.id)
+      formData.append('observaciones', formDataPago.observaciones)
+
+      if (comprobanteFile) {
+        formData.append('comprobante', comprobanteFile)
+      }
+
       const response = await fetch(DEUDAS_API.registrarPago, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          deuda_id: deudaSeleccionada.id,
-          monto_pagado: parseFloat(formDataPago.monto_pagado),
-          metodo_pago: formDataPago.metodo_pago,
-          referencia_pago: formDataPago.referencia_pago,
-          fecha_pago: formDataPago.fecha_pago,
-          registrado_por: user.id,
-          observaciones: formDataPago.observaciones
-        })
+        body: formData
       })
 
       if (!response.ok) {
@@ -93,10 +110,13 @@ export default function DeudasPage() {
         fecha_pago: new Date().toISOString().split('T')[0],
         observaciones: ''
       })
+      setComprobanteFile(null)
       await cargarDeudas()
     } catch (error) {
       console.error('Error registrando pago:', error)
       toastError(error.message)
+    } finally {
+      setRegistrandoPago(false)
     }
   }
 
@@ -375,6 +395,37 @@ export default function DeudasPage() {
             </div>
           </div>
         )}
+
+        {/* Controles de paginación */}
+        {totalItems > 0 && (
+          <div className="flex items-center justify-between mt-6">
+            <div className="text-sm text-gray-600">
+              Mostrando {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, totalItems)} de {totalItems} deudas
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Anterior
+              </button>
+
+              <span className="px-4 py-2">
+                Página {currentPage} de {totalPages}
+              </span>
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal de Registro de Pago */}
@@ -385,7 +436,10 @@ export default function DeudasPage() {
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-gray-900">Registrar Pago</h2>
                 <button
-                  onClick={() => setMostrarModalPago(false)}
+                  onClick={() => {
+                    setMostrarModalPago(false)
+                    setComprobanteFile(null)
+                  }}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   ✕
@@ -457,6 +511,16 @@ export default function DeudasPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Comprobante de Pago
+                  </label>
+                  <UploadComprobante
+                    onFileSelect={setComprobanteFile}
+                    disabled={registrandoPago}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Observaciones
                   </label>
                   <textarea
@@ -471,16 +535,21 @@ export default function DeudasPage() {
                 <div className="flex gap-3 pt-4">
                   <button
                     type="button"
-                    onClick={() => setMostrarModalPago(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={() => {
+                      setMostrarModalPago(false)
+                      setComprobanteFile(null)
+                    }}
+                    disabled={registrandoPago}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    disabled={registrandoPago}
+                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Registrar Pago
+                    {registrandoPago ? 'Registrando...' : 'Registrar Pago'}
                   </button>
                 </div>
               </form>
