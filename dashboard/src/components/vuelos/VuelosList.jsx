@@ -1,6 +1,7 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Search, Filter, X, User } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 import VueloCard from './VueloCard'
 import FilterSelect from './FilterSelect'
 
@@ -134,6 +135,34 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
   }
 
   const hasActiveFilters = Object.values(filters).some(v => v !== '')
+
+  // Suscripción a Supabase Realtime para actualizaciones de autorización de emisiones
+  useEffect(() => {
+    // Solo suscribirse si hay vuelos cargados
+    if (!vuelos || vuelos.length === 0) return
+
+    const channel = supabase
+      .channel('vuelos-autorizacion-emision')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'vuelos',
+          filter: 'autorizado_emision=eq.true'
+        },
+        (payload) => {
+          console.log('Autorización de emisión detectada:', payload)
+          // Recargar vuelos para reflejar el cambio
+          onFilterChange(filters)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [vuelos, filters, onFilterChange])
 
   return (
     <div className="space-y-6">
