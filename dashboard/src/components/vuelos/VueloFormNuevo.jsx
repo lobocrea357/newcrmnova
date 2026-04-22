@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Plane, Users, Calendar, DollarSign, FileText, Upload, X, Copy, CheckCircle, AlertCircle, Sparkles, Loader2, MapPin, Clock } from 'lucide-react'
+import { Plane, Users, Calendar, DollarSign, FileText, Upload, X, Copy, CheckCircle, AlertCircle, Sparkles, Loader2, MapPin, Clock, CreditCard } from 'lucide-react'
 import { toastSuccess, toastError, toastInfo } from '@/helpers/toasts'
 import { METHODS_BY_CURRENCY } from '@/lib/cotizador/paymentConfig'
 import AerolineaAutocomplete from '@/components/cotizador/AerolineaAutocomplete'
@@ -117,6 +117,9 @@ export default function VueloFormNuevo({
     moneda_cotizacion: '',
     tasa_cambio: '',
     total_cotizacion: '',
+    // Información de Emisión
+    forma_emision: 'CONTADO',
+    cuenta_emision_asignada: '',
     ...initialData
   })
 
@@ -161,6 +164,24 @@ export default function VueloFormNuevo({
     setFormData(prev => ({ ...prev, [name]: value }))
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }))
+    }
+  }
+
+  const handleCuentaChange = (e) => {
+    const cuenta = e.target.value
+
+    // Auto-marcar como contado si es Servivuelo o Chase
+    if (cuenta.includes('SERVIVUELO') || cuenta.includes('CHASE')) {
+      setFormData(prev => ({
+        ...prev,
+        cuenta_emision_asignada: cuenta,
+        forma_emision: 'CONTADO'
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        cuenta_emision_asignada: cuenta
+      }))
     }
   }
 
@@ -476,7 +497,10 @@ export default function VueloFormNuevo({
         moneda_precio: formData.moneda_precio || null,
         moneda_cotizacion: formData.moneda_cotizacion || null,
         tasa_cambio: formData.tasa_cambio ? parseFloat(formData.tasa_cambio) : null,
-        total_cotizacion: subtotalCalculado
+        total_cotizacion: subtotalCalculado,
+        // Información de Emisión
+        forma_emision: formData.forma_emision || 'CONTADO',
+        cuenta_emision_asignada: formData.cuenta_emision_asignada || null
       },
       pasajeros: pasajeros.map(p => ({
         cotizacion_pasajero_id: p.cotizacion_pasajero_id || null,
@@ -712,7 +736,7 @@ export default function VueloFormNuevo({
               placeholder="Ej: EFDYYO"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 uppercase"
             />
-            <p className="mt-1 text-xs text-gray-500">Puede llenarse después si aún no se tiene</p>
+            <p className="mt-1 text-xs text-gray-500">Opcional - Se generará automáticamente si se deja vacío</p>
           </div>
 
           <div>
@@ -780,6 +804,87 @@ export default function VueloFormNuevo({
             <p className="mt-1 text-xs text-gray-500">
               Este desglose será usado por el equipo de emisión para emitir los boletos
             </p>
+          </div>
+
+          {/* Sección: Información de Emisión */}
+          <div className="md:col-span-2 bg-purple-50 rounded-xl p-6 border border-purple-200">
+            <div className="flex items-center gap-2 mb-4">
+              <CreditCard className="w-6 h-6 text-purple-600" />
+              <h3 className="text-lg font-bold text-gray-900">Información de Emisión</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Cuenta de Emisión */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cuenta de Emisión *
+                </label>
+                <select
+                  name="cuenta_emision_asignada"
+                  value={formData.cuenta_emision_asignada}
+                  onChange={handleCuentaChange}
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="">Seleccionar cuenta...</option>
+                  <option value="SERVIVUELO_1">Servivuelo 1 (Contado)</option>
+                  <option value="SERVIVUELO_2">Servivuelo 2 (Contado)</option>
+                  <option value="CHASE_NOVA">Chase Bank Nova (Contado)</option>
+                  <option value="CHASE_APOLO">Chase Bank Apolo (Contado)</option>
+                  <option value="SABRE">Sabre (Crédito/Contado)</option>
+                  <option value="AMADEUS">Amadeus (Crédito/Contado)</option>
+                  <option value="EXPEDIA">Expedia (Crédito/Contado)</option>
+                </select>
+
+                {/* Nota automática para Servivuelo */}
+                {formData.cuenta_emision_asignada?.includes('SERVIVUELO') && (
+                  <p className="mt-2 text-sm text-indigo-600">
+                    ℹ️ Servivuelo siempre es al contado
+                  </p>
+                )}
+              </div>
+
+              {/* Forma de Emisión */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Forma de Emisión *
+                </label>
+                <div className="flex gap-4 mt-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="forma_emision"
+                      value="CONTADO"
+                      checked={formData.forma_emision === 'CONTADO'}
+                      onChange={handleChange}
+                      disabled={formData.cuenta_emision_asignada?.includes('SERVIVUELO') ||
+                        formData.cuenta_emision_asignada?.includes('CHASE')}
+                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                    />
+                    <span className="text-sm text-gray-900">Contado</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="forma_emision"
+                      value="CREDITO"
+                      checked={formData.forma_emision === 'CREDITO'}
+                      onChange={handleChange}
+                      disabled={formData.cuenta_emision_asignada?.includes('SERVIVUELO') ||
+                        formData.cuenta_emision_asignada?.includes('CHASE')}
+                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                    />
+                    <span className="text-sm text-gray-900">Crédito</span>
+                  </label>
+                </div>
+
+                {formData.forma_emision === 'CREDITO' && (
+                  <p className="mt-2 text-sm text-amber-600">
+                    ⚠️ Se generará una deuda con el proveedor
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="md:col-span-2">
