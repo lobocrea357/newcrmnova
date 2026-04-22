@@ -11,6 +11,8 @@ import {
 } from 'lucide-react'
 import { toastSuccess, toastError } from '@/helpers/toasts'
 import { METRICAS_API } from '@/config/apiConfig'
+// NavigationBreadcrumb eliminado - tabs son suficientes para navegación
+import AdminFinanceNav from '@/components/admin/AdminFinanceNav'
 
 export default function DashboardEmisiones() {
   const { user, profile, loading: authLoading } = useRouteGuard({
@@ -81,6 +83,10 @@ export default function DashboardEmisiones() {
             </select>
           </div>
         </div>
+
+
+        {/* Navegación Horizontal */}
+        <AdminFinanceNav />
 
         {/* Cards de métricas principales */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

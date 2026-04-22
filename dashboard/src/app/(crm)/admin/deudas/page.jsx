@@ -6,6 +6,8 @@ import { useRouteGuard } from '@/hooks/useRouteGuard'
 import { DEUDAS_API } from '@/config/apiConfig'
 import { toastSuccess, toastError } from '@/helpers/toasts'
 import UploadComprobante from '@/components/deudas/UploadComprobante'
+// NavigationBreadcrumb eliminado - tabs son suficientes para navegación
+import AdminFinanceNav from '@/components/admin/AdminFinanceNav'
 
 export default function DeudasPage() {
   const { user, profile, loading: authLoading } = useRouteGuard({
@@ -191,6 +193,10 @@ export default function DeudasPage() {
           </div>
           <p className="text-gray-600">Control de deudas con proveedores y registro de pagos</p>
         </div>
+
+
+        {/* Navegación Horizontal */}
+        <AdminFinanceNav />
 
         {/* Resumen */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

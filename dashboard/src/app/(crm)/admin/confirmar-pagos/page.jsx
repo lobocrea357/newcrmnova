@@ -8,9 +8,25 @@ import { toastSuccess, toastError } from '@/helpers/toasts'
 import ImageModal from '@/components/shared/ImageModal'
 import ModalObservacionPago from '@/components/vuelos/ModalObservacionPago'
 import { useUserProfile } from '@/contexts/UserProfileContext'
+import { useRouteGuard } from '@/hooks/useRouteGuard'
+import MetricasHeader from '@/components/admin/MetricasHeader'
+import PagoCard from '@/components/admin/PagoCard'
+// NavigationBreadcrumb eliminado - tabs son suficientes para navegación
+import AdminFinanceNav from '@/components/admin/AdminFinanceNav'
 
 export default function ConfirmarPagosPage() {
   const router = useRouter()
+
+  // Usar useRouteGuard para validación de roles consistente con las otras vistas
+  const { user, profile, loading: authLoading } = useRouteGuard({
+    requireAuth: true,
+    allowedRoles: ['administracion', 'admin', 'super_admin']
+  })
+
+  // Validación adicional de permiso específico
+  const { hasPermission } = useUserProfile()
+  const tienePermisoConfirmarPagos = hasPermission('vuelos.confirm_payment')
+
   const [vuelos, setVuelos] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedVuelo, setSelectedVuelo] = useState(null)
@@ -20,24 +36,15 @@ export default function ConfirmarPagosPage() {
   const [selectedImage, setSelectedImage] = useState({ url: '', name: '' })
   const [observacionModalOpen, setObservacionModalOpen] = useState(false)
 
-  // Validación de permisos
-  const { isSuperAdmin, isAdmin, isAdministracion, hasPermission } = useUserProfile()
-
-  // Solo permitir acceso a super_admin, admin y administracion
-  const puedeConfirmarPagos = isSuperAdmin || isAdmin || isAdministracion
-
-  // Verificar permiso específico de vuelos.confirm_payment
-  const tienePermisoConfirmarPagos = hasPermission('vuelos.confirm_payment') || isSuperAdmin
-
-  // Redirigir a /no-autorizado si no tiene permisos
+  // Redirigir si no tiene el permiso específico
   useEffect(() => {
-    if (!puedeConfirmarPagos || !tienePermisoConfirmarPagos) {
+    if (!tienePermisoConfirmarPagos && profile) {
       router.push('/no-autorizado')
     }
-  }, [puedeConfirmarPagos, tienePermisoConfirmarPagos, router])
+  }, [tienePermisoConfirmarPagos, profile, router])
 
-  // Si no tiene permisos, no renderizar nada (se está redirigiendo)
-  if (!puedeConfirmarPagos || !tienePermisoConfirmarPagos) {
+  // Si no tiene permiso específico, no renderizar
+  if (!tienePermisoConfirmarPagos) {
     return null
   }
 
@@ -191,6 +198,10 @@ export default function ConfirmarPagosPage() {
             Revisa y aprueba los pagos de vuelos pendientes
           </p>
         </div>
+
+
+        {/* Navegación Horizontal */}
+        <AdminFinanceNav />
 
         {loading ? (
           <div className="flex items-center justify-center h-64">

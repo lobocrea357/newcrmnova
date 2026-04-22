@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase'
 import { useRouteGuard } from '@/hooks/useRouteGuard'
 import { VUELOS_API } from '@/config/apiConfig'
 import { toastSuccess, toastError } from '@/helpers/toasts'
+// NavigationBreadcrumb eliminado - tabs son suficientes para navegación
+import AdminFinanceNav from '@/components/admin/AdminFinanceNav'
 
 export default function ControlEmisionesPage() {
   const { user, profile, loading: authLoading } = useRouteGuard({
@@ -151,6 +153,10 @@ export default function ControlEmisionesPage() {
             Vuelos pendientes de autorización para emisión
           </p>
         </div>
+
+
+        {/* Navegación Horizontal */}
+        <AdminFinanceNav />
 
         {/* Lista agrupada por cuenta */}
         {Object.keys(vuelosPorCuenta).length === 0 ? (
