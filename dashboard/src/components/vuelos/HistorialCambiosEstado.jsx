@@ -15,10 +15,6 @@ export default function HistorialCambiosEstado({ vueloId }) {
   // Validación de permisos: solo admins y super_admins pueden ver historial
   const puedeVerHistorial = isAdmin || isSuperAdmin;
 
-  if (!puedeVerHistorial) {
-    return null;
-  }
-
   useEffect(() => {
     if (vueloId && isExpanded) {
       fetchHistorial();
@@ -39,6 +35,10 @@ export default function HistorialCambiosEstado({ vueloId }) {
       setLoading(false);
     }
   };
+
+  if (!puedeVerHistorial) {
+    return null;
+  }
 
   if (!isExpanded) {
     return (

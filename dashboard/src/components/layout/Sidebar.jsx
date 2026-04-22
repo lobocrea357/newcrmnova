@@ -27,33 +27,34 @@ import {
     BarChart3
 } from 'lucide-react'
 
+// menuItems como constante fuera del componente para evitar recreación en cada render
+const BASE_MENU_ITEMS = [
+    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/conversaciones', label: 'Conversaciones', icon: MessageSquare },
+    { href: '/rutas-riesgo', label: 'Rutas en Riesgo', icon: AlertTriangle },
+    { href: '/analisis/rendimiento', label: 'Rendimiento', icon: TrendingUp },
+    { href: '/manual-ventas', label: 'Manual de Ventas', icon: BookOpen },
+    { href: '/cotizador', label: 'Cotizador', icon: Calculator },
+    { href: '/ventas', label: 'Ventas', icon: TrendingUp },
+    { href: '/ventas/cotizaciones', label: 'Cotizaciones', icon: ClipboardList },
+    { href: '/ventas/vuelos', label: 'Vuelos', icon: PlaneTakeoff },
+    { href: '/ventas/anulables', label: 'Anulables', icon: XCircle },
+    // Módulo Admin Finanzas - Solo Dashboard Emisiones como entrada
+    { href: '/admin/dashboard-emisiones', label: 'Administracion', icon: BarChart3 },
+    // Eliminadas: Confirmar Pagos, Control Emisiones, Gestión Deudas
+    // Ahora se acceden vía tabs dentro de Dashboard Emisiones
+    { href: '/emisiones', label: 'Emisiones', icon: Send },
+    { href: '/analisis/reportes', label: 'Reportes', icon: FileText },
+    { href: '/inteligencia-artificial', label: 'IA', icon: Brain },
+    { href: '/configuracion', label: 'Configuración', icon: Settings },
+]
+
 const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
     const pathname = usePathname()
     const { profile, role, loading: profileLoading, isSuperAdmin, isAdmin, isManager } = useUserProfile()
 
     // Solo hay un loading: el del perfil
     const loading = profileLoading
-
-    const menuItems = [
-        { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-        { href: '/conversaciones', label: 'Conversaciones', icon: MessageSquare },
-        { href: '/rutas-riesgo', label: 'Rutas en Riesgo', icon: AlertTriangle },
-        { href: '/analisis/rendimiento', label: 'Rendimiento', icon: TrendingUp },
-        { href: '/manual-ventas', label: 'Manual de Ventas', icon: BookOpen },
-        { href: '/cotizador', label: 'Cotizador', icon: Calculator },
-        { href: '/ventas', label: 'Ventas', icon: TrendingUp },
-        { href: '/ventas/cotizaciones', label: 'Cotizaciones', icon: ClipboardList },
-        { href: '/ventas/vuelos', label: 'Vuelos', icon: PlaneTakeoff },
-        { href: '/ventas/anulables', label: 'Anulables', icon: XCircle },
-        { href: '/admin/confirmar-pagos', label: 'Confirmar Pagos', icon: CheckCircle },
-        { href: '/admin/control-emisiones', label: 'Control Emisiones', icon: Package },
-        { href: '/admin/deudas', label: 'Gestión Deudas', icon: CreditCard },
-        { href: '/admin/dashboard-emisiones', label: 'Dashboard Emisiones', icon: BarChart3 },
-        { href: '/emisiones', label: 'Emisiones', icon: Send },
-        { href: '/analisis/reportes', label: 'Reportes', icon: FileText },
-        { href: '/inteligencia-artificial', label: 'IA', icon: Brain },
-        { href: '/configuracion', label: 'Configuración', icon: Settings },
-    ]
 
     // IMPORTANTE: Solo evaluar permisos cuando el perfil ha cargado completamente
     const permissionsLoaded = !profileLoading && profile !== null
@@ -68,8 +69,8 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         gerente: [
             '/', '/conversaciones', '/rutas-riesgo', '/analisis/rendimiento',
             '/gestion-equipos', '/cotizador', '/ventas', '/ventas/cotizaciones',
-            '/ventas/vuelos', '/admin/confirmar-pagos', '/admin/control-emisiones', '/admin/deudas',
-            '/admin/dashboard-emisiones', '/emisiones', '/inteligencia-artificial', '/configuracion', '/configuracion/mi-equipo'
+            '/ventas/vuelos', '/admin/dashboard-emisiones', // Consolidado - acceso vía tabs
+            '/emisiones', '/inteligencia-artificial', '/configuracion', '/configuracion/mi-equipo'
         ],
         asesor: [
             '/', '/cotizador', '/ventas', '/ventas/cotizaciones',
@@ -77,8 +78,7 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         ],
         administracion: [
             '/', '/cotizador', '/ventas', '/ventas/cotizaciones',
-            '/ventas/vuelos', '/ventas/vuelos/nuevo', '/admin/confirmar-pagos',
-            '/admin/control-emisiones', '/admin/deudas', '/admin/dashboard-emisiones'
+            '/ventas/vuelos', '/ventas/vuelos/nuevo', '/admin/dashboard-emisiones' // Consolidado - acceso vía tabs
         ],
         emisor: ['/', '/emisiones'],
     }
@@ -100,13 +100,18 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         return allowedRoutes.some(allowed => href === allowed || href.startsWith(allowed + '/'))
     }
 
-    // Agregar ruta de gestión de equipos solo si tiene permiso
-    if (canManageTeam) {
-        const configIndex = menuItems.findIndex(item => item.href === '/configuracion')
-        if (configIndex !== -1 && !menuItems.some(item => item.href === '/gestion-equipos')) {
-            menuItems.splice(configIndex, 0, { href: '/gestion-equipos', label: 'Gestión de Equipos', icon: UserPlus })
+    // Crear array final de menuItems sin mutar el original
+    const finalMenuItems = React.useMemo(() => {
+        const items = [...BASE_MENU_ITEMS]
+        // Agregar ruta de gestión de equipos solo si tiene permiso
+        if (canManageTeam) {
+            const configIndex = items.findIndex(item => item.href === '/configuracion')
+            if (configIndex !== -1 && !items.some(item => item.href === '/gestion-equipos')) {
+                items.splice(configIndex, 0, { href: '/gestion-equipos', label: 'Gestión de Equipos', icon: UserPlus })
+            }
         }
-    }
+        return items
+    }, [canManageTeam])
 
     const isActive = (href) => {
         if (href === '/') {
@@ -171,7 +176,7 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
                                 </li>
                             ))
                         ) : (
-                            menuItems.map((item) => {
+                                finalMenuItems.map((item) => {
                                 const Icon = item.icon
                                 const active = isActive(item.href)
 
