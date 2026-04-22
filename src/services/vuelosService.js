@@ -5,6 +5,44 @@ import { supabase } from '../config/supabase.js';
  */
 class VuelosService {
   /**
+   * Generar un localizador único alfanumérico de 6 caracteres
+   * @private
+   */
+  async _generarLocalizadorUnico() {
+    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const longitud = 6;
+    let localizador;
+    let existe = true;
+    let intentos = 0;
+    const maxIntentos = 10;
+
+    while (existe && intentos < maxIntentos) {
+      // Generar localizador aleatorio
+      localizador = '';
+      for (let i = 0; i < longitud; i++) {
+        localizador += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+      }
+
+      // Verificar si ya existe
+      const { data: vueloExistente } = await supabase
+        .from('vuelos')
+        .select('localizador')
+        .eq('localizador', localizador)
+        .single();
+
+      existe = !!vueloExistente;
+      intentos++;
+    }
+
+    if (existe) {
+      throw new Error('No se pudo generar un localizador único después de múltiples intentos');
+    }
+
+    console.log(`[VuelosService] Localizador único generado: ${localizador}`);
+    return localizador;
+  }
+
+  /**
    * Crear un nuevo vuelo con pasajeros y adjuntos
    */
   async crearVuelo(vueloData, pasajeros = [], adjuntos = []) {
@@ -14,7 +52,27 @@ class VuelosService {
       // 1. Sanitizar datos de vuelo de vuelta según tipo_vuelo
       const datosSanitizados = this._sanitizarDatosVuelo(vueloData);
 
-      // 2. Insertar vuelo principal
+      // 2. Generar localizador único si no se proporciona uno
+      if (!datosSanitizados.localizador || datosSanitizados.localizador.trim() === '') {
+        datosSanitizados.localizador = await this._generarLocalizadorUnico();
+      } else {
+        // Si se proporcionó un localizador, verificar que no exista
+        const localizadorProporcionado = datosSanitizados.localizador.trim().toUpperCase();
+        const { data: vueloExistente } = await supabase
+          .from('vuelos')
+          .select('localizador')
+          .eq('localizador', localizadorProporcionado)
+          .single();
+
+        if (vueloExistente) {
+          console.warn(`[VuelosService] Localizador ${localizadorProporcionado} ya existe, generando uno nuevo`);
+          datosSanitizados.localizador = await this._generarLocalizadorUnico();
+        } else {
+          datosSanitizados.localizador = localizadorProporcionado;
+        }
+      }
+
+      // 3. Insertar vuelo principal
       const { data: vuelo, error: errorVuelo } = await supabase
         .from('vuelos')
         .insert([datosSanitizados])
