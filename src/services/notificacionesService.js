@@ -174,9 +174,112 @@ export async function notificarPagoConfirmado(vuelo, adminNombre) {
   }
 }
 
+/**
+ * Notificar a emisor sobre autorización de emisión
+ */
+export async function notificarEmisionAutorizada(vuelo, adminNombre) {
+  try {
+    // Obtener usuarios con rol 'emisor'
+    const { data: emisores, error: errorEmisores } = await supabase
+      .from('profiles')
+      .select('id, role:roles(name)')
+      .eq('role.name', 'emisor');
+
+    if (errorEmisores) {
+      console.error('Error obteniendo emisores:', errorEmisores);
+      return;
+    }
+
+    if (!emisores || emisores.length === 0) {
+      console.warn('No hay usuarios con rol emisor');
+      return;
+    }
+
+    // Calcular precio base total
+    const { data: pasajeros, error: errorPasajeros } = await supabase
+      .from('vuelos_pasajeros')
+      .select('precio_pantalla')
+      .eq('vuelo_id', vuelo.id);
+
+    if (errorPasajeros) {
+      console.error('Error obteniendo pasajeros:', errorPasajeros);
+    }
+
+    const precioBase = pasajeros?.reduce((sum, p) => sum + parseFloat(p.precio_pantalla || 0), 0) || 0;
+
+    const notificaciones = emisores.map(emisor => ({
+      user_id: emisor.id,
+      tipo: 'emision_autorizada',
+      titulo: '✅ Vuelo autorizado para emisión',
+      descripcion: `${adminNombre} autorizó el vuelo ${vuelo.ruta}. Puedes proceder a emitir.`,
+      datos: {
+        vuelo_id: vuelo.id,
+        admin_nombre: adminNombre,
+        ruta: vuelo.ruta,
+        cuenta_emision: vuelo.cuenta_emision_asignada,
+        precio_base: precioBase,
+        localizador: vuelo.localizador,
+        pax_nombre: vuelo.pax_nombre,
+        accion_requerida: 'Proceder con emisión del vuelo'
+      }
+    }));
+
+    await insertarNotificaciones(notificaciones);
+    console.log(`✅ Notificaciones de emisión enviadas a ${emisores.length} emisores`);
+  } catch (err) {
+    console.error('Error enviando notificación de emisión:', err.message);
+  }
+}
+
+/**
+ * Notificar a administración sobre deuda generada
+ */
+export async function notificarDeudaGenerada(deuda, vuelo) {
+  try {
+    // Obtener usuarios con rol 'administracion', 'admin', 'super_admin'
+    const { data: admins, error: errorAdmins } = await supabase
+      .from('profiles')
+      .select('id, role:roles(name)')
+      .or('role.name.eq.administracion,role.name.eq.admin,role.name.eq.super_admin');
+
+    if (errorAdmins) {
+      console.error('Error obteniendo administradores:', errorAdmins);
+      return;
+    }
+
+    if (!admins || admins.length === 0) {
+      console.warn('No hay usuarios administradores');
+      return;
+    }
+
+    const notificaciones = admins.map(admin => ({
+      user_id: admin.id,
+      tipo: 'deuda_generada',
+      titulo: '💳 Nueva deuda generada con proveedor',
+      descripcion: `Se generó una deuda de $${deuda.monto_deuda.toFixed(2)} USD con ${deuda.proveedor} por el vuelo ${vuelo.ruta}.`,
+      datos: {
+        deuda_id: deuda.id,
+        proveedor: deuda.proveedor,
+        monto_deuda: deuda.monto_deuda,
+        vuelo_id: vuelo.id,
+        ruta: vuelo.ruta,
+        fecha_vencimiento: deuda.fecha_vencimiento,
+        accion_requerida: 'Planificar pago antes del vencimiento'
+      }
+    }));
+
+    await insertarNotificaciones(notificaciones);
+    console.log(`✅ Notificaciones de deuda enviadas a ${admins.length} administradores`);
+  } catch (err) {
+    console.error('Error enviando notificación de deuda:', err.message);
+  }
+}
+
 export default {
   notificarNuevoVuelo,
   notificarVueloEmitido,
   notificarPagoObservado,
-  notificarPagoConfirmado
+  notificarPagoConfirmado,
+  notificarEmisionAutorizada,
+  notificarDeudaGenerada
 };
