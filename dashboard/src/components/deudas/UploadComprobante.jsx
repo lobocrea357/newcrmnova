@@ -12,8 +12,18 @@ export default function UploadComprobante({ onFileSelect, disabled = false }) {
     const selectedFile = e.target.files[0]
     if (!selectedFile) return
 
+    // LOGGING DIAGNÓSTICO (comentado)
+    // console.log('🔍 [FRONTEND UploadComprobante] Archivo seleccionado:', {
+    //   name: selectedFile.name,
+    //   type: selectedFile.type,
+    //   size: selectedFile.size
+    // })
+
     // Validar tipo
-    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg']
+    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/pjpeg']
+    // console.log('🔍 [FRONTEND UploadComprobante] Tipos permitidos:', allowedTypes)
+    // console.log('🔍 [FRONTEND UploadComprobante] Tipo está en lista permitida:', allowedTypes.includes(selectedFile.type))
+
     if (!allowedTypes.includes(selectedFile.type)) {
       setError('Solo se permiten archivos PDF, PNG o JPG')
       setFile(null)

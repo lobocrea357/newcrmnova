@@ -1,12 +1,14 @@
 'use client'
 import { useState } from 'react'
-import { 
-  Plane, Users, Calendar, Clock, MapPin, Building, DollarSign, 
-  FileText, Copy, CheckCircle, Download, ExternalLink, AlertCircle 
+import {
+  Plane, Users, Calendar, Clock, MapPin, Building, DollarSign,
+  FileText, Copy, CheckCircle, Download, ExternalLink, AlertCircle
 } from 'lucide-react'
 import { generarFormatoWhatsApp } from '@/lib/utils/vuelos-calculations'
 import ImageModal from '@/components/shared/ImageModal'
 import HistorialEdiciones from './HistorialEdiciones'
+import HistorialCambiosEstado from './HistorialCambiosEstado'
+import SolicitarAutorizacionButton from './SolicitarAutorizacionButton'
 
 export default function VueloDetail({ vuelo }) {
   const [copied, setCopied] = useState(false)
@@ -87,6 +89,20 @@ export default function VueloDetail({ vuelo }) {
             <div className="text-sm text-purple-200 mb-1">Tipo</div>
             <div className="font-semibold">{getTipoVueloLabel(vuelo.tipo_vuelo)}</div>
           </div>
+        </div>
+      </div>
+
+      {/* Acciones del Vuelo */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Clock className="w-5 h-5 text-purple-600" />
+          Acciones del Vuelo
+        </h3>
+        <div className="flex items-center gap-3">
+          <SolicitarAutorizacionButton
+            vueloId={vuelo.id}
+            vueloEstado={vuelo.estado}
+          />
         </div>
       </div>
 
@@ -505,6 +521,11 @@ export default function VueloDetail({ vuelo }) {
 
       {/* Historial de Ediciones */}
       <HistorialEdiciones vueloId={vuelo.id} />
+
+      {/* Historial de Cambios de Estado */}
+      <div className="mt-6">
+        <HistorialCambiosEstado vueloId={vuelo.id} />
+      </div>
 
       {/* Observaciones */}
       {vuelo.observaciones && (

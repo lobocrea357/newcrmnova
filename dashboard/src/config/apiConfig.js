@@ -47,6 +47,7 @@ export const VUELOS_API = {
   actualizar: (id) => buildApiUrl(`/api/vuelos/${id}`),
   editar: (id) => buildApiUrl(`/api/vuelos/${id}/editar`),
   historialEdiciones: (id) => buildApiUrl(`/api/vuelos/${id}/historial-ediciones`),
+  historialCambios: (id) => buildApiUrl(`/api/vuelos/${id}/historial`),
   eliminar: (id) => buildApiUrl(`/api/vuelos/${id}`),
   confirmarPago: (id) => buildApiUrl(`/api/vuelos/${id}/confirmar-pago`),
   observarPago: (id) => buildApiUrl(`/api/vuelos/${id}/observar-pago`),
@@ -55,7 +56,8 @@ export const VUELOS_API = {
   copiarPasajeros: (vueloId) => buildApiUrl(`/api/vuelos/${vueloId}/copiar-pasajeros`),
   subirAdjunto: (vueloId) => buildApiUrl(`/api/vuelos/${vueloId}/adjuntos`),
   autorizarEmision: (id) => buildApiUrl(`/api/vuelos/${id}/autorizar-emision`),
-  autorizarEmisionBatch: () => buildApiUrl('/api/vuelos/autorizar-emision-batch')
+  autorizarEmisionBatch: () => buildApiUrl('/api/vuelos/autorizar-emision-batch'),
+  solicitarAutorizacion: (id) => buildApiUrl(`/api/vuelos/${id}/solicitar-autorizacion`)
 }
 
 // URLs específicas para APIs de deudas con proveedores
@@ -120,6 +122,11 @@ export const SEDES_API = {
 // URLs específicas para APIs de usuarios
 export const USERS_API = {
   listar: buildApiUrl('/api/users'),
+}
+
+// URLs específicas para APIs de métricas
+export const METRICAS_API = {
+  emisiones: (periodo) => buildApiUrl(`/api/metricas/emisiones?periodo=${periodo}`)
 }
 
 // Exportar URL base para otros servicios

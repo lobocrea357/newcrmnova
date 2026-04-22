@@ -1,7 +1,7 @@
 'use client'
 
 import { useNotificaciones } from '@/contexts/NotificacionesContext'
-import { Bell, X, CheckCheck, Trash2, Plane, Info, AlertCircle, AlertTriangle } from 'lucide-react'
+import { Bell, X, CheckCheck, Trash2, Plane, Info, AlertCircle, AlertTriangle, CheckCircle } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 function formatRelativo(dateStr) {
@@ -19,6 +19,7 @@ function iconoTipo(tipo) {
   if (tipo === 'vuelo_creado') return <Plane className="w-4 h-4 text-blue-500" />
   if (tipo === 'vuelo_emitido') return <CheckCheck className="w-4 h-4 text-green-500" />
   if (tipo === 'pago_observado') return <AlertTriangle className="w-4 h-4 text-amber-500" />
+  if (tipo === 'pago_confirmado') return <CheckCircle className="w-4 h-4 text-green-600" />
   if (tipo === 'recordatorio_autorizacion') return <Bell className="w-4 h-4 text-purple-500" />
   return <Info className="w-4 h-4 text-gray-400" />
 }

@@ -12,7 +12,17 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024 // 10MB
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/pjpeg'];
+    // LOGGING DIAGNÓSTICO (comentado)
+    // console.log('🔍 [BACKEND deudas.js] Archivo recibido por multer:', {
+    //   originalname: file.originalname,
+    //   mimetype: file.mimetype,
+    //   encoding: file.encoding,
+    //   size: file.size
+    // });
+    // console.log('🔍 [BACKEND deudas.js] Tipos permitidos:', allowedTypes);
+    // console.log('🔍 [BACKEND deudas.js] Tipo está en lista permitida:', allowedTypes.includes(file.mimetype));
+
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
