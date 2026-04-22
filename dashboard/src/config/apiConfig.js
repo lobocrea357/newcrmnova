@@ -53,7 +53,15 @@ export const VUELOS_API = {
   marcarEmitido: (id) => buildApiUrl(`/api/vuelos/${id}/marcar-emitido`),
   actualizarPasajero: (pasajeroId) => buildApiUrl(`/api/vuelos/pasajeros/${pasajeroId}`),
   copiarPasajeros: (vueloId) => buildApiUrl(`/api/vuelos/${vueloId}/copiar-pasajeros`),
-  subirAdjunto: (vueloId) => buildApiUrl(`/api/vuelos/${vueloId}/adjuntos`)
+  subirAdjunto: (vueloId) => buildApiUrl(`/api/vuelos/${vueloId}/adjuntos`),
+  autorizarEmision: (id) => buildApiUrl(`/api/vuelos/${id}/autorizar-emision`),
+  autorizarEmisionBatch: () => buildApiUrl('/api/vuelos/autorizar-emision-batch')
+}
+
+// URLs específicas para APIs de deudas con proveedores
+export const DEUDAS_API = {
+  listar: buildApiUrl('/api/deudas-proveedores'),
+  registrarPago: buildApiUrl('/api/deudas-proveedores/pagos')
 }
 
 // URLs específicas para APIs de equipos
