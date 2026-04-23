@@ -1026,8 +1026,8 @@ export default function VueloFormNuevo({
 
               {/* Resumen Visual de Cálculos */}
               {formData.monto_total_venta && formData.pago_inicial_cliente >= 0 && formData.costo_base_proveedor && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-white rounded-lg border-2 border-amber-300 shadow-sm">
-                  <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
+                <div className="flex justify-center p-4 bg-white rounded-lg border-2 border-amber-300 shadow-sm">
+                  <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200 max-w-xs w-full">
                     <p className="text-xs text-red-600 font-medium mb-1">Saldo Pendiente Cliente</p>
                     <p className="text-2xl font-bold text-red-700">
                       ${(parseFloat(formData.monto_total_venta || 0) -
@@ -1036,22 +1036,24 @@ export default function VueloFormNuevo({
                     <p className="text-xs text-red-500 mt-1">Cliente te debe</p>
                   </div>
 
-                  <div className="text-center p-3 bg-orange-50 rounded-lg border border-orange-200">
+                  {/* COMENTADO: Deuda con proveedor - Pendiente definir lógica de negocio */}
+                  {/* <div className="text-center p-3 bg-orange-50 rounded-lg border border-orange-200">
                     <p className="text-xs text-orange-600 font-medium mb-1">Deuda con Proveedor</p>
                     <p className="text-2xl font-bold text-orange-700">
                       ${parseFloat(formData.costo_base_proveedor || 0).toFixed(2)}
                     </p>
                     <p className="text-xs text-orange-500 mt-1">Tú debes al proveedor</p>
-                  </div>
+                  </div> */}
 
-                  <div className="text-center p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                  {/* COMENTADO: Ganancia proyectada - Pendiente definir lógica de negocio */}
+                  {/* <div className="text-center p-3 bg-emerald-50 rounded-lg border border-emerald-200">
                     <p className="text-xs text-emerald-600 font-medium mb-1">Ganancia Proyectada</p>
                     <p className="text-2xl font-bold text-emerald-700">
                       ${(parseFloat(formData.monto_total_venta || 0) -
                         parseFloat(formData.costo_base_proveedor || 0)).toFixed(2)}
                     </p>
                     <p className="text-xs text-emerald-500 mt-1">Tu margen</p>
-                  </div>
+                  </div> */}
                 </div>
               )}
 
@@ -1060,12 +1062,9 @@ export default function VueloFormNuevo({
                 <AlertCircle className="w-6 h-6 text-amber-700 mt-0.5 flex-shrink-0" />
                 <div className="text-sm text-amber-900">
                   <p className="font-semibold mb-2">ℹ️ Importante sobre ventas a crédito:</p>
-                  <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li><strong>Cliente te debe:</strong> ${(parseFloat(formData.monto_total_venta || 0) - parseFloat(formData.pago_inicial_cliente || 0)).toFixed(2)} (saldo pendiente)</li>
-                    <li><strong>Tú debes al proveedor:</strong> ${parseFloat(formData.costo_base_proveedor || 0).toFixed(2)}</li>
-                    <li><strong>Tu ganancia:</strong> ${(parseFloat(formData.monto_total_venta || 0) - parseFloat(formData.costo_base_proveedor || 0)).toFixed(2)}</li>
-                    <li>El saldo se calculará automáticamente y aparecerá en Gestión de Deudas</li>
-                  </ul>
+                  <p className="text-xs">
+                    <strong>Cliente te debe:</strong> ${(parseFloat(formData.monto_total_venta || 0) - parseFloat(formData.pago_inicial_cliente || 0)).toFixed(2)} (saldo pendiente)
+                  </p>
                 </div>
               </div>
             </div>
