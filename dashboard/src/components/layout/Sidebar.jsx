@@ -67,10 +67,9 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
         super_admin: null,
         admin: null,
         gerente: [
-            '/', '/conversaciones', '/rutas-riesgo', '/analisis/rendimiento',
-            '/gestion-equipos', '/cotizador', '/ventas', '/ventas/cotizaciones',
-            '/ventas/vuelos', '/admin/dashboard-emisiones', // Consolidado - acceso vía tabs
-            '/emisiones', '/inteligencia-artificial', '/configuracion', '/configuracion/mi-equipo'
+            '/', '/conversaciones', '/analisis/rendimiento',
+            '/gestion-equipos', '/cotizador', '/ventas/cotizaciones',
+            '/ventas/vuelos', '/configuracion'
         ],
         asesor: [
             '/', '/cotizador', '/ventas', '/ventas/cotizaciones',
