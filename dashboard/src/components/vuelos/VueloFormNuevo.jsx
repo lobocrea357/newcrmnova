@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Plane, Users, Calendar, DollarSign, FileText, Upload, X, Copy, CheckCircle, AlertCircle, Sparkles, Loader2, MapPin, Clock, CreditCard } from 'lucide-react'
+import { Plane, Users, DollarSign, FileText, X, Copy, CheckCircle, AlertCircle, Sparkles, Loader2, MapPin, CreditCard } from 'lucide-react'
 import { toastSuccess, toastError, toastInfo } from '@/helpers/toasts'
 import { METHODS_BY_CURRENCY } from '@/lib/cotizador/paymentConfig'
 import AerolineaAutocomplete from '@/components/cotizador/AerolineaAutocomplete'
@@ -579,11 +579,14 @@ export default function VueloFormNuevo({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Información del Vuelo */}
+      {/* SECCIÓN 1: Información del Cliente */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-6">
-          <Plane className="w-5 h-5 text-indigo-600" />
-          <h3 className="text-lg font-bold text-gray-900">Información del Vuelo</h3>
+          <Users className="w-5 h-5 text-indigo-600" />
+          <div className="flex items-center gap-2">
+            <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">1</span>
+            <h3 className="text-lg font-bold text-gray-900">Información del Cliente</h3>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -633,7 +636,52 @@ export default function VueloFormNuevo({
             {errors.contacto_telefono && <p className="mt-1 text-sm text-red-600">{errors.contacto_telefono}</p>}
           </div>
 
-          {/* Vuelo de IDA - Siempre se muestra */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Observaciones
+            </label>
+            <textarea
+              name="observaciones"
+              value={formData.observaciones}
+              onChange={handleChange}
+              rows="3"
+              placeholder="Notas adicionales sobre el cliente o la transacción..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* SECCIÓN 2: Detalles del Vuelo */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-8">
+        <div className="flex items-center gap-2 mb-6">
+          <Plane className="w-5 h-5 text-indigo-600" />
+          <div className="flex items-center gap-2">
+            <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">2</span>
+            <h3 className="text-lg font-bold text-gray-900">Detalles del Vuelo</h3>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Tipo de Vuelo - Primero para definir qué campos mostrar */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tipo de Vuelo *
+            </label>
+            <select
+              name="tipo_vuelo"
+              value={formData.tipo_vuelo}
+              onChange={handleChange}
+              disabled={!!cotizacion}
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 ${!!cotizacion ? 'bg-gray-100' : ''}`}
+            >
+              {TIPOS_VUELO.map(tipo => (
+                <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Vuelo de IDA */}
           <div className="col-span-full">
             <div className="bg-indigo-50/50 rounded-xl border-2 border-indigo-100 p-6 space-y-4">
               <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-widest px-1 mb-4">
@@ -765,6 +813,145 @@ export default function VueloFormNuevo({
             />
           </div>
 
+          {/* ESCALAS - Integradas en esta sección */}
+          <div className="col-span-full">
+            <div className="border-t border-gray-200 pt-4 mt-4">
+              <div className="flex items-center gap-2 mb-4">
+                <MapPin className="w-4 h-4 text-indigo-600" />
+                <h4 className="text-sm font-semibold text-gray-900">Escalas del Vuelo</h4>
+              </div>
+
+              <div className="space-y-4">
+                {/* Primera Escala */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="tiene_escala"
+                    checked={formData.tiene_escala}
+                    onChange={(e) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        tiene_escala: e.target.checked,
+                        escala_1_ciudad: e.target.checked ? prev.escala_1_ciudad : '',
+                        escala_1_duracion: e.target.checked ? prev.escala_1_duracion : ''
+                      }))
+                    }}
+                    disabled={!!cotizacion}
+                    className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="tiene_escala" className="text-sm font-medium text-gray-700">
+                    ¿El vuelo tiene escala?
+                  </label>
+                </div>
+
+                {formData.tiene_escala && (
+                  <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Ciudad de la escala
+                      </label>
+                      <input
+                        type="text"
+                        name="escala_1_ciudad"
+                        value={formData.escala_1_ciudad}
+                        onChange={handleChange}
+                        disabled={!!cotizacion}
+                        placeholder="Ej: Bogotá"
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${!!cotizacion ? 'bg-gray-100' : ''}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Duración de la escala
+                      </label>
+                      <input
+                        type="text"
+                        name="escala_1_duracion"
+                        value={formData.escala_1_duracion}
+                        onChange={handleChange}
+                        disabled={!!cotizacion}
+                        placeholder="Ej: 2h 30min"
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${!!cotizacion ? 'bg-gray-100' : ''}`}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Segunda Escala */}
+                {formData.tiene_escala && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="tiene_segunda_escala"
+                        checked={formData.tiene_segunda_escala}
+                        onChange={(e) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            tiene_segunda_escala: e.target.checked,
+                            escala_2_ciudad: e.target.checked ? prev.escala_2_ciudad : '',
+                            escala_2_duracion: e.target.checked ? prev.escala_2_duracion : ''
+                          }))
+                        }}
+                        disabled={!!cotizacion}
+                        className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="tiene_segunda_escala" className="text-sm font-medium text-gray-700">
+                        ¿Tiene segunda escala?
+                      </label>
+                    </div>
+
+                    {formData.tiene_segunda_escala && (
+                      <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Ciudad de la segunda escala
+                          </label>
+                          <input
+                            type="text"
+                            name="escala_2_ciudad"
+                            value={formData.escala_2_ciudad}
+                            onChange={handleChange}
+                            disabled={!!cotizacion}
+                            placeholder="Ej: Panamá"
+                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${!!cotizacion ? 'bg-gray-100' : ''}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Duración de la segunda escala
+                          </label>
+                          <input
+                            type="text"
+                            name="escala_2_duracion"
+                            value={formData.escala_2_duracion}
+                            onChange={handleChange}
+                            disabled={!!cotizacion}
+                            placeholder="Ej: 1h 45min"
+                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${!!cotizacion ? 'bg-gray-100' : ''}`}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SECCIÓN 3: Información Operativa */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-8">
+        <div className="flex items-center gap-2 mb-6">
+          <FileText className="w-5 h-5 text-indigo-600" />
+          <div className="flex items-center gap-2">
+            <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">3</span>
+            <h3 className="text-lg font-bold text-gray-900">Información Operativa</h3>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Localizador (LOC/PNR)
@@ -799,23 +986,6 @@ export default function VueloFormNuevo({
             {errors.proveedor && <p className="mt-1 text-sm text-red-600">{errors.proveedor}</p>}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tipo de Vuelo *
-            </label>
-            <select
-              name="tipo_vuelo"
-              value={formData.tipo_vuelo}
-              onChange={handleChange}
-              disabled={!!cotizacion}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 ${!!cotizacion ? 'bg-gray-100' : ''}`}
-            >
-              {TIPOS_VUELO.map(tipo => (
-                <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
-              ))}
-            </select>
-          </div>
-
           {/* Desglose PNR/GDS */}
           <div className="md:col-span-2">
             <div className="flex items-center justify-between mb-2">
@@ -846,526 +1016,20 @@ export default function VueloFormNuevo({
               Este desglose será usado por el equipo de emisión para emitir los boletos
             </p>
           </div>
-
-          {/* Sección: Información de Emisión */}
-          <div className="md:col-span-2 bg-purple-50 rounded-xl p-6 border border-purple-200">
-            <div className="flex items-center gap-2 mb-4">
-              <CreditCard className="w-6 h-6 text-purple-600" />
-              <h3 className="text-lg font-bold text-gray-900">Información de Emisión</h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Cuenta de Emisión */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cuenta de Emisión *
-                </label>
-                <select
-                  name="cuenta_emision_asignada"
-                  value={formData.cuenta_emision_asignada}
-                  onChange={handleCuentaChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="">Seleccionar cuenta...</option>
-                  <option value="SERVIVUELO_1">Servivuelo 1 (Contado)</option>
-                  <option value="SERVIVUELO_2">Servivuelo 2 (Contado)</option>
-                  <option value="CHASE_NOVA">Chase Bank Nova (Contado)</option>
-                  <option value="CHASE_APOLO">Chase Bank Apolo (Contado)</option>
-                  <option value="SABRE">Sabre (Crédito/Contado)</option>
-                  <option value="AMADEUS">Amadeus (Crédito/Contado)</option>
-                  <option value="EXPEDIA">Expedia (Crédito/Contado)</option>
-                </select>
-
-                {/* Nota automática para Servivuelo */}
-                {formData.cuenta_emision_asignada?.includes('SERVIVUELO') && (
-                  <p className="mt-2 text-sm text-indigo-600">
-                    ℹ️ Servivuelo siempre es al contado
-                  </p>
-                )}
-              </div>
-
-              {/* Forma de Emisión */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Forma de Emisión *
-                </label>
-                <div className="flex gap-4 mt-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="forma_emision"
-                      value="CONTADO"
-                      checked={formData.forma_emision === 'CONTADO'}
-                      onChange={handleChange}
-                      disabled={formData.cuenta_emision_asignada?.includes('SERVIVUELO') ||
-                        formData.cuenta_emision_asignada?.includes('CHASE')}
-                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
-                    />
-                    <span className="text-sm text-gray-900">Contado</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="forma_emision"
-                      value="CREDITO"
-                      checked={formData.forma_emision === 'CREDITO'}
-                      onChange={handleChange}
-                      disabled={formData.cuenta_emision_asignada?.includes('SERVIVUELO') ||
-                        formData.cuenta_emision_asignada?.includes('CHASE')}
-                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
-                    />
-                    <span className="text-sm text-gray-900">Crédito</span>
-                  </label>
-                </div>
-
-                {formData.forma_emision === 'CREDITO' && (
-                  <p className="mt-2 text-sm text-amber-600">
-                    ⚠️ Se generará una deuda con el proveedor
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Sección de Gestión de Crédito - Solo cuando forma_emision es CREDITO */}
-          {formData.forma_emision === 'CREDITO' && (
-            <div className="md:col-span-2 mt-4 p-6 bg-amber-50 border-2 border-amber-200 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="flex items-center gap-2 mb-4">
-                <DollarSign className="w-6 h-6 text-amber-600" />
-                <h4 className="text-sm font-bold text-amber-900 uppercase tracking-wide">
-                  Gestión de Crédito
-                </h4>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Costo Base al Proveedor */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Costo Base (Proveedor) *
-                    <span className="block text-xs font-normal text-gray-500 mt-1">
-                      Lo que debes al proveedor
-                    </span>
-                  </label>
-                  <input
-                    type="number"
-                    name="costo_base_proveedor"
-                    value={formData.costo_base_proveedor}
-                    onChange={handleChange}
-                    step="0.01"
-                    min="0"
-                    required
-                    placeholder="500.00"
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-amber-500 font-semibold text-orange-700 ${errors.costo_base_proveedor ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
-                      }`}
-                  />
-                  {errors.costo_base_proveedor && (
-                    <p className="mt-1 text-sm text-red-600">{errors.costo_base_proveedor}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-600">
-                    💰 Precio del boleto en Sabre, Kiu, etc.
-                  </p>
-                </div>
-
-                {/* Monto Total de Venta */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Monto Total de Venta *
-                    <span className="block text-xs font-normal text-gray-500 mt-1">
-                      Precio al cliente (con markup)
-                    </span>
-                  </label>
-                  <input
-                    type="number"
-                    name="monto_total_venta"
-                    value={formData.monto_total_venta}
-                    onChange={handleChange}
-                    step="0.01"
-                    min="0"
-                    required
-                    placeholder="600.00"
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-amber-500 font-semibold text-emerald-700 ${errors.monto_total_venta ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
-                      }`}
-                  />
-                  {errors.monto_total_venta && (
-                    <p className="mt-1 text-sm text-red-600">{errors.monto_total_venta}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-600">
-                    💵 Precio total que pagará el cliente
-                  </p>
-                </div>
-
-                {/* Pago Inicial del Cliente */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Pago Inicial del Cliente *
-                    <span className="block text-xs font-normal text-gray-500 mt-1">
-                      Inicial que dio el cliente
-                    </span>
-                  </label>
-                  <input
-                    type="number"
-                    name="pago_inicial_cliente"
-                    value={formData.pago_inicial_cliente}
-                    onChange={handleChange}
-                    step="0.01"
-                    min="0"
-                    required
-                    placeholder="200.00"
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-amber-500 font-semibold text-blue-700 ${errors.pago_inicial_cliente ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
-                      }`}
-                  />
-                  {errors.pago_inicial_cliente && (
-                    <p className="mt-1 text-sm text-red-600">{errors.pago_inicial_cliente}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-600">
-                    💳 Inicial pagada al momento de reservar
-                  </p>
-                </div>
-              </div>
-
-              {/* Resumen Visual de Cálculos */}
-              {formData.monto_total_venta && formData.pago_inicial_cliente >= 0 && formData.costo_base_proveedor && (
-                <div className="flex justify-center p-4 bg-white rounded-lg border-2 border-amber-300 shadow-sm">
-                  <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200 max-w-xs w-full">
-                    <p className="text-xs text-red-600 font-medium mb-1">Saldo Pendiente Cliente</p>
-                    <p className="text-2xl font-bold text-red-700">
-                      ${(parseFloat(formData.monto_total_venta || 0) -
-                        parseFloat(formData.pago_inicial_cliente || 0)).toFixed(2)}
-                    </p>
-                    <p className="text-xs text-red-500 mt-1">Cliente te debe</p>
-                  </div>
-
-                  {/* COMENTADO: Deuda con proveedor - Pendiente definir lógica de negocio */}
-                  {/* <div className="text-center p-3 bg-orange-50 rounded-lg border border-orange-200">
-                    <p className="text-xs text-orange-600 font-medium mb-1">Deuda con Proveedor</p>
-                    <p className="text-2xl font-bold text-orange-700">
-                      ${parseFloat(formData.costo_base_proveedor || 0).toFixed(2)}
-                    </p>
-                    <p className="text-xs text-orange-500 mt-1">Tú debes al proveedor</p>
-                  </div> */}
-
-                  {/* COMENTADO: Ganancia proyectada - Pendiente definir lógica de negocio */}
-                  {/* <div className="text-center p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-                    <p className="text-xs text-emerald-600 font-medium mb-1">Ganancia Proyectada</p>
-                    <p className="text-2xl font-bold text-emerald-700">
-                      ${(parseFloat(formData.monto_total_venta || 0) -
-                        parseFloat(formData.costo_base_proveedor || 0)).toFixed(2)}
-                    </p>
-                    <p className="text-xs text-emerald-500 mt-1">Tu margen</p>
-                  </div> */}
-                </div>
-              )}
-
-              {/* Advertencia Informativa */}
-              <div className="flex items-start gap-3 p-4 bg-amber-100 border border-amber-300 rounded-lg">
-                <AlertCircle className="w-6 h-6 text-amber-700 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-amber-900">
-                  <p className="font-semibold mb-2">ℹ️ Importante sobre ventas a crédito:</p>
-                  <p className="text-xs">
-                    <strong>Cliente te debe:</strong> ${(parseFloat(formData.monto_total_venta || 0) - parseFloat(formData.pago_inicial_cliente || 0)).toFixed(2)} (saldo pendiente)
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Observaciones
-            </label>
-            <textarea
-              name="observaciones"
-              value={formData.observaciones}
-              onChange={handleChange}
-              rows="3"
-              placeholder="Notas adicionales..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
         </div>
       </div>
 
-      {/* Escalas del Vuelo */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center gap-2 mb-6">
-          <MapPin className="w-5 h-5 text-indigo-600" />
-          <h3 className="text-lg font-bold text-gray-900">Escalas del Vuelo</h3>
-        </div>
-
-        <div className="space-y-4">
-          {/* Primera Escala */}
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="tiene_escala"
-              checked={formData.tiene_escala}
-              onChange={(e) => {
-                setFormData(prev => ({
-                  ...prev,
-                  tiene_escala: e.target.checked,
-                  escala_1_ciudad: e.target.checked ? prev.escala_1_ciudad : '',
-                  escala_1_duracion: e.target.checked ? prev.escala_1_duracion : ''
-                }))
-              }}
-              disabled={!!cotizacion}
-              className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-            />
-            <label htmlFor="tiene_escala" className="text-sm font-medium text-gray-700">
-              ¿El vuelo tiene escala?
-            </label>
-          </div>
-
-          {formData.tiene_escala && (
-            <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ciudad de la escala
-                </label>
-                <input
-                  type="text"
-                  name="escala_1_ciudad"
-                  value={formData.escala_1_ciudad}
-                  onChange={handleChange}
-                  disabled={!!cotizacion}
-                  placeholder="Ej: Bogotá"
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${!!cotizacion ? 'bg-gray-100' : ''}`}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Duración de la escala
-                </label>
-                <input
-                  type="text"
-                  name="escala_1_duracion"
-                  value={formData.escala_1_duracion}
-                  onChange={handleChange}
-                  disabled={!!cotizacion}
-                  placeholder="Ej: 2h 30min"
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${!!cotizacion ? 'bg-gray-100' : ''}`}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Segunda Escala */}
-          {formData.tiene_escala && (
-            <>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="tiene_segunda_escala"
-                  checked={formData.tiene_segunda_escala}
-                  onChange={(e) => {
-                    setFormData(prev => ({
-                      ...prev,
-                      tiene_segunda_escala: e.target.checked,
-                      escala_2_ciudad: e.target.checked ? prev.escala_2_ciudad : '',
-                      escala_2_duracion: e.target.checked ? prev.escala_2_duracion : ''
-                    }))
-                  }}
-                  disabled={!!cotizacion}
-                  className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                />
-                <label htmlFor="tiene_segunda_escala" className="text-sm font-medium text-gray-700">
-                  ¿Tiene segunda escala?
-                </label>
-              </div>
-
-              {formData.tiene_segunda_escala && (
-                <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Ciudad de la segunda escala
-                    </label>
-                    <input
-                      type="text"
-                      name="escala_2_ciudad"
-                      value={formData.escala_2_ciudad}
-                      onChange={handleChange}
-                      disabled={!!cotizacion}
-                      placeholder="Ej: Panamá"
-                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${!!cotizacion ? 'bg-gray-100' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Duración de la segunda escala
-                    </label>
-                    <input
-                      type="text"
-                      name="escala_2_duracion"
-                      value={formData.escala_2_duracion}
-                      onChange={handleChange}
-                      disabled={!!cotizacion}
-                      placeholder="Ej: 1h 45min"
-                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${!!cotizacion ? 'bg-gray-100' : ''}`}
-                    />
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Información Financiera */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center gap-2 mb-6">
-          <DollarSign className="w-5 h-5 text-indigo-600" />
-          <h3 className="text-lg font-bold text-gray-900">Información Financiera</h3>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Moneda de Precios de Pantalla *
-            </label>
-            {cotizacion ? (
-              <input
-                type="text"
-                value={formData.moneda_precio}
-                disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
-              />
-            ) : (
-              <select
-                name="moneda_precio"
-                value={formData.moneda_precio}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">Seleccionar</option>
-                <option value="USD">USD - Dólares</option>
-                <option value="EUR">EUR - Euros</option>
-              </select>
-            )}
-            <p className="mt-1 text-xs text-gray-500">Moneda en la que están los precios de pantalla</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Moneda de Cotización *
-            </label>
-            {cotizacion ? (
-              <input
-                type="text"
-                value={formData.moneda_cotizacion}
-                disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
-              />
-            ) : (
-              <select
-                name="moneda_cotizacion"
-                value={formData.moneda_cotizacion}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">Seleccionar</option>
-                <option value="USD">USD - Dólares</option>
-                <option value="EUR">EUR - Euros</option>
-                <option value="VES">VES - Bolívares</option>
-                <option value="COP">COP - Pesos Colombianos</option>
-              </select>
-            )}
-            <p className="mt-1 text-xs text-gray-500">Moneda en la que paga el cliente</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tasa de Cambio {!cotizacion && formData.moneda_precio !== formData.moneda_cotizacion && '*'}
-            </label>
-            {cotizacion ? (
-              <input
-                type="text"
-                value={formData.tasa_cambio}
-                disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
-              />
-            ) : (
-              <input
-                type="number"
-                name="tasa_cambio"
-                value={formData.tasa_cambio}
-                onChange={handleChange}
-                step="0.0001"
-                min="0"
-                placeholder={formData.moneda_precio === formData.moneda_cotizacion ? 'No aplica' : 'Ej: 1.08'}
-                disabled={formData.moneda_precio === formData.moneda_cotizacion}
-                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 ${formData.moneda_precio === formData.moneda_cotizacion ? 'bg-gray-100' : ''}`}
-              />
-            )}
-            <p className="mt-1 text-xs text-gray-500">
-              {formData.moneda_precio === formData.moneda_cotizacion
-                ? 'Misma moneda, no requiere tasa'
-                : `Tasa de ${formData.moneda_precio || '?'} a ${formData.moneda_cotizacion || '?'}`}
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Subtotal ({formData.moneda_precio || 'USD'})
-            </label>
-            <input
-              type="text"
-              value={cotizacion ? formData.total_cotizacion : calcularSubtotal().toFixed(2)}
-              disabled
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 font-semibold"
-            />
-            <p className="mt-1 text-xs text-gray-500">Suma de todos los boletos (calculado automáticamente)</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Monto Venta - Total a Pagar ({formData.moneda_cotizacion || 'USD'})
-            </label>
-            <input
-              type="text"
-              value={cotizacion ? formData.monto_venta : calcularMontoVenta().toFixed(2)}
-              disabled
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-emerald-50 text-emerald-700 font-bold text-lg"
-            />
-            <p className="mt-1 text-xs text-gray-500">Precio final para el cliente (calculado automáticamente)</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Método de Pago *
-            </label>
-            <select
-              name="metodo_pago"
-              value={formData.metodo_pago}
-              onChange={handleChange}
-              disabled={!!cotizacion}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 ${!!cotizacion ? 'bg-gray-100' : ''}`}
-            >
-              <option value="">Seleccionar</option>
-              {formData.moneda_cotizacion && METHODS_BY_CURRENCY[formData.moneda_cotizacion] ? (
-                METHODS_BY_CURRENCY[formData.moneda_cotizacion].map(metodo => (
-                  <option key={metodo} value={metodo}>{metodo}</option>
-                ))
-              ) : (
-                Object.values(METHODS_BY_CURRENCY).flat().filter((v, i, a) => a.indexOf(v) === i).map(metodo => (
-                  <option key={metodo} value={metodo}>{metodo}</option>
-                ))
-              )}
-            </select>
-            {formData.moneda_cotizacion && (
-              <p className="mt-1 text-xs text-gray-500">Métodos disponibles para {formData.moneda_cotizacion}</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Gestión de Pasajeros */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      {/* SECCIÓN 4: Gestión de Pasajeros */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-8">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-indigo-600" />
-            <h3 className="text-lg font-bold text-gray-900">
-              Pasajeros ({pasajeros.length})
-            </h3>
+            <div className="flex items-center gap-2">
+              <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">4</span>
+              <h3 className="text-lg font-bold text-gray-900">
+                Pasajeros ({pasajeros.length})
+              </h3>
+            </div>
           </div>
           <button
             type="button"
@@ -1798,11 +1462,371 @@ export default function VueloFormNuevo({
         </div>
       </div>
 
-      {/* Comprobantes de Pago */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      {/* SECCIÓN 5: Información Financiera y Emisión */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-8">
+        <div className="flex items-center gap-2 mb-6">
+          <DollarSign className="w-5 h-5 text-indigo-600" />
+          <div className="flex items-center gap-2">
+            <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">5</span>
+            <h3 className="text-lg font-bold text-gray-900">Información Financiera y Emisión</h3>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Información Financiera */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Moneda de Precios de Pantalla *
+            </label>
+            {cotizacion ? (
+              <input
+                type="text"
+                value={formData.moneda_precio}
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+              />
+            ) : (
+              <select
+                name="moneda_precio"
+                value={formData.moneda_precio}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Seleccionar</option>
+                <option value="USD">USD - Dólares</option>
+                <option value="EUR">EUR - Euros</option>
+              </select>
+            )}
+            <p className="mt-1 text-xs text-gray-500">Moneda en la que están los precios de pantalla</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Moneda de Cotización *
+            </label>
+            {cotizacion ? (
+              <input
+                type="text"
+                value={formData.moneda_cotizacion}
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+              />
+            ) : (
+              <select
+                name="moneda_cotizacion"
+                value={formData.moneda_cotizacion}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Seleccionar</option>
+                <option value="USD">USD - Dólares</option>
+                <option value="EUR">EUR - Euros</option>
+                <option value="VES">VES - Bolívares</option>
+                <option value="COP">COP - Pesos Colombianos</option>
+              </select>
+            )}
+            <p className="mt-1 text-xs text-gray-500">Moneda en la que paga el cliente</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tasa de Cambio {!cotizacion && formData.moneda_precio !== formData.moneda_cotizacion && '*'}
+            </label>
+            {cotizacion ? (
+              <input
+                type="text"
+                value={formData.tasa_cambio}
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+              />
+            ) : (
+              <input
+                type="number"
+                name="tasa_cambio"
+                value={formData.tasa_cambio}
+                onChange={handleChange}
+                step="0.0001"
+                min="0"
+                placeholder={formData.moneda_precio === formData.moneda_cotizacion ? 'No aplica' : 'Ej: 1.08'}
+                disabled={formData.moneda_precio === formData.moneda_cotizacion}
+                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 ${formData.moneda_precio === formData.moneda_cotizacion ? 'bg-gray-100' : ''}`}
+              />
+            )}
+            <p className="mt-1 text-xs text-gray-500">
+              {formData.moneda_precio === formData.moneda_cotizacion
+                ? 'Misma moneda, no requiere tasa'
+                : `Tasa de ${formData.moneda_precio || '?'} a ${formData.moneda_cotizacion || '?'}`}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Subtotal ({formData.moneda_precio || 'USD'})
+            </label>
+            <input
+              type="text"
+              value={cotizacion ? formData.total_cotizacion : calcularSubtotal().toFixed(2)}
+              disabled
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 font-semibold"
+            />
+            <p className="mt-1 text-xs text-gray-500">Suma de todos los boletos (calculado automáticamente)</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Monto Venta - Total a Pagar ({formData.moneda_cotizacion || 'USD'})
+            </label>
+            <input
+              type="text"
+              value={cotizacion ? formData.monto_venta : calcularMontoVenta().toFixed(2)}
+              disabled
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-emerald-50 text-emerald-700 font-bold text-lg"
+            />
+            <p className="mt-1 text-xs text-gray-500">Precio final para el cliente (calculado automáticamente)</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Método de Pago *
+            </label>
+            <select
+              name="metodo_pago"
+              value={formData.metodo_pago}
+              onChange={handleChange}
+              disabled={!!cotizacion}
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 ${!!cotizacion ? 'bg-gray-100' : ''}`}
+            >
+              <option value="">Seleccionar</option>
+              {formData.moneda_cotizacion && METHODS_BY_CURRENCY[formData.moneda_cotizacion] ? (
+                METHODS_BY_CURRENCY[formData.moneda_cotizacion].map(metodo => (
+                  <option key={metodo} value={metodo}>{metodo}</option>
+                ))
+              ) : (
+                Object.values(METHODS_BY_CURRENCY).flat().filter((v, i, a) => a.indexOf(v) === i).map(metodo => (
+                  <option key={metodo} value={metodo}>{metodo}</option>
+                ))
+              )}
+            </select>
+            {formData.moneda_cotizacion && (
+              <p className="mt-1 text-xs text-gray-500">Métodos disponibles para {formData.moneda_cotizacion}</p>
+            )}
+          </div>
+
+          {/* Información de Emisión */}
+          <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-4">
+            <div className="flex items-center gap-2 mb-4">
+              <CreditCard className="w-5 h-5 text-indigo-600" />
+              <h4 className="text-sm font-semibold text-gray-900">Información de Emisión</h4>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Cuenta de Emisión */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cuenta de Emisión *
+                </label>
+                <select
+                  name="cuenta_emision_asignada"
+                  value={formData.cuenta_emision_asignada}
+                  onChange={handleCuentaChange}
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                >
+                  <option value="">Seleccionar cuenta...</option>
+                  <option value="SERVIVUELO_1">Servivuelo 1 (Contado)</option>
+                  <option value="SERVIVUELO_2">Servivuelo 2 (Contado)</option>
+                  <option value="CHASE_NOVA">Chase Bank Nova (Contado)</option>
+                  <option value="CHASE_APOLO">Chase Bank Apolo (Contado)</option>
+                  <option value="SABRE">Sabre (Crédito/Contado)</option>
+                  <option value="AMADEUS">Amadeus (Crédito/Contado)</option>
+                  <option value="EXPEDIA">Expedia (Crédito/Contado)</option>
+                </select>
+
+                {/* Nota automática para Servivuelo */}
+                {formData.cuenta_emision_asignada?.includes('SERVIVUELO') && (
+                  <p className="mt-2 text-sm text-indigo-600">
+                    ℹ️ Servivuelo siempre es al contado
+                  </p>
+                )}
+              </div>
+
+              {/* Forma de Emisión */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Forma de Emisión *
+                </label>
+                <div className="flex gap-4 mt-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="forma_emision"
+                      value="CONTADO"
+                      checked={formData.forma_emision === 'CONTADO'}
+                      onChange={handleChange}
+                      disabled={formData.cuenta_emision_asignada?.includes('SERVIVUELO') ||
+                        formData.cuenta_emision_asignada?.includes('CHASE')}
+                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                    />
+                    <span className="text-sm text-gray-900">Contado</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="forma_emision"
+                      value="CREDITO"
+                      checked={formData.forma_emision === 'CREDITO'}
+                      onChange={handleChange}
+                      disabled={formData.cuenta_emision_asignada?.includes('SERVIVUELO') ||
+                        formData.cuenta_emision_asignada?.includes('CHASE')}
+                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                    />
+                    <span className="text-sm text-gray-900">Crédito</span>
+                  </label>
+                </div>
+
+                {formData.forma_emision === 'CREDITO' && (
+                  <p className="mt-2 text-sm text-amber-600">
+                    ⚠️ Se generará una deuda con el proveedor
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Gestión de Crédito - Solo cuando forma_emision es CREDITO */}
+          {formData.forma_emision === 'CREDITO' && (
+            <div className="md:col-span-2 mt-4 p-6 bg-amber-50 border-2 border-amber-200 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center gap-2 mb-4">
+                <DollarSign className="w-6 h-6 text-amber-600" />
+                <h4 className="text-sm font-bold text-amber-900 uppercase tracking-wide">
+                  Gestión de Crédito
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Costo Base al Proveedor */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Costo Base (Proveedor) *
+                    <span className="block text-xs font-normal text-gray-500 mt-1">
+                      Lo que debes al proveedor
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    name="costo_base_proveedor"
+                    value={formData.costo_base_proveedor}
+                    onChange={handleChange}
+                    step="0.01"
+                    min="0"
+                    required
+                    placeholder="500.00"
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-amber-500 font-semibold text-orange-700 ${errors.costo_base_proveedor ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
+                      }`}
+                  />
+                  {errors.costo_base_proveedor && (
+                    <p className="mt-1 text-sm text-red-600">{errors.costo_base_proveedor}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-600">
+                    💰 Precio del boleto en Sabre, Kiu, etc.
+                  </p>
+                </div>
+
+                {/* Monto Total de Venta */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Monto Total de Venta *
+                    <span className="block text-xs font-normal text-gray-500 mt-1">
+                      Precio al cliente (con markup)
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    name="monto_total_venta"
+                    value={formData.monto_total_venta}
+                    onChange={handleChange}
+                    step="0.01"
+                    min="0"
+                    required
+                    placeholder="600.00"
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-amber-500 font-semibold text-emerald-700 ${errors.monto_total_venta ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
+                      }`}
+                  />
+                  {errors.monto_total_venta && (
+                    <p className="mt-1 text-sm text-red-600">{errors.monto_total_venta}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-600">
+                    💵 Precio total que pagará el cliente
+                  </p>
+                </div>
+
+                {/* Pago Inicial del Cliente */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Pago Inicial del Cliente *
+                    <span className="block text-xs font-normal text-gray-500 mt-1">
+                      Inicial que dio el cliente
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    name="pago_inicial_cliente"
+                    value={formData.pago_inicial_cliente}
+                    onChange={handleChange}
+                    step="0.01"
+                    min="0"
+                    required
+                    placeholder="200.00"
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-amber-500 font-semibold text-blue-700 ${errors.pago_inicial_cliente ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
+                      }`}
+                  />
+                  {errors.pago_inicial_cliente && (
+                    <p className="mt-1 text-sm text-red-600">{errors.pago_inicial_cliente}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-600">
+                    💳 Inicial pagada al momento de reservar
+                  </p>
+                </div>
+              </div>
+
+              {/* Resumen Visual de Cálculos */}
+              {formData.monto_total_venta && formData.pago_inicial_cliente >= 0 && formData.costo_base_proveedor && (
+                <div className="flex justify-center p-4 bg-white rounded-lg border-2 border-amber-300 shadow-sm">
+                  <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200 max-w-xs w-full">
+                    <p className="text-xs text-red-600 font-medium mb-1">Saldo Pendiente Cliente</p>
+                    <p className="text-2xl font-bold text-red-700">
+                      ${(parseFloat(formData.monto_total_venta || 0) -
+                        parseFloat(formData.pago_inicial_cliente || 0)).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-red-500 mt-1">Cliente te debe</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Advertencia Informativa */}
+              <div className="flex items-start gap-3 p-4 bg-amber-100 border border-amber-300 rounded-lg">
+                <AlertCircle className="w-6 h-6 text-amber-700 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-amber-900">
+                  <p className="font-semibold mb-2">ℹ️ Importante sobre ventas a crédito:</p>
+                  <p className="text-xs">
+                    <strong>Cliente te debe:</strong> ${(parseFloat(formData.monto_total_venta || 0) -
+                      parseFloat(formData.pago_inicial_cliente || 0)).toFixed(2)} (saldo pendiente)
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SECCIÓN 6: Comprobantes de Pago */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-8">
         <div className="flex items-center gap-2 mb-6">
           <FileText className="w-5 h-5 text-indigo-600" />
-          <h3 className="text-lg font-bold text-gray-900">Comprobantes de Pago</h3>
+          <div className="flex items-center gap-2">
+            <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">6</span>
+            <h3 className="text-lg font-bold text-gray-900">Comprobantes de Pago</h3>
+          </div>
         </div>
 
         <div className="space-y-4">
