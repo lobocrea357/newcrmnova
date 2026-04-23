@@ -20,14 +20,26 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
  */
 export async function handleAuthError(error) {
   if (
+    error?.message?.includes("Auth session missing") ||
+    error?.name === "AuthSessionMissingError"
+  ) {
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
+    return;
+  }
+
+  if (
     error?.message?.includes("Invalid Refresh Token") ||
     error?.message?.includes("refresh_token_not_found") ||
     error?.message?.includes("JWT expired")
   ) {
-    // Clear the invalid session
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (signOutError) {
+      console.warn("Error al cerrar sesión inválida:", signOutError);
+    }
 
-    // Redirect to login if we're in a browser environment
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
