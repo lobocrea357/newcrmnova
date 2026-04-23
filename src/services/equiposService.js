@@ -29,7 +29,7 @@ export async function getEquipos() {
 }
 
 /**
- * Obtener usuarios sin equipo asignado (asesores disponibles)
+ * Obtener usuarios sin equipo asignado (solo asesores disponibles)
  */
 export async function getUsuariosSinEquipo() {
   try {
@@ -42,6 +42,7 @@ export async function getUsuariosSinEquipo() {
         role:roles(id, name)
       `)
       .is('equipo_id', null)
+      .in('role.name', ['asesor', 'advisor'])  // Filtrar solo asesores
       .order('full_name');
 
     if (error) throw error;
@@ -114,6 +115,29 @@ export async function updateEquipo(equipoId, { nombre, descripcion, color, geren
  */
 export async function asignarUsuarioAEquipo(userId, equipoId) {
   try {
+    // Verificar estado actual del usuario
+    const { data: currentUser, error: userError } = await supabase
+      .from('profiles')
+      .select('equipo_id, role:roles(name)')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !currentUser) {
+      return { data: null, error: 'Usuario no encontrado' };
+    }
+
+    // Validar que sea un asesor
+    const roleName = currentUser.role?.name?.toLowerCase();
+    if (roleName !== 'asesor' && roleName !== 'advisor') {
+      return { data: null, error: 'Solo asesores pueden ser asignados a equipos' };
+    }
+
+    // Validar que no tenga equipo ya asignado
+    if (currentUser.equipo_id) {
+      return { data: null, error: 'El usuario ya tiene un equipo asignado. Remuévalo primero antes de asignarlo a otro equipo.' };
+    }
+
+    // Proceder con la asignación
     const { data, error } = await supabase
       .from('profiles')
       .update({
@@ -274,5 +298,37 @@ export async function getTeamsFilteredByUser(currentUserId) {
   } catch (error) {
     console.error('Error al obtener equipos filtrados:', error);
     return { data: [], error: error.message };
+  }
+}
+
+/**
+ * Obtener usuarios disponibles para asignación por rol
+ * @param {string} rol - Nombre del rol a filtrar ('gerente', 'asesor', etc.)
+ */
+export async function getUsuariosDisponiblesPorRol(rol) {
+  try {
+    let query = supabase
+      .from('profiles')
+      .select(`
+        id,
+        full_name,
+        email,
+        role:roles(id, name),
+        equipo_id
+      `)
+      .order('full_name');
+
+    // Filtrar por rol específico
+    if (rol) {
+      query = query.eq('role.name', rol);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return { data: data || [], error: null };
+  } catch (error) {
+    console.error('Error al obtener usuarios por rol:', error);
+    return { data: null, error: error.message };
   }
 }

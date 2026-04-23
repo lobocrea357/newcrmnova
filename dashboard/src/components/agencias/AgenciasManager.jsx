@@ -63,14 +63,10 @@ export default function AgenciasManager() {
   const fetchAvailableUsers = async (agenciaId) => {
     setLoadingAvailableUsers(true)
     try {
-      // Obtener todos los usuarios del sistema
-      const res = await fetch(USERS_API.listar)
+      // Usar endpoint específico de usuarios disponibles
+      const res = await fetch(`${AGENCIAS_API.listar}/${agenciaId}/usuarios-disponibles`)
       const json = await res.json()
-      const allUsers = json.data || json.users || []
-
-      // Filtrar los que ya están asignados a esta agencia
-      const assignedIds = new Set(agenciaUsers.map(ua => ua.user_id || ua.user?.id))
-      setAvailableUsers(allUsers.filter(u => !assignedIds.has(u.id)))
+      setAvailableUsers(json.data || [])
     } catch (error) {
       console.error('Error cargando usuarios disponibles:', error)
       toast.error('Error al cargar usuarios disponibles')
@@ -104,7 +100,10 @@ export default function AgenciasManager() {
         body: JSON.stringify({ userId: assignForm.userId, isPrimary: assignForm.isPrimary })
       })
       const json = await res.json()
-      if (!json.success) throw new Error(json.error)
+      if (!json.success) {
+        toast.error(json.error || 'Error al asignar usuario')
+        return
+      }
       toast.success('Usuario asignado correctamente')
       setShowAssignModal(false)
       fetchAgenciaUsers(selectedAgencia.id)

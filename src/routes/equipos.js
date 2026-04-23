@@ -8,7 +8,8 @@ import {
   removerUsuarioDeEquipo,
   deleteEquipo,
   canManageTeam,
-  getTeamsFilteredByUser
+  getTeamsFilteredByUser,
+  getUsuariosDisponiblesPorRol
 } from '../services/equiposService.js';
 
 const router = express.Router();
@@ -103,8 +104,8 @@ router.delete('/:id', async (req, res) => {
   if (currentUserId && teamId) {
     const canManage = await canManageTeam(currentUserId, teamId);
     if (!canManage) {
-      return res.status(403).json({ 
-        error: 'No puedes eliminar este equipo' 
+      return res.status(403).json({
+        error: 'No puedes eliminar este equipo'
       });
     }
   }
@@ -112,6 +113,14 @@ router.delete('/:id', async (req, res) => {
   const { error } = await deleteEquipo(req.params.id);
   if (error) return res.status(500).json({ error });
   res.json({ message: 'Equipo eliminado correctamente' });
+});
+
+/** GET /api/equipos/usuarios-disponibles/:rol - Usuarios disponibles por rol */
+router.get('/usuarios-disponibles/:rol', async (req, res) => {
+  const { rol } = req.params;
+  const { data, error } = await getUsuariosDisponiblesPorRol(rol);
+  if (error) return res.status(500).json({ error });
+  res.json({ data });
 });
 
 export default router;

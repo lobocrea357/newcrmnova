@@ -16,7 +16,10 @@ export default function EquiposTab({ allUsers = [], roles = [], onDataChange, us
 
   const gerentes = allUsers.filter(u => {
     const roleName = u.role?.name?.toLowerCase()
-    return roleName === 'gerente' || roleName === 'manager'
+    const isGerente = roleName === 'gerente' || roleName === 'manager'
+    // Excluir gerentes que ya lideran un equipo
+    const yaTieneEquipo = equipos.some(eq => eq.gerente?.id === u.id)
+    return isGerente && !yaTieneEquipo
   })
 
   useEffect(() => {
@@ -121,7 +124,18 @@ export default function EquiposTab({ allUsers = [], roles = [], onDataChange, us
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, equipoId })
     })
-    if (res.ok) { loadData(); onDataChange?.() }
+    if (res.ok) {
+      loadData()
+      onDataChange?.()
+    } else {
+      const errorData = await res.json()
+      Swal.fire({
+        icon: 'error',
+        title: 'Error al asignar',
+        text: errorData.error || 'No se pudo asignar el usuario al equipo',
+        confirmButtonColor: '#6366f1'
+      })
+    }
   }
 
   const handleRemover = async (userId) => {
@@ -371,7 +385,10 @@ export default function EquiposTab({ allUsers = [], roles = [], onDataChange, us
                       }}
                     >
                       <option value="">+ Agregar asesor al equipo...</option>
-                      {sinEquipo.map(u => (
+                      {sinEquipo.filter(u => {
+                        const roleName = u.role?.name?.toLowerCase()
+                        return roleName === 'asesor' || roleName === 'advisor'
+                      }).map(u => (
                         <option key={u.id} value={u.id}>{u.full_name} ({u.email})</option>
                       ))}
                     </select>
@@ -384,14 +401,23 @@ export default function EquiposTab({ allUsers = [], roles = [], onDataChange, us
       </div>
 
       {/* Usuarios sin equipo */}
-      {sinEquipo.length > 0 && (
+      {sinEquipo.filter(u => {
+        const roleName = u.role?.name?.toLowerCase()
+        return roleName === 'asesor' || roleName === 'advisor'
+      }).length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
           <h4 className="text-sm font-semibold text-amber-800 mb-3 flex items-center gap-2">
             <UserPlus className="w-4 h-4" />
-            Usuarios sin equipo asignado ({sinEquipo.length})
+            Asesores sin equipo asignado ({sinEquipo.filter(u => {
+              const roleName = u.role?.name?.toLowerCase()
+              return roleName === 'asesor' || roleName === 'advisor'
+            }).length})
           </h4>
           <div className="space-y-2">
-            {sinEquipo.map(u => (
+            {sinEquipo.filter(u => {
+              const roleName = u.role?.name?.toLowerCase()
+              return roleName === 'asesor' || roleName === 'advisor'
+            }).map(u => (
               <div key={u.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-amber-100">
                 <div>
                   <p className="text-sm font-medium text-gray-800">{u.full_name}</p>

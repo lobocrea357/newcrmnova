@@ -9,7 +9,8 @@ import {
   getAgenciasByUserId,
   assignUserToAgencia,
   removeUserFromAgencia,
-  setPrimaryAgencia
+  setPrimaryAgencia,
+  getUsuariosDisponiblesParaAgencia
 } from '../services/agenciasService.js';
 
 const router = Router();
@@ -127,6 +128,18 @@ router.patch('/:id/users/:userId/primary', async (req, res) => {
   try {
     const { data, error } = await setPrimaryAgencia(req.params.userId, req.params.id);
     if (error) return res.status(400).json({ success: false, error });
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/agencias/:id/usuarios-disponibles - Usuarios disponibles para asignar
+router.get('/:id/usuarios-disponibles', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await getUsuariosDisponiblesParaAgencia(id);
+    if (error) return res.status(500).json({ success: false, error });
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

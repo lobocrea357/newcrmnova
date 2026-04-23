@@ -177,6 +177,40 @@ export async function getAgenciasByUserId(userId) {
  */
 export async function assignUserToAgencia(userId, agenciaId, isPrimary = false, createdBy = null) {
   try {
+    // Verificar rol del usuario
+    const { data: user, error: userError } = await supabase
+      .from('profiles')
+      .select('role:roles(name)')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      return { data: null, error: 'Usuario no encontrado' };
+    }
+
+    const roleName = user.role?.name?.toLowerCase();
+
+    // Validar roles prohibidos
+    if (roleName === 'super_admin' || roleName === 'admin') {
+      return { data: null, error: 'Los administradores no deben tener agencias asignadas' };
+    }
+
+    // Verificar si ya está asignado a esta agencia
+    const { data: existing, error: existingError } = await supabase
+      .from('usuario_agencias')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('agencia_id', agenciaId)
+      .single();
+
+    if (existingError && existingError.code !== 'PGRST116') {
+      throw existingError;
+    }
+
+    if (existing) {
+      return { data: null, error: 'El usuario ya está asignado a esta agencia' };
+    }
+
     // Si es primary, desmarcar las anteriores
     if (isPrimary) {
       await supabase
@@ -247,6 +281,45 @@ export async function setPrimaryAgencia(userId, agenciaId) {
     return { data, error: null };
   } catch (error) {
     console.error('Error al establecer agencia primaria:', error);
+    return { data: null, error: error.message };
+  }
+}
+
+/**
+ * Obtener usuarios disponibles para asignar a una agencia
+ * @param {string} agenciaId - ID de la agencia
+ */
+export async function getUsuariosDisponiblesParaAgencia(agenciaId) {
+  try {
+    // Obtener todos los usuarios con roles permitidos
+    const { data: allUsers, error: usersError } = await supabase
+      .from('profiles')
+      .select(`
+        id,
+        full_name,
+        email,
+        role:roles(id, name)
+      `)
+      .not('role.name', 'in', '("super_admin","admin")')  // Excluir admins
+      .order('full_name');
+
+    if (usersError) throw usersError;
+
+    // Obtener usuarios ya asignados a esta agencia
+    const { data: assignedUsers, error: assignedError } = await supabase
+      .from('usuario_agencias')
+      .select('user_id')
+      .eq('agencia_id', agenciaId);
+
+    if (assignedError) throw assignedError;
+
+    // Filtrar usuarios no asignados
+    const assignedIds = new Set(assignedUsers?.map(u => u.user_id) || []);
+    const availableUsers = allUsers?.filter(u => !assignedIds.has(u.id)) || [];
+
+    return { data: availableUsers, error: null };
+  } catch (error) {
+    console.error('Error al obtener usuarios disponibles para agencia:', error);
     return { data: null, error: error.message };
   }
 }
