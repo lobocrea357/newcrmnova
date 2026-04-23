@@ -44,6 +44,51 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Validación condicional: si es CREDITO, validar campos adicionales
+    if (vuelo.forma_emision === 'CREDITO') {
+      // Validar que existan los campos requeridos para crédito
+      const camposCredito = ['monto_total_venta', 'pago_inicial_cliente', 'costo_base_proveedor'];
+      const faltantesCredito = camposCredito.filter(campo =>
+        vuelo[campo] === undefined || vuelo[campo] === null || vuelo[campo] === ''
+      );
+
+      if (faltantesCredito.length > 0) {
+        return res.status(400).json({
+          error: 'Para ventas a crédito, se requieren campos adicionales',
+          campos_faltantes: faltantesCredito,
+          detalle: 'Debes especificar: monto total de venta, pago inicial del cliente, y costo base del proveedor'
+        });
+      }
+
+      // Validar coherencia de montos
+      const montoTotal = parseFloat(vuelo.monto_total_venta);
+      const pagoInicial = parseFloat(vuelo.pago_inicial_cliente);
+      const costoBase = parseFloat(vuelo.costo_base_proveedor);
+
+      if (pagoInicial > montoTotal) {
+        return res.status(400).json({
+          error: 'El pago inicial no puede ser mayor al monto total de la venta',
+          pago_inicial: pagoInicial,
+          monto_total: montoTotal
+        });
+      }
+
+      if (costoBase > montoTotal) {
+        return res.status(400).json({
+          error: 'El costo base del proveedor no puede ser mayor al precio de venta al cliente',
+          costo_base: costoBase,
+          monto_total: montoTotal,
+          sugerencia: 'Revisa si ingresaste correctamente los montos. El precio al cliente debe ser mayor o igual al costo base.'
+        });
+      }
+
+      if (pagoInicial < 0 || montoTotal < 0 || costoBase < 0) {
+        return res.status(400).json({
+          error: 'Los montos no pueden ser negativos'
+        });
+      }
+    }
+
     // Validar tipo de documento de pasajeros
     if (pasajeros && pasajeros.length > 0) {
       const tiposDocumentoValidos = ['PASAPORTE', 'CEDULA'];

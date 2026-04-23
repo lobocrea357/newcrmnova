@@ -52,7 +52,12 @@ class VuelosService {
       // 1. Sanitizar datos de vuelo de vuelta según tipo_vuelo
       const datosSanitizados = this._sanitizarDatosVuelo(vueloData);
 
-      // 2. Generar localizador único si no se proporciona uno
+      // 2. Validar datos de crédito si aplica
+      if (datosSanitizados.forma_emision === 'CREDITO') {
+        this._validarDatosCreditoCompleto(datosSanitizados);
+      }
+
+      // 3. Generar localizador único si no se proporciona uno
       if (!datosSanitizados.localizador || datosSanitizados.localizador.trim() === '') {
         datosSanitizados.localizador = await this._generarLocalizadorUnico();
       } else {
@@ -819,6 +824,45 @@ class VuelosService {
       hora_salida_regreso: null,
       hora_llegada_regreso: null
     };
+  }
+
+  /**
+   * Validar datos completos para ventas a crédito
+   * @private
+   * @param {Object} vueloData - Datos del vuelo
+   * @throws {Error} - Error si la validación falla
+   */
+  _validarDatosCreditoCompleto(vueloData) {
+    const { monto_total_venta, pago_inicial_cliente, costo_base_proveedor } = vueloData;
+
+    // Verificar que existan todos los campos
+    if (!monto_total_venta || monto_total_venta <= 0) {
+      throw new Error('Para ventas a crédito, el monto total de venta es requerido y debe ser mayor a 0');
+    }
+
+    if (pago_inicial_cliente === undefined || pago_inicial_cliente === null || pago_inicial_cliente < 0) {
+      throw new Error('Para ventas a crédito, el pago inicial del cliente es requerido (puede ser 0)');
+    }
+
+    if (!costo_base_proveedor || costo_base_proveedor <= 0) {
+      throw new Error('Para ventas a crédito, el costo base del proveedor es requerido y debe ser mayor a 0');
+    }
+
+    // Validar coherencia
+    if (parseFloat(pago_inicial_cliente) > parseFloat(monto_total_venta)) {
+      throw new Error(`El pago inicial ($${pago_inicial_cliente}) no puede ser mayor al monto total ($${monto_total_venta})`);
+    }
+
+    if (parseFloat(costo_base_proveedor) > parseFloat(monto_total_venta)) {
+      throw new Error(`El costo base ($${costo_base_proveedor}) no puede ser mayor al precio de venta ($${monto_total_venta})`);
+    }
+
+    console.log('[VuelosService] Validación de crédito exitosa:', {
+      monto_total_venta,
+      pago_inicial_cliente,
+      saldo_calculado: parseFloat(monto_total_venta) - parseFloat(pago_inicial_cliente),
+      costo_base_proveedor
+    });
   }
 }
 

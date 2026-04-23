@@ -10,7 +10,7 @@ export async function autorizarEmision(vueloId, userId, cuentaEmision, observaci
     // 1. Obtener vuelo
     const { data: vuelo, error: errorVuelo } = await supabase
       .from('vuelos')
-      .select('*, created_by, forma_emision')
+      .select('*, created_by, forma_emision, costo_base_proveedor')
       .eq('id', vueloId)
       .single();
 
@@ -87,13 +87,23 @@ export async function autorizarEmision(vueloId, userId, cuentaEmision, observaci
  */
 async function crearDeudaProveedor(vuelo, cuentaEmision) {
   try {
-    // Calcular monto de la deuda (suma de precios_pantalla de pasajeros)
-    const { data: pasajeros } = await supabase
-      .from('vuelos_pasajeros')
-      .select('precio_pantalla')
-      .eq('vuelo_id', vuelo.id);
+    // Usar costo_base_proveedor si está disponible, fallback a cálculo desde pasajeros
+    let montoDeuda;
 
-    const montoDeuda = pasajeros.reduce((sum, p) => sum + parseFloat(p.precio_pantalla || 0), 0);
+    if (vuelo.costo_base_proveedor && vuelo.costo_base_proveedor > 0) {
+      // Usar costo_base_proveedor del vuelo (campo nuevo para gestión de crédito)
+      montoDeuda = parseFloat(vuelo.costo_base_proveedor);
+      console.log(`[EmisionesService] Usando costo_base_proveedor: $${montoDeuda}`);
+    } else {
+      // Fallback: calcular suma de precios_pantalla de pasajeros (para vuelos viejos)
+      const { data: pasajeros } = await supabase
+        .from('vuelos_pasajeros')
+        .select('precio_pantalla')
+        .eq('vuelo_id', vuelo.id);
+
+      montoDeuda = pasajeros.reduce((sum, p) => sum + parseFloat(p.precio_pantalla || 0), 0);
+      console.log(`[EmisionesService] Usando suma de precios_pantalla (fallback): $${montoDeuda}`);
+    }
 
     // Determinar proveedor según cuenta
     const proveedorMap = {
@@ -102,7 +112,7 @@ async function crearDeudaProveedor(vuelo, cuentaEmision) {
       'EXPEDIA': 'EXPEDIA'
     };
 
-    const proveedor = Object.keys(proveedorMap).find(key => 
+    const proveedor = Object.keys(proveedorMap).find(key =>
       cuentaEmision.includes(key)
     ) || 'OTRO';
 

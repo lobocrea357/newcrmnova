@@ -120,6 +120,10 @@ export default function VueloFormNuevo({
     // Información de Emisión
     forma_emision: 'CONTADO',
     cuenta_emision_asignada: '',
+    // NUEVOS CAMPOS PARA CRÉDITO
+    monto_total_venta: '',
+    pago_inicial_cliente: '0',
+    costo_base_proveedor: '',
     ...initialData
   })
 
@@ -227,7 +231,7 @@ export default function VueloFormNuevo({
     }
 
     // Solo procesar imágenes
-    if (!pasajero.pasaporte_file.type.startsWith('image/')) {
+    if (!pasajero.pasaporte_file?.type?.startsWith('image/')) {
       toastError('La extracción automática solo funciona con imágenes (JPG, PNG)')
       return
     }
@@ -429,6 +433,39 @@ export default function VueloFormNuevo({
       }
     }
 
+    // Validaciones específicas para ventas a CREDITO
+    if (formData.forma_emision === 'CREDITO') {
+      if (!formData.costo_base_proveedor || parseFloat(formData.costo_base_proveedor) <= 0) {
+        newErrors.costo_base_proveedor = 'Para ventas a crédito, el costo base del proveedor es requerido'
+      }
+
+      if (!formData.monto_total_venta || parseFloat(formData.monto_total_venta) <= 0) {
+        newErrors.monto_total_venta = 'Para ventas a crédito, el monto total de venta es requerido'
+      }
+
+      if (formData.pago_inicial_cliente === '' || formData.pago_inicial_cliente === null || parseFloat(formData.pago_inicial_cliente) < 0) {
+        newErrors.pago_inicial_cliente = 'El pago inicial es requerido (puede ser 0)'
+      }
+
+      // Validar coherencia de montos
+      const montoTotal = parseFloat(formData.monto_total_venta || 0);
+      const pagoInicial = parseFloat(formData.pago_inicial_cliente || 0);
+      const costoBase = parseFloat(formData.costo_base_proveedor || 0);
+
+      if (pagoInicial > montoTotal) {
+        newErrors.pago_inicial_cliente = 'El pago inicial no puede ser mayor al monto total de venta'
+      }
+
+      if (costoBase > montoTotal) {
+        newErrors.costo_base_proveedor = 'El costo base no puede ser mayor al precio de venta'
+      }
+
+      // Validar que haya ganancia positiva
+      if (montoTotal < costoBase) {
+        newErrors.monto_total_venta = 'El precio de venta debe ser mayor o igual al costo base'
+      }
+    }
+
     // Validar pasajeros
     if (pasajeros.length === 0) {
       newErrors.pasajeros = 'Debe agregar al menos un pasajero'
@@ -500,7 +537,11 @@ export default function VueloFormNuevo({
         total_cotizacion: subtotalCalculado,
         // Información de Emisión
         forma_emision: formData.forma_emision || 'CONTADO',
-        cuenta_emision_asignada: formData.cuenta_emision_asignada || null
+        cuenta_emision_asignada: formData.cuenta_emision_asignada || null,
+        // CAMPOS DE CRÉDITO (solo si es CREDITO)
+        monto_total_venta: formData.forma_emision === 'CREDITO' ? parseFloat(formData.monto_total_venta) : null,
+        pago_inicial_cliente: formData.forma_emision === 'CREDITO' ? parseFloat(formData.pago_inicial_cliente) : null,
+        costo_base_proveedor: formData.forma_emision === 'CREDITO' ? parseFloat(formData.costo_base_proveedor) : null
       },
       pasajeros: pasajeros.map(p => ({
         cotizacion_pasajero_id: p.cotizacion_pasajero_id || null,
@@ -886,6 +927,149 @@ export default function VueloFormNuevo({
               </div>
             </div>
           </div>
+
+          {/* Sección de Gestión de Crédito - Solo cuando forma_emision es CREDITO */}
+          {formData.forma_emision === 'CREDITO' && (
+            <div className="md:col-span-2 mt-4 p-6 bg-amber-50 border-2 border-amber-200 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center gap-2 mb-4">
+                <DollarSign className="w-6 h-6 text-amber-600" />
+                <h4 className="text-sm font-bold text-amber-900 uppercase tracking-wide">
+                  Gestión de Crédito
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Costo Base al Proveedor */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Costo Base (Proveedor) *
+                    <span className="block text-xs font-normal text-gray-500 mt-1">
+                      Lo que debes al proveedor
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    name="costo_base_proveedor"
+                    value={formData.costo_base_proveedor}
+                    onChange={handleChange}
+                    step="0.01"
+                    min="0"
+                    required
+                    placeholder="500.00"
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-amber-500 font-semibold text-orange-700 ${errors.costo_base_proveedor ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
+                      }`}
+                  />
+                  {errors.costo_base_proveedor && (
+                    <p className="mt-1 text-sm text-red-600">{errors.costo_base_proveedor}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-600">
+                    💰 Precio del boleto en Sabre, Kiu, etc.
+                  </p>
+                </div>
+
+                {/* Monto Total de Venta */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Monto Total de Venta *
+                    <span className="block text-xs font-normal text-gray-500 mt-1">
+                      Precio al cliente (con markup)
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    name="monto_total_venta"
+                    value={formData.monto_total_venta}
+                    onChange={handleChange}
+                    step="0.01"
+                    min="0"
+                    required
+                    placeholder="600.00"
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-amber-500 font-semibold text-emerald-700 ${errors.monto_total_venta ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
+                      }`}
+                  />
+                  {errors.monto_total_venta && (
+                    <p className="mt-1 text-sm text-red-600">{errors.monto_total_venta}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-600">
+                    💵 Precio total que pagará el cliente
+                  </p>
+                </div>
+
+                {/* Pago Inicial del Cliente */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Pago Inicial del Cliente *
+                    <span className="block text-xs font-normal text-gray-500 mt-1">
+                      Inicial que dio el cliente
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    name="pago_inicial_cliente"
+                    value={formData.pago_inicial_cliente}
+                    onChange={handleChange}
+                    step="0.01"
+                    min="0"
+                    required
+                    placeholder="200.00"
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-amber-500 font-semibold text-blue-700 ${errors.pago_inicial_cliente ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
+                      }`}
+                  />
+                  {errors.pago_inicial_cliente && (
+                    <p className="mt-1 text-sm text-red-600">{errors.pago_inicial_cliente}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-600">
+                    💳 Inicial pagada al momento de reservar
+                  </p>
+                </div>
+              </div>
+
+              {/* Resumen Visual de Cálculos */}
+              {formData.monto_total_venta && formData.pago_inicial_cliente >= 0 && formData.costo_base_proveedor && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-white rounded-lg border-2 border-amber-300 shadow-sm">
+                  <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
+                    <p className="text-xs text-red-600 font-medium mb-1">Saldo Pendiente Cliente</p>
+                    <p className="text-2xl font-bold text-red-700">
+                      ${(parseFloat(formData.monto_total_venta || 0) -
+                        parseFloat(formData.pago_inicial_cliente || 0)).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-red-500 mt-1">Cliente te debe</p>
+                  </div>
+
+                  <div className="text-center p-3 bg-orange-50 rounded-lg border border-orange-200">
+                    <p className="text-xs text-orange-600 font-medium mb-1">Deuda con Proveedor</p>
+                    <p className="text-2xl font-bold text-orange-700">
+                      ${parseFloat(formData.costo_base_proveedor || 0).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-orange-500 mt-1">Tú debes al proveedor</p>
+                  </div>
+
+                  <div className="text-center p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                    <p className="text-xs text-emerald-600 font-medium mb-1">Ganancia Proyectada</p>
+                    <p className="text-2xl font-bold text-emerald-700">
+                      ${(parseFloat(formData.monto_total_venta || 0) -
+                        parseFloat(formData.costo_base_proveedor || 0)).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-emerald-500 mt-1">Tu margen</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Advertencia Informativa */}
+              <div className="flex items-start gap-3 p-4 bg-amber-100 border border-amber-300 rounded-lg">
+                <AlertCircle className="w-6 h-6 text-amber-700 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-amber-900">
+                  <p className="font-semibold mb-2">ℹ️ Importante sobre ventas a crédito:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li><strong>Cliente te debe:</strong> ${(parseFloat(formData.monto_total_venta || 0) - parseFloat(formData.pago_inicial_cliente || 0)).toFixed(2)} (saldo pendiente)</li>
+                    <li><strong>Tú debes al proveedor:</strong> ${parseFloat(formData.costo_base_proveedor || 0).toFixed(2)}</li>
+                    <li><strong>Tu ganancia:</strong> ${(parseFloat(formData.monto_total_venta || 0) - parseFloat(formData.costo_base_proveedor || 0)).toFixed(2)}</li>
+                    <li>El saldo se calculará automáticamente y aparecerá en Gestión de Deudas</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1473,7 +1657,7 @@ export default function VueloFormNuevo({
                       </div>
 
                       {/* Botón de Extracción Automática con IA - Para pasaportes y cédulas */}
-                      {pasajero.pasaporte_file.type.startsWith('image/') && (
+                      {pasajero.pasaporte_file?.type?.startsWith('image/') && (
                         <button
                           type="button"
                           onClick={() => extractDocumentData(index)}
@@ -1497,7 +1681,7 @@ export default function VueloFormNuevo({
                         </button>
                       )}
 
-                      {pasajero.pasaporte_file.type === 'application/pdf' && (
+                      {pasajero.pasaporte_file?.type === 'application/pdf' && (
                         <p className="text-xs text-amber-600 italic">
                           &#9888; La extracción automática solo funciona con imágenes (JPG, PNG)
                         </p>
