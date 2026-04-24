@@ -34,6 +34,22 @@ CREATE TABLE public.anulables (
   CONSTRAINT anulables_pkey PRIMARY KEY (id),
   CONSTRAINT anulables_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id)
 );
+CREATE TABLE public.auditoria_cambios_estado (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entidad_tipo character varying NOT NULL,
+  entidad_id uuid NOT NULL,
+  campo_cambiado character varying NOT NULL,
+  valor_anterior character varying,
+  valor_nuevo character varying NOT NULL,
+  usuario_id uuid,
+  usuario_nombre character varying,
+  razon_cambio text,
+  ip_address inet,
+  fecha_cambio timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT auditoria_cambios_estado_pkey PRIMARY KEY (id),
+  CONSTRAINT auditoria_cambios_estado_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.profiles(id)
+);
 CREATE TABLE public.bookings (
   loc text NOT NULL,
   fecha_registro_venta timestamp with time zone,
@@ -199,6 +215,10 @@ CREATE TABLE public.conversation_evaluations (
   confidence_score numeric DEFAULT 0.00 CHECK (confidence_score >= 0::numeric AND confidence_score <= 1::numeric),
   analysis_method character varying DEFAULT 'hybrid'::character varying,
   analysis_version character varying DEFAULT 'v2.0'::character varying,
+  lead_respondio boolean DEFAULT false,
+  preguntas_negociacion boolean DEFAULT false,
+  numero_telefono text,
+  calidad_cotizacion boolean DEFAULT false,
   CONSTRAINT conversation_evaluations_pkey PRIMARY KEY (id),
   CONSTRAINT conversation_evaluations_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id),
   CONSTRAINT conversation_evaluations_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id),
@@ -302,6 +322,22 @@ CREATE TABLE public.daily_sales_reports (
   CONSTRAINT daily_sales_reports_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id),
   CONSTRAINT daily_sales_reports_performance_analysis_id_fkey FOREIGN KEY (performance_analysis_id) REFERENCES public.performance_analyses(id)
 );
+CREATE TABLE public.deudas_proveedores (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  vuelo_id uuid NOT NULL,
+  proveedor character varying NOT NULL,
+  cuenta_emision character varying NOT NULL,
+  monto_deuda numeric NOT NULL CHECK (monto_deuda >= 0::numeric),
+  moneda character varying NOT NULL DEFAULT 'USD'::character varying,
+  estado character varying NOT NULL DEFAULT 'PENDIENTE'::character varying CHECK (estado::text = ANY (ARRAY['PENDIENTE'::character varying, 'PAGADO_PARCIAL'::character varying, 'PAGADO_TOTAL'::character varying]::text[])),
+  saldo_pendiente numeric NOT NULL CHECK (saldo_pendiente >= 0::numeric),
+  fecha_generacion timestamp with time zone DEFAULT now(),
+  fecha_vencimiento date,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT deudas_proveedores_pkey PRIMARY KEY (id),
+  CONSTRAINT deudas_proveedores_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id)
+);
 CREATE TABLE public.equipos (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   nombre text NOT NULL,
@@ -384,6 +420,22 @@ CREATE TABLE public.notificaciones (
   CONSTRAINT notificaciones_pkey PRIMARY KEY (id),
   CONSTRAINT notificaciones_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE TABLE public.pagos_deudas (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  deuda_id uuid NOT NULL,
+  monto_pagado numeric NOT NULL CHECK (monto_pagado > 0::numeric),
+  moneda character varying NOT NULL DEFAULT 'USD'::character varying,
+  metodo_pago character varying,
+  referencia_pago character varying,
+  comprobante_url text,
+  fecha_pago date NOT NULL,
+  registrado_por uuid NOT NULL,
+  observaciones text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT pagos_deudas_pkey PRIMARY KEY (id),
+  CONSTRAINT pagos_deudas_deuda_id_fkey FOREIGN KEY (deuda_id) REFERENCES public.deudas_proveedores(id),
+  CONSTRAINT pagos_deudas_registrado_por_fkey FOREIGN KEY (registrado_por) REFERENCES public.profiles(id)
+);
 CREATE TABLE public.performance_analyses (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   analysis_name text NOT NULL,
@@ -414,6 +466,12 @@ CREATE TABLE public.performance_analyses (
   average_score_ventas numeric DEFAULT 0.00,
   nivel_comercial character varying DEFAULT 'REGULAR'::character varying,
   sales_summary jsonb DEFAULT '{}'::jsonb,
+  lead_respondio_count integer DEFAULT 0,
+  preguntas_negociacion_count integer DEFAULT 0,
+  calidad_cotizacion_count integer DEFAULT 0,
+  seguimiento_efectivo_count integer DEFAULT 0,
+  objeciones_superadas_count integer DEFAULT 0,
+  venta_confirmada_count integer DEFAULT 0,
   CONSTRAINT performance_analyses_pkey PRIMARY KEY (id),
   CONSTRAINT performance_analyses_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id),
   CONSTRAINT performance_analyses_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id),
@@ -461,6 +519,7 @@ CREATE TABLE public.permissions (
   category character varying,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  is_system boolean DEFAULT false,
   CONSTRAINT permissions_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.profiles (
@@ -651,11 +710,19 @@ CREATE TABLE public.vuelos (
   fecha_regreso date,
   hora_salida_regreso time without time zone,
   hora_llegada_regreso time without time zone,
+  forma_emision character varying CHECK (forma_emision::text = ANY (ARRAY['CONTADO'::character varying, 'CREDITO'::character varying]::text[])),
+  cuenta_emision_original character varying,
+  cuenta_emision_asignada character varying,
+  autorizado_emision boolean DEFAULT false,
+  autorizado_por uuid,
+  fecha_autorizacion_emision timestamp with time zone,
+  observaciones_emision text,
   CONSTRAINT vuelos_pkey PRIMARY KEY (id),
   CONSTRAINT vuelos_cotizacion_id_fkey FOREIGN KEY (cotizacion_id) REFERENCES public.cotizaciones(id),
   CONSTRAINT vuelos_pago_confirmado_por_fkey FOREIGN KEY (pago_confirmado_por) REFERENCES public.profiles(id),
   CONSTRAINT vuelos_emitido_por_fkey FOREIGN KEY (emitido_por) REFERENCES public.profiles(id),
-  CONSTRAINT vuelos_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+  CONSTRAINT vuelos_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
+  CONSTRAINT vuelos_autorizado_por_fkey FOREIGN KEY (autorizado_por) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.vuelos_adjuntos (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

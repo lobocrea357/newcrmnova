@@ -1,0 +1,35 @@
+{
+  "skill_name": "supabase-realtime-implementation",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Necesito implementar actualizaciones en tiempo real para una tabla de cotizaciones. Cuando un usuario crea o actualiza una cotización, otros usuarios deberían ver el cambio automáticamente. La tabla se llama cotizaciones y tiene una columna agency_id. ¿Cómo implemento esto siguiendo los patrones del proyecto?",
+      "expected_output": "El agente debería implementar una suscripción Supabase Realtime siguiendo el patrón base: importar supabase desde @/lib/supabase, usar useEffect con cleanup, crear un canal con nombre único (ej: cotizaciones-agencia-${agencyId}), configurar el filtro agency_id=eq.${agencyId}, implementar handler para INSERT/UPDATE/DELETE, y hacer cleanup con supabase.removeChannel(channel).",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Quiero que el ranking de asesores se actualice en tiempo real cuando se agregan nuevos vuelos. Ya tengo el endpoint del ranking en /api/rankings/global. ¿Cómo hago que el frontend se actualice automáticamente?",
+      "expected_output": "El agente debería implementar el Patrón 2 (Ranking/Datos Agregados): suscripción a la tabla vuelos sin filtro (event: '*'), handler que simplemente recarga el ranking completo llamando al API, y opcionalmente verificar el estado de suscripción con .subscribe((status) => ...).",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Necesito mostrar notificaciones en tiempo real para el usuario actual. Las notificaciones están en la tabla notificaciones y tienen una columna user_id. Solo me interesan las notificaciones nuevas (INSERT).",
+      "expected_output": "El agente debería implementar el Patrón 3 (Notificaciones por Usuario): suscripción con event: 'INSERT', filtro user_id=eq.${user.id}, handler que hace actualización optimista del estado (evitando duplicados) y opcionalmente muestra feedback visual (toast). El nombre del canal debería ser notificaciones-${user.id}.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Tengo una tabla de mensajes similar al chat, pero también necesito escuchar cambios en una tabla de archivos adjuntos (message_files) que está relacionada. ¿Cómo implemento realtime para ambos?",
+      "expected_output": "El agente debería implementar el Patrón 1 (Chat con Datos Relacionales): doble suscripción - una a la tabla principal (messages) y otra a la tabla relacionada (message_files). El handler de la tabla principal debería tener lógica específica por tipo de evento (INSERT/UPDATE/DELETE), y la suscripción a la tabla relacionada debería recargar el mensaje con sus relaciones cuando se inserta un archivo.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "Quiero implementar realtime para una tabla de tareas. Cada tarea tiene un assigned_user_id. Necesito que cuando se asigne una tarea a un usuario, él la vea inmediatamente. ¿Cómo lo hago?",
+      "expected_output": "El agente debería implementar una suscripción con filtro assigned_user_id=eq.${userId} y event: '*' (para INSERT y UPDATE). Debería seguir el patrón base: import desde @/lib/supabase, useEffect con cleanup, nombre de canal único (tareas-usuario-${userId}), y handler que actualiza el estado local para INSERT/UPDATE/DELETE.",
+      "files": []
+    }
+  ]
+}

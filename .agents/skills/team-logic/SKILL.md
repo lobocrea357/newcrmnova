@@ -200,7 +200,129 @@ if (esGerente) {
 
 When implementing team-based features, always test:
 1. Manager editing their own resources
-2. Manager editing team member resources  
+2. Manager editing team member resources
 3. Manager editing resources from other teams (should fail)
 4. Advisor editing only their own resources
 5. Admin/super admin bypassing team restrictions
+
+## Assignment Validation Rules
+
+### Team Assignment Rules
+1. **Only advisors (asesores) can be team members**
+   - Managers lead teams but don't belong to them (equipo_id = NULL)
+   - Admins should not be assigned to teams
+
+2. **One team per advisor**
+   - An advisor can only belong to one team at a time
+   - To change teams, must be removed from current team first
+
+3. **One team per manager**
+   - A manager can only lead one team (via equipos.gerente_id)
+   - Cannot assign same manager to multiple teams
+
+### Agency Assignment Rules
+1. **No agencies for admins**
+   - Super admins and admins should not have agencies assigned
+   - Only advisors and managers should have agencies
+
+2. **Multiple agencies allowed**
+   - Users can belong to multiple agencies
+   - One agency must be marked as primary (is_primary = true)
+
+3. **No limit on agency count**
+   - No hard limit on number of agencies per user (for now)
+
+## Implementation Patterns
+
+### Validating Team Assignment
+
+```javascript
+// Backend validation pattern
+export async function assignUserToTeam(userId, teamId) {
+  // 1. Check user role
+  const { data: user } = await supabase
+    .from('profiles')
+    .select('role:roles(name), equipo_id')
+    .eq('id', userId)
+    .single();
+
+  if (!['asesor', 'advisor'].includes(user.role.name.toLowerCase())) {
+    return { error: 'Solo asesores pueden ser asignados a equipos' };
+  }
+
+  // 2. Check if already assigned
+  if (user.equipo_id) {
+    return { error: 'El usuario ya tiene un equipo asignado. Remuévalo primero.' };
+  }
+
+  // 3. Proceed with assignment
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ equipo_id: teamId })
+    .eq('id', userId);
+}
+```
+
+### Validating Agency Assignment
+
+```javascript
+// Backend validation pattern
+export async function assignUserToAgency(userId, agencyId, isPrimary) {
+  // 1. Check user role
+  const { data: user } = await supabase
+    .from('profiles')
+    .select('role:roles(name)')
+    .eq('id', userId)
+    .single();
+
+  if (['super_admin', 'admin'].includes(user.role.name.toLowerCase())) {
+    return { error: 'Los administradores no deben tener agencias asignadas' };
+  }
+
+  // 2. Check if already assigned to this agency
+  const { data: existing } = await supabase
+    .from('usuario_agencias')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('agencia_id', agencyId)
+    .single();
+
+  if (existing) {
+    return { error: 'El usuario ya está asignado a esta agencia' };
+  }
+
+  // 3. Handle primary flag
+  if (isPrimary) {
+    await supabase
+      .from('usuario_agencias')
+      .update({ is_primary: false })
+      .eq('user_id', userId);
+  }
+
+  // 4. Proceed with assignment
+}
+```
+
+### Frontend Filtering Patterns
+
+```javascript
+// Filter managers without team
+const availableManagers = allUsers.filter(u => {
+  const roleName = u.role?.name?.toLowerCase()
+  const isManager = roleName === 'gerente' || roleName === 'manager'
+  const alreadyHasTeam = teams.some(t => t.gerente?.id === u.id)
+  return isManager && !alreadyHasTeam
+})
+
+// Filter advisors without team
+const availableAdvisors = usersWithoutTeam.filter(u => {
+  const roleName = u.role?.name?.toLowerCase()
+  return roleName === 'asesor' || roleName === 'advisor'
+})
+
+// Filter users for agency assignment (exclude admins)
+const availableForAgency = allUsers.filter(u => {
+  const roleName = u.role?.name?.toLowerCase()
+  return !['super_admin', 'admin'].includes(roleName)
+})
+```

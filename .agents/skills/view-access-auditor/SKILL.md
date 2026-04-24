@@ -192,6 +192,59 @@ Always check for these common security issues:
 - [ ] Data ownership rules
 - [ ] Cross-agency access rules
 
+## Team and Agency Assignment Validation
+
+When auditing components that handle team or agency assignments, check for:
+
+### Team Assignment Validation
+- "¿Solo asesores pueden ser asignados a equipos?"
+- "¿Se valida que el asesor no tenga equipo ya asignado?"
+- "¿Los gerentes solo pueden liderar un equipo a la vez?"
+- "¿El backend valida estas reglas o solo el frontend?"
+
+### Agency Assignment Validation
+- "¿Los admins pueden tener agencias asignadas? (deberían ser excluidos)"
+- "¿Un usuario puede tener múltiples agencias asignadas?"
+- "¿Se requiere que una agencia sea marcada como primaria?"
+- "¿El backend valida roles antes de asignar?"
+
+### Common Patterns for Assignment Validation
+
+```javascript
+// Frontend: Filter available users by role
+const availableAdvisors = allUsers.filter(u => {
+  const roleName = u.role?.name?.toLowerCase()
+  return roleName === 'asesor' || roleName === 'advisor'
+})
+
+// Backend: Validate before assignment
+export async function assignUserToTeam(userId, teamId) {
+  const { data: user } = await supabase
+    .from('profiles')
+    .select('equipo_id, role:roles(name)')
+    .eq('id', userId)
+    .single();
+
+  if (user.role.name !== 'asesor') {
+    return { error: 'Solo asesores pueden ser asignados' };
+  }
+
+  if (user.equipo_id) {
+    return { error: 'Usuario ya tiene equipo asignado' };
+  }
+
+  // Proceed with assignment
+}
+```
+
+### Audit Checklist for Assignment Components
+
+- [ ] Role filtering in select options (frontend)
+- [ ] Backend validation of role before assignment
+- [ ] Backend validation of current state (team/agency already assigned)
+- [ ] Error handling and user feedback
+- [ ] Business rules enforced at both frontend and backend
+
 ## Implementation Examples
 
 ### Example 1: Cotizaciones List
