@@ -247,6 +247,22 @@ router.get('/global', async (req, res) => {
       .filter(u => gerenteIds.has(u.id))
       .sort(sortByVentas);
 
+    // Filtrar usuarios con roles admin y super_admin del ranking
+    // Estos roles son administrativos y no deben participar en la gamificación
+    const rolesExcluidos = new Set(['admin', 'super_admin']);
+    const usuariosExcluidosIds = new Set();
+    
+    todos.forEach(u => {
+      if (rolesExcluidos.has(u.rol?.toLowerCase())) {
+        usuariosExcluidosIds.add(u.id);
+      }
+    });
+
+    // Función helper para filtrar usuarios excluidos
+    const filtrarUsuariosExcluidos = (usuarios) => {
+      return usuarios.filter(u => !usuariosExcluidosIds.has(u.id));
+    };
+
     // Agrupar por equipo — SOLO usuarios que pertenecen a un equipo (equipo_id != null)
     // Los gerentes gestionan equipos pero no son miembros (no tienen equipo_id), por lo que quedan fuera naturalmente
     const porEquipo = {};
@@ -272,8 +288,17 @@ router.get('/global', async (req, res) => {
         porEquipo[u.equipoId].miembros.push(u);
       });
 
-    // Ordenar miembros dentro de cada equipo
+    // Ordenar miembros dentro de cada equipo y filtrar admin/super_admin
     Object.values(porEquipo).forEach(eq => {
+      eq.miembros = filtrarUsuariosExcluidos(eq.miembros);
+      
+      // Recalcular totales del equipo después de filtrar miembros excluidos
+      eq.totalVuelos = eq.miembros.reduce((sum, m) => sum + m.totalVuelos, 0);
+      eq.totalEmitidos = eq.miembros.reduce((sum, m) => sum + m.emitidos, 0);
+      eq.montoTotal = eq.miembros.reduce((sum, m) => sum + m.montoTotal, 0);
+      eq.feeAgenciaTotal = eq.miembros.reduce((sum, m) => sum + m.feeAgenciaTotal, 0);
+      
+      // Ordenar miembros por ventas
       eq.miembros.sort(sortByVentas);
     });
 
@@ -284,15 +309,19 @@ router.get('/global', async (req, res) => {
       return b.montoTotal - a.montoTotal;
     });
 
-    // Top performers
-    const topAsesor = asesores[0] || null;
-    const topGerente = gerentes[0] || null;
-    const general = [...todos].sort(sortByVentas);
+    // Aplicar filtro a todas las listas
+    const generalFiltrado = filtrarUsuariosExcluidos([...todos]).sort(sortByVentas);
+    const asesoresFiltrados = filtrarUsuariosExcluidos(asesores);
+    const gerentesFiltrados = filtrarUsuariosExcluidos(gerentes);
+
+    // Top performers (de listas filtradas)
+    const topAsesor = asesoresFiltrados[0] || null;
+    const topGerente = gerentesFiltrados[0] || null;
 
     res.json({
-      general,
-      asesores,
-      gerentes,
+      general: generalFiltrado,
+      asesores: asesoresFiltrados,
+      gerentes: gerentesFiltrados,
       equipos,
       topAsesor,
       topGerente,
