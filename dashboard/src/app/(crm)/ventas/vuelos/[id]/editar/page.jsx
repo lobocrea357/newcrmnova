@@ -29,7 +29,7 @@ export default function EditarVueloPage() {
   const { id } = useParams()
   const router = useRouter()
   const { user } = useAuth()
-  const { hasPermission, hasAnyPermission, profile } = useUserProfile()
+  const { hasPermission, hasAnyPermission, profile, loading: profileLoading } = useUserProfile()
 
   const [vuelo, setVuelo] = useState(null)
   const [pasajeros, setPasajeros] = useState([])
@@ -38,18 +38,14 @@ export default function EditarVueloPage() {
   const [error, setError] = useState(null)
   const [sinLimiteEdiciones, setSinLimiteEdiciones] = useState(false)
 
-  const tieneEditAll = hasPermission('vuelos.edit_all')
-  const tieneEditTeam = hasPermission('vuelos.edit_team')
-  const tieneEditOwn = hasPermission('vuelos.edit_own')
-
-  const isRole = (role) => profile?.role === role
+  const isRole = (role) => profile?.role?.name === role
   const esGerente = isRole('gerente')
 
   useEffect(() => {
-    if (id) {
+    if (id && !profileLoading && profile) {
       cargarVuelo()
     }
-  }, [id])
+  }, [id, profileLoading, profile])
 
   const cargarVuelo = async () => {
     try {
@@ -57,6 +53,7 @@ export default function EditarVueloPage() {
       setError(null)
 
       const response = await fetch(VUELOS_API.obtener(id))
+
       if (!response.ok) {
         throw new Error('Error al cargar el vuelo')
       }
@@ -67,22 +64,31 @@ export default function EditarVueloPage() {
         throw new Error('Vuelo no encontrado')
       }
 
+      // Evaluar permisos y roles EN EL MOMENTO de la ejecución
+      const tieneEditAll = hasPermission('vuelos.edit_all')
+      const tieneEditTeam = hasPermission('vuelos.edit_team')
+      const tieneEditOwn = hasPermission('vuelos.edit_own')
+
       const esCreador = data.created_by === user?.id
       const esAdmin = isRole('admin')
       const esSuperAdmin = isRole('super_admin')
+      const esGerenteRole = isRole('gerente')
 
       let puedeEditar = false
       let sinLimite = false
 
-      if (tieneEditAll && esSuperAdmin) {
+      // Super Admin: sin límite siempre
+      if (esSuperAdmin) {
         puedeEditar = true
         sinLimite = true
       }
-      else if (tieneEditAll && esAdmin && data.estado !== 'EMITIDO') {
+      // Admin: sin límite siempre (excepto vuelos emitidos)
+      else if (esAdmin && data.estado !== 'EMITIDO') {
         puedeEditar = true
         sinLimite = true
       }
-      else if (tieneEditTeam && data.estado !== 'EMITIDO') {
+      // Gerente editando vuelo de su equipo (NO creado por él): sin límite
+      else if (esGerenteRole && !esCreador && data.estado !== 'EMITIDO') {
         const equiposGestionados = await obtenerEquiposDelGerente(user?.id)
         const equipoIdsGestionados = equiposGestionados.map(e => e.id)
         const creadorEnMiEquipo = equipoIdsGestionados.includes(data.creator?.equipo_id)
@@ -92,7 +98,8 @@ export default function EditarVueloPage() {
           sinLimite = true
         }
       }
-      else if (tieneEditOwn && esCreador && data.estado !== 'EMITIDO') {
+      // Gerente editando su propio vuelo O Asesor editando su vuelo: CON límite de 3 intentos
+      else if (esCreador && data.estado !== 'EMITIDO') {
         const edicionesDisponibles = data.ediciones_disponibles ?? 3
         if (edicionesDisponibles > 0) {
           puedeEditar = true
@@ -259,7 +266,7 @@ export default function EditarVueloPage() {
           pasajeros={pasajeros}
           onSubmit={handleSubmit}
           isLoading={submitting}
-          edicionesDisponibles={vuelo?.ediciones_disponibles ?? 3}
+          edicionesDisponibles={sinLimiteEdiciones ? null : (vuelo?.ediciones_disponibles ?? 3)}
           esGerente={esGerente}
         />
       </div>

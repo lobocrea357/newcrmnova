@@ -302,7 +302,7 @@ export default function VueloFormEditar({
             Por favor, indica la razón por la cual estás editando este vuelo.
             <strong>Debe ser una explicación clara y coherente.</strong>
           </p>
-          ${!esGerente ? `
+          ${edicionesDisponibles !== null && !esGerente ? `
             <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
               <p class="text-sm text-amber-700">
                 ⚠️ Te quedan <strong>${edicionesDisponibles}</strong> intento(s) de edición.
@@ -382,8 +382,8 @@ export default function VueloFormEditar({
           <div>
             <h3 className="font-bold text-amber-800">Modo Edición</h3>
             <p className="text-sm text-amber-700">
-              {esGerente 
-                ? 'Como gerente/admin, puedes editar sin límite de intentos.'
+              {edicionesDisponibles === null
+                ? 'Puedes editar este vuelo sin límite de intentos.'
                 : `Te quedan ${edicionesDisponibles} intento(s) de edición para este vuelo.`
               }
             </p>
