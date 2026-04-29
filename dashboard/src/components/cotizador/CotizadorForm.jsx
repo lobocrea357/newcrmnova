@@ -21,6 +21,9 @@ import CotizadorFormHeader from './sections/CotizadorFormHeader'
 import CotizadorFlightType from './sections/CotizadorFlightType'
 import CotizadorCurrencyConfig from './sections/CotizadorCurrencyConfig'
 import CotizadorPaymentSelector from './sections/CotizadorPaymentSelector'
+import CotizadorPasajerosSection from './sections/CotizadorPasajerosSection'
+import CotizadorFlightDetails from './sections/CotizadorFlightDetails'
+import CotizadorScales from './sections/CotizadorScales'
 
 // Componentes existentes
 import CollapsibleSection from '@/components/ui/CollapsibleSection'
@@ -981,31 +984,14 @@ export default function CotizadorForm({ showBannerOutside = false, onBannerState
             theme={theme}
           />
 
-          {/* Sección de Pasajeros - Vista única */}
-          <div className="space-y-4">
-            {/* Información de la vista múltiple */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="w-5 h-5 text-blue-600" />
-                <h4 className="font-bold text-blue-800">Modo Múltiples Pasajeros</h4>
-              </div>
-              <p className="text-sm text-blue-700">
-                Configura cada pasajero individualmente con sus precios, fees y equipaje.
-                El total se calculará automáticamente sumando todos los pasajeros.
-              </p>
-            </div>
-
-            {/* Componente de Pasajeros */}
-            <div className="max-h-[500px] overflow-y-auto pr-2">
-              <PasajerosManager
-                value={pasajeros}
-                onChange={setPasajeros}
-                monedaPrecio={monedaBaseSeleccionada}
-                monedaCotizacion={monedaCotizacionSeleccionada}
-                aerolinea={aerolinea}
-              />
-            </div>
-          </div>
+          {/* ========== PASAJEROS ========== */}
+          <CotizadorPasajerosSection
+            pasajeros={pasajeros}
+            setPasajeros={setPasajeros}
+            monedaPrecio={monedaBaseSeleccionada}
+            monedaCotizacion={monedaCotizacionSeleccionada}
+            aerolinea={aerolinea}
+          />
 
           {/* Sección de Método de Pago */}
           <CotizadorPaymentSelector
@@ -1016,197 +1002,35 @@ export default function CotizadorForm({ showBannerOutside = false, onBannerState
             theme={theme}
           />
 
-          {/* Sección de Detalles del Vuelo */}
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar className={`w-4 h-4 text-${theme.primary}`} />
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Detalles del Vuelo
-              </label>
-            </div>
-
-          {/* Campos para Fines Migratorios */}
-          {vueloInfo.finesMigratorios && (
-            <div className="mt-8 p-6 bg-amber-50 rounded-xl border-2 border-amber-200 space-y-6">
-              <h4 className="text-sm font-bold text-amber-700 mb-4 flex items-center gap-2">
-                <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
-                Información para Fines Migratorios
-              </h4>
-
-              <div>
-                <AerolineaAutocomplete
-                  value={aerolinea}
-                  onChange={setAerolinea}
-                  onCodigoChange={setAerolineaCodigo}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                    Fecha Salida
-                  </label>
-                  <input
-                    type="date"
-                    value={fechaSalidaMigratorio}
-                    onChange={(e) => setFechaSalidaMigratorio(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                    Hora Salida
-                  </label>
-                  <input
-                    type="time"
-                    value={horaSalidaMigratorio}
-                    onChange={(e) => setHoraSalidaMigratorio(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-black bg-white rounded px-2 py-1 mb-2">
-                    Hora Llegada
-                  </label>
-                  <input
-                    type="time"
-                    value={horaLlegadaMigratorio}
-                    onChange={(e) => setHoraLlegadaMigratorio(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all text-sm"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-          {(vueloInfo.idaVuelta || vueloInfo.soloIda) && (
-            <div className="mt-8 p-6 bg-indigo-50/50 rounded-xl border-2 border-indigo-100 space-y-6">
-              <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-widest px-1">Vuelo de Ida</h4>
-
-              <div>
-                <AerolineaAutocomplete
-                  value={aerolinea}
-                  onChange={setAerolinea}
-                  onCodigoChange={setAerolineaCodigo}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">FECHA</label>
-                  <input
-                    type="date"
-                    value={vueloInfo.fechaSalida}
-                    onChange={(e) => updateVueloInfo('fechaSalida', e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">SALIDA</label>
-                  <input
-                    type="time"
-                    value={vueloInfo.horaSalida}
-                    onChange={(e) => updateVueloInfo('horaSalida', e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">LLEGADA</label>
-                  <input
-                    type="time"
-                    value={vueloInfo.horaLlegada}
-                    onChange={(e) => updateVueloInfo('horaLlegada', e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-          {vueloInfo.idaVuelta && (
-            <div className="mt-8 p-6 bg-purple-50/50 rounded-xl border-2 border-purple-100 space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
-              <h4 className="text-xs font-bold text-purple-700 uppercase tracking-widest px-1">Vuelo de Vuelta</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">FECHA</label>
-                  <input
-                    type="date"
-                    value={fechaRegreso}
-                    onChange={(e) => setFechaRegreso(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 transition-all text-sm bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">SALIDA</label>
-                  <input
-                    type="time"
-                    value={horaSalidaRegreso}
-                    onChange={(e) => setHoraSalidaRegreso(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 transition-all text-sm bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">LLEGADA</label>
-                  <input
-                    type="time"
-                    value={horaLlegadaRegreso}
-                    onChange={(e) => setHoraLlegadaRegreso(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 transition-all text-sm bg-white"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-          {/* Escalas */}
-          <div className="mt-8 p-6 bg-orange-50/50 rounded-xl border-2 border-orange-100 space-y-6">
-            <h4 className="text-xs font-bold text-orange-700 uppercase tracking-widest px-1">Escalas</h4>
-            {escalas.map((escala, index) => (
-              <div key={index} className="space-y-3 p-3 bg-white rounded-lg border border-orange-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-orange-600">Escala {index + 1}</span>
-                  <button
-                    type="button"
-                    onClick={() => eliminarEscala(index)}
-                    className="text-red-500 hover:text-red-700 text-xs font-bold"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">CIUDAD</label>
-                    <input
-                      type="text"
-                      value={escala.ciudad}
-                      onChange={(e) => actualizarEscala(index, 'ciudad', e.target.value)}
-                      placeholder="Ej: Bogotá"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-black bg-white rounded px-2 py-0.5 mb-2">DURACIÓN</label>
-                    <input
-                      type="text"
-                      value={escala.duracion}
-                      onChange={(e) => actualizarEscala(index, 'duracion', e.target.value)}
-                      placeholder="Ej: 5:30 o 5.5"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 transition-all text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-            {escalas.length < 2 && (
-              <button
-                type="button"
-                onClick={agregarEscala}
-                className="w-full py-2 px-4 border-2 border-dashed border-orange-300 rounded-lg text-orange-600 hover:bg-orange-50 transition-colors text-sm font-bold"
-              >
-                + Agregar Escala
-              </button>
-            )}
-          </div>
+          {/* ========== DETALLES DEL VUELO (FECHAS Y HORAS) ========== */}
+          <CotizadorFlightDetails
+            vueloInfo={vueloInfo}
+            updateVueloInfo={updateVueloInfo}
+            aerolinea={aerolinea}
+            setAerolinea={setAerolinea}
+            setAerolineaCodigo={setAerolineaCodigo}
+            fechaSalidaMigratorio={fechaSalidaMigratorio}
+            setFechaSalidaMigratorio={setFechaSalidaMigratorio}
+            horaSalidaMigratorio={horaSalidaMigratorio}
+            setHoraSalidaMigratorio={setHoraSalidaMigratorio}
+            horaLlegadaMigratorio={horaLlegadaMigratorio}
+            setHoraLlegadaMigratorio={setHoraLlegadaMigratorio}
+            fechaRegreso={fechaRegreso}
+            setFechaRegreso={setFechaRegreso}
+            horaSalidaRegreso={horaSalidaRegreso}
+            setHoraSalidaRegreso={setHoraSalidaRegreso}
+            horaLlegadaRegreso={horaLlegadaRegreso}
+            setHoraLlegadaRegreso={setHoraLlegadaRegreso}
+            theme={theme}
+          />
+          {/* ========== ESCALAS ========== */}
+          <CotizadorScales
+            escalas={escalas}
+            agregarEscala={agregarEscala}
+            eliminarEscala={eliminarEscala}
+            actualizarEscala={actualizarEscala}
+          />
           {/* Equipaje ahora es por pasajero en PasajerosManager */}
-          </div>
-
       </div>
 
       {/* Panel de Resultados */}

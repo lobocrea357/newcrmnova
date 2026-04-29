@@ -1,4 +1,4 @@
-import { Calculator, RotateCcw } from 'lucide-react'
+import { Calculator, RefreshCw } from 'lucide-react'
 
 /**
  * CotizadorFormHeader - Header del formulario con botón limpiar
