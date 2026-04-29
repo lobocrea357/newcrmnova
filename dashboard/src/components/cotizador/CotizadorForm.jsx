@@ -1,17 +1,28 @@
 'use client'
-// React
+
+// React y hooks
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-// Librerías externas
+// Iconos
 import { Calculator, DollarSign, Percent, CreditCard, TrendingUp, RefreshCw, Download, ArrowRightLeft, Plane, Calendar, MapPin, Luggage, Users, Save, CheckCircle, Eye, RotateCcw, X } from 'lucide-react'
+
+// Librerías externas
 import html2canvas from 'html2canvas-pro'
 import jsPDF from 'jspdf'
 
 // Supabase
 import { supabase } from '@/lib/supabase'
 
-// Componentes
+// Componentes de sections (específicos del cotizador)
+import CotizadorAgencySelector from './sections/CotizadorAgencySelector'
+import CotizadorClientInput from './sections/CotizadorClientInput'
+import CotizadorFormHeader from './sections/CotizadorFormHeader'
+import CotizadorFlightType from './sections/CotizadorFlightType'
+import CotizadorCurrencyConfig from './sections/CotizadorCurrencyConfig'
+import CotizadorPaymentSelector from './sections/CotizadorPaymentSelector'
+
+// Componentes existentes
 import CollapsibleSection from '@/components/ui/CollapsibleSection'
 import PasajerosManager from './pasajeros/PasajerosManager'
 import PdfContent from './resultados/PdfContent'
@@ -916,68 +927,27 @@ export default function CotizadorForm({ showBannerOutside = false, onBannerState
 
       <div className="grid lg:grid-cols-[1fr_420px] gap-6 max-w-7xl mx-auto relative">
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100 transition-all duration-300">
+
+          {/* ========== HEADER DEL FORMULARIO ========== */}
+          <CotizadorFormHeader
+            onLimpiar={handleLimpiar}
+            theme={theme}
+          />
+
+          {/* ========== CONFIGURACIÓN INICIAL ========== */}
         {/* Selector de Agencia */}
-        <div className="mb-6 pb-6 border-b border-slate-100">
-          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-            AGENCIA
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-                { id: 'nova', label: 'NOVA', theme: getThemeByAgency('nova') },
-                { id: 'colombia', label: 'NOVA COLOMBIA', theme: getThemeByAgency('colombia') },
-                { id: 'apolo', label: 'APOLO', theme: getThemeByAgency('apolo') }
-            ].map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setAgencia(opt.id)}
-                className={`py-1.5 px-1 rounded-lg font-bold text-[9px] transition-all duration-200 border-2 ${agencia === opt.id
-                  ? `bg-${opt.theme.primary} border-${opt.theme.primary} text-white shadow-sm scale-105`
-                  : 'bg-white border-slate-50 text-slate-400 hover:border-slate-200 hover:shadow-sm hover:scale-102'
-                  }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
+          <CotizadorAgencySelector
+            agencia={agencia}
+            onChange={setAgencia}
+            theme={theme}
+          />
 
         {/* Nombre del Cliente */}
-        <div className="mb-6 pb-6 border-b border-slate-100">
-          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-            NOMBRE DEL CLIENTE
-          </label>
-          <input
-            type="text"
+          <CotizadorClientInput
             value={nombreCliente}
-            onChange={(e) => setNombreCliente(e.target.value)}
-            placeholder="Ej: Sabrina Burgos"
-              className={`w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-${theme.accent} focus:border-transparent transition-all duration-200 hover:border-slate-400`}
+            onChange={setNombreCliente}
+            theme={theme}
           />
-        </div>
-
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-3 mb-1">
-                <div className={`p-2 bg-${theme.primaryLight} rounded-lg`}>
-                  <Calculator className={`w-6 h-6 text-${theme.primary}`} />
-                </div>
-                Calculadora de Cotizaciones
-              </h2>
-              <p className="text-sm text-slate-500 ml-14">Configura los detalles del vuelo y pasajeros</p>
-            </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleLimpiar}
-                className="px-4 py-2.5 border-2 border-slate-200 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 flex items-center justify-center gap-2 text-sm shadow-sm hover:scale-105 active:scale-95"
-              title="Limpiar formulario"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Limpiar
-            </button>
-          </div>
-        </div>
 
         {/* Banner de cotización guardada - solo mostrar aquí si no está afuera */}
         {!showBannerOutside && (
@@ -988,178 +958,28 @@ export default function CotizadorForm({ showBannerOutside = false, onBannerState
           />
         )}
 
+          {/* ========== DETALLES DEL VUELO ========== */}
           {/* Sección de Tipo de Vuelo */}
-          <div className="mb-8 pb-8 border-b border-slate-200">
-            <div className="flex items-center gap-2 mb-4">
-              <Plane className={`w-4 h-4 text-${theme.primary}`} />
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Tipo de Vuelo
-              </label>
-          </div>
-            <div className="grid grid-cols-3 gap-3 p-1.5 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border-2 border-slate-200 shadow-inner">
-            <button
-              type="button"
-              onClick={() => {
-                const newValue = !vueloInfo.idaVuelta
-                if (newValue) {
-                  updateVueloInfo('finesMigratorios', false)
-                  updateVueloInfo('soloIda', false)
-                  limpiarDetallesVuelo()
-                } else {
-                  limpiarDetallesVuelo()
-                }
-                updateVueloInfo('idaVuelta', newValue)
-              }}
-                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all duration-200 ${vueloInfo.idaVuelta
-                  ? `bg-${theme.primary} text-white shadow-md scale-105`
-                  : 'bg-white text-slate-600 hover:bg-slate-50 hover:scale-102'
-                }`}
-            >
-              <div className={`w-2 h-2 rounded-full ${vueloInfo.idaVuelta ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
-              IDA Y VUELTA
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const newValue = !vueloInfo.soloIda
-                if (newValue) {
-                  updateVueloInfo('idaVuelta', false)
-                  updateVueloInfo('finesMigratorios', false)
-                  limpiarDetallesVuelo()
-                } else {
-                  limpiarDetallesVuelo()
-                }
-                updateVueloInfo('soloIda', newValue)
-              }}
-                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all duration-200 ${vueloInfo.soloIda
-                  ? `bg-${theme.primary} text-white shadow-md scale-105`
-                  : 'bg-white text-slate-600 hover:bg-slate-50 hover:scale-102'
-                }`}
-            >
-              <div className={`w-2 h-2 rounded-full ${vueloInfo.soloIda ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
-              SOLO IDA
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const newValue = !vueloInfo.finesMigratorios
-                if (newValue) {
-                  updateVueloInfo('idaVuelta', false)
-                  updateVueloInfo('soloIda', false)
-                  limpiarDetallesVuelo()
-                } else {
-                  limpiarDetallesVuelo()
-                }
-                updateVueloInfo('finesMigratorios', newValue)
-              }}
-                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-bold text-xs transition-all duration-200 ${vueloInfo.finesMigratorios
-                  ? `bg-${theme.secondary} text-white shadow-md scale-105`
-                  : 'bg-white text-slate-600 hover:bg-slate-50 hover:scale-102'
-                }`}
-            >
-              <div className={`w-2 h-2 rounded-full ${vueloInfo.finesMigratorios ? 'bg-white animate-pulse' : 'bg-slate-300'}`} />
-              FINES MIGRATORIOS
-            </button>
-          </div>
+          <CotizadorFlightType
+            vueloInfo={vueloInfo}
+            updateVueloInfo={updateVueloInfo}
+            limpiarDetallesVuelo={limpiarDetallesVuelo}
+            theme={theme}
+          />
 
-            <div className="grid grid-cols-2 gap-4 mt-5">
-            <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
-                  <MapPin className={`w-3.5 h-3.5 text-${theme.primary}`} />
-                Origen
-              </label>
-              <input
-                type="text"
-                value={vueloInfo.origen}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^a-zA-Z\s]/g, '').toUpperCase()
-                    updateVueloInfo('origen', value)
-                  }}
-                placeholder="Ej: CCS"
-                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white shadow-sm hover:border-slate-300 font-medium text-slate-900 placeholder:text-slate-400 uppercase"
-                  maxLength={50}
-              />
-            </div>
-            <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
-                  <MapPin className={`w-3.5 h-3.5 text-${theme.primary}`} />
-                Destino
-              </label>
-              <input
-                type="text"
-                value={vueloInfo.destino}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^a-zA-Z\s]/g, '').toUpperCase()
-                    updateVueloInfo('destino', value)
-                  }}
-                placeholder="Ej: MAD"
-                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white shadow-sm hover:border-slate-300 font-medium text-slate-900 placeholder:text-slate-400 uppercase"
-                  maxLength={50}
-                />
-              </div>
-            </div>
-          </div>
-
+          {/* ========== CONFIGURACIÓN FINANCIERA ========== */}
           {/* Sección de Configuración de Monedas */}
-          <div className="mb-8 pb-8 border-b border-slate-200">
-            <div className="flex items-center gap-2 mb-4">
-              <DollarSign className={`w-4 h-4 text-${theme.primary}`} />
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Configuración de Monedas
-              </label>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-2">
-                  Moneda Base
-                </label>
-                <div className="relative">
-                  <select
-                    value={monedaBaseSeleccionada}
-                    onChange={(e) => setMonedaBaseSeleccionada(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white shadow-sm hover:border-slate-300 font-medium text-slate-900 appearance-none cursor-pointer"
-                    disabled={loadingMonedas}
-                  >
-                    {monedasBase.map((moneda) => (
-                      <option key={moneda.value} value={moneda.value}>
-                        {moneda.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ArrowRightLeft className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-2">
-                  Moneda Cotización
-                </label>
-                <div className="relative">
-                  <select
-                    value={monedaCotizacionSeleccionada}
-                    onChange={(e) => setMonedaCotizacionSeleccionada(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white shadow-sm hover:border-slate-300 font-medium text-slate-900 appearance-none cursor-pointer"
-                    disabled={loadingMonedas}
-                  >
-                    <option value="">Seleccionar moneda</option>
-                    {getMonedasConTasas().map((moneda) => (
-                      <option key={moneda.value} value={moneda.value}>
-                        {moneda.label}
-                      </option>
-                    ))}
-                  </select>
-                  <TrendingUp className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                </div>
-              </div>
-            </div>
-            {monedaBaseSeleccionada && monedaCotizacionSeleccionada && monedaBaseSeleccionada !== monedaCotizacionSeleccionada && tasaCambio && (
-              <div className={`mt-4 p-4 bg-gradient-to-r ${theme.gradientLight} rounded-xl border-2 border-${theme.primaryBorder} shadow-sm`}>
-                <p className={`text-sm text-${theme.textLight} font-semibold flex items-center gap-2`}>
-                  <TrendingUp className="w-4 h-4" />
-                  Tasa de cambio: <span className={`text-${theme.text}`}>1 {monedaBaseSeleccionada} = {tasaCambio} {monedaCotizacionSeleccionada}</span>
-                </p>
-              </div>
-            )}
-          </div>
+          <CotizadorCurrencyConfig
+            monedaBaseSeleccionada={monedaBaseSeleccionada}
+            monedaCotizacionSeleccionada={monedaCotizacionSeleccionada}
+            tasaCambio={tasaCambio}
+            setMonedaBaseSeleccionada={setMonedaBaseSeleccionada}
+            setMonedaCotizacionSeleccionada={setMonedaCotizacionSeleccionada}
+            monedasBase={monedasBase}
+            getMonedasConTasas={getMonedasConTasas}
+            loadingMonedas={loadingMonedas}
+            theme={theme}
+          />
 
           {/* Sección de Pasajeros - Vista única */}
           <div className="space-y-4">
@@ -1188,86 +1008,13 @@ export default function CotizadorForm({ showBannerOutside = false, onBannerState
           </div>
 
           {/* Sección de Método de Pago */}
-          <div className="mt-12 mb-8 pb-8 border-b border-slate-200">
-            <div className="flex items-center gap-2 mb-4">
-              <CreditCard className={`w-4 h-4 text-${theme.primary}`} />
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Método de Pago
-              </label>
-            </div>
-            <div>
-              <div className="relative">
-                <select
-                  value={metodoPago}
-                  onChange={(e) => setMetodoPago(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white shadow-sm hover:border-slate-300 font-medium text-slate-900 appearance-none cursor-pointer disabled:bg-slate-50 disabled:cursor-not-allowed"
-                  disabled={!monedaCotizacionSeleccionada}
-                >
-                  <option value="">
-                    {monedaCotizacionSeleccionada
-                      ? 'Seleccionar método'
-                      : 'Primero selecciona una moneda de cotización'}
-                  </option>
-                  {metodosPagoFiltrados.map((metodo) => (
-                    <option key={metodo} value={metodo}>
-                      {metodo}
-                    </option>
-                  ))}
-                </select>
-                <CreditCard className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-              </div>
-              {!monedaCotizacionSeleccionada && (
-                <p className="text-xs text-amber-600 mt-1 ml-2 font-medium">
-                  💡 Selecciona primero la moneda de cotización para ver los métodos de pago disponibles
-                </p>
-              )}
-              {metodoPago === 'Depósitos en dólares (BNC USD)' && (
-                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                  <p className="text-xs text-blue-700 font-semibold">💵 Cotización en USD (+4.5% comisión depósito)</p>
-                </div>
-              )}
-              {metodoPago === 'Arcadia Service' && (
-                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                  <p className="text-xs text-blue-700 font-semibold">💵 Cotización en USD (+5.6% + $10)</p>
-                </div>
-              )}
-              {metodoPago === 'Transferencia (BNC)' && (
-                <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-100">
-                  <p className="text-xs text-purple-700 font-semibold">Bs Cotización en Bolívares (VES)</p>
-                </div>
-              )}
-              {metodoPago === 'Efectivo (USD)' && (
-                <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
-                  <p className="text-xs text-amber-700 font-semibold">💰 Pago en efectivo USD - Seleccione moneda de cotización</p>
-                </div>
-              )}
-              {(metodoPago === 'Davivienda' || metodoPago === 'Bancacolombia' || metodoPago === 'Efectivo (COP)') && (
-                <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-                  <p className="text-xs text-yellow-700 font-semibold">🇨🇴 Cotización en Pesos Colombianos (COP)</p>
-                </div>
-              )}
-              {(metodoPago === 'BBVA' || metodoPago === 'Revolut' || metodoPago === 'Efectivo (EUR)' || metodoPago === 'Bizum (España)') && (
-                <div className="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
-                  <p className="text-xs text-indigo-700 font-semibold">€ Cotización en Euros (EUR)</p>
-                </div>
-              )}
-              {(metodoPago === 'Zelle' || metodoPago === 'Banesco Panamá (ViajesNova)' || metodoPago === 'Chase Bank Nova' || metodoPago === 'Chase Bank Apolo') && (
-                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                  <p className="text-xs text-blue-700 font-semibold">💵 Cotización en Dólares (USD)</p>
-                </div>
-              )}
-              {metodoPago === 'Binance' && (
-                <div className="mt-3 p-3 bg-emerald-50 rounded-lg border border-emerald-100">
-                  <p className="text-xs text-emerald-700 font-semibold">₮ Cotización en USDT</p>
-                </div>
-              )}
-              {metodoPago === 'Scalapay' && (
-                <div className="mt-3 p-3 bg-orange-50 rounded-lg border border-orange-100">
-                  <p className="text-xs text-orange-700 font-semibold">€ Cotización en Euros (EUR) +10.5% recargo</p>
-                </div>
-              )}
-            </div>
-          </div>
+          <CotizadorPaymentSelector
+            metodoPago={metodoPago}
+            monedaCotizacionSeleccionada={monedaCotizacionSeleccionada}
+            metodosPagoFiltrados={metodosPagoFiltrados}
+            setMetodoPago={setMetodoPago}
+            theme={theme}
+          />
 
           {/* Sección de Detalles del Vuelo */}
           <div className="mb-6">
