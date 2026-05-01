@@ -8,14 +8,24 @@ import { notificarNuevoVuelo, notificarVueloEmitido, notificarPagoObservado, not
 import { supabase } from '../config/supabase.js';
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 15 * 1024 * 1024 // 15MB limit per file
+  }
+});
 
 /**
  * POST /api/vuelos - Crear nuevo vuelo
  */
-router.post('/', async (req, res) => {
+router.post('/', upload.fields([
+  { name: 'pdfServivuelo', maxCount: 1 },
+  { name: 'pasaportes', maxCount: 10 },
+  { name: 'comprobantes', maxCount: 5 }
+]), async (req, res) => {
   try {
     const { vuelo, pasajeros, adjuntos } = req.body;
+    const pdfServivuelo = req.files['pdfServivuelo']?.[0] || null;
 
     // Validaciones básicas
     const camposRequeridos = ['created_by', 'pax_nombre', 'contacto_nombre', 'contacto_telefono', 'fecha_vuelo', 'ruta', 'proveedor', 'monto_venta', 'tipo_vuelo'];
@@ -103,7 +113,12 @@ router.post('/', async (req, res) => {
     }
 
     // Crear vuelo con pasajeros y adjuntos
-    const resultado = await vuelosService.crearVuelo(vuelo, pasajeros || [], adjuntos || []);
+    const resultado = await vuelosService.crearVuelo(
+      vuelo, 
+      pasajeros || [], 
+      adjuntos || [],
+      pdfServivuelo
+    );
 
     // Obtener nombre del creador para la notificación
     const { data: creadorProfile } = await supabase
@@ -152,9 +167,49 @@ router.post('/:id/adjuntos', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'tipo_adjunto y uploaded_by son requeridos' });
     }
 
+    // Validate file size (max 15MB)
+    const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB in bytes
+    if (file.size > MAX_FILE_SIZE) {
+      return res.status(400).json({ 
+        error: 'El archivo excede el tamaño máximo permitido de 15MB',
+        maxSize: '15MB',
+        actualSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`
+      });
+    }
+
+    // Verify user has access to this vuelo
+    const { data: vuelo, error: vueloError } = await supabase
+      .from('vuelos')
+      .select('created_by')
+      .eq('id', id)
+      .single();
+
+    if (vueloError || !vuelo) {
+      return res.status(404).json({ error: 'Vuelo no encontrado' });
+    }
+
+    // Check if user is creator or has admin permissions
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role:roles(name)')
+      .eq('id', uploaded_by)
+      .single();
+
+    const userRole = profile?.role?.name;
+    const isCreator = vuelo.created_by === uploaded_by;
+    const isAdmin = ['admin', 'super_admin', 'administracion'].includes(userRole);
+
+    if (!isCreator && !isAdmin) {
+      return res.status(403).json({ 
+        error: 'No tienes permisos para subir archivos a este vuelo' 
+      });
+    }
+
     // Validar tipo de adjunto
-    if (!['COMPROBANTE_PAGO', 'PASAPORTE', 'CEDULA'].includes(tipo_adjunto)) {
-      return res.status(400).json({ error: 'tipo_adjunto inválido. Debe ser: COMPROBANTE_PAGO, PASAPORTE, o CEDULA' });
+    if (!['COMPROBANTE_PAGO', 'PASAPORTE', 'CEDULA', 'COMPROBANTE_RESERVA_SERVIVUELO'].includes(tipo_adjunto)) {
+      return res.status(400).json({ 
+        error: 'tipo_adjunto inválido. Debe ser: COMPROBANTE_PAGO, PASAPORTE, CEDULA, o COMPROBANTE_RESERVA_SERVIVUELO' 
+      });
     }
 
     // Subir a Supabase Storage

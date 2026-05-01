@@ -43,9 +43,73 @@ class VuelosService {
   }
 
   /**
+   * Subir adjunto a Supabase Storage y guardar referencia en BD
+   * @private
+   * @param {string} vueloId - ID del vuelo
+   * @param {object} file - Objeto de archivo de multer
+   * @param {string} tipoAdjunto - Tipo de adjunto
+   * @param {string} uploadedBy - ID del usuario que sube
+   * @param {string|null} pasajeroId - ID del pasajero (opcional)
+   * @returns {Promise<{success: boolean, error?: string}>}
+   */
+  async _subirAdjunto(vueloId, file, tipoAdjunto, uploadedBy, pasajeroId = null) {
+    try {
+      const timestamp = Date.now();
+      const fileName = `${vueloId}_${tipoAdjunto}_${timestamp}_${file.originalname}`;
+      const filePath = `vuelos/${fileName}`;
+
+      console.log(`[VuelosService] Subiendo adjunto: ${filePath}`);
+
+      // Subir a Supabase Storage
+      const { data: storageData, error: storageError } = await supabase.storage
+        .from('vuelos-adjuntos')
+        .upload(filePath, file.buffer, {
+          contentType: file.mimetype,
+          upsert: false
+        });
+
+      if (storageError) {
+        console.error('[VuelosService] Error subiendo a Storage:', storageError);
+        throw new Error(`Error al subir archivo: ${storageError.message}`);
+      }
+
+      // Obtener URL pública
+      const { data: publicUrlData } = supabase.storage
+        .from('vuelos-adjuntos')
+        .getPublicUrl(filePath);
+
+      // Guardar referencia en BD
+      const { error: dbError } = await supabase
+        .from('vuelos_adjuntos')
+        .insert({
+          vuelo_id: vueloId,
+          tipo_adjunto: tipoAdjunto,
+          nombre_archivo: file.originalname,
+          url_storage: publicUrlData.publicUrl,
+          mime_type: file.mimetype,
+          tamano_bytes: file.size,
+          uploaded_by: uploadedBy,
+          pasajero_id: pasajeroId
+        });
+
+      if (dbError) {
+        console.error('[VuelosService] Error guardando adjunto en BD:', dbError);
+        throw new Error(`Error al guardar referencia: ${dbError.message}`);
+      }
+
+      console.log(`[VuelosService] Adjunto subido exitosamente: ${fileName}`);
+      return { success: true };
+
+    } catch (error) {
+      console.error('[VuelosService] Error en _subirAdjunto:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Crear un nuevo vuelo con pasajeros y adjuntos
    */
-  async crearVuelo(vueloData, pasajeros = [], adjuntos = []) {
+  async crearVuelo(vueloData, pasajeros = [], adjuntos = [], pdfServivuelo = null) {
     try {
       console.log('[VuelosService] Creando vuelo para:', vueloData.pax_nombre);
 
@@ -152,7 +216,24 @@ class VuelosService {
         console.log(`[VuelosService] ${pasajerosCreados.length} pasajeros creados`);
       }
 
-      // 4. Insertar adjuntos si los hay
+      // 4. Procesar PDF de Servivuelo si existe y proveedor es Servivuelo
+      if (pdfServivuelo && vueloData.proveedor === 'Servivuelo') {
+        console.log('[VuelosService] Procesando PDF de Servivuelo');
+        
+        const uploadResult = await this._subirAdjunto(
+          vuelo.id,
+          pdfServivuelo,
+          'COMPROBANTE_RESERVA_SERVIVUELO',
+          vueloData.created_by
+        );
+
+        if (!uploadResult.success) {
+          console.warn('[VuelosService] PDF subido con advertencia:', uploadResult.error);
+          // No fallar el vuelo por esto, solo advertir
+        }
+      }
+
+      // 5. Insertar adjuntos si los hay
       let adjuntosCreados = [];
       if (adjuntos.length > 0) {
         const adjuntosConVueloId = adjuntos.map(adj => ({

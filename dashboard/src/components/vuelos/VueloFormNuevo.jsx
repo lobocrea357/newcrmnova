@@ -130,6 +130,7 @@ export default function VueloFormNuevo({
   // Estados de pasajeros
   const [pasajeros, setPasajeros] = useState([])
   const [comprobantes, setComprobantes] = useState([])
+  const [pdfServivuelo, setPdfServivuelo] = useState(null)
   const [errors, setErrors] = useState({})
   const [extractingPassport, setExtractingPassport] = useState({})
 
@@ -395,6 +396,16 @@ export default function VueloFormNuevo({
     setComprobantes(prev => prev.filter((_, i) => i !== index))
   }
 
+  const handlePdfServivueloUpload = (file) => {
+    if (!file) return
+    setPdfServivuelo(file)
+    toastSuccess('PDF de Servivuelo cargado')
+  }
+
+  const removePdfServivuelo = () => {
+    setPdfServivuelo(null)
+  }
+
   const validateForm = () => {
     const newErrors = {}
 
@@ -431,6 +442,11 @@ export default function VueloFormNuevo({
       if (!formData.monto_venta || parseFloat(formData.monto_venta) <= 0) {
         newErrors.monto_venta = 'Monto de venta es requerido y debe ser mayor a 0'
       }
+    }
+
+    // Validación condicional: si es Servivuelo, PDF es requerido
+    if (formData.proveedor === 'Servivuelo' && !pdfServivuelo) {
+      newErrors.pdfServivuelo = 'Para Servivuelo, el PDF de comprobante de reserva es requerido'
     }
 
     // Validaciones específicas para ventas a CREDITO
@@ -564,7 +580,8 @@ export default function VueloFormNuevo({
         equipaje_ligero: p.equipaje_ligero
       })),
       pasaportes: pasajeros.map(p => p.pasaporte_file).filter(Boolean),
-      comprobantes: comprobantes
+      comprobantes: comprobantes,
+      pdfServivuelo: pdfServivuelo
     }
 
     await onSubmit(submitData)
@@ -986,36 +1003,72 @@ export default function VueloFormNuevo({
             {errors.proveedor && <p className="mt-1 text-sm text-red-600">{errors.proveedor}</p>}
           </div>
 
-          {/* Desglose PNR/GDS */}
-          <div className="md:col-span-2">
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Desglose Completo de Reserva (PNR/GDS)
-              </label>
-              {formData.pnr_desglose && (
-                <button
-                  type="button"
-                  onClick={copiarPNR}
-                  className="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
-                >
-                  <Copy className="w-3 h-3" />
-                  Copiar
-                </button>
+          {/* Desglose PNR/GDS - Solo para proveedores que no son Servivuelo */}
+          {formData.proveedor !== 'Servivuelo' && (
+            <div className="md:col-span-2">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Desglose Completo de Reserva (PNR/GDS)
+                </label>
+                {formData.pnr_desglose && (
+                  <button
+                    type="button"
+                    onClick={copiarPNR}
+                    className="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                  >
+                    <Copy className="w-3 h-3" />
+                    Copiar
+                  </button>
+                )}
+              </div>
+              <textarea
+                name="pnr_desglose"
+                value={formData.pnr_desglose}
+                onChange={handleChange}
+                rows="8"
+                placeholder="Pega aquí el desglose completo de la reserva desde Sabre, Kiu, Expedia, Kiwi, etc..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                style={{ fontFamily: 'monospace' }}
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Este desglose será usado por el equipo de emisión para emitir los boletos
+              </p>
+            </div>
+          )}
+
+          {/* Upload PDF para Servivuelo */}
+          {formData.proveedor === 'Servivuelo' && (
+            <div className="md:col-span-2 mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <FileText className="w-5 h-5 text-amber-600" />
+                <label className="text-sm font-medium text-amber-900">
+                  Comprobante de Reserva (PDF) - Requerido para Servivuelo
+                </label>
+              </div>
+              <FileUpload
+                tipo="COMPROBANTE_RESERVA_SERVIVUELO"
+                onFilesChange={handlePdfServivueloUpload}
+                singleFile={true}
+                maxFiles={1}
+                maxSizeMB={15}
+              />
+              {pdfServivuelo && (
+                <div className="mt-2 flex items-center justify-between bg-white p-2 rounded border">
+                  <span className="text-sm text-gray-700">{pdfServivuelo.name}</span>
+                  <button
+                    type="button"
+                    onClick={removePdfServivuelo}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+              {errors.pdfServivuelo && (
+                <p className="mt-2 text-sm text-red-600">{errors.pdfServivuelo}</p>
               )}
             </div>
-            <textarea
-              name="pnr_desglose"
-              value={formData.pnr_desglose}
-              onChange={handleChange}
-              rows="8"
-              placeholder="Pega aquí el desglose completo de la reserva desde Sabre, Servivuelo, etc..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
-              style={{ fontFamily: 'monospace' }}
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Este desglose será usado por el equipo de emisión para emitir los boletos
-            </p>
-          </div>
+          )}
         </div>
       </div>
 

@@ -391,7 +391,6 @@ export async function getRolesFilteredByRanking(currentUserId, currentRanking) {
     const { data, error } = await supabase
       .from('roles')
       .select('*')
-      .eq('is_active', true)
       .order('ranking', { ascending: false });
 
     if (error) {
