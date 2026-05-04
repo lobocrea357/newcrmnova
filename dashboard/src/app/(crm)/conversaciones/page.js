@@ -7,7 +7,8 @@ import {
   getConversationsByBot,
   globalSearchChats,
   getCompletedSalesCount,
-  getCompletedSalesConversations
+  getCompletedSalesConversations,
+  getBotCotizacionesCount
 } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
@@ -51,6 +52,7 @@ function DashboardContent() {
   const [workers, setWorkers] = useState([]);
   const [conversations, setConversations] = useState({});
   const [conversationsPagination, setConversationsPagination] = useState({});
+  const [botCotizaciones, setBotCotizaciones] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedBotId, setSelectedBotId] = useState(null);
   const [loadingConversations, setLoadingConversations] = useState({});
@@ -170,6 +172,32 @@ INSTRUCCIONES DE REPORTE:
       fetchConversations(botIdFromUrl);
     }
   }, [searchParams, bots]);
+
+  // Cargar cotizaciones para todos los bots visibles automáticamente
+  useEffect(() => {
+    if (!bots || bots.length === 0) return;
+
+    const loadCotizaciones = async () => {
+      const cotizacionesMap = {};
+      
+      // Cargar cotizaciones para cada bot en paralelo
+      await Promise.all(
+        bots.map(async (bot) => {
+          try {
+            const count = await getBotCotizacionesCount(bot.id);
+            cotizacionesMap[bot.id] = count;
+          } catch (error) {
+            console.error(`Error cargando cotizaciones para bot ${bot.id}:`, error);
+            cotizacionesMap[bot.id] = 0;
+          }
+        })
+      );
+      
+      setBotCotizaciones(cotizacionesMap);
+    };
+
+    loadCotizaciones();
+  }, [bots]);
 
   // Mantener y restaurar la última conversación visitada usando localStorage
   useEffect(() => {
@@ -443,6 +471,12 @@ INSTRUCCIONES DE REPORTE:
           total: result.total,
         },
       }));
+
+      // Calcular cotizaciones totales para este bot
+      const totalCotizaciones = result.data.reduce((sum, conv) => {
+        return sum + (conv.conversation_metrics?.cotizacionMentions?.count || 0);
+      }, 0);
+      setBotCotizaciones((prev) => ({ ...prev, [botId]: totalCotizaciones }));
     } catch (error) {
       console.error("Error fetching conversations:", error);
     } finally {
@@ -1920,13 +1954,22 @@ INSTRUCCIONES DE REPORTE:
                           </div>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end flex-shrink-0">
+                      <div className="flex flex-col items-end flex-shrink-0 gap-1">
                         <span className="text-sm font-semibold text-gray-900">
                           <span translate="no">{bot.conversation_count || 0}</span>
                         </span>
                         <span className="text-xs text-gray-500">
                           <span>Conversaciones</span>
                         </span>
+                        {botCotizaciones[bot.id] > 0 && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-[10px] font-medium border border-green-200 cursor-help"
+                            title={`${botCotizaciones[bot.id]} cotización(es) enviadas`}
+                          >
+                            <FileText className="h-3 w-3" />
+                            {botCotizaciones[bot.id]}
+                          </span>
+                        )}
                       </div>
                     </button>
                   );
@@ -2278,6 +2321,19 @@ INSTRUCCIONES DE REPORTE:
                                     .count
                                 }{" "}
                                 mención(es)
+                              </span>
+                            </div>
+                          )}
+
+                          {conv.conversation_metrics?.cotizacionMentions && (
+                            <div
+                              className="flex items-center gap-1 text-[11px] font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200 cursor-help"
+                              title={`Cotizaciones enviadas: ${conv.conversation_metrics.cotizacionMentions.files.join(', ')}`}
+                            >
+                              <FileText className="h-3 w-3" />
+                              <span>
+                                {conv.conversation_metrics.cotizacionMentions.count}{" "}
+                                cotización(es)
                               </span>
                             </div>
                           )}
