@@ -261,6 +261,59 @@ export async function getBotsByWorker(workerId) {
   }));
 }
 
+/**
+ * Cuenta el total de cotizaciones (PDFs) enviadas por un bot
+ * @param {string} botId - ID del bot
+ * @returns {Promise<number>} Total de cotizaciones
+ */
+export async function getBotCotizacionesCount(botId) {
+  try {
+    // Obtener todos los chats del bot
+    const { data: chats, error: chatsError } = await supabase
+      .from("chats")
+      .select("id")
+      .eq("bot_id", botId)
+      .eq("is_group", false)
+      .not("chat_id", "ilike", "%status%")
+      .not("chat_id", "ilike", "%@broadcast%")
+      .not("chat_id", "ilike", "%@g.us");
+
+    if (chatsError || !chats || chats.length === 0) {
+      return 0;
+    }
+
+    const chatIds = chats.map(c => c.id);
+
+    // Obtener todos los mensajes de esos chats
+    const { data: messages, error: messagesError } = await supabase
+      .from("messages")
+      .select("body, content")
+      .in("chat_id", chatIds)
+      .eq("from_me", true); // Solo mensajes enviados por el bot
+
+    if (messagesError || !messages) {
+      return 0;
+    }
+
+    // Contar PDFs de cotización
+    const pdfPattern = /Cotizacion_[A-Z_]+_\d{4}-\d{2}-\d{2}\.pdf/g;
+    let totalCotizaciones = 0;
+
+    messages.forEach((msg) => {
+      const rawBody = msg.body || msg.content || "";
+      const matches = rawBody.match(pdfPattern);
+      if (matches) {
+        totalCotizaciones += matches.length;
+      }
+    });
+
+    return totalCotizaciones;
+  } catch (error) {
+    console.error("Error contando cotizaciones:", error);
+    return 0;
+  }
+}
+
 // Bots excluidos (prueba/testing - no son asesores reales)
 const EXCLUDED_BOT_PATTERNS = ["abraham", "abrahama", "paul", "hernandez"];
 
@@ -371,9 +424,28 @@ function analyzeConversationMetrics(messages = []) {
     }
   });
 
+  // Detectar PDFs de cotización
+  const cotizacionMentions = {
+    count: 0,
+    files: [],
+  };
+  const pdfPattern = /Cotizacion_[A-Z_]+_\d{4}-\d{2}-\d{2}\.pdf/g;
+
+  messages.forEach((msg) => {
+    const rawBody = msg.body || msg.content || "";
+    if (!rawBody) return;
+
+    const matches = rawBody.match(pdfPattern);
+    if (matches) {
+      cotizacionMentions.count += matches.length;
+      cotizacionMentions.files.push(...matches);
+    }
+  });
+
   return {
     response: responseMetrics,
     paymentMentions: paymentMentions.count > 0 ? paymentMentions : null,
+    cotizacionMentions: cotizacionMentions.count > 0 ? cotizacionMentions : null,
   };
 }
 
