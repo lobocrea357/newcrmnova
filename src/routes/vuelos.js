@@ -24,7 +24,38 @@ router.post('/', upload.fields([
   { name: 'comprobantes', maxCount: 5 }
 ]), async (req, res) => {
   try {
-    const { vuelo, pasajeros, adjuntos } = req.body;
+    // Parse JSON strings when data comes from FormData (multer)
+    let vuelo = req.body.vuelo;
+    let pasajeros = req.body.pasajeros;
+    let adjuntos = req.body.adjuntos;
+
+    // If vuelo is a string, it came from FormData and needs to be parsed
+    if (typeof vuelo === 'string') {
+      try {
+        vuelo = JSON.parse(vuelo);
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid JSON format for vuelo' });
+      }
+    }
+
+    // Parse pasajeros if it's a string
+    if (typeof pasajeros === 'string') {
+      try {
+        pasajeros = JSON.parse(pasajeros);
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid JSON format for pasajeros' });
+      }
+    }
+
+    // Parse adjuntos if it's a string
+    if (typeof adjuntos === 'string') {
+      try {
+        adjuntos = JSON.parse(adjuntos);
+      } catch (e) {
+        adjuntos = [];
+      }
+    }
+
     const pdfServivuelo = req.files['pdfServivuelo']?.[0] || null;
 
     // Validaciones básicas

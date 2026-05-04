@@ -114,16 +114,33 @@ export default function NuevoVueloPage() {
       }
 
       // Crear vuelo via Express backend
-      const response = await fetch(VUELOS_API.crear, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          vuelo: vueloData,
-          pasajeros: submitData.pasajeros
-        }),
-      })
+      let response
+
+      if (submitData.pdfServivuelo) {
+        // Use FormData for file upload
+        const formData = new FormData()
+        formData.append('vuelo', JSON.stringify(vueloData))
+        formData.append('pasajeros', JSON.stringify(submitData.pasajeros))
+        formData.append('adjuntos', JSON.stringify(submitData.adjuntos || []))
+        formData.append('pdfServivuelo', submitData.pdfServivuelo)
+
+        response = await fetch(VUELOS_API.crear, {
+          method: 'POST',
+          body: formData
+        })
+      } else {
+        // Regular JSON request
+        response = await fetch(VUELOS_API.crear, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            vuelo: vueloData,
+            pasajeros: submitData.pasajeros
+          }),
+        })
+      }
 
       if (!response.ok) {
         const errorData = await response.json()

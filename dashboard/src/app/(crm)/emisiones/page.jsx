@@ -95,6 +95,7 @@ export default function EmisionesPage() {
   }
 
   const pasaportes = selectedVuelo?.adjuntos?.filter(a => a.tipo_adjunto === 'PASAPORTE') || []
+  const pdfServivuelo = selectedVuelo?.adjuntos?.filter(a => a.tipo_adjunto === 'COMPROBANTE_RESERVA_SERVIVUELO') || []
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -361,6 +362,39 @@ export default function EmisionesPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">
                               {pasaporte.nombre_archivo}
+                            </p>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* PDF de Servivuelo */}
+                {pdfServivuelo.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <FileText className="w-5 h-5 text-amber-600" />
+                      <h3 className="font-semibold text-gray-900">
+                        Comprobante de Reserva Servivuelo ({pdfServivuelo.length})
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {pdfServivuelo.map((pdf, idx) => (
+                        <a
+                          key={idx}
+                          href={pdf.url_storage}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200 hover:border-amber-400 hover:bg-amber-100 transition-colors"
+                        >
+                          <FileText className="w-6 h-6 text-amber-600" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {pdf.nombre_archivo}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {(pdf.tamano_bytes / 1024 / 1024).toFixed(2)} MB
                             </p>
                           </div>
                         </a>
