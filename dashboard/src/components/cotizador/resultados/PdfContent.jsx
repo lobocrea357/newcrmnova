@@ -421,10 +421,10 @@ const PdfContent = forwardRef(({
                   )
                 }
 
-                if (metodoPago === 'Arcadia Service' || metodoPago === 'Scalapay') {
+                if (metodoPago === 'Arcadia Service' || metodoPago === 'Scalapay' || metodoPago === 'Link de pago Revolut' || metodoPago === 'Klarna' || metodoPago === 'Revolut Grupo Travel' || metodoPago === 'TDC Viramundo') {
                   return (
                     <p className="text-slate-600 italic">
-                      El enlace de pago correspondiente será compartido por tu asesor de viaje una vez confirmada la cotización.
+                      {datos.descripcion}
                     </p>
                   )
                 }

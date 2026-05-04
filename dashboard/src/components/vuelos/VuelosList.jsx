@@ -24,14 +24,25 @@ const METODOS_PAGO = [
   { value: 'Efectivo (COP)', label: 'Efectivo (COP)' },
   { value: 'Efectivo (EUR)', label: 'Efectivo (EUR)' },
   { value: 'Tarjeta de Crédito', label: 'Tarjeta de Crédito' },
+  { value: 'Tarjeta de Crédito (USD)', label: 'Tarjeta de Crédito (USD)' },
+  { value: 'TDC Viramundo', label: 'TDC Viramundo' },
   { value: 'Scalapay', label: 'Scalapay' },
+  { value: 'Klarna', label: 'Klarna' },
   { value: 'Chase Bank Nova', label: 'Chase Bank Nova' },
   { value: 'Chase Bank Apolo', label: 'Chase Bank Apolo' },
   { value: 'Zelle', label: 'Zelle' },
   { value: 'BBVA', label: 'BBVA' },
   { value: 'Revolut', label: 'Revolut' },
+  { value: 'Revolut Gaddiel', label: 'Revolut Gaddiel' },
+  { value: 'Revolut Grupo Travel', label: 'Revolut Grupo Travel' },
+  { value: 'Link de pago Revolut', label: 'Link de pago Revolut' },
   { value: 'Transferencia (BNC)', label: 'Transferencia (BNC)' },
-  { value: 'Binance', label: 'Binance' }
+  { value: 'Binance', label: 'Binance' },
+  { value: 'Bancacolombia', label: 'Bancacolombia' },
+  { value: 'Davivienda', label: 'Davivienda' },
+  { value: 'Bizum (España)', label: 'Bizum (España)' },
+  { value: 'Banesco Panamá (ViajesNova)', label: 'Banesco Panamá (ViajesNova)' },
+  { value: 'Pago móvil', label: 'Pago móvil' }
 ]
 
 const PROVEEDORES = [

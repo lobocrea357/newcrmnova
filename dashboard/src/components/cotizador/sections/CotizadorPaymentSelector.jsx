@@ -90,17 +90,10 @@ export default function CotizadorPaymentSelector({
             </p>
           </div>
         )}
-        {(metodoPago === 'BBVA' || metodoPago === 'Revolut' || metodoPago === 'Efectivo (EUR)' || metodoPago === 'Bizum (España)') && (
+        {(metodoPago === 'BBVA' || metodoPago === 'Revolut' || metodoPago === 'Revolut Gaddiel' || metodoPago === 'Revolut Grupo Travel' || metodoPago === 'Link de pago Revolut' || metodoPago === 'Klarna' || metodoPago === 'Efectivo (EUR)' || metodoPago === 'Bizum (España)') && (
           <div className="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
             <p className="text-xs text-indigo-700 font-semibold">
               € Cotización en Euros (EUR)
-            </p>
-          </div>
-        )}
-        {(metodoPago === 'Zelle' || metodoPago === 'Banesco Panamá (ViajesNova)' || metodoPago === 'Chase Bank Nova' || metodoPago === 'Chase Bank Apolo') && (
-          <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-            <p className="text-xs text-blue-700 font-semibold">
-              💵 Cotización en Dólares (USD)
             </p>
           </div>
         )}

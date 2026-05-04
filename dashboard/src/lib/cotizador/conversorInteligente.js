@@ -83,6 +83,18 @@ export async function calcularConversionInteligente({
       recargos = baseConvertida * 0.05 // 5%
       descripcionRecargos = `+5% Tarjeta de Crédito`
       montoConvertido = baseConvertida + recargos
+    } else if (metodoPago === 'TDC Viramundo') {
+      recargos = baseConvertida * 0.0355 // 3.55%
+      descripcionRecargos = `+3.55% TDC Viramundo`
+      montoConvertido = baseConvertida + recargos
+    } else if (metodoPago === 'Davivienda') {
+      recargos = baseConvertida * 0.045 // 4.5%
+      descripcionRecargos = `+4.5% Davivienda`
+      montoConvertido = baseConvertida + recargos
+    } else if (metodoPago === 'Link de pago Revolut') {
+      recargos = baseConvertida * 0.03 // 3%
+      descripcionRecargos = `+3% Link de pago Revolut`
+      montoConvertido = baseConvertida + recargos
     }
     
     // 4. Aplicar impuesto 4x1000 SOLO para COP (DESPUÉS de recargos)

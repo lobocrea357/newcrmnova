@@ -17,6 +17,10 @@ export const PAYMENT_METHODS = {
   DAVIVIENDA: 'Davivienda',
   BBVA: 'BBVA',
   REVOLUT: 'Revolut',
+  REVOLUT_GADDIEL: 'Revolut Gaddiel',
+  REVOLUT_GRUPO_TRAVEL: 'Revolut Grupo Travel',
+  REVOLUT_LINK_PAGO: 'Link de pago Revolut',
+  KLARNA: 'Klarna',
   BANESCO_PANAMA: 'Banesco Panamá (ViajesNova)',
   BNC_VES: 'Transferencia (BNC)',
   PAGO_MOVIL: 'Pago móvil',
@@ -26,7 +30,8 @@ export const PAYMENT_METHODS = {
   CHASE_NOVA: 'Chase Bank Nova',
   CHASE_APOLO: 'Chase Bank Apolo',
   BIZUM: 'Bizum (España)',
-  TARJETA_CREDITO_USD: 'Tarjeta de Crédito (USD)'
+  TARJETA_CREDITO_USD: 'Tarjeta de Crédito (USD)',
+  TDC_VIRAMUNDO: 'TDC Viramundo'
 }
 
 export const PAYMENT_DATA = {
@@ -112,6 +117,55 @@ export const PAYMENT_DATA = {
       'Banco: Revolut',
       'IBAN: ES5415830001169083916022',
       'Titular: Gaddiel Montero Yepez',
+    ]
+  },
+  [PAYMENT_METHODS.REVOLUT_GADDIEL]: {
+    titulo: 'Transferencia Revolut Gaddiel (EUR)',
+    descripcion: 'Transferencia SEPA en Euros a cuenta Revolut.',
+    detalles: [
+      'Banco: Revolut',
+      'IBAN: ES5415830001169083916022',
+      'Titular: Gaddiel Montero Yepez',
+    ]
+  },
+  [PAYMENT_METHODS.REVOLUT_GRUPO_TRAVEL]: {
+    titulo: 'Transferencia Revolut Grupo Travel (EUR)',
+    descripcion: 'Transferencia SEPA en Euros a cuenta Revolut Grupo Travel.',
+    detalles: [
+      'Los datos bancarios de este método de pago serán proporcionados por tu asesor de viaje.',
+      'Por favor, contáctate con tu asesor para obtener la información necesaria para realizar el pago.'
+    ]
+  },
+  [PAYMENT_METHODS.REVOLUT_LINK_PAGO]: {
+    titulo: 'Link de pago Revolut',
+    descripcion: 'Pago mediante link de pago generado a través de Revolut.',
+    detalles: [
+      'El link de pago será enviado por tu asesor de viaje.',
+      'Por favor, solicita el link de pago a tu asesor para proceder con el pago.'
+    ]
+  },
+  [PAYMENT_METHODS.KLARNA]: {
+    titulo: 'Pago con Klarna (EUR)',
+    descripcion: 'Financiamiento en cuotas a través de Klarna.',
+    detalles: [
+      'Los datos de pago para Klarna serán proporcionados por tu asesor de viaje.',
+      'Por favor, contáctate con tu asesor para obtener la información necesaria para realizar el pago.'
+    ]
+  },
+  [PAYMENT_METHODS.DAVIVIENDA]: {
+    titulo: 'Tarjeta de Crédito Davivienda (COP)',
+    descripcion: 'Pago con tarjeta de crédito Davivienda en pesos colombianos.',
+    detalles: [
+      'Para procesar el pago con tarjeta de crédito Davivienda, por favor consulta con tu asesor de viaje.',
+      'Tu asesor te proporcionará la información necesaria para completar el pago.'
+    ]
+  },
+  [PAYMENT_METHODS.TDC_VIRAMUNDO]: {
+    titulo: 'Tarjeta de Crédito Viramundo (USD)',
+    descripcion: 'Pago mediante link de pago generado a través de Viramundo.',
+    detalles: [
+      'El link de pago será enviado por tu asesor de viaje.',
+      'Por favor, solicita el link de pago a tu asesor para proceder con el pago.'
     ]
   },
   [PAYMENT_METHODS.BANESCO_PANAMA]: {
@@ -229,11 +283,16 @@ export const METHODS_BY_CURRENCY = {
     PAYMENT_METHODS.CHASE_APOLO,
     PAYMENT_METHODS.EFECTIVO_USD,
     PAYMENT_METHODS.ARCADIA,
-    PAYMENT_METHODS.TARJETA_CREDITO_USD
+    PAYMENT_METHODS.TARJETA_CREDITO_USD,
+    PAYMENT_METHODS.TDC_VIRAMUNDO
   ],
   EUR: [
     PAYMENT_METHODS.BBVA,
     PAYMENT_METHODS.REVOLUT,
+    PAYMENT_METHODS.REVOLUT_GADDIEL,
+    PAYMENT_METHODS.REVOLUT_GRUPO_TRAVEL,
+    PAYMENT_METHODS.REVOLUT_LINK_PAGO,
+    PAYMENT_METHODS.KLARNA,
     PAYMENT_METHODS.BIZUM,
     PAYMENT_METHODS.EFECTIVO_EUR,
     PAYMENT_METHODS.SCALAPAY
@@ -262,6 +321,10 @@ export const ALL_PAYMENT_METHODS = [
   PAYMENT_METHODS.DAVIVIENDA,
   PAYMENT_METHODS.BBVA,
   PAYMENT_METHODS.REVOLUT,
+  PAYMENT_METHODS.REVOLUT_GADDIEL,
+  PAYMENT_METHODS.REVOLUT_GRUPO_TRAVEL,
+  PAYMENT_METHODS.REVOLUT_LINK_PAGO,
+  PAYMENT_METHODS.KLARNA,
   PAYMENT_METHODS.BANESCO_PANAMA,
   PAYMENT_METHODS.BNC_VES,
   PAYMENT_METHODS.PAGO_MOVIL,
@@ -271,7 +334,8 @@ export const ALL_PAYMENT_METHODS = [
   PAYMENT_METHODS.CHASE_NOVA,
   PAYMENT_METHODS.CHASE_APOLO,
   PAYMENT_METHODS.BIZUM,
-  PAYMENT_METHODS.TARJETA_CREDITO_USD
+  PAYMENT_METHODS.TARJETA_CREDITO_USD,
+  PAYMENT_METHODS.TDC_VIRAMUNDO
 ]
 
 /**
