@@ -91,6 +91,8 @@ export default function VueloFormNuevo({
     contacto_telefono: '',
     fecha_vuelo: '',
     ruta: '',
+    ruta_origen: '',
+    ruta_destino: '',
     horario: '',
     hora_llegada: '',
     fecha_regreso: '',
@@ -164,11 +166,32 @@ export default function VueloFormNuevo({
     }
   }, [cotizacion])
 
+  // Separar ruta en origen y destino cuando se carga desde initialData
+  useEffect(() => {
+    if (initialData?.ruta && initialData.ruta.includes('-')) {
+      const [origen, destino] = initialData.ruta.split('-')
+      setFormData(prev => ({
+        ...prev,
+        ruta_origen: origen || '',
+        ruta_destino: destino || ''
+      }))
+    }
+  }, [initialData?.ruta])
+
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }))
+    }
+  }
+
+  const handleRutaChange = (field, value) => {
+    // Solo letras, máximo 3 caracteres, uppercase automático
+    const formatted = value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3)
+    setFormData(prev => ({ ...prev, [field]: formatted }))
+    if (errors.ruta) {
+      setErrors(prev => ({ ...prev, ruta: null }))
     }
   }
 
@@ -414,7 +437,7 @@ export default function VueloFormNuevo({
     if (!formData.contacto_nombre.trim()) newErrors.contacto_nombre = 'Contacto es requerido'
     if (!formData.contacto_telefono.trim()) newErrors.contacto_telefono = 'Teléfono es requerido'
     if (!formData.fecha_vuelo) newErrors.fecha_vuelo = 'Fecha del vuelo es requerida'
-    if (!formData.ruta.trim()) newErrors.ruta = 'Ruta es requerida'
+    if (!formData.ruta_origen.trim() || !formData.ruta_destino.trim()) newErrors.ruta = 'Origen y destino son requeridos'
     if (!formData.proveedor.trim()) newErrors.proveedor = 'Proveedor es requerido'
 
     // Validación condicional: si es ida_vuelta, fecha_regreso es requerida
@@ -527,11 +550,18 @@ export default function VueloFormNuevo({
     const subtotalCalculado = cotizacion ? parseFloat(formData.total_cotizacion) : calcularSubtotal()
     const montoVentaCalculado = cotizacion ? parseFloat(formData.monto_venta) : calcularMontoVenta()
 
+    // Combinar origen y destino en ruta
+    const rutaCombinada = `${formData.ruta_origen.toUpperCase()}-${formData.ruta_destino.toUpperCase()}`
+
     const submitData = {
       vuelo: {
         ...formData,
+        ruta: rutaCombinada,
         monto_venta: montoVentaCalculado,
         cotizacion_id: cotizacion?.id || null,
+        // Remover campos temporales del frontend
+        ruta_origen: undefined,
+        ruta_destino: undefined,
         // Validar horas para evitar strings vacíos
         horario: formData.horario && formData.horario.trim() !== '' ? formData.horario : null,
         hora_llegada: formData.hora_llegada && formData.hora_llegada.trim() !== '' ? formData.hora_llegada : null,
@@ -803,31 +833,48 @@ export default function VueloFormNuevo({
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Ruta *
-            </label>
-            <input
-              type="text"
-              name="ruta"
-              value={formData.ruta}
-              onChange={handleChange}
-              placeholder="Ej: BOG-MAD"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 uppercase ${errors.ruta ? 'border-red-500' : 'border-gray-300'
-                }`}
-            />
-            {errors.ruta && <p className="mt-1 text-sm text-red-600">{errors.ruta}</p>}
-          </div>
+          <div className="md:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Ruta *
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={formData.ruta_origen}
+                      onChange={(e) => handleRutaChange('ruta_origen', e.target.value)}
+                      placeholder="ORI"
+                      maxLength={3}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-center font-mono text-sm font-bold tracking-wider ${errors.ruta ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                    />
+                  </div>
+                  <span className="text-xl font-bold text-gray-400">-</span>
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={formData.ruta_destino}
+                      onChange={(e) => handleRutaChange('ruta_destino', e.target.value)}
+                      placeholder="DES"
+                      maxLength={3}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-center font-mono text-sm font-bold tracking-wider ${errors.ruta ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                    />
+                  </div>
+                </div>
+                {errors.ruta && <p className="mt-1 text-sm text-red-600">{errors.ruta}</p>}
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Aerolínea
-            </label>
-            <AerolineaAutocomplete
-              value={formData.aerolinea_nombre}
-              onChange={(nombre) => setFormData(prev => ({ ...prev, aerolinea_nombre: nombre }))}
-              onCodigoChange={(codigo) => setFormData(prev => ({ ...prev, aerolinea_codigo: codigo }))}
-            />
+              <div>
+                <AerolineaAutocomplete
+                  value={formData.aerolinea_nombre}
+                  onChange={(nombre) => setFormData(prev => ({ ...prev, aerolinea_nombre: nombre }))}
+                  onCodigoChange={(codigo) => setFormData(prev => ({ ...prev, aerolinea_codigo: codigo }))}
+                />
+              </div>
+            </div>
           </div>
 
           {/* ESCALAS - Integradas en esta sección */}

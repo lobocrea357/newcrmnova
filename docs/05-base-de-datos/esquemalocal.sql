@@ -395,6 +395,14 @@ CREATE TABLE public.messages (
   CONSTRAINT messages_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id),
   CONSTRAINT messages_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(id)
 );
+CREATE TABLE public.migration_audit (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  migration_name text NOT NULL,
+  executed_at timestamp with time zone DEFAULT now(),
+  details jsonb,
+  status text,
+  CONSTRAINT migration_audit_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.monedas (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   codigo text NOT NULL UNIQUE,
@@ -731,7 +739,7 @@ CREATE TABLE public.vuelos (
 CREATE TABLE public.vuelos_adjuntos (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   vuelo_id uuid NOT NULL,
-  tipo_adjunto text NOT NULL CHECK (tipo_adjunto = ANY (ARRAY['COMPROBANTE_PAGO'::text, 'PASAPORTE'::text, 'CEDULA'::text])),
+  tipo_adjunto text NOT NULL CHECK (tipo_adjunto = ANY (ARRAY['COMPROBANTE_PAGO'::text, 'PASAPORTE'::text, 'CEDULA'::text, 'COMPROBANTE_RESERVA_SERVIVUELO'::text])),
   nombre_archivo text NOT NULL,
   url_storage text NOT NULL,
   mime_type text,

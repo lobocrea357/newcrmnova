@@ -56,7 +56,7 @@ router.post('/', upload.fields([
       }
     }
 
-    const pdfServivuelo = req.files['pdfServivuelo']?.[0] || null;
+    const pdfServivuelo = req.files?.['pdfServivuelo']?.[0] || null;
 
     // Validaciones básicas
     const camposRequeridos = ['created_by', 'pax_nombre', 'contacto_nombre', 'contacto_telefono', 'fecha_vuelo', 'ruta', 'proveedor', 'monto_venta', 'tipo_vuelo'];
