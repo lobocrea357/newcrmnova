@@ -181,7 +181,62 @@ export default function VueloFormNuevo({
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+
+    // Lógica condicional para auto-asignación de cuenta_emision_asignada
+    if (name === 'metodo_pago') {
+      let cuentaAuto = ''
+      let formaAuto = formData.forma_emision
+
+      // Chase Bank → auto-asignar cuenta
+      if (value === 'Chase Bank Nova') {
+        cuentaAuto = 'CHASE_NOVA'
+      } else if (value === 'Chase Bank Apolo') {
+        cuentaAuto = 'CHASE_APOLO'
+      }
+      // Revolut → auto-asignar cuenta
+      else if (value === 'Revolut Gaddiel') {
+        cuentaAuto = 'REVOLUT_GADDIEL'
+      } else if (value === 'Revolut Grupo Travel') {
+        cuentaAuto = 'REVOLUT_GRUPO_TRAVEL'
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        ...(cuentaAuto && { cuenta_emision_asignada: cuentaAuto })
+      }))
+    } else if (name === 'proveedor') {
+      let cuentaAuto = ''
+      let formaAuto = formData.forma_emision
+
+      // Sabre/Amadeus/Expedia/Kiwi → auto-asignar cuenta
+      if (value === 'Sabre') {
+        cuentaAuto = 'SABRE'
+      } else if (value === 'Amadeus') {
+        cuentaAuto = 'AMADEUS'
+      } else if (value === 'Expedia') {
+        cuentaAuto = 'EXPEDIA'
+      } else if (value === 'Kiwi') {
+        cuentaAuto = 'KIWI'
+      } else if (value === 'Servivuelo') {
+        // Servivuelo requiere selección manual de 1 o 2, pero es CONTADO
+        formaAuto = 'CONTADO'
+        cuentaAuto = '' // Se seleccionará manualmente
+      } else if (value === 'Kiu') {
+        // Kiu requiere selección manual de Estelar o Laser, permite CONTADO/CREDITO
+        cuentaAuto = '' // Se seleccionará manualmente
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        ...(cuentaAuto && { cuenta_emision_asignada: cuentaAuto }),
+        ...(value === 'Servivuelo' && { forma_emision: formaAuto })
+      }))
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }))
+    }
+
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }))
     }
@@ -212,6 +267,51 @@ export default function VueloFormNuevo({
         cuenta_emision_asignada: cuenta
       }))
     }
+  }
+
+  // Determinar si la cuenta se asigna automáticamente
+  const cuentaEsAutomatica = () => {
+    // Chase Bank
+    if (formData.metodo_pago === 'Chase Bank Nova' || formData.metodo_pago === 'Chase Bank Apolo') {
+      return true
+    }
+    // Revolut
+    if (formData.metodo_pago === 'Revolut Gaddiel' || formData.metodo_pago === 'Revolut Grupo Travel') {
+      return true
+    }
+    // Proveedores que auto-asignan cuenta
+    if (['Sabre', 'Amadeus', 'Expedia', 'Kiwi'].includes(formData.proveedor)) {
+      return true
+    }
+    return false
+  }
+
+  // Determinar si requiere selección manual limitada (Servivuelo o Kiu)
+  const requiereSeleccionManual = () => {
+    return formData.proveedor === 'Servivuelo' || formData.proveedor === 'Kiu'
+  }
+
+  // Determinar si es Servivuelo (siempre CONTADO)
+  const esServivuelo = () => {
+    return formData.proveedor === 'Servivuelo'
+  }
+
+  // Determinar si es Kiu (permite CONTADO/CREDITO)
+  const esKiu = () => {
+    return formData.proveedor === 'Kiu'
+  }
+
+  // Obtener label de cuenta actual
+  const obtenerLabelCuenta = () => {
+    if (formData.metodo_pago === 'Chase Bank Nova') return 'Chase Bank Nova'
+    if (formData.metodo_pago === 'Chase Bank Apolo') return 'Chase Bank Apolo'
+    if (formData.metodo_pago === 'Revolut Gaddiel') return 'Revolut Gaddiel'
+    if (formData.metodo_pago === 'Revolut Grupo Travel') return 'Revolut Grupo Travel'
+    if (formData.proveedor === 'Sabre') return 'Sabre'
+    if (formData.proveedor === 'Amadeus') return 'Amadeus'
+    if (formData.proveedor === 'Expedia') return 'Expedia'
+    if (formData.proveedor === 'Kiwi') return 'Kiwi'
+    return formData.cuenta_emision_asignada
   }
 
   const handlePasajeroChange = (index, field, value) => {
@@ -1727,35 +1827,75 @@ export default function VueloFormNuevo({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Cuenta de Emisión */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cuenta de Emisión *
-                </label>
-                <select
-                  name="cuenta_emision_asignada"
-                  value={formData.cuenta_emision_asignada}
-                  onChange={handleCuentaChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                  <option value="">Seleccionar cuenta...</option>
-                  <option value="SERVIVUELO_1">Servivuelo 1 (Contado)</option>
-                  <option value="SERVIVUELO_2">Servivuelo 2 (Contado)</option>
-                  <option value="CHASE_NOVA">Chase Bank Nova (Contado)</option>
-                  <option value="CHASE_APOLO">Chase Bank Apolo (Contado)</option>
-                  <option value="SABRE">Sabre (Crédito/Contado)</option>
-                  <option value="AMADEUS">Amadeus (Crédito/Contado)</option>
-                  <option value="EXPEDIA">Expedia (Crédito/Contado)</option>
-                </select>
-
-                {/* Nota automática para Servivuelo */}
-                {formData.cuenta_emision_asignada?.includes('SERVIVUELO') && (
-                  <p className="mt-2 text-sm text-indigo-600">
-                    ℹ️ Servivuelo siempre es al contado
+              {/* Cuenta de Emisión - Condicional */}
+              {cuentaEsAutomatica() ? (
+                // Cuenta auto-asignada (Chase Bank, Revolut, Sabre, Amadeus, Expedia, Kiwi)
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cuenta de Emisión
+                  </label>
+                  <div className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-indigo-50 text-indigo-900 font-semibold flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-indigo-600" />
+                    {obtenerLabelCuenta()}
+                    <span className="text-xs text-indigo-600 ml-auto">(Asignada automáticamente)</span>
+                  </div>
+                  <p className="mt-2 text-xs text-indigo-600">
+                    ✓ La cuenta se asignó automáticamente según el {formData.metodo_pago?.includes('Chase') || formData.metodo_pago?.includes('Revolut') ? 'método de pago' : 'proveedor'} seleccionado
                   </p>
-                )}
-              </div>
+                </div>
+              ) : requiereSeleccionManual() ? (
+                // Servivuelo o Kiu: Selección manual de subcuenta
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cuenta de Emisión - {esServivuelo() ? 'Servivuelo' : 'KIU'} *
+                  </label>
+                  <select
+                    name="cuenta_emision_asignada"
+                    value={formData.cuenta_emision_asignada}
+                    onChange={handleCuentaChange}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                      {esServivuelo() ? (
+                        <React.Fragment>
+                          <option value="">Seleccionar cuenta Servivuelo...</option>
+                          <option value="SERVIVUELO_1">Servivuelo 1 (Grupo Travel)</option>
+                          <option value="SERVIVUELO_2">Servivuelo 2 (Arcadia)</option>
+                        </React.Fragment>
+                      ) : (
+                        <React.Fragment>
+                          <option value="">Seleccionar cuenta KIU...</option>
+                          <option value="KIU_ESTELAR_ARCADIA">KIU Estelar Arcadia</option>
+                          <option value="KIU_LASER_ARCADIA">KIU Laser Arcadia</option>
+                        </React.Fragment>
+                      )}
+                    </select>
+                    {esServivuelo() && (
+                      <p className="mt-2 text-sm text-indigo-600">
+                        ℹ️ Servivuelo siempre es al contado
+                      </p>
+                    )}
+                    {esKiu() && (
+                      <p className="mt-2 text-sm text-gray-600">
+                        ℹ️ KIU permite emisión a crédito o contado
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  // Sin proveedor o método de pago seleccionado
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Cuenta de Emisión *
+                    </label>
+                    <div className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      Selecciona primero el proveedor o método de pago
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      La cuenta se asignará automáticamente según tu selección
+                    </p>
+                    </div>
+              )}
 
               {/* Forma de Emisión */}
               <div>

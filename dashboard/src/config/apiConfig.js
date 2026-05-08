@@ -60,6 +60,14 @@ export const VUELOS_API = {
   solicitarAutorizacion: (id) => buildApiUrl(`/api/vuelos/${id}/solicitar-autorizacion`)
 }
 
+// URLs específicas para APIs de emisiones
+export const EMISIONES_API = {
+  cambiarCuenta: (vueloId) => buildApiUrl(`/api/vuelos-emisiones/${vueloId}/cambiar-cuenta`),
+  pendientesAgrupados: () => buildApiUrl('/api/vuelos-emisiones/pendientes/agrupados'),
+  autorizarEmision: (vueloId) => buildApiUrl(`/api/vuelos/${vueloId}/autorizar-emision`),
+  autorizarBatch: () => buildApiUrl('/api/vuelos/autorizar-emision-batch')
+}
+
 // URLs específicas para APIs de deudas con proveedores
 export const DEUDAS_API = {
   listar: buildApiUrl('/api/deudas-proveedores'),

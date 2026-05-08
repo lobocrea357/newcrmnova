@@ -29,6 +29,7 @@ import agenciasRoutes from './routes/agencias.js';
 import sedesRoutes from './routes/sedes.js';
 import deudasRoutes from './routes/deudas.js';
 import metricasRoutes from './routes/metricas.js';
+import vuelosEmisionesRoutes from './routes/vuelos-emisiones.js';
 
 // Importar servicio de auto-sincronización
 import autoSyncService from './services/autoSyncService.js';
@@ -64,6 +65,7 @@ app.use('/api/roles', rolesRoutes);
 app.use('/api/tasas', tasasRoutes);
 app.use('/api/vuelos', vuelosRoutes);
 app.use('/api/cotizaciones', cotizacionesRoutes);
+app.use('/api/vuelos-emisiones', vuelosEmisionesRoutes);
 app.use('/api/equipos', equiposRoutes);
 app.use('/api/rankings', rankingsRoutes);
 app.use('/api/agencias', agenciasRoutes);
