@@ -31,6 +31,7 @@ IMPORTANTE:
 - La nacionalidad viene en código de 3 letras (VEN = Venezuela, COL = Colombia, USA = Estados Unidos, etc.)
 - El sexo es M (masculino) o F (femenino)
 - La fecha de nacimiento suele estar en formato YYMMDD en la MRZ
+- El país de emisión suele estar visible en la portada o en la página de datos
 
 FORMATO DE RESPUESTA (JSON estricto):
 {
@@ -40,6 +41,7 @@ FORMATO DE RESPUESTA (JSON estricto):
   "nacionalidad": string | null,
   "sexo": "M" | "F" | null,
   "fecha_nacimiento": string | null,
+  "pais_emision": string | null,
   "confidence": "high" | "medium" | "low",
   "notes": string
 }
@@ -48,14 +50,21 @@ Donde:
 - nombres: Nombres del titular (pueden ser uno o dos nombres)
 - apellidos: Apellidos del titular (pueden ser uno o dos apellidos)
 - numero_pasaporte: Número del pasaporte (alfanumérico)
-- nacionalidad: Nacionalidad en texto completo (ej: "Venezuela", "Colombia")
+- nacionalidad: Nacionalidad en código de 3 letras o nombre completo (ej: "VEN" o "Venezuela")
 - sexo: "M" o "F"
 - fecha_nacimiento: Fecha en formato YYYY-MM-DD (convierte desde el formato del pasaporte)
+- pais_emision: País que emitió el pasaporte (ej: "Venezuela", "Colombia", "United States")
 - confidence: Nivel de confianza en la extracción (high si todo es claro, medium si hay dudas, low si la imagen es borrosa)
 - notes: Notas adicionales o advertencias (ej: "Imagen borrosa, verificar manualmente", "Algunos campos no visibles")`
 
-    const userMessage = `Analiza esta imagen de pasaporte y extrae los datos solicitados. 
-    
+    const userMessage = `Analiza esta imagen de pasaporte y extrae los datos solicitados.
+
+INSTRUCCIONES ESPECÍFICAS:
+- Prioriza la información de la zona MRZ (Machine Readable Zone) en la parte inferior
+- La nacionalidad en MRZ es código de 3 letras (VEN, COL, USA, etc.)
+- El país de emisión suele estar visible en la portada del pasaporte
+- Si el país de emisión no es visible, infiérelo de la nacionalidad si es posible
+
 RECUERDA: Si un campo no es visible o legible, devuelve null. NO inventes información.`
 
     // Call OpenAI Vision API with gpt-4o-mini

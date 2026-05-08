@@ -850,8 +850,9 @@ class VuelosService {
       }
       
       // Validación de formato básico para pasaportes (generalmente alfanumérico)
-      if (!/^[A-Z0-9]{6,9}$/.test(pasajero.numero_pasaporte.trim().toUpperCase())) {
-        throw new Error('El formato del pasaporte parece inválido. Debe tener 6-9 caracteres alfanuméricos');
+      // Longitud variable por país, mínimo 6 caracteres
+      if (!/^[A-Z0-9]{6,}$/.test(pasajero.numero_pasaporte.trim().toUpperCase())) {
+        throw new Error('El formato del pasaporte parece inválido. Debe tener al menos 6 caracteres alfanuméricos');
       }
     } 
     
@@ -864,16 +865,37 @@ class VuelosService {
         throw new Error('El país de emisión es requerido para cédulas');
       }
       
-      // Validación de formato para cédulas (formatos comunes de LATAM)
+      // Validación flexible para cédulas (acepta múltiples formatos y normaliza)
       const cedula = pasajero.numero_cedula.trim().toUpperCase();
       const pais = pasajero.pais_emision_cedula;
       
-      if (pais === 'Venezuela' && !/^[VE]-\d{7,8}$/.test(cedula)) {
-        throw new Error('Formato de cédula venezolana inválido. Use V-12345678 o E-12345678');
+      if (pais === 'Venezuela') {
+        // Aceptar: 12345678, V-12345678, E-12345678, V12345678, E12345678
+        const match = cedula.match(/^(?:[VE]-?)?(\d{7,8})$/);
+        if (!match) {
+          throw new Error('Formato de cédula venezolana inválido. Use V-12345678, E-12345678, o solo los dígitos');
+        }
+        // Normalizar a V-12345678 (por defecto V si no hay prefijo)
+        const prefijo = cedula.startsWith('E') ? 'E' : 'V';
+        pasajero.numero_cedula = `${prefijo}-${match[1]}`;
       }
       
-      if (pais === 'Colombia' && !/^\d{8,10}$/.test(cedula.replace(/[^0-9]/g, ''))) {
-        throw new Error('Formato de cédula colombiana inválido. Use 8-10 dígitos');
+      else if (pais === 'Colombia') {
+        // Aceptar: 1234567890, 1.234.567.890, 123-456-7890
+        const limpio = cedula.replace(/[^0-9]/g, '');
+        if (!/^\d{8,10}$/.test(limpio)) {
+          throw new Error('Formato de cédula colombiana inválido. Use 8-10 dígitos numéricos');
+        }
+        // Normalizar a solo dígitos
+        pasajero.numero_cedula = limpio;
+      }
+      
+      else {
+        // Para otros países, validar que tenga al menos 6 caracteres alfanuméricos
+        if (!/^[A-Z0-9-]{6,}$/.test(cedula)) {
+          throw new Error('Formato de cédula inválido. Debe tener al menos 6 caracteres');
+        }
+        // Mantener formato original para otros países
       }
     }
   }

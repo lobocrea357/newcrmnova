@@ -52,7 +52,7 @@ FORMATO DE RESPUESTA (JSON estricto):
   "nacionalidad": string | null,
   "sexo": "M" | "F" | null,
   "fecha_nacimiento": string | null,
-  "pais_emision": string | null,
+  "pais_emision_cedula": string | null,
   "confidence": "high" | "medium" | "low",
   "notes": string
 }
@@ -64,15 +64,46 @@ Donde:
 - nacionalidad: Nacionalidad del titular (ej: "Venezolana", "Colombiana")
 - sexo: "M" o "F"
 - fecha_nacimiento: Fecha en formato YYYY-MM-DD (convierte desde el formato de la cédula)
-- pais_emision: País que emitió la cédula (ej: "Venezuela", "Colombia")
+- pais_emision_cedula: País que emitió la cédula (ej: "Venezuela", "Colombia")
 - confidence: Nivel de confianza en la extracción (high si todo es claro, medium si hay dudas, low si la imagen es borrosa)
 - notes: Notas adicionales o advertencias (ej: "Imagen borrosa, verificar manualmente", "Cédula antigua, formato diferente")`
 
     const userMessage = `Analiza esta imagen de cédula de identidad${pais ? ` de ${pais}` : ''} y extrae los datos solicitados.
 
+INSTRUCCIONES ESPECÍFICAS POR PAÍS:
+${pais === 'Venezuela' ? `
+- El número de cédula venezolana DEBE incluir el prefijo V o E
+- Formato típico: V-12345678 (venezolano) o E-12345678 (extranjero)
+- Si solo ves números, asume prefijo V
+- Extrae el número EXACTAMENTE como aparece en el documento
+` : ''}
+
+${pais === 'Colombia' ? `
+- El número de cédula colombiana es solo numérico (8-10 dígitos)
+- No incluye prefijos ni letras
+- Si hay separadores (puntos, guiones), inclúyelos como aparecen
+- Extrae el número EXACTAMENTE como aparece en el documento
+` : ''}
+
+${pais === 'Perú' ? `
+- El DNI peruano tiene 8 dígitos numéricos
+- No incluye prefijos ni letras
+- Extrae el número EXACTAMENTE como aparece en el documento
+` : ''}
+
+${pais === 'Ecuador' ? `
+- La cédula ecuatoriana tiene 10 dígitos numéricos
+- No incluye prefijos ni letras
+- Extrae el número EXACTAMENTE como aparece en el documento
+` : ''}
+
+${!pais ? `
+- Para países no especificados, extrae el número tal como aparece
+- Incluye cualquier prefijo, letra o separador que veas en el documento
+` : ''}
+
 RECUERDA: 
 - Si un campo no es visible o legible, devuelve null. NO inventes información.
-- Extrae el número de cédula EXACTAMENTE como aparece en el documento (con prefijos, guiones, etc.)
 - Convierte la fecha de nacimiento a formato YYYY-MM-DD
 - Identifica el país de emisión si es visible en el documento`
 

@@ -6,6 +6,7 @@ import Swal from 'sweetalert2'
 import { TIPOS_VUELO, PROVEEDORES, SEXOS, TIPOS_DOCUMENTO, PAISES_CEDULA } from '@/lib/constants/vuelosConstants'
 import { formatCedulaByCountry } from '@/lib/utils/documentHelpers'
 import FileUpload from '@/components/vuelos/FileUpload' // NEW IMPORT
+import { normalizarCedula } from '@/lib/documentos/normalizarCedula'
 
 export default function VueloFormEditar({
   vuelo,
@@ -187,15 +188,20 @@ export default function VueloFormEditar({
 
         if (esCedula) {
           // Para cédulas
+          const cedulaNormalizada = normalizarCedula(
+            extracted.numero_cedula || updated[index].numero_cedula,
+            extracted.pais_emision_cedula || updated[index].pais_emision_cedula
+          );
+
           updated[index] = {
             ...updated[index],
             nombres: extracted.nombres || updated[index].nombres,
             apellidos: extracted.apellidos || updated[index].apellidos,
-            numero_cedula: extracted.numero_cedula || updated[index].numero_cedula,
+            numero_cedula: cedulaNormalizada,
             nacionalidad: extracted.nacionalidad || updated[index].nacionalidad,
             sexo: extracted.sexo || updated[index].sexo,
             fecha_nacimiento: extracted.fecha_nacimiento || updated[index].fecha_nacimiento,
-            pais_emision_cedula: extracted.pais_emision || updated[index].pais_emision_cedula
+            pais_emision_cedula: extracted.pais_emision_cedula || updated[index].pais_emision_cedula
           }
         } else {
         // Para pasaportes
@@ -206,7 +212,8 @@ export default function VueloFormEditar({
             numero_pasaporte: extracted.numero_pasaporte || updated[index].numero_pasaporte,
             nacionalidad: extracted.nacionalidad || updated[index].nacionalidad,
             sexo: extracted.sexo || updated[index].sexo,
-            fecha_nacimiento: extracted.fecha_nacimiento || updated[index].fecha_nacimiento
+            fecha_nacimiento: extracted.fecha_nacimiento || updated[index].fecha_nacimiento,
+            pais_emision_cedula: extracted.pais_emision || updated[index].pais_emision_cedula
           }
         }
 
