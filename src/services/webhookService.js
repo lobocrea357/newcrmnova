@@ -6,6 +6,8 @@ import { MessageService } from './messageService.js';
 import { MediaService } from './mediaService.js';
 import { TranscriptionService } from './transcriptionService.js';
 import WahaContactService from './wahaContactService.js';
+import pocThreadService from './pocThreadService.js';
+import { isBotInPoC, getPoCBots } from '../config/pocConfig.js';
 
 const botService = new BotService();
 const contactService = new ContactService();
@@ -200,6 +202,65 @@ export class WebhookService {
       // PASO 5: Procesar MULTIMEDIA (si existe)
       if (payload.hasMedia) {
         await this.processMedia(bot.id, savedMessage.id, payload);
+      }
+
+      // 🔍 DEBUG ANTES DE POC - Confirmar que llegamos hasta aquí
+      console.log(`\n🔍 [DEBUG] Llegando a sección POC - Bot: ${bot.session_name}, Contacto: ${contact.phone_number}`);
+
+      // PASO 6: Actualizar thread de PoC (sincronización incremental - no bloqueante)
+      const contactNumber = contact.phone_number;
+      const contactName = contact.name || contactNumber;
+      const messageTimestamp = payload.timestamp
+        ? new Date(payload.timestamp * 1000).toISOString()
+        : new Date().toISOString();
+
+      // 🔍 DIAGNÓSTICO: Verificar si el bot está en la lista POC_BOTS (desde configuración centralizada)
+      const botInPoC = isBotInPoC(bot.session_name);
+      const pocBotsList = getPoCBots();
+      
+      console.log(`[Webhook PoC] ========== DIAGNÓSTICO ==========`);
+      console.log(`[Webhook PoC] Bot: ${bot.session_name} (ID: ${bot.id})`);
+      console.log(`[Webhook PoC] ¿Está en POC_BOTS? ${botInPoC ? '✅ SÍ' : '❌ NO'}`);
+      console.log(`[Webhook PoC] Lista POC_BOTS (${pocBotsList.length}): ${JSON.stringify(pocBotsList)}`);
+      console.log(`[Webhook PoC] Contacto: ${contactNumber}`);
+      console.log(`[Webhook PoC] Chat ID: ${chat.id}`);
+      
+      // Solo procesar si el bot está en la lista PoC
+      if (botInPoC) {
+        console.log(`[Webhook PoC] ✅ Procesando mensaje para PoC...`);
+        
+        // Validación adicional: verificar que contactNumber no sea null/undefined
+        if (!contactNumber) {
+          console.error('[Webhook PoC] ❌ ERROR: contactNumber es null/undefined, omitiendo sincronización');
+          console.error('[Webhook PoC] Datos del contacto:', { 
+            phone_number: contact.phone_number, 
+            name: contact.name,
+            id: contact.id 
+          });
+        } else {
+          // Llamada asíncrona - no bloquea el webhook
+          pocThreadService.updateThreadForNewMessage(
+            bot.id,
+            chat.id,
+            contactNumber,
+            contactName,
+            messageTimestamp
+          ).then(result => {
+            console.log(`[Webhook PoC] ✅ Thread actualizado exitosamente para ${contactNumber}`);
+          }).catch(err => {
+            console.error('[Webhook PoC] ❌ ERROR actualizando thread PoC:', err.message);
+            console.error('[Webhook PoC] Stack:', err.stack);
+            console.error('[Webhook PoC] Datos que causaron el error:', {
+              botId: bot.id,
+              chatId: chat.id,
+              contactNumber,
+              contactName,
+              messageTimestamp
+            });
+          });
+        }
+      } else {
+        console.log(`[Webhook PoC] ⚠️ Bot no está en POC_BOTS, omitiendo sincronización`);
       }
 
       console.log(`\n✅ ========== MENSAJE PROCESADO EXITOSAMENTE ==========\n`);
