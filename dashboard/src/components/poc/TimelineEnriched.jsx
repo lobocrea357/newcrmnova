@@ -143,9 +143,66 @@ export default function TimelineEnriched({
   };
 
   const renderEvent = (item) => {
+    const event = item.data;
+    const isSaleEvent = event.event_type === 'SALE_CONFIRMED';
+    const isReassignmentEvent = event.event_type === 'REASSIGNMENT';
+
     return (
-      <div key={`evt-${item.data.id}`} className="my-4">
-        <EventMarker event={item.data} compact={false} />
+      <div key={`evt-${event.id}`} className="my-4">
+        {isSaleEvent ? (
+          // Evento de venta destacado
+          <div className="bg-green-50 border-l-4 border-green-500 rounded-lg p-4 shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="bg-green-500 text-white p-2 rounded-full">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold text-green-900">✅ VENTA CONFIRMADA</div>
+                {event.event_data?.amount && (
+                  <div className="text-green-700 font-medium">
+                    Monto: ${event.event_data.amount} {event.event_data.currency || 'USD'}
+                  </div>
+                )}
+                {event.notes && (
+                  <div className="text-sm text-green-600 mt-1">{event.notes}</div>
+                )}
+                <div className="text-xs text-green-500 mt-1">
+                  {formatTimestamp(event.occurred_at)}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : isReassignmentEvent ? (
+          // Evento de reasignación
+          <div className="bg-amber-50 border-l-4 border-amber-400 rounded-lg p-4 shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="bg-amber-500 text-white p-2 rounded-full">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold text-amber-900">🔄 REASIGNACIÓN DE BOT</div>
+                {event.event_data?.previous_bot && event.event_data?.new_bot && (
+                  <div className="text-amber-700 font-medium">
+                    {event.event_data.previous_bot} → {event.event_data.new_bot}
+                  </div>
+                )}
+                {event.notes && (
+                  <div className="text-sm text-amber-600 mt-1">{event.notes}</div>
+                )}
+                <div className="text-xs text-amber-500 mt-1">
+                  {formatTimestamp(event.occurred_at)}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          // Otros eventos
+          <EventMarker event={event} compact={false} />
+        )}
       </div>
     );
   };

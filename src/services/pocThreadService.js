@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase.js';
 import { getPoCBots } from '../config/pocConfig.js';
+import pocEventService from './pocEventService.js';
 
 class PoCThreadService {
   /**
@@ -328,24 +329,84 @@ class PoCThreadService {
       
       console.log(`[PoC Threads] ✅ Thread obtenido/creado: ${thread.id}`);
 
-      // Vincular chat al thread usando el UUID del chat
-      const { error: linkError } = await supabase
+      // Verificar si ya existe un registro para este chat
+      const { data: existingChat, error: existingError } = await supabase
         .from('poc_thread_chats')
-        .upsert({
-          thread_id: thread.id,
-          chat_id: chatId,
-          bot_name: botName,
-          started_at: messageTimestamp
-        }, { onConflict: 'thread_id,chat_id' });
+        .select('id, bot_name, started_at')
+        .eq('thread_id', thread.id)
+        .eq('chat_id', chatId)
+        .single();
 
-      if (linkError) {
-        console.error('[PoC Threads] ❌ ERROR linking chat:', linkError);
-        console.error('  - Código:', linkError.code);
-        console.error('  - Mensaje:', linkError.message);
-        console.error('  - thread_id:', thread.id);
-        console.error('  - chat_id:', chatId);
+      let botChanged = false;
+
+      if (existingChat && existingChat.bot_name !== botName) {
+        console.log(`[PoC Threads] 🔄 DETECTADO CAMBIO DE BOT: ${existingChat.bot_name} → ${botName}`);
+        botChanged = true;
+
+        // Actualizar ended_at del registro anterior
+        const { error: updateError } = await supabase
+          .from('poc_thread_chats')
+          .update({ ended_at: messageTimestamp })
+          .eq('id', existingChat.id);
+
+        if (updateError) {
+          console.error('[PoC Threads] ❌ ERROR actualizando ended_at:', updateError);
+        } else {
+          console.log(`[PoC Threads] ✅ ended_at actualizado para bot anterior: ${existingChat.bot_name}`);
+        }
+
+        // Crear nuevo registro con el nuevo bot
+        const { error: newChatError } = await supabase
+          .from('poc_thread_chats')
+          .insert({
+            thread_id: thread.id,
+            chat_id: chatId,
+            bot_name: botName,
+            started_at: messageTimestamp
+          });
+
+        if (newChatError) {
+          console.error('[PoC Threads] ❌ ERROR creando nuevo registro de chat:', newChatError);
+        } else {
+          console.log(`[PoC Threads] ✅ Nuevo registro creado para bot: ${botName}`);
+        }
+
+        // Crear evento de reasignación
+        try {
+          await pocEventService.createEvent({
+            thread_id: thread.id,
+            event_type: 'REASSIGNMENT',
+            event_data: {
+              previous_bot: existingChat.bot_name,
+              new_bot: botName,
+              chat_id: chatId
+            },
+            notes: `Reasignación de bot: ${existingChat.bot_name} → ${botName}`
+          });
+          console.log(`[PoC Threads] ✅ Evento REASSIGNMENT creado`);
+        } catch (eventError) {
+          console.error('[PoC Threads] ❌ ERROR creando evento REASSIGNMENT:', eventError.message);
+        }
       } else {
-        console.log(`[PoC Threads] ✅ Chat vinculado: ${chatId} (Bot: ${botName})`);
+        // No hay cambio de bot, hacer upsert normal
+        const { error: linkError } = await supabase
+          .from('poc_thread_chats')
+          .upsert({
+            thread_id: thread.id,
+            chat_id: chatId,
+            bot_name: botName,
+            started_at: existingChat?.started_at || messageTimestamp
+          }, { onConflict: 'thread_id,chat_id' });
+
+        if (linkError) {
+          console.error('[PoC Threads] ❌ ERROR linking chat:', linkError);
+          console.error('  - Código:', linkError.code);
+          console.error('  - Mensaje:', linkError.message);
+          console.error('  - thread_id:', thread.id);
+          console.error('  - chat_id:', chatId);
+        } else {
+          console.log(`[PoC Threads] ✅ Chat vinculado: ${chatId} (Bot: ${botName})`);
+        }
       }
 
       // Actualizar métricas de forma asíncrona (no bloquear webhook)

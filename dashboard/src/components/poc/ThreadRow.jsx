@@ -1,4 +1,4 @@
-import { MessageSquare, FileText, CreditCard, ArrowRight, Eye } from "lucide-react";
+import { MessageSquare, FileText, CreditCard, ArrowRight, Eye, Bot } from "lucide-react";
 import ComparisonBadge from "./ComparisonBadge";
 import StatusBadge from "./StatusBadge";
 
@@ -7,6 +7,15 @@ export default function ThreadRow({ thread }) {
   const status = thread.status?.[0];
   const chats = thread.chats || [];
   const isFragmented = chats.length > 1;
+
+  // Obtener el bot actual (el último en la lista, ordenado por started_at)
+  const currentBot = chats.length > 0
+    ? chats.reduce((latest, chat) => {
+      const latestDate = new Date(latest.started_at || 0);
+      const chatDate = new Date(chat.started_at || 0);
+      return chatDate > latestDate ? chat : latest;
+    }, chats[0])
+    : null;
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
@@ -41,11 +50,28 @@ export default function ThreadRow({ thread }) {
             )}
           </div>
 
+          {/* Bot Actual */}
+          {currentBot && (
+            <div className="mb-2 flex items-center gap-2">
+              <Bot className="h-4 w-4 text-indigo-600" />
+              <span className="text-sm text-gray-600">
+                Atendido por: <span className="font-semibold text-indigo-700">{currentBot.bot_name || 'Bot desconocido'}</span>
+              </span>
+              {isFragmented && (
+                <span className="text-xs text-gray-500">
+                  (de {chats.length} asesores)
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Timeline de Reasignaciones */}
           {isFragmented && (
             <div className="mb-3 flex items-center gap-2 flex-wrap">
-              <span className="text-sm text-gray-600 font-medium">Reasignaciones:</span>
-              {chats.map((chat, idx) => (
+              <span className="text-sm text-gray-600 font-medium">Historial:</span>
+              {chats
+                .sort((a, b) => new Date(a.started_at || 0) - new Date(b.started_at || 0))
+                .map((chat, idx) => (
                 <span key={idx} className="flex items-center gap-1">
                   <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs font-medium border border-indigo-200">
                     {chat.bot_name || 'Bot desconocido'}
