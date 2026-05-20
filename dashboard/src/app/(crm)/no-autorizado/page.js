@@ -3,9 +3,13 @@
 import { useRouter } from "next/navigation";
 import { ShieldAlert, ArrowLeft, Home } from "lucide-react";
 import Breadcrumb from "@/components/ui/Breadcrumb";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 export default function NoAutorizadoPage() {
   const router = useRouter();
+  const { role, loading } = useUserProfile();
+
+  const roleDisplay = loading ? 'Cargando...' : (role || 'Usuario');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -43,7 +47,7 @@ export default function NoAutorizadoPage() {
                   Lo sentimos, no tienes permisos para acceder a este módulo.
                 </p>
                 <p className="text-sm text-gray-500 mb-8">
-                  Tu rol actual <span className="font-semibold text-orange-600">Gerente</span> no incluye acceso a esta sección del sistema.
+                  Tu rol actual <span className="font-semibold text-orange-600">{roleDisplay}</span> no incluye acceso a esta sección del sistema.
                 </p>
 
                 {/* Mensaje informativo */}

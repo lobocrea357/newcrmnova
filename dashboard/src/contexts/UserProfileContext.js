@@ -285,8 +285,8 @@ export const UserProfileProvider = ({ children }) => {
 
     // Helpers de conveniencia para roles comunes
     const isSuperAdmin = isRole('super_admin')
-    const isAdmin = isRole('admin') 
-    const isManager = isRole('gerente') 
+    const isAdmin = isRole('admin')
+    const isManager = isRole('gerente')
     const isAsesor = isRole('asesor')
     const isEmisor = isRole('emisor')
     const isAdministracion = isRole('administracion')

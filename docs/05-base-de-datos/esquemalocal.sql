@@ -226,6 +226,27 @@ CREATE TABLE public.conversation_evaluations (
   CONSTRAINT conversation_evaluations_evaluated_by_fkey FOREIGN KEY (evaluated_by_user_id) REFERENCES public.profiles(id),
   CONSTRAINT conversation_evaluations_performance_analysis_id_fkey FOREIGN KEY (performance_analysis_id) REFERENCES public.performance_analyses(id)
 );
+CREATE TABLE public.conversation_metrics (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  chat_id uuid NOT NULL UNIQUE,
+  total_messages integer NOT NULL DEFAULT 0,
+  incoming_messages integer NOT NULL DEFAULT 0,
+  outgoing_messages integer NOT NULL DEFAULT 0,
+  avg_response_time_minutes numeric,
+  max_response_time_minutes numeric,
+  response_samples integer DEFAULT 0,
+  payment_mentions_count integer DEFAULT 0,
+  payment_first_mention_at timestamp with time zone,
+  payment_last_mention_at timestamp with time zone,
+  payment_last_from_me boolean,
+  cotizacion_mentions_count integer DEFAULT 0,
+  cotizacion_files jsonb DEFAULT '[]'::jsonb,
+  last_calculated_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT conversation_metrics_pkey PRIMARY KEY (id),
+  CONSTRAINT conversation_metrics_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id)
+);
 CREATE TABLE public.cotizaciones (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone DEFAULT now(),
@@ -529,6 +550,68 @@ CREATE TABLE public.permissions (
   updated_at timestamp with time zone DEFAULT now(),
   is_system boolean DEFAULT false,
   CONSTRAINT permissions_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.poc_customer_threads (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  customer_phone text NOT NULL UNIQUE,
+  customer_name text,
+  first_message_at timestamp without time zone,
+  last_message_at timestamp without time zone,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT poc_customer_threads_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.poc_thread_chats (
+  thread_id uuid NOT NULL,
+  chat_id uuid NOT NULL,
+  bot_name text,
+  started_at timestamp without time zone,
+  ended_at timestamp without time zone,
+  CONSTRAINT poc_thread_chats_pkey PRIMARY KEY (thread_id, chat_id),
+  CONSTRAINT poc_thread_chats_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.poc_customer_threads(id)
+);
+CREATE TABLE public.poc_thread_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  thread_id uuid NOT NULL,
+  event_type character varying NOT NULL CHECK (event_type::text = ANY (ARRAY['SALE_CONFIRMED'::character varying, 'SALE_CANCELLED'::character varying, 'QUOTATION_SENT'::character varying, 'QUOTATION_ACCEPTED'::character varying, 'MEETING_SCHEDULED'::character varying, 'CALL_MADE'::character varying, 'LEAD_LOST'::character varying, 'LEAD_REACTIVATED'::character varying, 'REASSIGNMENT'::character varying, 'NOTE_ADDED'::character varying, 'STATUS_CHANGED'::character varying]::text[])),
+  event_subtype character varying CHECK (event_subtype IS NULL OR (event_subtype::text = ANY (ARRAY['AUTO_DETECTED'::character varying, 'MANUAL_MARK'::character varying]::text[]))),
+  occurred_at timestamp with time zone NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  created_by uuid,
+  event_data jsonb DEFAULT '{}'::jsonb,
+  notes text,
+  related_message_id uuid,
+  related_vuelo_id uuid,
+  related_cotizacion_id uuid,
+  is_milestone boolean DEFAULT false,
+  is_system_generated boolean DEFAULT false,
+  CONSTRAINT poc_thread_events_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.poc_thread_metrics (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  thread_id uuid UNIQUE,
+  total_messages integer DEFAULT 0,
+  total_chats integer DEFAULT 0,
+  advisors ARRAY,
+  avg_response_minutes numeric,
+  payment_mentions integer DEFAULT 0,
+  cotizacion_count integer DEFAULT 0,
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT poc_thread_metrics_pkey PRIMARY KEY (id),
+  CONSTRAINT poc_thread_metrics_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.poc_customer_threads(id)
+);
+CREATE TABLE public.poc_thread_status (
+  thread_id uuid NOT NULL,
+  current_status character varying NOT NULL DEFAULT 'NUEVO'::character varying CHECK (current_status::text = ANY (ARRAY['NUEVO'::character varying, 'EN_NEGOCIACION'::character varying, 'VENTA_CONCRETADA'::character varying, 'POST_VENTA'::character varying, 'PERDIDO'::character varying]::text[])),
+  status_since timestamp with time zone DEFAULT now(),
+  previous_status character varying,
+  total_sales integer DEFAULT 0 CHECK (total_sales >= 0),
+  total_sales_amount numeric DEFAULT 0 CHECK (total_sales_amount >= 0::numeric),
+  first_sale_at timestamp with time zone,
+  last_sale_at timestamp with time zone,
+  first_contact_at timestamp with time zone,
+  last_activity_at timestamp with time zone,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT poc_thread_status_pkey PRIMARY KEY (thread_id)
 );
 CREATE TABLE public.profiles (
   id uuid NOT NULL,

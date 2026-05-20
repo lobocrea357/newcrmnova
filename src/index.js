@@ -30,6 +30,7 @@ import sedesRoutes from './routes/sedes.js';
 import deudasRoutes from './routes/deudas.js';
 import metricasRoutes from './routes/metricas.js';
 import vuelosEmisionesRoutes from './routes/vuelos-emisiones.js';
+import pocRoutes from './routes/poc.js';
 
 // Importar servicio de auto-sincronización
 import autoSyncService from './services/autoSyncService.js';
@@ -72,6 +73,7 @@ app.use('/api/agencias', agenciasRoutes);
 app.use('/api/sedes', sedesRoutes);
 app.use('/api/deudas-proveedores', deudasRoutes);
 app.use('/api/metricas', metricasRoutes);
+app.use('/api/poc', pocRoutes);
 
 // Ruta de health check
 app.get('/health', (req, res) => {

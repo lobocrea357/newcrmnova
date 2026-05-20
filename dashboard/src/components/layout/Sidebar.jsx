@@ -24,7 +24,9 @@ import {
     UserPlus,
     Package,
     CreditCard,
-    BarChart3
+    BarChart3,
+    Clock,
+    Users as UsersIcon
 } from 'lucide-react'
 
 // menuItems como constante fuera del componente para evitar recreación en cada render
@@ -47,6 +49,9 @@ const BASE_MENU_ITEMS = [
     { href: '/analisis/reportes', label: 'Reportes', icon: FileText },
     { href: '/inteligencia-artificial', label: 'IA', icon: Brain },
     { href: '/configuracion', label: 'Configuración', icon: Settings },
+    // Rutas POC - Solo visible para super_admin
+    { href: '/conversaciones-poc', label: 'Conversaciones POC', icon: Clock, superAdminOnly: true },
+    { href: '/dashboard-poc', label: 'Dashboard Leads POC', icon: UsersIcon, superAdminOnly: true },
 ]
 
 const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
@@ -90,9 +95,11 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
     }
 
     // Función que determina si una ruta está visible para el usuario actual
-    const isRouteVisible = (href) => {
+    const isRouteVisible = (href, superAdminOnly = false) => {
         // Si no cargó el perfil aún, no mostrar nada (seguridad)
         if (!permissionsLoaded) return false
+        // Si la ruta es solo para super_admin, verificar rol
+        if (superAdminOnly && !isSuperAdmin) return false
         // Si allowedRoutes es null → puede ver todo
         if (allowedRoutes === null) return true
         // Verificar si la ruta está en las rutas permitidas
@@ -179,8 +186,8 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
                                 const Icon = item.icon
                                 const active = isActive(item.href)
 
-                                // Filtrar rutas según ROUTES_BY_ROLE
-                                if (!isRouteVisible(item.href)) {
+                                    // Filtrar rutas según ROUTES_BY_ROLE y superAdminOnly
+                                    if (!isRouteVisible(item.href, item.superAdminOnly)) {
                                     return null
                                 }
 
