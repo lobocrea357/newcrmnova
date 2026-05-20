@@ -584,7 +584,8 @@ CREATE TABLE public.poc_thread_events (
   related_cotizacion_id uuid,
   is_milestone boolean DEFAULT false,
   is_system_generated boolean DEFAULT false,
-  CONSTRAINT poc_thread_events_pkey PRIMARY KEY (id)
+  CONSTRAINT poc_thread_events_pkey PRIMARY KEY (id),
+  CONSTRAINT poc_thread_events_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.poc_customer_threads(id)
 );
 CREATE TABLE public.poc_thread_metrics (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -611,7 +612,8 @@ CREATE TABLE public.poc_thread_status (
   first_contact_at timestamp with time zone,
   last_activity_at timestamp with time zone,
   updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT poc_thread_status_pkey PRIMARY KEY (thread_id)
+  CONSTRAINT poc_thread_status_pkey PRIMARY KEY (thread_id),
+  CONSTRAINT poc_thread_status_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.poc_customer_threads(id)
 );
 CREATE TABLE public.profiles (
   id uuid NOT NULL,

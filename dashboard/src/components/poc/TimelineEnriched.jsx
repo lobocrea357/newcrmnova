@@ -90,25 +90,26 @@ export default function TimelineEnriched({
 
   const renderMessage = (item) => {
     const msg = item.data;
-    const isIncoming = msg.direction === 'incoming';
+    // from_me: true = enviado por el bot, false = enviado por el cliente
+    const isFromBot = msg.from_me === true;
 
     return (
       <div
         key={`msg-${msg.id}`}
         className={`
           flex gap-3 mb-4
-          ${isIncoming ? 'flex-row' : 'flex-row-reverse'}
+          ${isFromBot ? 'flex-row-reverse' : 'flex-row'}
         `}
       >
-        {/* Avatar del bot */}
+        {/* Avatar */}
         <div className={`
           flex-shrink-0 w-10 h-10 rounded-full
-          ${isIncoming ? 'bg-indigo-100' : 'bg-green-100'}
+          ${isFromBot ? 'bg-indigo-100' : 'bg-green-100'}
           flex items-center justify-center
-          ${isIncoming ? 'text-indigo-600' : 'text-green-600'}
+          ${isFromBot ? 'text-indigo-600' : 'text-green-600'}
           font-semibold text-sm
         `}>
-          {isIncoming ? '🤖' : '👤'}
+          {isFromBot ? '🤖' : '👤'}
         </div>
 
         {/* Contenido del mensaje */}
@@ -116,25 +117,25 @@ export default function TimelineEnriched({
           className={`
             max-w-[70%]
             rounded-2xl px-4 py-3
-            ${isIncoming
-              ? 'bg-white border border-gray-200'
-              : 'bg-indigo-600 text-white'
+            ${isFromBot
+              ? 'bg-indigo-600 text-white'
+              : 'bg-white border border-gray-200'
             }
           `}
         >
-          {/* Nombre del bot */}
-          <div className={`text-xs font-medium mb-1 ${isIncoming ? 'text-gray-500' : 'text-indigo-200'}`}>
-            {msg.bot_name || 'Bot'}
+          {/* Nombre del bot o cliente */}
+          <div className={`text-xs font-medium mb-1 ${isFromBot ? 'text-indigo-200' : 'text-gray-500'}`}>
+            {isFromBot ? (msg.bot?.session_name || 'Bot') : 'Cliente'}
           </div>
 
           {/* Texto del mensaje */}
           <div className="text-sm">
-            {msg.text || <em className="text-gray-400">Sin texto</em>}
+            {msg.body || msg.content || <em className="text-gray-400">Sin texto</em>}
           </div>
 
           {/* Timestamp */}
-          <div className={`text-[10px] mt-1 ${isIncoming ? 'text-gray-400' : 'text-indigo-200'}`}>
-            {formatTimestamp(msg.started_at)}
+          <div className={`text-[10px] mt-1 ${isFromBot ? 'text-indigo-200' : 'text-gray-400'}`}>
+            {formatTimestamp(msg.timestamp)}
           </div>
         </div>
       </div>

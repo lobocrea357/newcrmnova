@@ -402,10 +402,13 @@ class PoCThreadService {
     const chatIds = threadChats.map(tc => tc.chat_id);
     console.log(`[PoC Threads] Thread ${threadId}: ${chatIds.length} chats vinculados`);
 
-    // Obtener mensajes de esos chats
+    // Obtener mensajes de esos chats con información del bot
     const { data: messages, error: messagesError } = await supabase
       .from('messages')
-      .select('*')
+      .select(`
+        *,
+        bot:bots(session_name)
+      `)
       .in('chat_id', chatIds)
       .order('timestamp', { ascending: true });
 
