@@ -137,6 +137,29 @@ export const METRICAS_API = {
   emisiones: (periodo) => buildApiUrl(`/api/metricas/emisiones?periodo=${periodo}`)
 }
 
+// URLs específicas para APIs de PoC (Proof of Concept)
+export const POC_API = {
+  threads: (limit) => buildApiUrl(`/api/poc/threads?limit=${limit}`),
+  threadsStats: buildApiUrl('/api/poc/threads/stats'),
+  syncThreads: buildApiUrl('/api/poc/threads/sync'),
+  threadTimeline: (threadId) => buildApiUrl(`/api/poc/threads/${threadId}/timeline`),
+  // Endpoints de eventos (NUEVO - FASE 2)
+  createEvent: (threadId) => buildApiUrl(`/api/poc/threads/${threadId}/events`),
+  getEvents: (threadId, options = {}) => {
+    const params = new URLSearchParams();
+    if (options.milestones_only) params.append('milestones_only', 'true');
+    if (options.event_type) params.append('event_type', options.event_type);
+    if (options.limit) params.append('limit', options.limit);
+    return buildApiUrl(`/api/poc/threads/${threadId}/events?${params.toString()}`);
+  },
+  timelineEnriched: (threadId) => buildApiUrl(`/api/poc/threads/${threadId}/timeline-enriched`),
+  markSale: (threadId) => buildApiUrl(`/api/poc/threads/${threadId}/mark-sale`),
+  // Endpoints de estados (NUEVO - FASE 2)
+  getStatus: (threadId) => buildApiUrl(`/api/poc/threads/${threadId}/status`),
+  changeStatus: (threadId) => buildApiUrl(`/api/poc/threads/${threadId}/status`),
+  statusStats: buildApiUrl('/api/poc/status/stats')
+}
+
 // Exportar URL base para otros servicios
 export { BACKEND_URL }
 
