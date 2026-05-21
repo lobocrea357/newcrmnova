@@ -560,6 +560,17 @@ CREATE TABLE public.poc_customer_threads (
   created_at timestamp without time zone DEFAULT now(),
   CONSTRAINT poc_customer_threads_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.poc_thread_chat_history (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  thread_id uuid NOT NULL,
+  chat_id uuid NOT NULL,
+  bot_name text NOT NULL,
+  started_at timestamp without time zone NOT NULL,
+  ended_at timestamp without time zone,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT poc_thread_chat_history_pkey PRIMARY KEY (id),
+  CONSTRAINT poc_thread_chat_history_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.poc_customer_threads(id)
+);
 CREATE TABLE public.poc_thread_chats (
   thread_id uuid NOT NULL,
   chat_id uuid NOT NULL,

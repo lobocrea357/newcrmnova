@@ -144,6 +144,7 @@ class PoCThreadService {
   }
 
   async _linkChatsToThread(threadId, chats) {
+    // Primero insertar en poc_thread_chats (estado actual)
     const records = chats.map(chat => ({
       thread_id: threadId,
       chat_id: chat.chat_id,
@@ -155,6 +156,21 @@ class PoCThreadService {
       await supabase
         .from('poc_thread_chats')
         .upsert(record, { onConflict: 'thread_id,chat_id' });
+      
+      // También insertar en historial
+      try {
+        await supabase
+          .from('poc_thread_chat_history')
+          .insert({
+            thread_id: threadId,
+            chat_id: record.chat_id,
+            bot_name: record.bot_name,
+            started_at: record.started_at,
+            ended_at: null
+          });
+      } catch (historyError) {
+        console.error('[PoC Threads] Error guardando en historial durante sync:', historyError);
+      }
     }
   }
 
@@ -329,7 +345,7 @@ class PoCThreadService {
       
       console.log(`[PoC Threads] ✅ Thread obtenido/creado: ${thread.id}`);
 
-      // Verificar si ya existe un registro para este chat
+      // Verificar si ya existe un registro para este chat en poc_thread_chats
       const { data: existingChat, error: existingError } = await supabase
         .from('poc_thread_chats')
         .select('id, bot_name, started_at')
@@ -343,35 +359,56 @@ class PoCThreadService {
         console.log(`[PoC Threads] 🔄 DETECTADO CAMBIO DE BOT: ${existingChat.bot_name} → ${botName}`);
         botChanged = true;
 
-        // Actualizar ended_at del registro anterior
+        // PASO 1: Guardar registro anterior en historial ANTES de actualizar
+        try {
+          await supabase
+            .from('poc_thread_chat_history')
+            .insert({
+              thread_id: thread.id,
+              chat_id: chatId,
+              bot_name: existingChat.bot_name,
+              started_at: existingChat.started_at,
+              ended_at: messageTimestamp
+            });
+          console.log(`[PoC Threads] ✅ Registro anterior guardado en historial: ${existingChat.bot_name}`);
+        } catch (historyError) {
+          console.error('[PoC Threads] ❌ ERROR guardando en historial:', historyError);
+          // No bloquear el flujo principal si falla el historial
+        }
+
+        // PASO 2: Actualizar el registro actual en poc_thread_chats con el nuevo bot
         const { error: updateError } = await supabase
           .from('poc_thread_chats')
-          .update({ ended_at: messageTimestamp })
+          .update({ 
+            bot_name: botName,
+            started_at: messageTimestamp,
+            ended_at: null
+          })
           .eq('id', existingChat.id);
 
         if (updateError) {
-          console.error('[PoC Threads] ❌ ERROR actualizando ended_at:', updateError);
+          console.error('[PoC Threads] ❌ ERROR actualizando chat actual:', updateError);
         } else {
-          console.log(`[PoC Threads] ✅ ended_at actualizado para bot anterior: ${existingChat.bot_name}`);
+          console.log(`[PoC Threads] ✅ Chat actual actualizado con nuevo bot: ${botName}`);
         }
 
-        // Crear nuevo registro con el nuevo bot
-        const { error: newChatError } = await supabase
-          .from('poc_thread_chats')
-          .insert({
-            thread_id: thread.id,
-            chat_id: chatId,
-            bot_name: botName,
-            started_at: messageTimestamp
-          });
-
-        if (newChatError) {
-          console.error('[PoC Threads] ❌ ERROR creando nuevo registro de chat:', newChatError);
-        } else {
-          console.log(`[PoC Threads] ✅ Nuevo registro creado para bot: ${botName}`);
+        // PASO 3: Insertar nuevo registro en historial para el bot actual
+        try {
+          await supabase
+            .from('poc_thread_chat_history')
+            .insert({
+              thread_id: thread.id,
+              chat_id: chatId,
+              bot_name: botName,
+              started_at: messageTimestamp,
+              ended_at: null
+            });
+          console.log(`[PoC Threads] ✅ Nuevo registro guardado en historial: ${botName}`);
+        } catch (historyError) {
+          console.error('[PoC Threads] ❌ ERROR guardando nuevo registro en historial:', historyError);
         }
 
-        // Crear evento de reasignación
+        // PASO 4: Crear evento de reasignación
         try {
           await pocEventService.createEvent({
             thread_id: thread.id,
@@ -387,7 +424,7 @@ class PoCThreadService {
         } catch (eventError) {
           console.error('[PoC Threads] ❌ ERROR creando evento REASSIGNMENT:', eventError.message);
         }
-      } else {
+      } else if (existingChat) {
         // No hay cambio de bot, hacer upsert normal
         const { error: linkError } = await supabase
           .from('poc_thread_chats')
@@ -395,7 +432,7 @@ class PoCThreadService {
             thread_id: thread.id,
             chat_id: chatId,
             bot_name: botName,
-            started_at: existingChat?.started_at || messageTimestamp
+            started_at: existingChat.started_at || messageTimestamp
           }, { onConflict: 'thread_id,chat_id' });
 
         if (linkError) {
@@ -406,6 +443,38 @@ class PoCThreadService {
           console.error('  - chat_id:', chatId);
         } else {
           console.log(`[PoC Threads] ✅ Chat vinculado: ${chatId} (Bot: ${botName})`);
+        }
+      } else {
+        // No existe registro, crear nuevo
+        const { error: insertError } = await supabase
+          .from('poc_thread_chats')
+          .insert({
+            thread_id: thread.id,
+            chat_id: chatId,
+            bot_name: botName,
+            started_at: messageTimestamp
+          });
+
+        if (insertError) {
+          console.error('[PoC Threads] ❌ ERROR creando chat:', insertError);
+        } else {
+          console.log(`[PoC Threads] ✅ Chat creado: ${chatId} (Bot: ${botName})`);
+        }
+
+        // También insertar en historial
+        try {
+          await supabase
+            .from('poc_thread_chat_history')
+            .insert({
+              thread_id: thread.id,
+              chat_id: chatId,
+              bot_name: botName,
+              started_at: messageTimestamp,
+              ended_at: null
+            });
+          console.log(`[PoC Threads] ✅ Registro inicial guardado en historial: ${botName}`);
+        } catch (historyError) {
+          console.error('[PoC Threads] ❌ ERROR guardando registro inicial en historial:', historyError);
         }
       }
 
@@ -444,7 +513,7 @@ class PoCThreadService {
   async getThreadTimeline(threadId) {
     console.log(`[PoC Threads] Obteniendo timeline para thread ${threadId}`);
 
-    // Obtener chat_ids vinculados al thread
+    // Obtener chat_ids vinculados al thread (solo estado actual)
     const { data: threadChats, error: chatsError } = await supabase
       .from('poc_thread_chats')
       .select('chat_id')
@@ -478,8 +547,30 @@ class PoCThreadService {
       throw messagesError;
     }
 
-    console.log(`[PoC Threads] Thread ${threadId}: ${messages?.length || 0} mensajes obtenidos`);
-    return messages || [];
+    // Enriquecer mensajes con información del historial de bots
+    // Esto permite saber qué bot estaba activo en cada momento
+    const enrichedMessages = await Promise.all(
+      messages.map(async (msg) => {
+        // Obtener el bot_name del historial para el timestamp del mensaje
+        const { data: historyRecord } = await supabase
+          .from('poc_thread_chat_history')
+          .select('bot_name')
+          .eq('chat_id', msg.chat_id)
+          .lte('started_at', msg.timestamp)
+          .is('ended_at', null)
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        return {
+          ...msg,
+          thread_bot_name: historyRecord?.bot_name || msg.bot?.session_name || 'Desconocido'
+        };
+      })
+    );
+
+    console.log(`[PoC Threads] Thread ${threadId}: ${enrichedMessages?.length || 0} mensajes enriquecidos`);
+    return enrichedMessages || [];
   }
 
 }

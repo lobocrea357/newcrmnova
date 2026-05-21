@@ -14,10 +14,8 @@ export const POC_CONFIG = {
    * Usar session_name exacto de la tabla 'bots'
    */
   BOTS: [
-    'gabriel_riera_nova_moises',
-    'dulce_baptista_nova_moises',
-    'mariangel_arteaga_nova_moises',
-    'mariangel_yepes_colombia_endry_2'
+    'efrain_flash_moises_test',
+    'efrain_flash_moises',
   ],
 
   /**
