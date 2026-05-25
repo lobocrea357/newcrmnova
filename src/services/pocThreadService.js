@@ -1,6 +1,7 @@
 import { supabase } from '../config/supabase.js';
 import { getPoCBots } from '../config/pocConfig.js';
 import pocEventService from './pocEventService.js';
+import teamMembersService from './teamMembersService.js';
 
 class PoCThreadService {
   /**
@@ -299,6 +300,21 @@ class PoCThreadService {
       }
       
       console.log(`[PoC Threads] Actualizando thread para nuevo mensaje - Teléfono: ${contactPhone}, Chat UUID: ${chatId}`);
+
+      // ============================================================================
+      // FILTRO: Verificar si el contacto es team member (blacklist)
+      // ============================================================================
+      console.log(`[PoC Threads] 🔍 Verificando si ${contactPhone} está en blacklist...`);
+      const isTeamMember = await teamMembersService.isTeamMember(contactPhone);
+
+      if (isTeamMember) {
+        console.log(`[PoC Threads] 🚫 BLACKLIST: ${contactPhone} es team member - OMITIENDO thread`);
+        console.log(`[PoC Threads] Motivo: Los números corporativos no deben aparecer en threads de clientes`);
+        return; // Exit early - no crear/actualizar thread
+      }
+
+      console.log(`[PoC Threads] ✅ ${contactPhone} NO está en blacklist - Continuando...`);
+      // ============================================================================
 
       // Obtener nombre del bot desde la base de datos
       const { data: bot, error: botError } = await supabase

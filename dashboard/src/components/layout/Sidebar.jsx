@@ -52,6 +52,8 @@ const BASE_MENU_ITEMS = [
     // Rutas POC - Solo visible para super_admin
     { href: '/conversaciones-poc', label: 'Conversaciones POC', icon: Clock, superAdminOnly: true },
     { href: '/dashboard-poc', label: 'Dashboard Leads POC', icon: UsersIcon, superAdminOnly: true },
+    // Rutas Admin - Visible para admin, super_admin y manager
+    { href: '/admin/team-members', label: 'Team Members', icon: Users, adminOnly: true },
 ]
 
 const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
@@ -95,11 +97,13 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
     }
 
     // Función que determina si una ruta está visible para el usuario actual
-    const isRouteVisible = (href, superAdminOnly = false) => {
+    const isRouteVisible = (href, superAdminOnly = false, adminOnly = false) => {
         // Si no cargó el perfil aún, no mostrar nada (seguridad)
         if (!permissionsLoaded) return false
         // Si la ruta es solo para super_admin, verificar rol
         if (superAdminOnly && !isSuperAdmin) return false
+        // Si la ruta es solo para admin/super_admin/manager, verificar rol
+        if (adminOnly && !(isSuperAdmin || isAdmin || isManager)) return false
         // Si allowedRoutes es null → puede ver todo
         if (allowedRoutes === null) return true
         // Verificar si la ruta está en las rutas permitidas
@@ -186,8 +190,8 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
                                 const Icon = item.icon
                                 const active = isActive(item.href)
 
-                                    // Filtrar rutas según ROUTES_BY_ROLE y superAdminOnly
-                                    if (!isRouteVisible(item.href, item.superAdminOnly)) {
+                                    // Filtrar rutas según ROUTES_BY_ROLE, superAdminOnly y adminOnly
+                                    if (!isRouteVisible(item.href, item.superAdminOnly, item.adminOnly)) {
                                     return null
                                 }
 

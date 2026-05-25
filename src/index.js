@@ -31,6 +31,7 @@ import deudasRoutes from './routes/deudas.js';
 import metricasRoutes from './routes/metricas.js';
 import vuelosEmisionesRoutes from './routes/vuelos-emisiones.js';
 import pocRoutes from './routes/poc.js';
+import teamMembersRoutes from './routes/teamMembers.js';
 
 // Importar servicio de auto-sincronización
 import autoSyncService from './services/autoSyncService.js';
@@ -74,6 +75,7 @@ app.use('/api/sedes', sedesRoutes);
 app.use('/api/deudas-proveedores', deudasRoutes);
 app.use('/api/metricas', metricasRoutes);
 app.use('/api/poc', pocRoutes);
+app.use('/api/team-members', teamMembersRoutes);
 
 // Ruta de health check
 app.get('/health', (req, res) => {

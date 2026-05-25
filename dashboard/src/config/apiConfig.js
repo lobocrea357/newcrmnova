@@ -137,6 +137,15 @@ export const METRICAS_API = {
   emisiones: (periodo) => buildApiUrl(`/api/metricas/emisiones?periodo=${periodo}`)
 }
 
+// URLs específicas para APIs de Team Members (Blacklist)
+export const TEAM_MEMBERS_API = {
+  listar: buildApiUrl('/api/team-members'),
+  crear: buildApiUrl('/api/team-members'),
+  obtener: (id) => buildApiUrl(`/api/team-members/${id}`),
+  actualizar: (id) => buildApiUrl(`/api/team-members/${id}`),
+  eliminar: (id) => buildApiUrl(`/api/team-members/${id}`)
+}
+
 // URLs específicas para APIs de PoC (Proof of Concept)
 export const POC_API = {
   threads: (limit) => buildApiUrl(`/api/poc/threads?limit=${limit}`),
