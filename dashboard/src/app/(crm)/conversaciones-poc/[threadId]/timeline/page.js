@@ -31,9 +31,7 @@ export default function ThreadTimelinePage() {
   };
 
   useEffect(() => {
-    // Permitir acceso a: super_admin, admin, o usuario específico moisesnova923@gmail.com
-    const isAuthorizedUser = profile?.email === 'moisesnova923@gmail.com';
-    const hasAccess = isSuperAdmin || isAdmin || isAuthorizedUser;
+    const hasAccess = isSuperAdmin || isAdmin;
     
     if (!authLoading && profile && !hasAccess) {
       router.push('/no-autorizado');
@@ -41,14 +39,12 @@ export default function ThreadTimelinePage() {
   }, [isSuperAdmin, isAdmin, authLoading, profile, router]);
 
   useEffect(() => {
-    // Permitir acceso a: super_admin, admin, o usuario específico
-    const isAuthorizedUser = profile?.email === 'moisesnova923@gmail.com';
-    const hasAccess = isSuperAdmin || isAdmin || isAuthorizedUser;
+    const hasAccess = isSuperAdmin || isAdmin;
     
     if (threadId && hasAccess) {
       fetchThreadData();
     }
-  }, [threadId, isSuperAdmin, isAdmin, profile]);
+  }, [threadId, isSuperAdmin, isAdmin]);
 
   const fetchThreadData = async () => {
     try {
@@ -69,8 +65,7 @@ export default function ThreadTimelinePage() {
   };
 
   // Validar acceso antes de renderizar
-  const isAuthorizedUser = profile?.email === 'moisesnova923@gmail.com';
-  const hasAccess = isSuperAdmin || isAdmin || isAuthorizedUser;
+  const hasAccess = isSuperAdmin || isAdmin;
   
   if (authLoading || !hasAccess || !profile) return null;
 

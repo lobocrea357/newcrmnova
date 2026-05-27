@@ -21,10 +21,7 @@ export default function ConversacionesPoCPage() {
   useEffect(() => {
     // IMPORTANTE: Solo evaluar acceso si el perfil ha cargado completamente
     const profileLoaded = profile !== null;
-    
-    // Permitir acceso a: super_admin, admin, o usuario específico moisesnova923@gmail.com
-    const isAuthorizedUser = profile?.email === 'moisesnova923@gmail.com';
-    const hasAccess = isSuperAdmin || isAdmin || isAuthorizedUser;
+    const hasAccess = isSuperAdmin || isAdmin;
 
     if (!authLoading && profileLoaded && !hasAccess) {
       window.location.href = '/no-autorizado';
@@ -91,19 +88,16 @@ export default function ConversacionesPoCPage() {
   };
 
   useEffect(() => {
-    // Permitir acceso a: super_admin, admin, o usuario específico
-    const isAuthorizedUser = profile?.email === 'moisesnova923@gmail.com';
-    const hasAccess = isSuperAdmin || isAdmin || isAuthorizedUser;
+    const hasAccess = isSuperAdmin || isAdmin;
     
     if (hasAccess) {
       fetchThreads();
       fetchStats();
     }
-  }, [isSuperAdmin, isAdmin, profile]);
+  }, [isSuperAdmin, isAdmin]);
 
   // Validar acceso antes de renderizar
-  const isAuthorizedUser = profile?.email === 'moisesnova923@gmail.com';
-  const hasAccess = isSuperAdmin || isAdmin || isAuthorizedUser;
+  const hasAccess = isSuperAdmin || isAdmin;
   
   if (authLoading || !hasAccess || !profile) return null;
 
