@@ -43,6 +43,14 @@ export default function ThreadRow({ thread }) {
             {status && status.current_status && (
               <StatusBadge status={status.current_status} size="sm" />
             )}
+            {status && status.total_sales > 0 && (
+              <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold border-2 border-green-400 flex items-center gap-1.5 shadow-sm">
+                🎉 {status.total_sales} {status.total_sales === 1 ? 'VENTA' : 'VENTAS'}
+                <span className="text-green-600 font-semibold">
+                  ${parseFloat(status.total_sales_amount || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </span>
+            )}
             {isFragmented && (
               <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded-full text-xs font-semibold border border-amber-300">
                 🔀 FRAGMENTADO ({chats.length} chats)

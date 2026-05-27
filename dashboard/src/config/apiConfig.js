@@ -166,7 +166,9 @@ export const POC_API = {
   // Endpoints de estados (NUEVO - FASE 2)
   getStatus: (threadId) => buildApiUrl(`/api/poc/threads/${threadId}/status`),
   changeStatus: (threadId) => buildApiUrl(`/api/poc/threads/${threadId}/status`),
-  statusStats: buildApiUrl('/api/poc/status/stats')
+  statusStats: buildApiUrl('/api/poc/status/stats'),
+  // Endpoint de sincronización histórica (NUEVO)
+  syncHistoricalSales: (dryRun = false) => buildApiUrl(`/api/poc/sync-historical-sales?dryRun=${dryRun}`)
 }
 
 // Exportar URL base para otros servicios

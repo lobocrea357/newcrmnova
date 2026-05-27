@@ -742,6 +742,14 @@ CREATE TABLE public.tasas_historial (
   CONSTRAINT tasas_historial_moneda_destino_id_fkey FOREIGN KEY (moneda_destino_id) REFERENCES public.monedas(id),
   CONSTRAINT tasas_historial_modificado_por_fkey FOREIGN KEY (modificado_por) REFERENCES public.profiles(id)
 );
+CREATE TABLE public.team_members (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  phone_number text NOT NULL UNIQUE,
+  full_name text NOT NULL,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT team_members_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.user_permissions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,

@@ -364,4 +364,51 @@ router.get('/status/stats', async (req, res) => {
   }
 });
 
+// ============================================================================
+// SINCRONIZACIÓN HISTÓRICA
+// ============================================================================
+
+/**
+ * POST /api/poc/sync-historical-sales
+ * Sincroniza ventas históricas desde la tabla vuelos
+ * Revisa todos los vuelos y crea eventos SALE_CONFIRMED para aquellos que no tienen uno
+ * @query {boolean} dryRun - Si true, solo reporta sin crear eventos (default: false)
+ * @returns {success: boolean, data: SyncResult}
+ */
+router.post('/sync-historical-sales', async (req, res) => {
+  try {
+    const { dryRun = false } = req.query;
+    const isDryRun = dryRun === 'true' || dryRun === true;
+
+    console.log(`[PoC API] Iniciando sincronización histórica (dryRun: ${isDryRun})`);
+
+    // Configurar callback de progreso para logs
+    const onProgress = (processed, total, created, percentage) => {
+      console.log(`[PoC API] Progreso: ${processed}/${total} (${percentage}%) - Eventos creados: ${created}`);
+    };
+
+    const result = await pocEventService.syncHistoricalSales({
+      dryRun: isDryRun,
+      onProgress
+    });
+
+    res.json({
+      success: true,
+      data: result,
+      meta: {
+        dry_run: isDryRun,
+        executed_at: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('[PoC API] Error syncing historical sales:', error);
+    res.status(500).json({
+      success: false,
+      error: 'SyncError',
+      message: 'Error sincronizando ventas históricas',
+      details: error.message
+    });
+  }
+});
+
 export default router;

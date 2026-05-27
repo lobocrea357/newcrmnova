@@ -182,6 +182,16 @@ export default function VueloFormNuevo({
   const handleChange = (e) => {
     const { name, value } = e.target
 
+    // Formateo automático de teléfono - solo números
+    if (name === 'contacto_telefono') {
+      const telefonoLimpio = value.replace(/[^0-9]/g, '')
+      setFormData(prev => ({
+        ...prev,
+        [name]: telefonoLimpio
+      }))
+      return
+    }
+
     // Lógica condicional para auto-asignación de cuenta_emision_asignada
     if (name === 'metodo_pago') {
       let cuentaAuto = ''
@@ -543,6 +553,16 @@ export default function VueloFormNuevo({
     if (!formData.pax_nombre.trim()) newErrors.pax_nombre = 'Nombre del PAX es requerido'
     if (!formData.contacto_nombre.trim()) newErrors.contacto_nombre = 'Contacto es requerido'
     if (!formData.contacto_telefono.trim()) newErrors.contacto_telefono = 'Teléfono es requerido'
+
+    // Validación de formato internacional de teléfono
+    if (formData.contacto_telefono.trim()) {
+      const telefonoLimpio = formData.contacto_telefono.replace(/[^0-9]/g, '')
+      // Debe tener entre 10 y 15 dígitos y empezar con código de país (sin +)
+      if (!/^[1-9]\d{9,14}$/.test(telefonoLimpio)) {
+        newErrors.contacto_telefono = 'Formato inválido. Use formato internacional sin + (ej: 584241234567)'
+      }
+    }
+
     if (!formData.fecha_vuelo) newErrors.fecha_vuelo = 'Fecha del vuelo es requerida'
     if (!formData.ruta_origen.trim() || !formData.ruta_destino.trim()) newErrors.ruta = 'Origen y destino son requeridos'
     if (!formData.proveedor.trim()) newErrors.proveedor = 'Proveedor es requerido'
