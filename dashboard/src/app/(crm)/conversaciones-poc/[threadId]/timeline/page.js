@@ -11,7 +11,7 @@ import { POC_API } from "@/config/apiConfig";
 export default function ThreadTimelinePage() {
   const params = useParams();
   const router = useRouter();
-  const { isSuperAdmin, loading: authLoading, profile } = useUserProfile();
+  const { isSuperAdmin, isAdmin, loading: authLoading, profile } = useUserProfile();
   const threadId = params.threadId;
   
   const [showEventForm, setShowEventForm] = useState(false);
@@ -31,16 +31,24 @@ export default function ThreadTimelinePage() {
   };
 
   useEffect(() => {
-    if (!authLoading && profile && !isSuperAdmin) {
+    // Permitir acceso a: super_admin, admin, o usuario específico moisesnova923@gmail.com
+    const isAuthorizedUser = profile?.email === 'moisesnova923@gmail.com';
+    const hasAccess = isSuperAdmin || isAdmin || isAuthorizedUser;
+    
+    if (!authLoading && profile && !hasAccess) {
       router.push('/no-autorizado');
     }
-  }, [isSuperAdmin, authLoading, profile, router]);
+  }, [isSuperAdmin, isAdmin, authLoading, profile, router]);
 
   useEffect(() => {
-    if (threadId && isSuperAdmin) {
+    // Permitir acceso a: super_admin, admin, o usuario específico
+    const isAuthorizedUser = profile?.email === 'moisesnova923@gmail.com';
+    const hasAccess = isSuperAdmin || isAdmin || isAuthorizedUser;
+    
+    if (threadId && hasAccess) {
       fetchThreadData();
     }
-  }, [threadId, isSuperAdmin]);
+  }, [threadId, isSuperAdmin, isAdmin, profile]);
 
   const fetchThreadData = async () => {
     try {
@@ -60,7 +68,11 @@ export default function ThreadTimelinePage() {
     }
   };
 
-  if (authLoading || !isSuperAdmin || !profile) return null;
+  // Validar acceso antes de renderizar
+  const isAuthorizedUser = profile?.email === 'moisesnova923@gmail.com';
+  const hasAccess = isSuperAdmin || isAdmin || isAuthorizedUser;
+  
+  if (authLoading || !hasAccess || !profile) return null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">

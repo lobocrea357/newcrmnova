@@ -49,8 +49,8 @@ const BASE_MENU_ITEMS = [
     { href: '/analisis/reportes', label: 'Reportes', icon: FileText },
     { href: '/inteligencia-artificial', label: 'IA', icon: Brain },
     { href: '/configuracion', label: 'Configuración', icon: Settings },
-    // Rutas POC - Visible para super_admin, admin y gerente
-    { href: '/conversaciones-poc', label: 'Conversaciones POC', icon: Clock, adminOnly: true },
+    // Rutas POC - Visible para super_admin, admin y usuario específico
+    { href: '/conversaciones-poc', label: 'Conversaciones POC', icon: Clock, pocOnly: true },
     { href: '/dashboard-poc', label: 'Dashboard Leads POC', icon: UsersIcon, superAdminOnly: true },
     // Rutas Admin - Visible para admin, super_admin y manager
     { href: '/admin/team-members', label: 'Team Members', icon: Users, adminOnly: true },
@@ -76,7 +76,7 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse 
         gerente: [
             '/', '/conversaciones', '/analisis/rendimiento',
             '/gestion-equipos', '/cotizador', '/ventas/cotizaciones',
-            '/ventas/vuelos', '/configuracion', '/conversaciones-poc'
+            '/ventas/vuelos', '/configuracion'
         ],
         asesor: [
             '/', '/cotizador', '/ventas', '/ventas/cotizaciones',
@@ -97,15 +97,29 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse 
     }
 
     // Función que determina si una ruta está visible para el usuario actual
-    const isRouteVisible = (href, superAdminOnly = false, adminOnly = false) => {
+    const isRouteVisible = (href, superAdminOnly = false, adminOnly = false, pocOnly = false) => {
         // Si no cargó el perfil aún, no mostrar nada (seguridad)
         if (!permissionsLoaded) return false
+
         // Si la ruta es solo para super_admin, verificar rol
-        if (superAdminOnly && !isSuperAdmin) return false
+        if (superAdminOnly) {
+            return isSuperAdmin
+        }
+
         // Si la ruta es solo para admin/super_admin/manager, verificar rol
-        if (adminOnly && !(isSuperAdmin || isAdmin || isManager)) return false
+        if (adminOnly) {
+            return isSuperAdmin || isAdmin || isManager
+        }
+
+        // Si la ruta es POC, verificar acceso especial (validación independiente)
+        if (pocOnly) {
+            const isAuthorizedUser = profile?.email === 'moisesnova923@gmail.com'
+            return isSuperAdmin || isAdmin || isAuthorizedUser
+        }
+
         // Si allowedRoutes es null → puede ver todo
         if (allowedRoutes === null) return true
+
         // Verificar si la ruta está en las rutas permitidas
         return allowedRoutes.some(allowed => href === allowed || href.startsWith(allowed + '/'))
     }
@@ -198,8 +212,8 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse 
                                 const Icon = item.icon
                                 const active = isActive(item.href)
 
-                                    // Filtrar rutas según ROUTES_BY_ROLE, superAdminOnly y adminOnly
-                                    if (!isRouteVisible(item.href, item.superAdminOnly, item.adminOnly)) {
+                                    // Filtrar rutas según ROUTES_BY_ROLE, superAdminOnly, adminOnly y pocOnly
+                                    if (!isRouteVisible(item.href, item.superAdminOnly, item.adminOnly, item.pocOnly)) {
                                     return null
                                 }
 

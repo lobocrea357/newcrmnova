@@ -7,7 +7,7 @@ import ThreadRow from "@/components/poc/ThreadRow";
 import { POC_API } from "@/config/apiConfig";
 
 export default function ConversacionesPoCPage() {
-  const { isSuperAdmin, loading: authLoading, role, profile } = useUserProfile();
+  const { isSuperAdmin, isAdmin, loading: authLoading, role, profile } = useUserProfile();
   const [threads, setThreads] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,11 +21,15 @@ export default function ConversacionesPoCPage() {
   useEffect(() => {
     // IMPORTANTE: Solo evaluar acceso si el perfil ha cargado completamente
     const profileLoaded = profile !== null;
+    
+    // Permitir acceso a: super_admin, admin, o usuario específico moisesnova923@gmail.com
+    const isAuthorizedUser = profile?.email === 'moisesnova923@gmail.com';
+    const hasAccess = isSuperAdmin || isAdmin || isAuthorizedUser;
 
-    if (!authLoading && profileLoaded && !isSuperAdmin) {
+    if (!authLoading && profileLoaded && !hasAccess) {
       window.location.href = '/no-autorizado';
     }
-  }, [isSuperAdmin, authLoading, role, profile]);
+  }, [isSuperAdmin, isAdmin, authLoading, role, profile]);
 
   const fetchThreads = async () => {
     setLoading(true);
@@ -87,13 +91,21 @@ export default function ConversacionesPoCPage() {
   };
 
   useEffect(() => {
-    if (isSuperAdmin) {
+    // Permitir acceso a: super_admin, admin, o usuario específico
+    const isAuthorizedUser = profile?.email === 'moisesnova923@gmail.com';
+    const hasAccess = isSuperAdmin || isAdmin || isAuthorizedUser;
+    
+    if (hasAccess) {
       fetchThreads();
       fetchStats();
     }
-  }, [isSuperAdmin]);
+  }, [isSuperAdmin, isAdmin, profile]);
 
-  if (authLoading || !isSuperAdmin || !profile) return null;
+  // Validar acceso antes de renderizar
+  const isAuthorizedUser = profile?.email === 'moisesnova923@gmail.com';
+  const hasAccess = isSuperAdmin || isAdmin || isAuthorizedUser;
+  
+  if (authLoading || !hasAccess || !profile) return null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
