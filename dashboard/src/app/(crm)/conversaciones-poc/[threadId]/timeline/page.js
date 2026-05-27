@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { ArrowLeft, MessageSquare, DollarSign, Plus, RefreshCw } from "lucide-react";
+import { ArrowLeft, MessageSquare, DollarSign, Plus, RefreshCw, User } from "lucide-react";
 import TimelineEnriched from "@/components/poc/TimelineEnriched";
 import EventForm from "@/components/poc/EventForm";
+import { POC_API } from "@/config/apiConfig";
 
 export default function ThreadTimelinePage() {
   const params = useParams();
@@ -16,6 +17,8 @@ export default function ThreadTimelinePage() {
   const [showEventForm, setShowEventForm] = useState(false);
   const [showSaleForm, setShowSaleForm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [threadData, setThreadData] = useState(null);
+  const [loadingThread, setLoadingThread] = useState(true);
 
   const handleEventCreated = () => {
     setShowEventForm(false);
@@ -33,6 +36,30 @@ export default function ThreadTimelinePage() {
     }
   }, [isSuperAdmin, authLoading, profile, router]);
 
+  useEffect(() => {
+    if (threadId && isSuperAdmin) {
+      fetchThreadData();
+    }
+  }, [threadId, isSuperAdmin]);
+
+  const fetchThreadData = async () => {
+    try {
+      setLoadingThread(true);
+      // Fetch con límite mayor para encontrar el thread
+      const response = await fetch(POC_API.threads(200));
+      const data = await response.json();
+      
+      if (data.success) {
+        const thread = data.data.find(t => t.id === threadId);
+        setThreadData(thread);
+      }
+    } catch (error) {
+      console.error('[Timeline] Error fetching thread data:', error);
+    } finally {
+      setLoadingThread(false);
+    }
+  };
+
   if (authLoading || !isSuperAdmin || !profile) return null;
 
   return (
@@ -48,19 +75,44 @@ export default function ThreadTimelinePage() {
               <ArrowLeft className="h-5 w-5" />
               <span className="font-medium">Volver a Threads</span>
             </button>
-            <div className="flex items-center gap-4">
-              <div className="bg-indigo-100 p-3 rounded-lg">
-                <MessageSquare className="h-8 w-8 text-indigo-600" />
+            
+            {loadingThread ? (
+              <div className="flex items-center gap-3">
+                <RefreshCw className="h-5 w-5 text-indigo-600 animate-spin" />
+                <span className="text-sm text-gray-500">Cargando datos del cliente...</span>
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Timeline Enriquecido
-                </h1>
-                <p className="text-sm text-gray-600">
-                  Thread ID: {threadId}
-                </p>
+            ) : threadData ? (
+              <div className="flex items-center gap-4">
+                {/* Avatar del cliente */}
+                <div className="h-14 w-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+                  <User className="h-7 w-7 text-white" />
+                </div>
+                
+                {/* Datos del cliente */}
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    {threadData.customer_name || 'Sin nombre'}
+                  </h1>
+                  <p className="text-sm text-gray-600 font-mono">
+                    {threadData.customer_phone}
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <div className="bg-indigo-100 p-3 rounded-lg">
+                  <MessageSquare className="h-8 w-8 text-indigo-600" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    Timeline Enriquecido
+                  </h1>
+                  <p className="text-sm text-gray-600">
+                    Cliente no encontrado
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

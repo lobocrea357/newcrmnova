@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Clock, MessageSquare, Calendar } from 'lucide-react';
+import { Clock, MessageSquare, Calendar, File, Image, Video, Download } from 'lucide-react';
 import EventMarker from './EventMarker';
+import AudioPlayer from './AudioPlayer';
 import { POC_API } from '@/config/apiConfig';
 
 /**
@@ -92,6 +93,19 @@ export default function TimelineEnriched({
     const msg = item.data;
     // from_me: true = enviado por el bot, false = enviado por el cliente
     const isFromBot = msg.from_me === true;
+    const mediaFile = msg.media_file;
+
+    // Determinar tipo de media
+    const getMediaType = () => {
+      if (!mediaFile) return null;
+      const mime = mediaFile.mimetype || mediaFile.media_mimetype || '';
+      if (mime.startsWith('image/')) return 'image';
+      if (mime.startsWith('video/')) return 'video';
+      if (mime.startsWith('audio/')) return 'audio';
+      return 'file';
+    };
+
+    const mediaType = getMediaType();
 
     return (
       <div
@@ -128,10 +142,82 @@ export default function TimelineEnriched({
             {isFromBot ? (msg.bot?.session_name || 'Bot') : 'Cliente'}
           </div>
 
+          {/* Multimedia */}
+          {mediaFile && (
+            <div className="mb-2">
+              {mediaType === 'image' && (
+                <div className="relative">
+                  <img
+                    src={mediaFile.file_url || mediaFile.media_url}
+                    alt={mediaFile.file_name || 'Imagen'}
+                    className="rounded-lg max-w-full h-auto max-h-64 object-cover"
+                  />
+                  <a
+                    href={mediaFile.file_url || mediaFile.media_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`absolute top-2 right-2 p-2 rounded-full ${isFromBot ? 'bg-white/20 hover:bg-white/30' : 'bg-black/20 hover:bg-black/30'
+                      } transition-colors`}
+                  >
+                    <Download className="h-4 w-4 text-white" />
+                  </a>
+                </div>
+              )}
+
+              {mediaType === 'video' && (
+                <div className="relative">
+                  <video
+                    src={mediaFile.file_url || mediaFile.media_url}
+                    controls
+                    className="rounded-lg max-w-full h-auto max-h-64"
+                  />
+                </div>
+              )}
+
+              {mediaType === 'audio' && (
+                <AudioPlayer
+                  src={mediaFile.file_url || mediaFile.media_url}
+                  isFromBot={isFromBot}
+                />
+              )}
+
+              {mediaType === 'file' && (
+                <a
+                  href={mediaFile.file_url || mediaFile.media_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`
+                    flex items-center gap-2 p-3 rounded-lg
+                    ${isFromBot
+                      ? 'bg-indigo-500/30 hover:bg-indigo-500/50'
+                      : 'bg-gray-100 hover:bg-gray-200'
+                    }
+                    transition-colors
+                  `}
+                >
+                  <File className="h-5 w-5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {mediaFile.file_name || 'Archivo'}
+                    </div>
+                    {mediaFile.file_size && (
+                      <div className={`text-xs ${isFromBot ? 'text-indigo-200' : 'text-gray-500'}`}>
+                        {(mediaFile.file_size / 1024).toFixed(1)} KB
+                      </div>
+                    )}
+                  </div>
+                  <Download className="h-4 w-4" />
+                </a>
+              )}
+            </div>
+          )}
+
           {/* Texto del mensaje */}
-          <div className="text-sm">
-            {msg.body || msg.content || <em className="text-gray-400">Sin texto</em>}
-          </div>
+          {(msg.body || msg.content) && (
+            <div className="text-sm">
+              {msg.body || msg.content}
+            </div>
+          )}
 
           {/* Timestamp */}
           <div className={`text-[10px] mt-1 ${isFromBot ? 'text-indigo-200' : 'text-gray-400'}`}>

@@ -584,7 +584,7 @@ CREATE TABLE public.poc_thread_events (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   thread_id uuid NOT NULL,
   event_type character varying NOT NULL CHECK (event_type::text = ANY (ARRAY['SALE_CONFIRMED'::character varying, 'SALE_CANCELLED'::character varying, 'QUOTATION_SENT'::character varying, 'QUOTATION_ACCEPTED'::character varying, 'MEETING_SCHEDULED'::character varying, 'CALL_MADE'::character varying, 'LEAD_LOST'::character varying, 'LEAD_REACTIVATED'::character varying, 'REASSIGNMENT'::character varying, 'NOTE_ADDED'::character varying, 'STATUS_CHANGED'::character varying]::text[])),
-  event_subtype character varying CHECK (event_subtype IS NULL OR (event_subtype::text = ANY (ARRAY['AUTO_DETECTED'::character varying, 'MANUAL_MARK'::character varying]::text[]))),
+  event_subtype character varying CHECK (event_subtype IS NULL OR (event_subtype::text = ANY (ARRAY['AUTO_DETECTED'::character varying, 'AUTO_DETECTED_HISTORICAL'::character varying, 'MANUAL_MARK'::character varying]::text[]))),
   occurred_at timestamp with time zone NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   created_by uuid,

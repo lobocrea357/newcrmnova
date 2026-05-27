@@ -1,10 +1,10 @@
-import { MessageSquare, FileText, CreditCard, ArrowRight, Eye, Bot } from "lucide-react";
+import { MessageSquare, FileText, CreditCard, ArrowRight, Bot } from "lucide-react";
 import ComparisonBadge from "./ComparisonBadge";
 import StatusBadge from "./StatusBadge";
 
 export default function ThreadRow({ thread }) {
   const metrics = thread.metrics?.[0];
-  const status = thread.status?.[0];
+  const status = thread.status; // Es un objeto, no un array (relación 1:1)
   const chats = thread.chats || [];
   const isFragmented = chats.length > 1;
 
@@ -29,7 +29,10 @@ export default function ThreadRow({ thread }) {
   };
 
   return (
-    <div className={`p-6 hover:bg-gray-50 transition-colors ${isFragmented ? 'bg-amber-50 border-l-4 border-amber-400' : ''}`}>
+    <div
+      onClick={() => window.location.href = `/conversaciones-poc/${thread.id}/timeline`}
+      className={`p-6 hover:bg-gray-50 cursor-pointer transition-all duration-200 ${isFragmented ? 'bg-amber-50 border-l-4 border-amber-400' : ''} hover:shadow-md`}
+    >
       <div className="flex items-start justify-between gap-6">
         <div className="flex-1">
           {/* Customer Info */}
@@ -41,14 +44,14 @@ export default function ThreadRow({ thread }) {
               {thread.customer_phone}
             </span>
             {status && status.current_status && (
-              <StatusBadge status={status.current_status} size="sm" />
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-600">Estado:</span>
+                <StatusBadge status={status.current_status} size="sm" />
+              </div>
             )}
-            {status && status.total_sales > 0 && (
+            {status && status.current_status === 'VENTA_CONCRETADA' && (
               <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold border-2 border-green-400 flex items-center gap-1.5 shadow-sm">
-                🎉 {status.total_sales} {status.total_sales === 1 ? 'VENTA' : 'VENTAS'}
-                <span className="text-green-600 font-semibold">
-                  ${parseFloat(status.total_sales_amount || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                ✅ Cliente Compró
               </span>
             )}
             {isFragmented && (
@@ -132,17 +135,25 @@ export default function ThreadRow({ thread }) {
 
         {/* Actions */}
         <div className="flex-shrink-0 flex items-center gap-3">
-          <button
-            onClick={() => window.location.href = `/conversaciones-poc/${thread.id}/timeline`}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-md hover:shadow-lg"
-          >
-            <Eye className="h-4 w-4" />
-            <span className="text-sm font-medium">Ver Timeline</span>
-          </button>
           <ComparisonBadge
             isFragmented={isFragmented}
             chatsCount={chats.length}
           />
+          <div className="text-gray-400">
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </div>
         </div>
       </div>
     </div>

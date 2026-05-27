@@ -257,6 +257,7 @@ class PoCThreadService {
       .select(`
         *,
         metrics:poc_thread_metrics(*),
+        status:poc_thread_status(*),
         chats:poc_thread_chats(chat_id, bot_name, started_at)
       `)
       .order('last_message_at', { ascending: false })
@@ -522,6 +523,7 @@ class PoCThreadService {
    * Obtiene el timeline de mensajes de un thread
    * Lee de poc_thread_chats para obtener chat_ids
    * Lee de messages para obtener mensajes de esos chats
+   * Carga media_files para mensajes con has_media=true
    * NO accede a tablas de eventos (eso lo hace pocEventService.getEnrichedTimeline)
    * @param {string} threadId - UUID del thread
    * @returns {Promise<Array>} Lista de mensajes ordenados cronológicamente
@@ -563,7 +565,30 @@ class PoCThreadService {
       throw messagesError;
     }
 
-    // Enriquecer mensajes con información del historial de bots
+    // Cargar media_files para mensajes con has_media=true
+    const messagesWithMedia = messages.filter(m => m.has_media);
+    const messageIds = messagesWithMedia.map(m => m.id);
+
+    let mediaFilesMap = {};
+    if (messageIds.length > 0) {
+      const { data: mediaFiles, error: mediaError } = await supabase
+        .from('media_files')
+        .select('*')
+        .in('message_id', messageIds);
+
+      if (mediaError) {
+        console.error('[PoC Threads] Error obteniendo media_files:', mediaError);
+      } else {
+        // Crear mapa de message_id -> media_file
+        mediaFilesMap = (mediaFiles || []).reduce((map, mf) => {
+          map[mf.message_id] = mf;
+          return map;
+        }, {});
+        console.log(`[PoC Threads] Thread ${threadId}: ${Object.keys(mediaFilesMap).length} media_files cargados`);
+      }
+    }
+
+    // Enriquecer mensajes con información del historial de bots y media_files
     // Esto permite saber qué bot estaba activo en cada momento
     const enrichedMessages = await Promise.all(
       messages.map(async (msg) => {
@@ -580,7 +605,8 @@ class PoCThreadService {
 
         return {
           ...msg,
-          thread_bot_name: historyRecord?.bot_name || msg.bot?.session_name || 'Desconocido'
+          thread_bot_name: historyRecord?.bot_name || msg.bot?.session_name || 'Desconocido',
+          media_file: mediaFilesMap[msg.id] || null
         };
       })
     );
