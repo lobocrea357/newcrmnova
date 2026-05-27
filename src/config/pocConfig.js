@@ -14,8 +14,8 @@ export const POC_CONFIG = {
    * Usar session_name exacto de la tabla 'bots'
    */
   BOTS: [
-    'efrain_flash_moises_test',
-    'efrain_flash_moises',
+    'dulce_baptista_nova_moises',
+    'sharol_martinez_nova_moises',
   ],
 
   /**
