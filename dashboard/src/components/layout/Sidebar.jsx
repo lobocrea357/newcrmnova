@@ -49,8 +49,8 @@ const BASE_MENU_ITEMS = [
     { href: '/analisis/reportes', label: 'Reportes', icon: FileText },
     { href: '/inteligencia-artificial', label: 'IA', icon: Brain },
     { href: '/configuracion', label: 'Configuración', icon: Settings },
-    // Rutas POC - Solo visible para super_admin
-    { href: '/conversaciones-poc', label: 'Conversaciones POC', icon: Clock, superAdminOnly: true },
+    // Rutas POC - Visible para super_admin, admin y gerente
+    { href: '/conversaciones-poc', label: 'Conversaciones POC', icon: Clock, adminOnly: true },
     { href: '/dashboard-poc', label: 'Dashboard Leads POC', icon: UsersIcon, superAdminOnly: true },
     // Rutas Admin - Visible para admin, super_admin y manager
     { href: '/admin/team-members', label: 'Team Members', icon: Users, adminOnly: true },
@@ -76,7 +76,7 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse 
         gerente: [
             '/', '/conversaciones', '/analisis/rendimiento',
             '/gestion-equipos', '/cotizador', '/ventas/cotizaciones',
-            '/ventas/vuelos', '/configuracion'
+            '/ventas/vuelos', '/configuracion', '/conversaciones-poc'
         ],
         asesor: [
             '/', '/cotizador', '/ventas', '/ventas/cotizaciones',
