@@ -56,7 +56,7 @@ const BASE_MENU_ITEMS = [
     { href: '/admin/team-members', label: 'Team Members', icon: Users, adminOnly: true },
 ]
 
-const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
+const Sidebar = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse }) => {
     const pathname = usePathname()
     const { profile, role, loading: profileLoading, isSuperAdmin, isAdmin, isManager } = useUserProfile()
 
@@ -156,7 +156,15 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
                 {/* Header Logo */}
                 <div className="p-5 border-b border-gray-700">
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        <button
+                            onClick={onToggleCollapse}
+                            className="hidden lg:flex h-10 w-10 rounded-lg items-center justify-center flex-shrink-0 overflow-hidden hover:bg-gray-700 transition-colors cursor-pointer group"
+                            title={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
+                        >
+                            <img src="/logo-blanco2.png" alt="Logo" className="h-12 w-12 object-contain group-hover:scale-110 transition-transform duration-200" />
+                        </button>
+                        {/* Logo no clickeable en móvil */}
+                        <div className="lg:hidden h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
                             <img src="/logo-blanco2.png" alt="Logo" className="h-12 w-12 object-contain" />
                         </div>
                         {!collapsed && (

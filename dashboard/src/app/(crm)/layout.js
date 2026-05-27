@@ -35,6 +35,7 @@ export default function CRMLayout({ children }) {
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
         <div
           className={`transition-all duration-300 ${
@@ -43,8 +44,6 @@ export default function CRMLayout({ children }) {
         >
           <Navbar
             onMenuClick={() => setSidebarOpen(true)}
-            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-            sidebarCollapsed={sidebarCollapsed}
           />
           <main>{children}</main>
         </div>

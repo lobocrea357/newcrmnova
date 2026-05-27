@@ -13,15 +13,11 @@ import {
   LogOut,
   ChevronDown,
   Menu,
-  PanelLeftClose,
-  PanelLeft,
   UserCircle,
 } from "lucide-react";
 
 const Navbar = ({
   onMenuClick,
-  onToggleCollapse,
-  sidebarCollapsed = false,
 }) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -81,22 +77,6 @@ const Navbar = ({
               aria-label="Abrir menú"
             >
               <Menu className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600" />
-            </button>
-
-            {/* Botón toggle collapse solo visible en desktop */}
-            <button
-              onClick={onToggleCollapse}
-              className="hidden lg:block p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-              aria-label={
-                sidebarCollapsed ? "Expandir sidebar" : "Colapsar sidebar"
-              }
-              title={sidebarCollapsed ? "Expandir sidebar" : "Colapsar sidebar"}
-            >
-              {sidebarCollapsed ? (
-                <PanelLeft className="h-5 w-5 text-gray-600" />
-              ) : (
-                <PanelLeftClose className="h-5 w-5 text-gray-600" />
-              )}
             </button>
 
             {/* Título de página */}
