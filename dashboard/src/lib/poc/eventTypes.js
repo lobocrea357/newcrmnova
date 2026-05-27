@@ -3,17 +3,17 @@
  */
 
 export const EVENT_TYPES = {
-  SALE_CONFIRMED: 'SALE_CONFIRMED',
-  SALE_CANCELLED: 'SALE_CANCELLED',
-  QUOTATION_SENT: 'QUOTATION_SENT',
-  QUOTATION_ACCEPTED: 'QUOTATION_ACCEPTED',
-  MEETING_SCHEDULED: 'MEETING_SCHEDULED',
-  CALL_MADE: 'CALL_MADE',
-  LEAD_LOST: 'LEAD_LOST',
-  LEAD_REACTIVATED: 'LEAD_REACTIVATED',
-  REASSIGNMENT: 'REASSIGNMENT',
-  NOTE_ADDED: 'NOTE_ADDED',
-  STATUS_CHANGED: 'STATUS_CHANGED'
+  VENTA_CONFIRMADA: 'VENTA_CONFIRMADA',
+  VENTA_CANCELADA: 'VENTA_CANCELADA',
+  COTIZACION_ENVIADA: 'COTIZACION_ENVIADA',
+  COTIZACION_ACEPTADA: 'COTIZACION_ACEPTADA',
+  REUNION_AGENDADA: 'REUNION_AGENDADA',
+  LLAMADA_REALIZADA: 'LLAMADA_REALIZADA',
+  LEAD_PERDIDO: 'LEAD_PERDIDO',
+  LEAD_REACTIVADO: 'LEAD_REACTIVADO',
+  REASIGNACION: 'REASIGNACION',
+  NOTA_AGREGADA: 'NOTA_AGREGADA',
+  ESTADO_CAMBIADO: 'ESTADO_CAMBIADO'
 };
 
 export const EVENT_SUBTYPES = {
@@ -26,7 +26,7 @@ export const EVENT_SUBTYPES = {
  * Incluye etiquetas, iconos, colores y descripciones
  */
 export const EVENT_METADATA = {
-  [EVENT_TYPES.SALE_CONFIRMED]: {
+  [EVENT_TYPES.VENTA_CONFIRMADA]: {
     label: 'Venta Confirmada',
     icon: '🎉',
     color: 'green',
@@ -36,7 +36,7 @@ export const EVENT_METADATA = {
     description: 'Venta concretada exitosamente',
     isMilestone: true
   },
-  [EVENT_TYPES.SALE_CANCELLED]: {
+  [EVENT_TYPES.VENTA_CANCELADA]: {
     label: 'Venta Cancelada',
     icon: '❌',
     color: 'red',
@@ -46,7 +46,7 @@ export const EVENT_METADATA = {
     description: 'Venta cancelada por el cliente',
     isMilestone: true
   },
-  [EVENT_TYPES.QUOTATION_SENT]: {
+  [EVENT_TYPES.COTIZACION_ENVIADA]: {
     label: 'Cotización Enviada',
     icon: '📄',
     color: 'blue',
@@ -56,7 +56,7 @@ export const EVENT_METADATA = {
     description: 'Cotización enviada al cliente',
     isMilestone: true
   },
-  [EVENT_TYPES.QUOTATION_ACCEPTED]: {
+  [EVENT_TYPES.COTIZACION_ACEPTADA]: {
     label: 'Cotización Aceptada',
     icon: '✅',
     color: 'green',
@@ -66,7 +66,7 @@ export const EVENT_METADATA = {
     description: 'Cliente aceptó la cotización',
     isMilestone: true
   },
-  [EVENT_TYPES.MEETING_SCHEDULED]: {
+  [EVENT_TYPES.REUNION_AGENDADA]: {
     label: 'Reunión Agendada',
     icon: '📅',
     color: 'purple',
@@ -76,7 +76,7 @@ export const EVENT_METADATA = {
     description: 'Reunión agendada con el cliente',
     isMilestone: true
   },
-  [EVENT_TYPES.CALL_MADE]: {
+  [EVENT_TYPES.LLAMADA_REALIZADA]: {
     label: 'Llamada Realizada',
     icon: '📞',
     color: 'indigo',
@@ -86,7 +86,7 @@ export const EVENT_METADATA = {
     description: 'Llamada telefónica realizada',
     isMilestone: false
   },
-  [EVENT_TYPES.LEAD_LOST]: {
+  [EVENT_TYPES.LEAD_PERDIDO]: {
     label: 'Lead Perdido',
     icon: '💔',
     color: 'gray',
@@ -96,7 +96,7 @@ export const EVENT_METADATA = {
     description: 'Lead marcado como perdido',
     isMilestone: true
   },
-  [EVENT_TYPES.LEAD_REACTIVATED]: {
+  [EVENT_TYPES.LEAD_REACTIVADO]: {
     label: 'Lead Reactivado',
     icon: '🔄',
     color: 'orange',
@@ -106,7 +106,7 @@ export const EVENT_METADATA = {
     description: 'Lead reactivado después de estar perdido',
     isMilestone: true
   },
-  [EVENT_TYPES.REASSIGNMENT]: {
+  [EVENT_TYPES.REASIGNACION]: {
     label: 'Reasignación',
     icon: '🔄',
     color: 'amber',
@@ -116,7 +116,7 @@ export const EVENT_METADATA = {
     description: 'Asesor reasignado a otro bot',
     isMilestone: true
   },
-  [EVENT_TYPES.NOTE_ADDED]: {
+  [EVENT_TYPES.NOTA_AGREGADA]: {
     label: 'Nota Agregada',
     icon: '📝',
     color: 'slate',
@@ -126,7 +126,7 @@ export const EVENT_METADATA = {
     description: 'Nota agregada al thread',
     isMilestone: false
   },
-  [EVENT_TYPES.STATUS_CHANGED]: {
+  [EVENT_TYPES.ESTADO_CAMBIADO]: {
     label: 'Estado Cambiado',
     icon: '📊',
     color: 'cyan',

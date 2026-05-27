@@ -429,7 +429,7 @@ class PoCThreadService {
         try {
           await pocEventService.createEvent({
             thread_id: thread.id,
-            event_type: 'REASSIGNMENT',
+            event_type: 'REASIGNACION',
             event_data: {
               previous_bot: existingChat.bot_name,
               new_bot: botName,
@@ -437,9 +437,9 @@ class PoCThreadService {
             },
             notes: `Reasignación de bot: ${existingChat.bot_name} → ${botName}`
           });
-          console.log(`[PoC Threads] ✅ Evento REASSIGNMENT creado`);
+          console.log(`[PoC Threads] ✅ Evento REASIGNACION creado`);
         } catch (eventError) {
-          console.error('[PoC Threads] ❌ ERROR creando evento REASSIGNMENT:', eventError.message);
+          console.error('[PoC Threads] ❌ ERROR creando evento REASIGNACION:', eventError.message);
         }
       } else if (existingChat) {
         // No hay cambio de bot, hacer upsert normal

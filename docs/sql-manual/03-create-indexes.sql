@@ -17,7 +17,7 @@ ON poc_thread_events(thread_id, occurred_at DESC);
 -- Optimiza queries que buscan solo ventas
 CREATE INDEX IF NOT EXISTS idx_poc_thread_events_sales
 ON poc_thread_events(thread_id, event_type)
-WHERE event_type IN ('SALE_CONFIRMED', 'SALE_CANCELLED');
+WHERE event_type IN ('VENTA_CONFIRMADA', 'VENTA_CANCELADA');
 
 -- Índice 3: Búsquedas por tipo de evento
 -- Optimiza filtros por tipo de evento específico

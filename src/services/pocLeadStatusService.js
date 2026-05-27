@@ -142,7 +142,7 @@ class PoCLeadStatusService {
       const pocEventService = (await import('./pocEventService.js')).default;
       await pocEventService.createEvent({
         thread_id: threadId,
-        event_type: 'STATUS_CHANGED',
+        event_type: 'ESTADO_CAMBIADO',
         event_data: {
           from_status: currentStatusValue,
           to_status: new_status
@@ -150,7 +150,7 @@ class PoCLeadStatusService {
         notes: notes || `Estado cambiado de ${currentStatusValue} a ${new_status}`
       });
     } catch (eventError) {
-      console.warn('[PoC Lead Status] Error creando evento STATUS_CHANGED (no crítico):', eventError.message);
+      console.warn('[PoC Lead Status] Error creando evento ESTADO_CAMBIADO (no crítico):', eventError.message);
     }
 
     console.log(`[PoC Lead Status] Estado cambiado: ${currentStatusValue} → ${new_status} para thread ${threadId}`);
@@ -232,7 +232,7 @@ class PoCLeadStatusService {
       .from('poc_thread_events')
       .select('*')
       .eq('thread_id', threadId)
-      .eq('event_type', 'STATUS_CHANGED')
+      .eq('event_type', 'ESTADO_CAMBIADO')
       .order('created_at', { ascending: false });
 
     if (error) throw error;

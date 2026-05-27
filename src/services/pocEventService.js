@@ -4,14 +4,20 @@ import pocThreadService from './pocThreadService.js';
 class PoCEventService {
   /**
    * Tipos de eventos válidos
+   * Deben coincidir con el constraint chk_event_type en la base de datos
    */
   EVENT_TYPES = {
-    SALE_CONFIRMED: 'SALE_CONFIRMED',
-    QUOTATION_SENT: 'QUOTATION_SENT',
-    FOLLOW_UP: 'FOLLOW_UP',
-    STATUS_CHANGED: 'STATUS_CHANGED',
-    BOT_REASSIGNED: 'BOT_REASSIGNED',
-    MANUAL_NOTE: 'MANUAL_NOTE'
+    VENTA_CONFIRMADA: 'VENTA_CONFIRMADA',
+    VENTA_CANCELADA: 'VENTA_CANCELADA',
+    COTIZACION_ENVIADA: 'COTIZACION_ENVIADA',
+    COTIZACION_ACEPTADA: 'COTIZACION_ACEPTADA',
+    REUNION_AGENDADA: 'REUNION_AGENDADA',
+    LLAMADA_REALIZADA: 'LLAMADA_REALIZADA',
+    LEAD_PERDIDO: 'LEAD_PERDIDO',
+    LEAD_REACTIVADO: 'LEAD_REACTIVADO',
+    REASIGNACION: 'REASIGNACION',
+    NOTA_AGREGADA: 'NOTA_AGREGADA',
+    ESTADO_CAMBIADO: 'ESTADO_CAMBIADO'
   };
 
   /**
@@ -98,7 +104,7 @@ class PoCEventService {
   }
 
   /**
-   * Atajo para marcar una venta (crea evento SALE_CONFIRMED)
+   * Atajo para marcar una venta (crea evento VENTA_CONFIRMADA)
    * @param {string} threadId - UUID del thread
    * @param {Object} saleData - Datos de la venta
    * @param {string} saleData.amount - Monto de la venta
@@ -117,7 +123,7 @@ class PoCEventService {
     // Crear evento de venta
     const event = await this.createEvent({
       thread_id: threadId,
-      event_type: this.EVENT_TYPES.SALE_CONFIRMED,
+      event_type: this.EVENT_TYPES.VENTA_CONFIRMADA,
       event_data: {
         amount: parseFloat(amount),
         currency
@@ -198,7 +204,7 @@ class PoCEventService {
 
   /**
    * Sincroniza ventas históricas desde la tabla vuelos
-   * Revisa todos los vuelos y crea eventos SALE_CONFIRMED para aquellos que no tienen uno
+   * Revisa todos los vuelos y crea eventos VENTA_CONFIRMADA para aquellos que no tienen uno
    * @param {Object} options - Opciones de sincronización
    * @param {boolean} options.dryRun - Si true, solo reporta sin crear eventos (default: false)
    * @param {Function} options.onProgress - Callback de progreso (processed, total, created)
@@ -283,7 +289,7 @@ class PoCEventService {
           telefono_vuelo: vuelo.contacto_telefono
         });
 
-        // Verificar si ya existe evento SALE_CONFIRMED para este vuelo
+        // Verificar si ya existe evento VENTA_CONFIRMADA para este vuelo
         // Usar .maybeSingle() en lugar de .single() para que retorne null si no hay evento
         // en lugar de lanzar un error PGRST116
         const { data: eventoExistente, error: eventoError } = await supabase
@@ -291,7 +297,7 @@ class PoCEventService {
           .select('id')
           .eq('thread_id', thread.id)
           .eq('related_vuelo_id', vuelo.id)
-          .eq('event_type', 'SALE_CONFIRMED')
+          .eq('event_type', 'VENTA_CONFIRMADA')
           .maybeSingle();
 
         console.log(`[PoC Events] Verificación de evento existente:`, {
@@ -310,7 +316,7 @@ class PoCEventService {
             thread_id: thread.id,
             telefono: vuelo.contacto_telefono,
             estado: 'YA_EXISTE',
-            razon: 'Evento SALE_CONFIRMED ya existe'
+            razon: 'Evento VENTA_CONFIRMADA ya existe'
           });
           
           if (onProgress) {
@@ -327,7 +333,7 @@ class PoCEventService {
             .from('poc_thread_events')
             .insert({
               thread_id: thread.id,
-              event_type: 'SALE_CONFIRMED',
+              event_type: 'VENTA_CONFIRMADA',
               event_subtype: 'AUTO_DETECTED_HISTORICAL',
               occurred_at: vuelo.created_at || new Date().toISOString(),
               event_data: {

@@ -45,7 +45,7 @@ export default function EventForm({ threadId, onSuccess, onCancel, isOpen }) {
       };
 
       // Si es venta, agregar monto
-      if (eventType === EVENT_TYPES.SALE_CONFIRMED && amount) {
+      if (eventType === EVENT_TYPES.VENTA_CONFIRMADA && amount) {
         eventData.event_data = { amount: parseFloat(amount) };
       }
 
@@ -168,17 +168,17 @@ export default function EventForm({ threadId, onSuccess, onCancel, isOpen }) {
               required
             >
               <option value="">Seleccionar...</option>
-              <option value={EVENT_TYPES.SALE_CONFIRMED}>🎉 Venta Confirmada</option>
-              <option value={EVENT_TYPES.SALE_CANCELLED}>❌ Venta Cancelada</option>
-              <option value={EVENT_TYPES.QUOTATION_SENT}>📄 Cotización Enviada</option>
-              <option value={EVENT_TYPES.QUOTATION_ACCEPTED}>✅ Cotización Aceptada</option>
-              <option value={EVENT_TYPES.MEETING_SCHEDULED}>📅 Reunión Agendada</option>
-              <option value={EVENT_TYPES.CALL_MADE}>📞 Llamada Realizada</option>
-              <option value={EVENT_TYPES.LEAD_LOST}>💔 Lead Perdido</option>
-              <option value={EVENT_TYPES.LEAD_REACTIVATED}>🔄 Lead Reactivado</option>
-              <option value={EVENT_TYPES.REASSIGNMENT}>🔄 Reasignación</option>
-              <option value={EVENT_TYPES.NOTE_ADDED}>📝 Nota Agregada</option>
-              <option value={EVENT_TYPES.STATUS_CHANGED}>📊 Estado Cambiado</option>
+              <option value={EVENT_TYPES.VENTA_CONFIRMADA}>🎉 Venta Confirmada</option>
+              <option value={EVENT_TYPES.VENTA_CANCELADA}>❌ Venta Cancelada</option>
+              <option value={EVENT_TYPES.COTIZACION_ENVIADA}>📄 Cotización Enviada</option>
+              <option value={EVENT_TYPES.COTIZACION_ACEPTADA}>✅ Cotización Aceptada</option>
+              <option value={EVENT_TYPES.REUNION_AGENDADA}>📅 Reunión Agendada</option>
+              <option value={EVENT_TYPES.LLAMADA_REALIZADA}>📞 Llamada Realizada</option>
+              <option value={EVENT_TYPES.LEAD_PERDIDO}>💔 Lead Perdido</option>
+              <option value={EVENT_TYPES.LEAD_REACTIVADO}>🔄 Lead Reactivado</option>
+              <option value={EVENT_TYPES.REASIGNACION}>🔄 Reasignación</option>
+              <option value={EVENT_TYPES.NOTA_AGREGADA}>📝 Nota Agregada</option>
+              <option value={EVENT_TYPES.ESTADO_CAMBIADO}>📊 Estado Cambiado</option>
             </select>
           </div>
 
@@ -199,7 +199,7 @@ export default function EventForm({ threadId, onSuccess, onCancel, isOpen }) {
           </div>
 
           {/* Campos condicionales para venta */}
-          {eventType === EVENT_TYPES.SALE_CONFIRMED && (
+          {eventType === EVENT_TYPES.VENTA_CONFIRMADA && (
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -238,7 +238,7 @@ export default function EventForm({ threadId, onSuccess, onCancel, isOpen }) {
           )}
 
           {/* Campos opcionales para otros eventos */}
-          {eventType && eventType !== EVENT_TYPES.SALE_CONFIRMED && (
+          {eventType && eventType !== EVENT_TYPES.VENTA_CONFIRMADA && (
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -300,7 +300,7 @@ export default function EventForm({ threadId, onSuccess, onCancel, isOpen }) {
             >
               Cancelar
             </button>
-            {eventType === EVENT_TYPES.SALE_CONFIRMED ? (
+            {eventType === EVENT_TYPES.VENTA_CONFIRMADA ? (
               <button
                 type="button"
                 onClick={handleMarkSale}

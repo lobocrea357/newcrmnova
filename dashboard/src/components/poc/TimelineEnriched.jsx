@@ -230,8 +230,8 @@ export default function TimelineEnriched({
 
   const renderEvent = (item) => {
     const event = item.data;
-    const isSaleEvent = event.event_type === 'SALE_CONFIRMED';
-    const isReassignmentEvent = event.event_type === 'REASSIGNMENT';
+    const isSaleEvent = event.event_type === 'VENTA_CONFIRMADA';
+    const isReassignmentEvent = event.event_type === 'REASIGNACION';
 
     return (
       <div key={`evt-${event.id}`} className="my-4">
