@@ -13,9 +13,9 @@ import chatsRoutes from './routes/chats.js';
 import dashboardRoutes from './routes/dashboard.js';
 import mediaRoutes from './routes/media.js';
 import workersRoutes from './routes/workers.js';
-import syncRoutes from './routes/sync.js';
-import autoSyncRoutes from './routes/autoSync.js';
-import fullSyncRoutes from './routes/fullSync.js';
+import metadataSyncRoutes from './routes/wahaMetadataSync.js';
+import syncSchedulerRoutes from './routes/syncScheduler.js';
+import messageHistoryRoutes from './routes/messageHistory.js';
 import diagnosticsRoutes from './routes/diagnostics.js';
 import rendimientoRoutes from './routes/rendimiento.js';
 import usersRoutes from './routes/users.js';
@@ -34,7 +34,7 @@ import pocRoutes from './routes/poc.js';
 import teamMembersRoutes from './routes/teamMembers.js';
 
 // Importar servicio de auto-sincronización
-import autoSyncService from './services/autoSyncService.js';
+import syncSchedulerService from './services/syncSchedulerService.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -57,9 +57,9 @@ app.use('/api/chats', chatsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/workers', workersRoutes);
-app.use('/api/sync', syncRoutes);
-app.use('/api/auto-sync', autoSyncRoutes);
-app.use('/api/full-sync', fullSyncRoutes);
+app.use('/api/metadata-sync', metadataSyncRoutes);
+app.use('/api/sync-scheduler', syncSchedulerRoutes);
+app.use('/api/message-history', messageHistoryRoutes);
 app.use('/api/diagnostics', diagnosticsRoutes);
 app.use('/api/rendimiento', rendimientoRoutes);
 app.use('/api/users', usersRoutes);
@@ -101,9 +101,9 @@ app.get('/', (req, res) => {
       dashboard: '/api/dashboard',
       media: '/api/media',
       workers: '/api/workers',
-      sync: '/api/sync',
-      autoSync: '/api/auto-sync',
-      fullSync: '/api/full-sync'
+      metadataSync: '/api/metadata-sync',
+      syncScheduler: '/api/sync-scheduler',
+      messageHistory: '/api/message-history'
     }
   });
 });
@@ -128,7 +128,7 @@ app.listen(PORT, () => {
   console.log(`\n✅ Listo para recibir webhooks de WAHA\n`);
   
   // Iniciar servicio de auto-sincronización
-  autoSyncService.start();
+  syncSchedulerService.start();
 });
 
 export default app;

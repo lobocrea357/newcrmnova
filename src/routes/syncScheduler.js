@@ -1,15 +1,15 @@
 import express from 'express';
-import autoSyncService from '../services/autoSyncService.js';
+import syncSchedulerService from '../services/syncSchedulerService.js';
 
 const router = express.Router();
 
 /**
- * GET /api/auto-sync/status
+ * GET /api/sync-scheduler/status
  * Obtiene el estado del servicio de auto-sincronización
  */
 router.get('/status', (req, res) => {
   try {
-    const status = autoSyncService.getStatus();
+    const status = syncSchedulerService.getStatus();
     
     res.json({
       success: true,
@@ -29,13 +29,13 @@ router.get('/status', (req, res) => {
 });
 
 /**
- * POST /api/auto-sync/start
+ * POST /api/sync-scheduler/start
  * Inicia el servicio de auto-sincronización
  */
 router.post('/start', (req, res) => {
   try {
-    autoSyncService.start();
-    const status = autoSyncService.getStatus();
+    syncSchedulerService.start();
+    const status = syncSchedulerService.getStatus();
     
     res.json({
       success: true,
@@ -51,12 +51,12 @@ router.post('/start', (req, res) => {
 });
 
 /**
- * POST /api/auto-sync/stop
+ * POST /api/sync-scheduler/stop
  * Detiene el servicio de auto-sincronización
  */
 router.post('/stop', (req, res) => {
   try {
-    autoSyncService.stop();
+    syncSchedulerService.stop();
     
     res.json({
       success: true,
@@ -71,13 +71,13 @@ router.post('/stop', (req, res) => {
 });
 
 /**
- * POST /api/auto-sync/force
+ * POST /api/sync-scheduler/force
  * Fuerza una sincronización inmediata
  */
 router.post('/force', async (req, res) => {
   try {
     // Ejecutar sincronización en segundo plano
-    autoSyncService.forceSyncNow().catch(err => {
+    syncSchedulerService.forceSyncNow().catch(err => {
       console.error('Error en sincronización forzada:', err);
     });
     

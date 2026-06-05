@@ -16,7 +16,7 @@ const mediaService = new MediaService();
 /**
  * Servicio de sincronización COMPLETA desde WAHA
  */
-export class FullSyncService {
+export class WahaMessageHistoryService {
   
   /**
    * Obtiene o crea un contacto desde WAHA con datos completos
@@ -361,4 +361,4 @@ export class FullSyncService {
   }
 }
 
-export default new FullSyncService();
+export default new WahaMessageHistoryService();

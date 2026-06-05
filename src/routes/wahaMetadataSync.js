@@ -1,5 +1,5 @@
 import express from 'express';
-import syncService from '../services/syncService.js';
+import syncService from '../services/wahaMetadataSyncService.js';
 
 const router = express.Router();
 

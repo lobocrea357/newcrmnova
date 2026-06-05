@@ -265,7 +265,7 @@ INSTRUCCIONES DE REPORTE:
       setSyncingBot(sessionName);
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-      const response = await fetch(`${apiUrl}/api/sync/${sessionName}/all`, {
+      const response = await fetch(`${apiUrl}/api/metadata-sync/${sessionName}/all`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -407,7 +407,7 @@ INSTRUCCIONES DE REPORTE:
     const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000); // 30 minutos
 
     try {
-      const response = await fetch(`${apiUrl}/api/full-sync/all-bots`, {
+      const response = await fetch(`${apiUrl}/api/message-history/all-bots`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

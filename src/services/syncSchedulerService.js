@@ -1,7 +1,7 @@
 import wahaClient from '../config/waha.js';
 import supabase from '../config/supabase.js';
 import botService from './botService.js';
-import syncService from './syncService.js';
+import syncService from './wahaMetadataSyncService.js';
 
 /**
  * Servicio de Auto-Sincronización Periódica
@@ -16,7 +16,7 @@ import syncService from './syncService.js';
  * - AUTO_SYNC_INTERVAL_MINUTES=30 (default: 30 minutos)
  * - AUTO_SYNC_FULL_SYNC=true|false (default: false, solo sync básica)
  */
-export class AutoSyncService {
+export class SyncSchedulerService {
   constructor() {
     this.isRunning = false;
     this.intervalId = null;
@@ -286,4 +286,4 @@ export class AutoSyncService {
   }
 }
 
-export default new AutoSyncService();
+export default new SyncSchedulerService();

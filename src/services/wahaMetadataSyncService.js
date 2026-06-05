@@ -11,7 +11,7 @@ import supabase from '../config/supabase.js';
  * ⚠️ IMPORTANTE: Este servicio SOLO actualiza datos NULL o desactualizados
  * NO crea duplicados ni modifica mensajes existentes
  */
-export class SyncService {
+export class WahaMetadataSyncService {
   
   /**
    * Lista todas las sesiones disponibles en WAHA
@@ -431,4 +431,4 @@ export class SyncService {
   }
 }
 
-export default new SyncService();
+export default new WahaMetadataSyncService();

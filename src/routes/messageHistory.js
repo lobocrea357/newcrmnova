@@ -1,12 +1,12 @@
 import express from 'express';
-import fullSyncService from '../services/fullSyncService.js';
+import messageHistoryService from '../services/wahaMessageHistoryService.js';
 import supabase from '../config/supabase.js';
 import wahaClient from '../config/waha.js';
 
 const router = express.Router();
 
 /**
- * POST /api/full-sync/:session/messages
+ * POST /api/message-history/:session/messages
  * Sincroniza TODOS los mensajes de TODOS los chats de una sesión
  */
 router.post('/:session/messages', async (req, res) => {
@@ -16,7 +16,7 @@ router.post('/:session/messages', async (req, res) => {
 
     console.log(`\n🔄 Iniciando sincronización completa de mensajes: ${session}`);
 
-    const result = await fullSyncService.syncAllMessages(session, {
+    const result = await messageHistoryService.syncAllMessages(session, {
       limit,
       includeMedia,
       transcribeAudio
@@ -38,7 +38,7 @@ router.post('/:session/messages', async (req, res) => {
 });
 
 /**
- * POST /api/full-sync/all-bots
+ * POST /api/message-history/all-bots
  * Sincroniza TODOS los mensajes de TODOS los bots
  */
 router.post('/all-bots', async (req, res) => {
@@ -120,7 +120,7 @@ router.post('/all-bots', async (req, res) => {
         // Bot ya verificado como válido, proceder con sincronización
         console.log(`   ✅ Sesión ${bot.session_name} válida, iniciando sincronización...`);
         
-        const result = await fullSyncService.syncAllMessages(bot.session_name, {
+        const result = await messageHistoryService.syncAllMessages(bot.session_name, {
           limit,
           includeMedia,
           transcribeAudio
@@ -238,7 +238,7 @@ router.post('/all-bots', async (req, res) => {
 });
 
 /**
- * POST /api/full-sync/:session/chat/:chatId
+ * POST /api/message-history/:session/chat/:chatId
  * Sincroniza mensajes de un chat específico
  */
 router.post('/:session/chat/:chatId', async (req, res) => {
@@ -248,7 +248,7 @@ router.post('/:session/chat/:chatId', async (req, res) => {
 
     console.log(`\n🔄 Sincronizando chat específico: ${chatId}`);
 
-    const stats = await fullSyncService.syncChatMessages(session, chatId, {
+    const stats = await messageHistoryService.syncChatMessages(session, chatId, {
       limit,
       includeMedia,
       transcribeAudio
