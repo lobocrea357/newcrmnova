@@ -1954,6 +1954,7 @@ INSTRUCCIONES DE REPORTE:
                           </div>
                         </div>
                       </div>
+                      {/* Comentado: Contadores de conversaciones y cotizaciones para simplificar la UI
                       <div className="flex flex-col items-end flex-shrink-0 gap-1">
                         <span className="text-sm font-semibold text-gray-900">
                           <span translate="no">{bot.conversation_count || 0}</span>
@@ -1971,6 +1972,7 @@ INSTRUCCIONES DE REPORTE:
                           </span>
                         )}
                       </div>
+                      */}
                     </button>
                   );
                 })}
@@ -2293,6 +2295,7 @@ INSTRUCCIONES DE REPORTE:
                               </div>
                             )}
 
+                          {/* Comentado: Contadores de métricas y mensajes para simplificar la UI
                           {conv.conversation_metrics?.response && (
                             <div
                               className="flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200"
@@ -2341,6 +2344,7 @@ INSTRUCCIONES DE REPORTE:
                           <span className="text-sm font-semibold text-gray-900">
                             {conv.message_count || 0} mensajes
                           </span>
+                          */}
                           {conv.last_message_time && (
                             <span className="mt-0.5">
                               {new Date(
