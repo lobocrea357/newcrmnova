@@ -6,6 +6,7 @@ import ChatView from '@/components/ChatView'
 import ContactAvatar from '@/components/ContactAvatar'
 import HighlightText from '@/components/HighlightText'
 import { globalSearchChats } from '@/lib/supabase'
+import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { Search, X, RefreshCw, Phone, Bot, CheckCheck, Sparkles } from 'lucide-react'
 import ChatAnalysis from '@/components/ChatAnalysis'
 import MessageInsightsPanel from '@/components/MessageInsightsPanel'
@@ -17,53 +18,15 @@ export default function ChatPage() {
   const chatId = params.chatId
   const fromSearch = searchParams.get('fromSearch') === 'true'
 
-  const [globalSearchQuery, setGlobalSearchQuery] = useState('')
-  const [globalSearchResults, setGlobalSearchResults] = useState([])
+  const [globalSearchQuery, setGlobalSearchQuery] = useLocalStorage('conversaciones:chatSearchQuery', '')
+  const [globalSearchResults, setGlobalSearchResults] = useLocalStorage('conversaciones:chatSearchResults', [])
   const [loadingGlobalSearch, setLoadingGlobalSearch] = useState(false)
   const [showSearchSidebar, setShowSearchSidebar] = useState(false)
   const [messages, setMessages] = useState([]) // Estado para mensajes cargados desde ChatView
   const [showInsights, setShowInsights] = useState(false) // Toggle para móvil
 
-  // Restaurar búsqueda global si viene desde búsqueda
-  useEffect(() => {
-    if (fromSearch && typeof window !== "undefined") {
-      try {
-        const savedQuery = window.localStorage.getItem(
-          "conversaciones:globalSearchQuery",
-        );
-        const savedResults = window.localStorage.getItem(
-          "conversaciones:globalSearchResults",
-        );
-
-        if (savedQuery && savedResults) {
-          setGlobalSearchQuery(savedQuery);
-          setGlobalSearchResults(JSON.parse(savedResults));
-          setShowSearchSidebar(true);
-        }
-      } catch (error) {
-        console.error("Error restaurando búsqueda:", error);
-      }
-    }
-  }, [fromSearch]);
-
   const handleClose = () => {
     const botId = searchParams.get("botId");
-
-    // Si viene desde búsqueda, guardar el estado antes de regresar
-    if (showSearchSidebar && typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem(
-          "conversaciones:globalSearchQuery",
-          globalSearchQuery,
-        );
-        window.localStorage.setItem(
-          "conversaciones:globalSearchResults",
-          JSON.stringify(globalSearchResults),
-        );
-      } catch (error) {
-        console.error("Error guardando búsqueda:", error);
-      }
-    }
 
     if (botId) {
       router.push(`/conversaciones?botId=${botId}&chatId=${chatId}`);
@@ -101,22 +64,6 @@ export default function ChatPage() {
   const handleSearchResultClick = (chat) => {
     const newChatId = String(chat.id);
     const botId = String(chat.bot_id);
-
-    // Guardar búsqueda antes de navegar
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem(
-          "conversaciones:globalSearchQuery",
-          globalSearchQuery,
-        );
-        window.localStorage.setItem(
-          "conversaciones:globalSearchResults",
-          JSON.stringify(globalSearchResults),
-        );
-      } catch (error) {
-        console.error("Error guardando búsqueda:", error);
-      }
-    }
 
     router.push(
       `/conversaciones/chat/${newChatId}?botId=${botId}&fromSearch=true`,

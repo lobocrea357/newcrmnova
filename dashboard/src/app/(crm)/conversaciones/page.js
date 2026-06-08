@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect, Suspense } from 'react'
-import { jsPDF } from 'jspdf'
+import { generatePdfReport } from '@/lib/conversaciones/generatePdfReport'
+import { parseBotSessionName, capitalizeWord } from '@/lib/botNameParser'
+import { formatResponseTime } from '@/lib/utils/formatDate'
 import {
-  supabase,
   getAllWorkers,
   getConversationsByBot,
   globalSearchChats,
@@ -13,14 +14,17 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useBots } from '@/hooks/useBots'
+import { useConversacionesFiltros } from '@/hooks/useConversacionesFiltros'
+import { useLocalStorage } from '@/hooks/useLocalStorage'
 import ContactAvatar from '@/components/ContactAvatar'
 import HighlightText from '@/components/HighlightText'
+import SalesModal from '@/components/conversaciones/SalesModal'
+import SyncModal from '@/components/conversaciones/SyncModal'
+import ReportModal from '@/components/conversaciones/ReportModal'
 import {
   Bot,
   MessageSquare,
-  LogOut,
   RefreshCw,
-  Users,
   Search,
   Filter,
   Phone,
@@ -31,38 +35,43 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Check,
   CheckCheck,
   ArrowUp,
   ArrowDown,
-  Brain,
-  ArrowRight,
   Clock3,
   CreditCard,
-  Sparkles,
-  Edit3,
-  FileText,
-  Download,
-  Loader2
+  FileText
 } from "lucide-react";
 
 function DashboardContent() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { bots, loading: botsLoading, error: botsError } = useBots();
   const [workers, setWorkers] = useState([]);
   const [conversations, setConversations] = useState({});
-  const [conversationsPagination, setConversationsPagination] = useState({});
+  const [conversationsPagination, setConversationsPagination] = useLocalStorage('conversaciones:botPages', {});
   const [botCotizaciones, setBotCotizaciones] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedBotId, setSelectedBotId] = useState(null);
   const [loadingConversations, setLoadingConversations] = useState({});
-  const [searchFilter, setSearchFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all"); // 'all', 'active', 'inactive'
-  const [leaderFilter, setLeaderFilter] = useState("all"); // 'all', 'moises', 'jesus', 'endry'
-  const [leadFilter, setLeadFilter] = useState("all"); // 'all', 'colombia', 'venezuela'
-  const [sedeFilter, setSedeFilter] = useState("all"); // 'all', 'nova', 'apolo', 'flash'
-  const [showFilters, setShowFilters] = useState(false);
   const [compactMode, setCompactMode] = useState(false);
+  
+  const {
+    searchFilter, setSearchFilter,
+    statusFilter, setStatusFilter,
+    leaderFilter, setLeaderFilter,
+    leadFilter, setLeadFilter,
+    sedeFilter, setSedeFilter,
+    showFilters, setShowFilters,
+    botSearchQuery, setBotSearchQuery,
+    filteredBots,
+    activeFiltersCount,
+    activeFilterPills,
+    clearFilters,
+    handleRemoveFilter,
+    formatBotStatus,
+    isBotActive,
+    getFilterPillClasses,
+  } = useConversacionesFiltros(bots);
   const [syncingBot, setSyncingBot] = useState(null);
   const [salesCount, setSalesCount] = useState(0);
   const [loadingSales, setLoadingSales] = useState(false);
@@ -73,7 +82,6 @@ function DashboardContent() {
   const [syncingAll, setSyncingAll] = useState(false);
   const [syncProgress, setSyncProgress] = useState(null);
   const [syncLogs, setSyncLogs] = useState([]);
-  const [sessionToken, setSessionToken] = useState(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportPrompt, setReportPrompt] = useState(`Eres un Auditor Comercial Senior especializado en ventas de alto impacto. 
 Tu misión es auditar al asesor basándote ESTRICTAMENTE en los siguientes 13 KPIs:
@@ -106,20 +114,20 @@ INSTRUCCIONES DE REPORTE:
   const [reportError, setReportError] = useState(null);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [lastChatId, setLastChatId] = useState(null);
+  const [lastChatId, setLastChatId] = useLocalStorage('conversaciones:lastChatId', null);
   
   // Estados para búsqueda global
-  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
-  const [globalSearchResults, setGlobalSearchResults] = useState([]);
+  const [globalSearchQuery, setGlobalSearchQuery] = useLocalStorage('conversaciones:globalSearchQuery', '');
+  const [globalSearchResults, setGlobalSearchResults] = useLocalStorage('conversaciones:globalSearchResults', []);
+  const [lastSearchQuery, setLastSearchQuery] = useLocalStorage('conversaciones:lastSearchQuery', '');
   const [isGlobalSearchActive, setIsGlobalSearchActive] = useState(false);
   const [loadingGlobalSearch, setLoadingGlobalSearch] = useState(false);
-  
-  // Estado para búsqueda de asesores en el panel lateral
-  const [botSearchQuery, setBotSearchQuery] = useState('');
 
   useEffect(() => {
-    checkUser();
-  }, []);
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
   useEffect(() => {
     if (reportModalOpen) {
@@ -127,26 +135,6 @@ INSTRUCCIONES DE REPORTE:
       setReportData(null);
     }
   }, [reportModalOpen]);
-
-  const checkUser = async () => {
-    const {
-      data: { session },
-      error
-    } = await supabase.auth.getSession();
-
-    if (error) {
-      console.error('Error obteniendo sesión:', error);
-    }
-
-    if (!session?.user) {
-      router.push('/login');
-      return;
-    }
-
-    // setUser(session.user); // No es necesario - el contexto maneja el estado automáticamente
-    setSessionToken(session.access_token || null);
-    fetchData();
-  };
 
   useEffect(() => {
     const botIdFromUrl = searchParams.get("botId");
@@ -156,21 +144,10 @@ INSTRUCCIONES DE REPORTE:
 
     setSelectedBotId(botIdFromUrl);
 
-    // Intentar restaurar la página guardada para este bot
-    if (typeof window !== "undefined") {
-      try {
-        const savedPage = window.localStorage.getItem(
-          `conversaciones:bot:${botIdFromUrl}:page`,
-        );
-        const page = savedPage ? parseInt(savedPage, 10) : 1;
-        fetchConversations(botIdFromUrl, page);
-      } catch (error) {
-        console.error("Error restaurando página guardada:", error);
-        fetchConversations(botIdFromUrl);
-      }
-    } else {
-      fetchConversations(botIdFromUrl);
-    }
+    // Intentar restaurar la página guardada para este bot desde conversationsPagination
+    const savedPagination = conversationsPagination[botIdFromUrl];
+    const page = savedPagination && savedPagination.currentPage ? savedPagination.currentPage : 1;
+    fetchConversations(botIdFromUrl, page);
   }, [searchParams, bots]);
 
   // Cargar cotizaciones para todos los bots visibles automáticamente
@@ -198,67 +175,6 @@ INSTRUCCIONES DE REPORTE:
 
     loadCotizaciones();
   }, [bots]);
-
-  // Mantener y restaurar la última conversación visitada usando localStorage
-  useEffect(() => {
-    const chatIdFromUrl = searchParams.get("chatId");
-
-    if (chatIdFromUrl) {
-      setLastChatId(chatIdFromUrl);
-
-      if (typeof window !== "undefined") {
-        try {
-          window.localStorage.setItem(
-            "conversaciones:lastChatId",
-            String(chatIdFromUrl),
-          );
-        } catch (error) {
-          console.error("Error guardando lastChatId en localStorage:", error);
-        }
-      }
-
-      return;
-    }
-
-    if (typeof window !== "undefined") {
-      try {
-        const storedChatId = window.localStorage.getItem(
-          "conversaciones:lastChatId",
-        );
-        if (storedChatId) {
-          setLastChatId(storedChatId);
-        }
-      } catch (error) {
-        console.error("Error leyendo lastChatId desde localStorage:", error);
-      }
-    }
-  }, [searchParams]);
-
-  // Restaurar búsqueda global al regresar desde un chat
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const savedQuery = window.localStorage.getItem(
-          "conversaciones:globalSearchQuery",
-        );
-        const savedResults = window.localStorage.getItem(
-          "conversaciones:globalSearchResults",
-        );
-
-        if (savedQuery && savedResults) {
-          setGlobalSearchQuery(savedQuery);
-          setGlobalSearchResults(JSON.parse(savedResults));
-          setIsGlobalSearchActive(true);
-
-          // Limpiar el localStorage después de restaurar
-          window.localStorage.removeItem("conversaciones:globalSearchQuery");
-          window.localStorage.removeItem("conversaciones:globalSearchResults");
-        }
-      } catch (error) {
-        console.error("Error restaurando búsqueda global:", error);
-      }
-    }
-  }, []);
 
   const syncBotData = async (sessionName) => {
     try {
@@ -334,11 +250,6 @@ INSTRUCCIONES DE REPORTE:
     try {
       setLoading(true);
       setLoadingSales(true);
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      // console.log("🔐 Sesión activa:", session?.user?.email);
 
       const [workersData, completedSales] = await Promise.all([
         getAllWorkers(),
@@ -494,435 +405,9 @@ INSTRUCCIONES DE REPORTE:
     router.push(`/conversaciones?${params.toString()}`);
   };
 
-  const KNOWN_SEDES = ["nova", "apolo", "flash"];
-  const KNOWN_LEADS = ["colombia", "venezuela"];
-  const KNOWN_LEADERS = ["moises", "jesus", "endry"];
-
-  const formatResponseTime = (minutes) => {
-    if (minutes === null || minutes === undefined || Number.isNaN(minutes))
-      return null;
-    if (minutes < 1) return `${Math.round(minutes * 60)}s`;
-    if (minutes < 60) return `${minutes.toFixed(1)} min`;
-    const hours = minutes / 60;
-    if (hours < 24) return `${hours.toFixed(1)} h`;
-    return `${(hours / 24).toFixed(1)} d`;
-  };
-
-  const capitalizeWord = (str) => {
-    if (!str) return "";
-    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-  };
-
-  const cleanText = (text = "") =>
-    text.replace(/\*\*/g, "").replace(/[_`]/g, "").replace(/\s+/g, " ").trim();
-
-  const generatePdfReport = (payload, advisorName) => {
-    if (!payload) return;
-
-    const doc = new jsPDF({ unit: "mm", format: "a4" });
-    const PW = doc.internal.pageSize.getWidth();
-    const PH = doc.internal.pageSize.getHeight();
-    const ML = 0, MR = 0;          // sin margen lateral en header
-    const IX = 16;                  // margen interior de contenido
-    const CW = PW - IX * 2;
-    let Y = 0;
-
-    /* ── PALETA EJECUTIVA ────────────────────────────────── */
-    const NAVY   = [15,  31,  72];   // azul marino oscuro
-    const BLUE   = [30,  80, 180];   // azul corporativo
-    const GOLD   = [180,140,  30];   // dorado acento
-    const GREEN  = [22, 163, 104];
-    const ORANGE = [234,130,  20];
-    const RED    = [210,  40,  40];
-    const G1     = [20,  20,  20];   // texto darkest
-    const G2     = [60,  60,  60];
-    const G3     = [110, 110, 110];
-    const G4     = [180, 180, 180];
-    const G5     = [238, 240, 244];  // fondo hilera par
-    const WHITE  = [255, 255, 255];
-
-    const scoreColor = s => s >= 8 ? GREEN : s >= 6 ? ORANGE : RED;
-    const scoreBg    = s => s >= 8 ? [230,248,240] : s >= 6 ? [255,243,215] : [254,226,226];
-
-    /* ── HELPERS ─────────────────────────────────────────── */
-    let pageNum = 1;
-
-    const drawPageFooter = () => {
-      doc.setFillColor(...G5);
-      doc.rect(0, PH - 9, PW, 9, "F");
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(6.5);
-      doc.setTextColor(...G3);
-      doc.text("CONFIDENCIAL · USO INTERNO · VIAJES NOVA", IX, PH - 3.5);
-      doc.setFont("helvetica", "bold");
-      doc.text(`Página ${pageNum}`, PW - IX, PH - 3.5, { align: "right" });
-    };
-
-    const newPage = () => {
-      drawPageFooter();
-      doc.addPage();
-      pageNum++;
-      Y = 14;
-    };
-
-    const need = space => { if (Y + space > PH - 14) newPage(); };
-    const hLine = (x1, x2, y, color = G4, lw = 0.2) => {
-      doc.setDrawColor(...color); doc.setLineWidth(lw);
-      doc.line(x1, y, x2, y);
-    };
-
-    /* ── DATOS ───────────────────────────────────────────── */
-    const narrative = payload.aiNarrative || {};
-    const audits    = narrative.audits || [];
-    const N         = audits.length;
-
-    if (N === 0) {
-      doc.setFont("helvetica", "normal"); doc.setFontSize(10);
-      doc.setTextColor(...G2);
-      doc.text("No se encontraron auditorías para las últimas 24 horas.", IX, 40);
-      drawPageFooter();
-      doc.save(`reporte_${advisorName || "asesor"}.pdf`);
-      return;
-    }
-
-    const KPI = {
-      contact_time:        "Tiempo de contacto",
-      response_time:       "Tiempo de respuesta",
-      product_knowledge:   "Conocimiento del producto",
-      customer_filtering:  "Filtrado del cliente",
-      quote_quality:       "Cotización (tiempo + calidad)",
-      options_presented:   "Opciones presentadas (+2)",
-      financing_offered:   "Financiamiento / métodos pago",
-      negotiation_closing: "Negociación y cierre",
-      objection_handling:  "Manejo de objeciones",
-      follow_up:           "Seguimiento + asesoría",
-    };
-    const KEYS = Object.keys(KPI);
-
-    let totalScore = 0, salesCount = 0;
-    const agg = {};  KEYS.forEach(k => agg[k] = 0);
-    audits.forEach(a => {
-      totalScore += a.score || 0;
-      if (a.sale_closed) salesCount++;
-      KEYS.forEach(k => { if ((a.kpis || {})[k]) agg[k]++; });
-    });
-    const avg = parseFloat((totalScore / N).toFixed(1));
-
-    /* ══════════════════════════════════════════════════════
-       PÁGINA 1 – PORTADA EJECUTIVA
-    ══════════════════════════════════════════════════════ */
-
-    /* --- Banda superior NAVY ----------------------------- */
-    doc.setFillColor(...NAVY);
-    doc.rect(0, 0, PW, 36, "F");
-
-    /* Logo / nombre empresa */
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(...WHITE);
-    doc.text("VIAJES NOVA", IX, 12);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.setTextColor(180, 200, 240);
-    doc.text("Agencia de Viajes", IX, 17);
-
-    /* Título del reporte */
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(...WHITE);
-    doc.text("REPORTE DE AUDITORÍA COMERCIAL", PW - IX, 13, { align: "right" });
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(180, 200, 240);
-    doc.text(`Período: Últimas 24 horas  ·  ${new Date().toLocaleDateString("es-ES", { day:"2-digit", month:"long", year:"numeric" })}`, PW - IX, 19, { align: "right" });
-
-    /* Línea dorada decorativa */
-    doc.setFillColor(...GOLD);
-    doc.rect(0, 36, PW, 1.5, "F");
-
-    /* --- Bloque asesor ----------------------------------- */
-    // Limpiar el session_name: quitar país, coordinador y sede
-    const STOP_WORDS = ["colombia", "venezuela", "endry", "moises", "jesus", "nova", "apolo", "flash"];
-    const cleanAdvisorName = (name = "") => {
-      return (name || "Asesor")
-        .split("_")
-        .filter(part => !STOP_WORDS.includes(part.toLowerCase()))
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(" ")
-        .trim() || "Asesor";
-    };
-    const displayName = cleanAdvisorName(advisorName);
-
-    Y = 46;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(...G3);
-    doc.text("ASESOR EVALUADO", IX, Y);
-    Y += 6;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.setTextColor(...G1);
-    doc.text(displayName, IX, Y);
-    Y += 5;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(...G1);  // más oscuro
-    doc.text(`${N} conversaciones auditadas  ·  Generado el ${new Date().toLocaleDateString("es-ES")}`, IX, Y);
-    Y += 10;
-    hLine(IX, PW - IX, Y, G4, 0.4);
-    Y += 9;
-
-    /* --- 4 KPIs de resumen ------------------------------ */
-    const BW = (CW - 9) / 4;
-    const KPI_BOXES = [
-      { label: "PROM. 24H",    value: String(avg),         sub: "/ 10 puntos",      color: scoreColor(avg), bg: scoreBg(avg) },
-      { label: `EVALUADAS`,    value: String(N),            sub: "conversaciones",   color: BLUE,            bg: [234,242,255] },
-      { label: "VENTAS",       value: String(salesCount),   sub: `de ${N} chats`,    color: GREEN,           bg: [230,248,240] },
-      { label: "SIN VENTA",    value: String(N-salesCount), sub: `de ${N} chats`,    color: RED,             bg: [254,226,226] },
-    ];
-    KPI_BOXES.forEach((b, i) => {
-      const bx = IX + i * (BW + 3);
-      // Fondo caja
-      doc.setFillColor(...b.bg);
-      doc.setDrawColor(...G4);
-      doc.roundedRect(bx, Y, BW, 24, 2, 2, "FD");
-      // Borde de color en la parte superior
-      doc.setFillColor(...b.color);
-      doc.roundedRect(bx, Y, BW, 2.5, 1, 1, "F");
-      // Label
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6);
-      doc.setTextColor(...b.color);
-      doc.text(b.label, bx + BW/2, Y + 7, { align:"center" });
-      // Valor
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(16);
-      doc.setTextColor(...b.color);
-      doc.text(b.value, bx + BW/2, Y + 16, { align:"center" });
-      // Sub
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(5.5);
-      doc.setTextColor(...G3);
-      doc.text(b.sub, bx + BW/2, Y + 21, { align:"center" });
-    });
-    Y += 33;
-
-    /* --- Tabla cumplimiento por criterio ---------------- */
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
-    doc.setTextColor(...G1);  // más oscuro
-    doc.text("CUMPLIMIENTO POR CRITERIO", IX, Y);
-    // Línea azul bajo el título
-    doc.setFillColor(...BLUE);
-    doc.rect(IX, Y + 1.5, 55, 0.8, "F");
-    Y += 7;
-
-    const R = 7; // row height
-    KEYS.forEach((key, idx) => {
-      const v = agg[key] || 0;
-      const pct = N > 0 ? Math.round(v / N * 100) : 0;
-      // Fondo alterno
-      if (idx % 2 === 0) { doc.setFillColor(...G5); doc.rect(IX, Y, CW, R, "F"); }
-      else                { doc.setFillColor(...WHITE); doc.rect(IX, Y, CW, R, "F"); }
-      // Nombre criterio
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(...G2);
-      doc.text(KPI[key], IX + 3, Y + R * 0.67);
-      // Barra de progreso
-      const barX = IX + CW * 0.55;
-      const barW = CW * 0.26;
-      doc.setFillColor(220, 225, 235);
-      doc.roundedRect(barX, Y + R*0.25, barW, R*0.5, 1, 1, "F");
-      const fill = pct >= 80 ? GREEN : pct >= 50 ? ORANGE : RED;
-      doc.setFillColor(...fill);
-      doc.roundedRect(barX, Y + R*0.25, Math.max(barW * pct / 100, 1), R*0.5, 1, 1, "F");
-      // Porcentaje
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.setTextColor(...fill);
-      doc.text(`${v}/${N} (${pct}%)`, IX + CW - 2, Y + R * 0.67, { align:"right" });
-      Y += R;
-    });
-
-    hLine(IX, IX + CW, Y, G4, 0.3);
-    Y += 8;
-
-    /* ══════════════════════════════════════════════════════
-       TARJETAS INDIVIDUALES — encabezado de sección en primera tarjeta
-    ══════════════════════════════════════════════════════ */
-    audits.forEach((audit, auditIdx) => {
-      const kpis  = audit.kpis || {};
-      const score = audit.score || 0;
-      const sc    = scoreColor(score);
-      const scBg  = scoreBg(score);
-
-      // Separar nombre y teléfono si Gemini los pone juntos
-      const rawClient = audit.client || "Sin nombre";
-      const slashIdx  = rawClient.indexOf("/");
-      const clientName  = slashIdx !== -1 ? rawClient.slice(0, slashIdx).trim() : rawClient;
-      const clientPhone = slashIdx !== -1 ? rawClient.slice(slashIdx + 1).trim() : "";
-
-      const rawAnal = (audit.analysis || "")
-        .replace(/ \| /g, " ")
-        .replace(/Errores:/gi,       "\nErrores:")
-        .replace(/Aciertos:/gi,      "\nAciertos:")
-        .replace(/Recomendación:/gi, "\nRecomendación:");
-      const analLines = doc.splitTextToSize(rawAnal, CW - 8);
-
-      const KPI_H  = 6.8;
-      const cardH  = 34 + KEYS.length * KPI_H + analLines.length * 3.9 + 10;
-      need(cardH + 8);
-
-      /* Sombra simulada (rect gris desplazado) */
-      doc.setFillColor(215, 220, 230);
-      doc.roundedRect(IX + 0.8, Y + 0.8, CW, cardH, 3, 3, "F");
-      /* Cuerpo tarjeta */
-      doc.setFillColor(...WHITE);
-      doc.setDrawColor(210, 218, 232);
-      doc.setLineWidth(0.3);
-      doc.roundedRect(IX, Y, CW, cardH, 3, 3, "FD");
-
-      /* Banda de color en borde izquierdo */
-      doc.setFillColor(...sc);
-      doc.rect(IX, Y + 3, 3, cardH - 6, "F");
-
-      let cy = Y + 7;
-
-      /* --- Cabecera de tarjeta --- */
-      /* Título de sección solo en la primera tarjeta */
-      if (auditIdx === 0) {
-        need(16);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8.5);
-        doc.setTextColor(...G1);
-        doc.text(`DETALLE DE EVALUACIONES (${N} CONVERSACIONES)`, IX, Y);
-        doc.setFillColor(...BLUE);
-        doc.rect(IX, Y + 1.5, 75, 0.8, "F");
-        Y += 8;
-        cy = Y + 7;
-      }
-      /* Número de evaluación */
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.5);
-      doc.setTextColor(...G1);
-      doc.text(`EVALUACIÓN #${auditIdx + 1}  ·  ${new Date().toLocaleDateString("es-ES")}  ·  ${displayName}`, IX + 6, cy);
-
-      /* Score en badge redondo — score + /10 DENTRO del rect */
-      const BADGE_W = 24;
-      const scoreX = IX + CW - BADGE_W - 2;
-      doc.setFillColor(...scBg);
-      doc.setDrawColor(...sc);
-      doc.setLineWidth(0.5);
-      doc.roundedRect(scoreX, cy - 5, BADGE_W, 10, 2, 2, "FD");
-      // Número grande, posición relativa al centro-izquierda del badge
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(13);
-      doc.setTextColor(...sc);
-      doc.text(String(score), scoreX + 6, cy + 2.5);
-      // "/10" pequeño justo a la derecha del número, DENTRO del badge
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(6.5);
-      doc.setTextColor(...sc);
-      doc.text("/10", scoreX + 14, cy + 2.5);
-
-      cy += 7;
-
-      /* Nombre del cliente */
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(...G1);
-      doc.text(clientName, IX + 6, cy);
-
-      /* Tipo de gestión (badge pequeño) */
-      if (audit.type) {
-        const typeLabel = (audit.type || "").toUpperCase();
-        const tw = doc.getTextWidth(typeLabel) + 4;
-        const nameW = doc.getTextWidth(clientName);
-        doc.setFillColor(...G5);
-        doc.setDrawColor(...G4);
-        doc.roundedRect(IX + 8 + nameW, cy - 4, tw, 5, 1.5, 1.5, "FD");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(5.5);
-        doc.setTextColor(...BLUE);
-        doc.text(typeLabel, IX + 10 + nameW, cy - 0.5);
-      }
-      cy += 4.5;
-
-      /* Teléfono + tags */
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      doc.setTextColor(...G3);
-      if (clientPhone) doc.text(clientPhone, IX + 6, cy);
-      cy += 4;
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      let tagX = IX + 6;
-      doc.setFillColor(230, 248, 240); doc.setDrawColor(...GREEN); doc.roundedRect(tagX - 1, cy - 4, 20, 5.5, 1.5, 1.5, "FD");
-      doc.setTextColor(...GREEN); doc.text("Respondió", tagX + 1, cy);
-      tagX += 23;
-      if (audit.sale_closed) {
-        doc.setFillColor(219, 234, 254); doc.setDrawColor(...BLUE); doc.roundedRect(tagX - 1, cy - 4, 16, 5.5, 1.5, 1.5, "FD");
-        doc.setTextColor(...BLUE); doc.text("Venta ✓", tagX + 1, cy);
-      }
-      cy += 8;
-
-      /* Línea divisora */
-      hLine(IX + 4, IX + CW - 4, cy, G4, 0.2);
-      cy += 1;
-
-      /* --- Checklist KPIs --- */
-      KEYS.forEach((key, ki) => {
-        const passed = kpis[key] === true;
-        cy += KPI_H;
-        /* Fondo alterno */
-        if (ki % 2 === 0) { doc.setFillColor(250, 251, 253); doc.rect(IX + 4, cy - KPI_H + 1, CW - 8, KPI_H, "F"); }
-        /* Icono */
-        if (passed) {
-          doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...GREEN);
-          doc.text("✓", IX + 7, cy - 1);
-        } else {
-          doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(200, 205, 215);
-          doc.text("✗", IX + 7, cy - 1);
-        }
-        /* Label */
-        doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...G2);
-        doc.text(KPI[key], IX + 13, cy - 1);
-        /* Indicador 1 / 0 */
-        doc.setFont("helvetica", "bold"); doc.setFontSize(7.5);
-        if (passed) { doc.setTextColor(...GREEN); doc.text("1", IX + CW - 7, cy - 1, { align:"right" }); }
-        else        { doc.setTextColor(...RED);   doc.text("0", IX + CW - 7, cy - 1, { align:"right" }); }
-        /* Línea sutil */
-        hLine(IX + 4, IX + CW - 4, cy + 1.5, G5, 0.15);
-      });
-      cy += 6;
-
-      /* --- Análisis ejecutivo --- */
-      hLine(IX + 4, IX + CW - 4, cy, G4, 0.25);
-      cy += 5;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      analLines.forEach(line => {
-        if      (line.startsWith("Errores:"))        doc.setTextColor(...RED);
-        else if (line.startsWith("Aciertos:"))       doc.setTextColor(...GREEN);
-        else if (line.startsWith("Recomendación:"))  doc.setTextColor(...BLUE);
-        else                                         doc.setTextColor(...G2);
-        doc.text(line, IX + 6, cy);
-        cy += 4;
-      });
-
-      Y = cy + 10;
-    });
-
-    drawPageFooter();
-    doc.save(`reporte_${advisorName || "asesor"}.pdf`);
-  };
-
   const handleGenerateReport = async () => {
     if (!selectedBotId) return;
-    if (!sessionToken) {
+    if (!session?.access_token) {
       setReportError(
         "No se pudo validar la sesión actual. Vuelve a iniciar sesión e inténtalo de nuevo.",
       );
@@ -935,7 +420,7 @@ INSTRUCCIONES DE REPORTE:
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionToken}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           botId: selectedBotId,
@@ -947,9 +432,9 @@ INSTRUCCIONES DE REPORTE:
         throw new Error(data.error || "No se pudo generar el reporte.");
       }
       setReportData(data);
-      console.log('[PDF-DEBUG] API response aiNarrative:', JSON.stringify(data.aiNarrative));
-      console.log('[PDF-DEBUG] _debug field:', JSON.stringify(data._debug));
-      console.log('[PDF-DEBUG] audits count:', data.aiNarrative?.audits?.length ?? 'UNDEFINED');
+      // console.log('[PDF-DEBUG] API response aiNarrative:', JSON.stringify(data.aiNarrative));
+      // console.log('[PDF-DEBUG] _debug field:', JSON.stringify(data._debug));
+      // console.log('[PDF-DEBUG] audits count:', data.aiNarrative?.audits?.length ?? 'UNDEFINED');
       generatePdfReport(data, selectedBot?.session_name);
     } catch (error) {
       console.error("Error generating report:", error);
@@ -965,287 +450,12 @@ INSTRUCCIONES DE REPORTE:
     setReportError(null);
   };
 
-  const parseBotSessionName = (sessionName) => {
-    if (!sessionName) {
-      return {
-        displayName: "Sin nombre",
-        sedeKey: null,
-        sedeLabel: null,
-        leadKey: null,
-        leadLabel: null,
-        leaderKey: null,
-        leaderLabel: null,
-      };
-    }
-
-    const tokens = String(sessionName)
-      .split("_")
-      .map((t) => t.trim())
-      .filter(Boolean);
-
-    const nameTokens = [];
-    let sedeKey = null;
-    let leadKey = null;
-    let leaderKey = null;
-
-    tokens.forEach((token) => {
-      const lower = token.toLowerCase();
-      if (!sedeKey && KNOWN_SEDES.includes(lower)) {
-        sedeKey = lower;
-        return;
-      }
-      if (!leadKey && KNOWN_LEADS.includes(lower)) {
-        leadKey = lower;
-        return;
-      }
-      if (!leaderKey && KNOWN_LEADERS.includes(lower)) {
-        leaderKey = lower;
-        return;
-      }
-      nameTokens.push(token);
-    });
-
-    const displayName =
-      nameTokens.length > 0
-        ? nameTokens
-            .map((t) =>
-              t
-                .split("-")
-                .map((part) => capitalizeWord(part))
-                .join(" "),
-            )
-            .join(" ")
-        : String(sessionName);
-
-    return {
-      displayName,
-      sedeKey,
-      sedeLabel: sedeKey ? capitalizeWord(sedeKey) : null,
-      leadKey,
-      leadLabel: leadKey ? capitalizeWord(leadKey) : null,
-      leaderKey,
-      leaderLabel: leaderKey ? capitalizeWord(leaderKey) : null,
-    };
-  };
-
-  // Función para filtrar bots según todos los criterios
-  const filterBots = (botsList) => {
-    return botsList.filter((bot) => {
-      const meta = parseBotSessionName(bot.session_name);
-
-      // Filtro de búsqueda global
-      if (searchFilter) {
-        const searchLower = searchFilter.toLowerCase();
-        const matchesSearch =
-          meta.displayName.toLowerCase().includes(searchLower) ||
-          bot.session_name?.toLowerCase().includes(searchLower) ||
-          bot.phone_number?.toLowerCase().includes(searchLower) ||
-          bot.id?.toString().includes(searchLower);
-
-        if (!matchesSearch) return false;
-      }
-
-      // Filtro de búsqueda de asesores en el panel lateral
-      if (botSearchQuery) {
-        const botSearchLower = botSearchQuery.toLowerCase();
-        const matchesBotSearch =
-          meta.displayName.toLowerCase().includes(botSearchLower) ||
-          bot.session_name?.toLowerCase().includes(botSearchLower) ||
-          bot.phone_number?.toLowerCase().includes(botSearchLower);
-
-        if (!matchesBotSearch) return false;
-      }
-
-      // Filtro de estado
-      if (statusFilter === "active") {
-        if (bot.status !== "working" && bot.status !== "active") return false;
-      } else if (statusFilter === "inactive") {
-        if (bot.status === "working" || bot.status === "active") return false;
-      }
-
-      // Filtro de líder
-      if (leaderFilter !== "all" && meta.leaderKey !== leaderFilter) {
-        return false;
-      }
-
-      // Filtro de lead
-      if (leadFilter !== "all" && meta.leadKey !== leadFilter) {
-        return false;
-      }
-
-      // Filtro de sede
-      if (sedeFilter !== "all" && meta.sedeKey !== sedeFilter) {
-        return false;
-      }
-
-      return true;
-    });
-  };
-
-  // Obtener todos los bots filtrados (sin importar si tienen worker o no)
-  const getAllFilteredBots = () => {
-    return filterBots(bots);
-  };
-
-  // Función para normalizar y formatear el estado del bot
-  const formatBotStatus = (status) => {
-    if (!status) return "Desconocido";
-    const statusLower = status.toLowerCase();
-
-    // Mapear estados comunes a versiones más amigables
-    if (
-      statusLower === "working" ||
-      statusLower === "active" ||
-      statusLower === "online"
-    ) {
-      return "Activo";
-    }
-    if (
-      statusLower === "disconnected" ||
-      statusLower === "inactive" ||
-      statusLower === "offline"
-    ) {
-      return "Inactivo";
-    }
-
-    // Si el estado viene en mayúsculas (como "WORKING"), mantenerlo
-    if (status === status.toUpperCase() && status.length > 1) {
-      return status;
-    }
-
-    // Capitalizar primera letra para otros estados
-    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-  };
-
-  // Función para determinar si un bot está activo
-  const isBotActive = (status) => {
-    if (!status) return false;
-    const statusLower = status.toLowerCase();
-    return statusLower === "working" || statusLower === "active";
-  };
-
-  // Contador de filtros activos
-  const activeFiltersCount = () => {
-    let count = 0;
-    if (searchFilter) count++;
-    if (statusFilter !== "all") count++;
-    if (leaderFilter !== "all") count++;
-    if (leadFilter !== "all") count++;
-    if (sedeFilter !== "all") count++;
-    return count;
-  };
-
-  const clearFilters = () => {
-    setSearchFilter("");
-    setStatusFilter("all");
-    setLeaderFilter("all");
-    setLeadFilter("all");
-    setSedeFilter("all");
-  };
-
-  const getActiveFilterPills = () => {
-    const pills = [];
-
-    if (searchFilter) {
-      const trimmed =
-        searchFilter.length > 20
-          ? `${searchFilter.slice(0, 20)}…`
-          : searchFilter;
-      pills.push({ key: "search", label: `Búsqueda: "${trimmed}"` });
-    }
-
-    if (statusFilter !== "all") {
-      let label = "Todos";
-      if (statusFilter === "active") label = "Activos";
-      if (statusFilter === "inactive") label = "Inactivos";
-      pills.push({ key: "status", label: `Estado: ${label}` });
-    }
-
-    if (leaderFilter !== "all") {
-      pills.push({
-        key: "leader",
-        label: `Líder: ${capitalizeWord(leaderFilter)}`,
-      });
-    }
-
-    if (leadFilter !== "all") {
-      pills.push({
-        key: "lead",
-        label: `Lead: ${capitalizeWord(leadFilter)}`,
-      });
-    }
-
-    if (sedeFilter !== "all") {
-      pills.push({
-        key: "sede",
-        label: `Sede: ${capitalizeWord(sedeFilter)}`,
-      });
-    }
-
-    return pills;
-  };
-
-  const getFilterPillClasses = (key) => {
-    switch (key) {
-      case "status":
-        return "bg-emerald-50 text-emerald-700 border border-emerald-200";
-      case "leader":
-        return "bg-sky-50 text-sky-700 border border-sky-200";
-      case "lead":
-        return "bg-amber-50 text-amber-700 border border-amber-200";
-      case "sede":
-        return "bg-indigo-50 text-indigo-700 border border-indigo-200";
-      case "search":
-      default:
-        return "bg-gray-50 text-gray-700 border border-gray-200";
-    }
-  };
-
-  const handleRemoveFilter = (key) => {
-    switch (key) {
-      case "search":
-        setSearchFilter("");
-        break;
-      case "status":
-        setStatusFilter("all");
-        break;
-      case "leader":
-        setLeaderFilter("all");
-        break;
-      case "lead":
-        setLeadFilter("all");
-        break;
-      case "sede":
-        setSedeFilter("all");
-        break;
-      default:
-        break;
-    }
-  };
-
   const handleConversationClick = (botId, chatId) => {
     const chatIdStr = String(chatId);
     setLastChatId(chatIdStr);
 
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem("conversaciones:lastChatId", chatIdStr);
-
-        // Guardar la página actual del paginador para este bot
-        const currentPagination = conversationsPagination[botId];
-        if (currentPagination && currentPagination.currentPage) {
-          window.localStorage.setItem(
-            `conversaciones:bot:${botId}:page`,
-            String(currentPagination.currentPage),
-          );
-        }
-      } catch (error) {
-        console.error(
-          "Error guardando en localStorage desde handleConversationClick:",
-          error,
-        );
-      }
-    }
+    // conversationsPagination ya está sincronizado con localStorage via useLocalStorage
+    // No necesitamos guardar manualmente
 
     router.push(`/conversaciones/chat/${chatId}?botId=${botId}`);
   };
@@ -1286,22 +496,8 @@ INSTRUCCIONES DE REPORTE:
     const chatIdStr = String(chat.id);
     const botIdStr = String(chat.bot_id);
 
-    // Guardar el estado de búsqueda en localStorage para restaurarlo después
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem(
-          "conversaciones:globalSearchQuery",
-          globalSearchQuery,
-        );
-        window.localStorage.setItem(
-          "conversaciones:globalSearchResults",
-          JSON.stringify(globalSearchResults),
-        );
-        window.localStorage.setItem("conversaciones:lastChatId", chatIdStr);
-      } catch (error) {
-        console.error("Error guardando búsqueda global:", error);
-      }
-    }
+    // Guardar la query de búsqueda
+    setLastSearchQuery(globalSearchQuery);
 
     // Navegar al chat con parámetro de búsqueda
     router.push(
@@ -1345,207 +541,28 @@ INSTRUCCIONES DE REPORTE:
     0,
   );
 
-  const activeFilterPills = getActiveFilterPills();
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Modal de Ventas */}
-      {salesModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900">
-                  Ventas Concretadas
-                </h3>
-                <p className="text-sm text-gray-500">
-                  Conversaciones con venta confirmada por IA
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseSalesModal}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between text-sm">
-              <span className="text-gray-600">
-                Total: <strong>{salesConversations.length}</strong> ventas
-                registradas
-              </span>
-              <span className="text-gray-500 flex items-center gap-1">
-                <ArrowUp className="h-4 w-4 text-green-500" />
-                Actualizado en tiempo real con IA
-              </span>
-            </div>
-
-            <div className="flex-1 overflow-y-auto">
-              {salesModalLoading ? (
-                <div className="flex flex-col items-center justify-center py-12 text-gray-500 gap-3">
-                  <RefreshCw className="h-6 w-6 animate-spin" />
-                  Cargando ventas...
-                </div>
-              ) : salesModalError ? (
-                <div className="px-6 py-8 text-center text-red-600">
-                  {salesModalError}
-                </div>
-              ) : salesConversations.length === 0 ? (
-                <div className="px-6 py-12 text-center text-gray-500">
-                  No se encontraron ventas concretadas todavía.
-                </div>
-              ) : (
-                <ul className="divide-y divide-gray-100">
-                  {salesConversations.map((sale) => (
-                    <li
-                      key={sale.id}
-                      className="px-6 py-4 flex items-center justify-between gap-4"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-gray-900 truncate">
-                          {sale.displayName} · {sale.displayPhone}
-                        </p>
-                        <p className="text-xs text-gray-500 flex items-center gap-3">
-                          <span>Asesor: {sale.advisorName}</span>
-                          <span className="text-gray-300">•</span>
-                          <span>{sale.formattedDate}</span>
-                        </p>
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleCloseSalesModal();
-                            router.push(
-                              `/conversaciones/chat/${sale.id}?botId=${sale.bot?.id || sale.bot_id}`,
-                            );
-                          }}
-                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-xs font-semibold hover:bg-green-100"
-                        >
-                          Ver conversación
-                          <ArrowRight className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
-              <p className="text-xs text-gray-500">
-                Mostrando las conversaciones donde la IA marcó{" "}
-                <strong>sale_completed = true</strong>
-              </p>
-              <button
-                type="button"
-                onClick={handleCloseSalesModal}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SalesModal
+        isOpen={salesModalOpen}
+        onClose={handleCloseSalesModal}
+        conversations={salesConversations}
+        loading={salesModalLoading}
+        error={salesModalError}
+      />
 
       {/* Modal de Sincronización */}
-      {syncProgress && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900">
-                  Sincronización Completa
-                </h3>
-                <p className="text-sm text-gray-500">
-                  Conectando con Express y WAHA
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseSyncModal}
-                className={`text-gray-400 hover:text-gray-600 ${syncingAll ? "pointer-events-none opacity-50" : ""}`}
-                disabled={syncingAll}
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="px-6 py-4">
-              <p className="text-sm font-medium text-gray-700 mb-2">
-                {syncProgress.status}
-              </p>
-              <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-indigo-600 transition-all duration-300"
-                  style={{ width: `${Math.min(syncProgress.percent, 100)}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-6 pb-4">
-              <div className="bg-gray-50 rounded-lg border border-gray-100 p-4 text-sm max-h-64 overflow-y-auto">
-                {syncLogs.length === 0 ? (
-                  <p className="text-gray-500 text-center">
-                    Esperando actualizaciones...
-                  </p>
-                ) : (
-                  <ul className="space-y-2">
-                    {syncLogs.map((log, index) => (
-                      <li
-                        key={`${log.time}-${index}`}
-                        className="flex items-start gap-2"
-                      >
-                        <span className="text-[11px] text-gray-400">
-                          {log.time}
-                        </span>
-                        <span
-                          className={`text-sm ${log.type === "error" ? "text-red-600" : "text-gray-700"}`}
-                        >
-                          {log.message}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
-              <p className="text-xs text-gray-500">
-                La sincronización puede tardar varios minutos dependiendo de la
-                cantidad de bots.
-              </p>
-              <button
-                type="button"
-                onClick={handleCloseSyncModal}
-                disabled={syncingAll}
-                className={`px-4 py-2 rounded-lg border text-sm transition ${
-                  syncingAll
-                    ? "border-gray-300 text-gray-400"
-                    : "border-gray-300 text-gray-700 hover:bg-gray-100"
-                }`}
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SyncModal
+        syncProgress={syncProgress}
+        syncLogs={syncLogs}
+        syncing={syncingAll}
+        onClose={handleCloseSyncModal}
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-end gap-2 mb-4">
-          <button
-            onClick={() => router.push("/conversaciones/ai-insights")}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-          >
-            <Brain className="h-4 w-4" />
-            AI Insights
-          </button>
           <button
             type="button"
             onClick={() => setCompactMode((prev) => !prev)}
@@ -1600,9 +617,9 @@ INSTRUCCIONES DE REPORTE:
                     <dd className="text-3xl font-semibold text-gray-900" translate="no">
                       {bots.length}
                     </dd>
-                    {activeFiltersCount() > 0 && (
+                    {activeFiltersCount > 0 && (
                       <dd className="text-xs text-indigo-600 mt-1">
-                        {getAllFilteredBots().length} mostrados
+                        {filteredBots.length} mostrados
                       </dd>
                     )}
                   </dl>
@@ -1662,19 +679,19 @@ INSTRUCCIONES DE REPORTE:
             <div className="flex items-center gap-2">
               <Filter className="h-5 w-5 text-gray-600" />
               <h2 className="text-xl font-semibold text-gray-900">Filtros</h2>
-              {activeFiltersCount() > 0 && (
+              {activeFiltersCount > 0 && (
                 <span className="hidden md:inline text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
-                  {activeFiltersCount()} filtro
-                  {activeFiltersCount() > 1 ? "s" : ""} activo
-                  {activeFiltersCount() > 1 ? "s" : ""}
+                  {activeFiltersCount} filtro
+                  {activeFiltersCount > 1 ? "s" : ""} activo
+                  {activeFiltersCount > 1 ? "s" : ""}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2">
-              {activeFiltersCount() > 0 && !showFilters && (
+              {activeFiltersCount > 0 && !showFilters && (
                 <div className="flex items-center gap-2 text-[11px] sm:text-xs text-gray-600">
                   <span className="truncate max-w-[140px] sm:max-w-xs">
-                    {getAllFilteredBots().length} de {bots.length} asesores
+                    {filteredBots.length} de {bots.length} asesores
                   </span>
                   <button
                     type="button"
@@ -1802,14 +819,14 @@ INSTRUCCIONES DE REPORTE:
 
             {/* Botón para limpiar filtros y contador */}
             <div className="mt-4 flex items-center justify-between">
-              {activeFiltersCount() > 0 && (
+              {activeFiltersCount > 0 && (
                 <div className="flex items-center gap-4">
                   <span className="text-sm text-gray-600">
-                    {getAllFilteredBots().length} de {bots.length} asesores
-                    {activeFiltersCount() > 0 &&
-                      ` (${activeFiltersCount()} filtro${
-                        activeFiltersCount() > 1 ? "s" : ""
-                      } activo${activeFiltersCount() > 1 ? "s" : ""})`}
+                    {filteredBots.length} de {bots.length} asesores
+                    {activeFiltersCount > 0 &&
+                      ` (${activeFiltersCount} filtro${
+                        activeFiltersCount > 1 ? "s" : ""
+                      } activo${activeFiltersCount > 1 ? "s" : ""})`}
                   </span>
                   <button
                     onClick={clearFilters}
@@ -1837,9 +854,9 @@ INSTRUCCIONES DE REPORTE:
                     Selecciona un asesor para ver sus conversaciones.
                   </p>
                 </div>
-                {getAllFilteredBots().length > 0 && (
+                {filteredBots.length > 0 && (
                   <span className="text-xs text-gray-500">
-                    {getAllFilteredBots().length} de {bots.length} visibles
+                    {filteredBots.length} de {bots.length} visibles
                   </span>
                 )}
               </div>
@@ -1865,7 +882,7 @@ INSTRUCCIONES DE REPORTE:
               </div>
             </div>
 
-            {getAllFilteredBots().length === 0 ? (
+            {filteredBots.length === 0 ? (
               <div className="flex-1 px-6 py-12 text-center flex flex-col items-center justify-center">
                 <Bot className="mx-auto h-10 w-10 text-gray-300" />
                 <h3 className="mt-3 text-sm font-medium text-gray-900">
@@ -1877,9 +894,9 @@ INSTRUCCIONES DE REPORTE:
               </div>
             ) : (
               <div className="flex-1 max-h-[50vh] lg:max-h-[650px] overflow-y-auto divide-y divide-gray-100">
-                {getAllFilteredBots().map((bot) => {
-                  const botIsActive = isBotActive(bot.status);
-                  const formattedStatus = formatBotStatus(bot.status);
+                {filteredBots.map((bot) => {
+                  const botIsActive = isBotActive(bot);
+                  const formattedStatus = formatBotStatus(bot);
                   const isSelected = String(bot.id) === String(selectedBotId);
                   const meta = parseBotSessionName(bot.session_name);
 
@@ -1916,7 +933,7 @@ INSTRUCCIONES DE REPORTE:
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-gray-900 truncate" translate="no">
-                            {meta.displayName}
+                            {meta.fullName}
                           </p>
                           <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-gray-500">
                             <span
@@ -1954,25 +971,7 @@ INSTRUCCIONES DE REPORTE:
                           </div>
                         </div>
                       </div>
-                      {/* Comentado: Contadores de conversaciones y cotizaciones para simplificar la UI
-                      <div className="flex flex-col items-end flex-shrink-0 gap-1">
-                        <span className="text-sm font-semibold text-gray-900">
-                          <span translate="no">{bot.conversation_count || 0}</span>
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          <span>Conversaciones</span>
-                        </span>
-                        {botCotizaciones[bot.id] > 0 && (
-                          <span
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-[10px] font-medium border border-green-200 cursor-help"
-                            title={`${botCotizaciones[bot.id]} cotización(es) enviadas`}
-                          >
-                            <FileText className="h-3 w-3" />
-                            {botCotizaciones[bot.id]}
-                          </span>
-                        )}
-                      </div>
-                      */}
+                      {/* Comentado: Contadores extraídos a ConversacionesStats.jsx para uso futuro */}
                     </button>
                   );
                 })}
@@ -1990,7 +989,7 @@ INSTRUCCIONES DE REPORTE:
                     <div>
                       <h2 className="text-lg font-semibold text-gray-900">
                         <span>Conversaciones de </span>
-                        <span translate="no">{meta.displayName}</span>
+                        <span translate="no">{meta.fullName}</span>
                       </h2>
                       <p className="text-xs text-gray-500 mt-1">
                         {selectedBotPagination.total > 0 ? (
@@ -2046,7 +1045,7 @@ INSTRUCCIONES DE REPORTE:
                 <div className="flex flex-col items-end gap-3">
                   <div className="flex flex-col items-end text-xs text-gray-500">
                     <span>Estado: </span>
-                    <span translate="no">{formatBotStatus(selectedBot.status)}</span>
+                    <span translate="no">{formatBotStatus(selectedBot)}</span>
                     {selectedBot.phone_number && (
                       <span className="flex items-center gap-1 mt-1">
                         <Phone className="h-3 w-3" />
@@ -2295,56 +1294,7 @@ INSTRUCCIONES DE REPORTE:
                               </div>
                             )}
 
-                          {/* Comentado: Contadores de métricas y mensajes para simplificar la UI
-                          {conv.conversation_metrics?.response && (
-                            <div
-                              className="flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200"
-                              title="Tiempo promedio de respuesta del asesor"
-                            >
-                              <Clock3 className="h-3 w-3 text-indigo-500" />
-                              <span>
-                                {formatResponseTime(
-                                  conv.conversation_metrics.response
-                                    .averageMinutes,
-                                )}{" "}
-                                avg
-                              </span>
-                            </div>
-                          )}
-
-                          {conv.conversation_metrics?.paymentMentions && (
-                            <div
-                              className="flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200"
-                              title="La conversación menciona pagos o métodos de pago"
-                            >
-                              <CreditCard className="h-3 w-3" />
-                              <span>
-                                {
-                                  conv.conversation_metrics.paymentMentions
-                                    .count
-                                }{" "}
-                                mención(es)
-                              </span>
-                            </div>
-                          )}
-
-                          {conv.conversation_metrics?.cotizacionMentions && (
-                            <div
-                              className="flex items-center gap-1 text-[11px] font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200 cursor-help"
-                              title={`Cotizaciones enviadas: ${conv.conversation_metrics.cotizacionMentions.files.join(', ')}`}
-                            >
-                              <FileText className="h-3 w-3" />
-                              <span>
-                                {conv.conversation_metrics.cotizacionMentions.count}{" "}
-                                cotización(es)
-                              </span>
-                            </div>
-                          )}
-
-                          <span className="text-sm font-semibold text-gray-900">
-                            {conv.message_count || 0} mensajes
-                          </span>
-                          */}
+                          {/* Comentado: Métricas extraídas a ConversacionesMetrics.jsx para uso futuro */}
                           {conv.last_message_time && (
                             <span className="mt-0.5">
                               {new Date(
@@ -2428,224 +1378,17 @@ INSTRUCCIONES DE REPORTE:
         </div>
       </main>
 
-      {reportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={closeReportModal}
-          ></div>
-          <div className="relative z-10 w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh]">
-            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-slate-500 font-semibold">
-                  Reporte IA
-                </p>
-                <h3 className="text-2xl font-semibold text-slate-900">
-                  Generar reporte del asesor
-                </h3>
-                <p className="text-sm text-slate-500 mt-1">
-                  Analizaremos todas las conversaciones recientes para
-                  identificar aciertos, riesgos y oportunidades.
-                </p>
-              </div>
-              <button
-                onClick={closeReportModal}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
-                disabled={reportLoading}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 mb-2">
-                  <Edit3 className="h-4 w-4 text-purple-600" />
-                  Prompt para IA
-                </div>
-                <textarea
-                  value={reportPrompt}
-                  onChange={(e) => setReportPrompt(e.target.value)}
-                  className="w-full min-h-[140px] rounded-2xl border border-slate-200 bg-white p-3 text-sm text-slate-800 focus:ring-4 focus:ring-purple-100 focus:border-purple-300"
-                />
-                <p className="mt-2 text-xs text-slate-500">
-                  Puedes personalizar el enfoque del reporte agregando
-                  instrucciones específicas (productos, campañas, etc.).
-                </p>
-              </div>
-
-              {reportError && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {reportError}
-                </div>
-              )}
-
-              {reportData && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="rounded-2xl border border-slate-100 p-4 bg-white shadow-sm">
-                      <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">
-                        Conversaciones
-                      </p>
-                      <p className="mt-2 text-2xl font-bold text-slate-900">
-                        {reportData.summary?.totalChats ?? "—"}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-100 p-4 bg-white shadow-sm">
-                      <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">
-                        Ventas logradas
-                      </p>
-                      <p className="mt-2 text-2xl font-bold text-emerald-700">
-                        {reportData.summary?.salesCompleted ?? 0}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-100 p-4 bg-white shadow-sm">
-                      <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">
-                        Promedio respuesta
-                      </p>
-                      <p className="mt-2 text-2xl font-bold text-indigo-700">
-                        {reportData.summary?.averageResponseMinutes
-                          ? `${reportData.summary.averageResponseMinutes} min`
-                          : "N/D"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="rounded-2xl border border-purple-100 bg-purple-50/40 p-4">
-                      <h4 className="text-sm font-semibold text-purple-800 mb-2 uppercase tracking-[0.2em]">
-                        Momentos destacados
-                      </h4>
-                      <div className="space-y-3 text-sm text-slate-700">
-                        {reportData.evidence?.highlightedWins?.length ? (
-                          reportData.evidence.highlightedWins.map(
-                            (item, idx) => (
-                              <div
-                                key={`win-${idx}`}
-                                className="rounded-xl border border-white/70 bg-white px-3 py-2 shadow-sm"
-                              >
-                                <p className="font-semibold text-slate-900">
-                                  {item.contact} · {item.responseMinutes} min
-                                </p>
-                                <p className="text-xs text-slate-500">
-                                  Cliente: {item.clientSnippet}
-                                </p>
-                                <p className="text-xs text-slate-500">
-                                  Asesor: {item.advisorSnippet}
-                                </p>
-                              </div>
-                            ),
-                          )
-                        ) : (
-                          <p className="text-xs text-slate-500">
-                            Aún no hay registros.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="rounded-2xl border border-amber-100 bg-amber-50/40 p-4">
-                      <h4 className="text-sm font-semibold text-amber-800 mb-2 uppercase tracking-[0.2em]">
-                        Respuestas tardías
-                      </h4>
-                      <div className="space-y-3 text-sm text-slate-700">
-                        {reportData.evidence?.lateResponses?.length ? (
-                          reportData.evidence.lateResponses.map((item, idx) => (
-                            <div
-                              key={`late-${idx}`}
-                              className="rounded-xl border border-amber-100 bg-white px-3 py-2 shadow-sm"
-                            >
-                              <p className="font-semibold text-slate-900">
-                                {item.contact} · {item.responseMinutes} min
-                              </p>
-                              <p className="text-xs text-slate-500">
-                                Cliente: {item.clientSnippet}
-                              </p>
-                              <p className="text-xs text-slate-500">
-                                Asesor: {item.advisorSnippet}
-                              </p>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-xs text-slate-500">
-                            Sin demoras relevantes.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                    <h4 className="text-sm font-semibold text-slate-800 mb-2 uppercase tracking-[0.2em]">
-                      Motivos de mejora detectados
-                    </h4>
-                    <div className="space-y-2 text-sm text-slate-700">
-                      {reportData.evidence?.improvementReasons?.length ? (
-                        reportData.evidence.improvementReasons.map(
-                          (item, idx) => (
-                            <p key={`improve-${idx}`}>
-                              <span className="font-semibold text-slate-900">
-                                {item.contact}:
-                              </span>{" "}
-                              {item.reason}
-                            </p>
-                          ),
-                        )
-                      ) : (
-                        <p className="text-xs text-slate-500">
-                          Sin observaciones registradas.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-xs text-slate-500">
-                El reporte se descargará en PDF automáticamente al generarse.
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={closeReportModal}
-                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
-                  disabled={reportLoading}
-                >
-                  Cancelar
-                </button>
-                {reportData && (
-                  <button
-                    onClick={() =>
-                      generatePdfReport(reportData, selectedBot?.session_name)
-                    }
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50"
-                  >
-                    <Download className="h-4 w-4" />
-                    Descargar PDF
-                  </button>
-                )}
-                <button
-                  onClick={handleGenerateReport}
-                  disabled={reportLoading}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-60"
-                >
-                  {reportLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Generando...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4" />
-                      Generar PDF
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ReportModal
+        isOpen={reportModalOpen}
+        onClose={closeReportModal}
+        prompt={reportPrompt}
+        onPromptChange={setReportPrompt}
+        loading={reportLoading}
+        reportData={reportData}
+        error={reportError}
+        onGenerate={handleGenerateReport}
+        onDownload={() => generatePdfReport(reportData, selectedBot?.session_name)}
+      />
     </div>
   );
 }

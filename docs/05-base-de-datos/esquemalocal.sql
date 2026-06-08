@@ -1,55 +1,6 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
-CREATE TABLE public.agencias (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  nombre character varying NOT NULL UNIQUE,
-  codigo character varying NOT NULL UNIQUE,
-  descripcion text,
-  logo_url text,
-  color_primario character varying DEFAULT '#6366f1'::character varying,
-  is_active boolean DEFAULT true,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT agencias_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.anulables (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  vuelo_id uuid,
-  pax_nombre text NOT NULL,
-  contacto_nombre text,
-  contacto_telefono text,
-  fecha_vuelo date,
-  ruta text,
-  localizador text,
-  estado_anulacion text DEFAULT 'PENDIENTE'::text CHECK (estado_anulacion = ANY (ARRAY['PENDIENTE'::text, 'ANULADO'::text, 'NO_ANULADO'::text])),
-  fecha_limite date,
-  fecha_anulacion date,
-  monto_recuperado numeric,
-  motivo_anulacion text,
-  observaciones text,
-  asignado_a uuid,
-  CONSTRAINT anulables_pkey PRIMARY KEY (id),
-  CONSTRAINT anulables_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id)
-);
-CREATE TABLE public.auditoria_cambios_estado (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  entidad_tipo character varying NOT NULL,
-  entidad_id uuid NOT NULL,
-  campo_cambiado character varying NOT NULL,
-  valor_anterior character varying,
-  valor_nuevo character varying NOT NULL,
-  usuario_id uuid,
-  usuario_nombre character varying,
-  razon_cambio text,
-  ip_address inet,
-  fecha_cambio timestamp with time zone DEFAULT now(),
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT auditoria_cambios_estado_pkey PRIMARY KEY (id),
-  CONSTRAINT auditoria_cambios_estado_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.profiles(id)
-);
 CREATE TABLE public.bookings (
   loc text NOT NULL,
   fecha_registro_venta timestamp with time zone,
@@ -84,20 +35,6 @@ CREATE TABLE public.bookings (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT bookings_pkey PRIMARY KEY (loc)
 );
-CREATE TABLE public.bot_stats (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  bot_id uuid,
-  date date DEFAULT CURRENT_DATE,
-  messages_sent integer DEFAULT 0,
-  messages_received integer DEFAULT 0,
-  media_sent integer DEFAULT 0,
-  media_received integer DEFAULT 0,
-  errors_count integer DEFAULT 0,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT bot_stats_pkey PRIMARY KEY (id),
-  CONSTRAINT bot_stats_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id)
-);
 CREATE TABLE public.bots (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
@@ -113,6 +50,36 @@ CREATE TABLE public.bots (
   worker_id uuid,
   CONSTRAINT bots_pkey PRIMARY KEY (id),
   CONSTRAINT bots_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id)
+);
+CREATE TABLE public.messages (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  bot_id uuid,
+  message_id text NOT NULL,
+  from_number text NOT NULL,
+  to_number text NOT NULL,
+  content text,
+  media_url text,
+  message_type text NOT NULL,
+  status text,
+  timestamp timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  chat_id uuid,
+  contact_id uuid,
+  body text,
+  type text DEFAULT 'text'::text,
+  from_me boolean DEFAULT false,
+  ack integer DEFAULT 0,
+  has_media boolean DEFAULT false,
+  media_mimetype text,
+  caption text,
+  quoted_message_id text,
+  is_forwarded boolean DEFAULT false,
+  broadcast boolean DEFAULT false,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  CONSTRAINT messages_pkey PRIMARY KEY (id),
+  CONSTRAINT messages_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id),
+  CONSTRAINT messages_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id),
+  CONSTRAINT messages_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(id)
 );
 CREATE TABLE public.chats (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -138,23 +105,19 @@ CREATE TABLE public.chats (
   CONSTRAINT chats_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id),
   CONSTRAINT chats_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(id)
 );
-CREATE TABLE public.contact_notes (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  contact_id uuid,
-  note text NOT NULL,
-  created_by text,
+CREATE TABLE public.bot_stats (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  bot_id uuid,
+  date date DEFAULT CURRENT_DATE,
+  messages_sent integer DEFAULT 0,
+  messages_received integer DEFAULT 0,
+  media_sent integer DEFAULT 0,
+  media_received integer DEFAULT 0,
+  errors_count integer DEFAULT 0,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT contact_notes_pkey PRIMARY KEY (id),
-  CONSTRAINT contact_notes_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(id)
-);
-CREATE TABLE public.contact_tags (
-  contact_id uuid NOT NULL,
-  tag_id uuid NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT contact_tags_pkey PRIMARY KEY (contact_id, tag_id),
-  CONSTRAINT contact_tags_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(id),
-  CONSTRAINT contact_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES public.tags(id)
+  CONSTRAINT bot_stats_pkey PRIMARY KEY (id),
+  CONSTRAINT bot_stats_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id)
 );
 CREATE TABLE public.contacts (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -170,6 +133,100 @@ CREATE TABLE public.contacts (
   metadata jsonb DEFAULT '{}'::jsonb,
   CONSTRAINT contacts_pkey PRIMARY KEY (id),
   CONSTRAINT contacts_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id)
+);
+CREATE TABLE public.media_files (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  bot_id uuid,
+  message_id uuid,
+  file_url text NOT NULL,
+  file_name text,
+  mimetype text,
+  file_size bigint,
+  thumbnail_url text,
+  created_at timestamp with time zone DEFAULT now(),
+  metadata jsonb DEFAULT '{}'::jsonb,
+  CONSTRAINT media_files_pkey PRIMARY KEY (id),
+  CONSTRAINT media_files_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id),
+  CONSTRAINT media_files_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.messages(id)
+);
+CREATE TABLE public.webhook_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  bot_id uuid,
+  event_type text NOT NULL,
+  event_data jsonb NOT NULL,
+  processed boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  processed_at timestamp with time zone,
+  CONSTRAINT webhook_events_pkey PRIMARY KEY (id),
+  CONSTRAINT webhook_events_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id)
+);
+CREATE TABLE public.tags (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  bot_id uuid,
+  name text NOT NULL,
+  color text DEFAULT '#3B82F6'::text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT tags_pkey PRIMARY KEY (id),
+  CONSTRAINT tags_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id)
+);
+CREATE TABLE public.contact_tags (
+  contact_id uuid NOT NULL,
+  tag_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT contact_tags_pkey PRIMARY KEY (contact_id, tag_id),
+  CONSTRAINT contact_tags_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(id),
+  CONSTRAINT contact_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES public.tags(id)
+);
+CREATE TABLE public.contact_notes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  contact_id uuid,
+  note text NOT NULL,
+  created_by text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT contact_notes_pkey PRIMARY KEY (id),
+  CONSTRAINT contact_notes_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(id)
+);
+CREATE TABLE public.workers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL,
+  email character varying NOT NULL UNIQUE,
+  phone_number character varying,
+  role character varying DEFAULT 'agent'::character varying,
+  status character varying DEFAULT 'active'::character varying,
+  avatar_url text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  last_active timestamp with time zone,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  CONSTRAINT workers_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.roles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL UNIQUE,
+  description text,
+  permissions jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  ranking integer DEFAULT 0,
+  CONSTRAINT roles_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.profiles (
+  id uuid NOT NULL,
+  email character varying NOT NULL UNIQUE,
+  full_name character varying,
+  role_id uuid,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  equipo_id uuid,
+  avatar_url text,
+  sede_id uuid,
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
+  CONSTRAINT profiles_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id),
+  CONSTRAINT profiles_equipo_id_fkey FOREIGN KEY (equipo_id) REFERENCES public.equipos(id),
+  CONSTRAINT profiles_sede_id_fkey FOREIGN KEY (sede_id) REFERENCES public.sedes(id)
 );
 CREATE TABLE public.conversation_evaluations (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -226,245 +283,6 @@ CREATE TABLE public.conversation_evaluations (
   CONSTRAINT conversation_evaluations_evaluated_by_fkey FOREIGN KEY (evaluated_by_user_id) REFERENCES public.profiles(id),
   CONSTRAINT conversation_evaluations_performance_analysis_id_fkey FOREIGN KEY (performance_analysis_id) REFERENCES public.performance_analyses(id)
 );
-CREATE TABLE public.conversation_metrics (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  chat_id uuid NOT NULL UNIQUE,
-  total_messages integer NOT NULL DEFAULT 0,
-  incoming_messages integer NOT NULL DEFAULT 0,
-  outgoing_messages integer NOT NULL DEFAULT 0,
-  avg_response_time_minutes numeric,
-  max_response_time_minutes numeric,
-  response_samples integer DEFAULT 0,
-  payment_mentions_count integer DEFAULT 0,
-  payment_first_mention_at timestamp with time zone,
-  payment_last_mention_at timestamp with time zone,
-  payment_last_from_me boolean,
-  cotizacion_mentions_count integer DEFAULT 0,
-  cotizacion_files jsonb DEFAULT '[]'::jsonb,
-  last_calculated_at timestamp with time zone DEFAULT now(),
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT conversation_metrics_pkey PRIMARY KEY (id),
-  CONSTRAINT conversation_metrics_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id)
-);
-CREATE TABLE public.cotizaciones (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  created_by uuid NOT NULL,
-  nombre_cliente text NOT NULL,
-  estado text NOT NULL DEFAULT 'PENDIENTE'::text CHECK (estado = ANY (ARRAY['PENDIENTE'::text, 'EN_REVISION'::text, 'APROBADA'::text, 'RECHAZADA'::text])),
-  razon_rechazo text,
-  tipo_vuelo text NOT NULL CHECK (tipo_vuelo = ANY (ARRAY['solo_ida'::text, 'ida_vuelta'::text, 'migratorio'::text])),
-  origen text NOT NULL,
-  destino text NOT NULL,
-  aerolinea text,
-  fecha_salida date NOT NULL,
-  hora_salida time without time zone,
-  hora_llegada time without time zone,
-  tiene_escala boolean DEFAULT false,
-  escala_1_ciudad text,
-  escala_1_duracion text,
-  tiene_segunda_escala boolean DEFAULT false,
-  escala_2_ciudad text,
-  escala_2_duracion text,
-  precio_base numeric,
-  fee_emision numeric,
-  fee_agencia numeric,
-  total_cotizacion numeric,
-  moneda_precio text NOT NULL,
-  moneda_cotizacion text NOT NULL,
-  precio_final_cotizacion numeric NOT NULL,
-  tasa_cambio numeric,
-  metodo_pago text,
-  reserva_id uuid,
-  aereolinea_codigo text,
-  deleted_at timestamp with time zone,
-  deleted_by uuid,
-  fecha_regreso date,
-  hora_salida_regreso time without time zone,
-  hora_llegada_regreso time without time zone,
-  CONSTRAINT cotizaciones_pkey PRIMARY KEY (id),
-  CONSTRAINT cotizaciones_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES auth.users(id),
-  CONSTRAINT cotizaciones_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
-);
-CREATE TABLE public.cotizaciones_historial (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  cotizacion_id uuid NOT NULL,
-  estado_anterior text,
-  estado_nuevo text NOT NULL,
-  changed_by uuid NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
-  razon text,
-  CONSTRAINT cotizaciones_historial_pkey PRIMARY KEY (id),
-  CONSTRAINT cotizaciones_historial_cotizacion_id_fkey FOREIGN KEY (cotizacion_id) REFERENCES public.cotizaciones(id),
-  CONSTRAINT cotizaciones_historial_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES auth.users(id)
-);
-CREATE TABLE public.cotizaciones_pasajeros (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  cotizacion_id uuid NOT NULL,
-  tipo text NOT NULL CHECK (tipo = ANY (ARRAY['ADULTO'::text, 'NINO'::text, 'INFANTE'::text])),
-  orden integer NOT NULL,
-  precio_pantalla numeric NOT NULL CHECK (precio_pantalla >= 0::numeric),
-  fee_emision numeric DEFAULT 0 CHECK (fee_emision >= 0::numeric),
-  fee_agencia numeric DEFAULT 0 CHECK (fee_agencia >= 0::numeric),
-  equipaje_completo boolean DEFAULT false,
-  equipaje_mediano boolean DEFAULT false,
-  equipaje_ligero boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
-  deleted_at timestamp with time zone,
-  deleted_by uuid,
-  CONSTRAINT cotizaciones_pasajeros_pkey PRIMARY KEY (id),
-  CONSTRAINT cotizaciones_pasajeros_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES auth.users(id),
-  CONSTRAINT cotizaciones_pasajeros_cotizacion_id_fkey FOREIGN KEY (cotizacion_id) REFERENCES public.cotizaciones(id)
-);
-CREATE TABLE public.daily_sales_reports (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  asesor_id uuid NOT NULL,
-  worker_id uuid,
-  report_date date NOT NULL,
-  ventas_confirmadas integer DEFAULT 0 CHECK (ventas_confirmadas >= 0),
-  leads_calientes integer DEFAULT 0,
-  cotizaciones_enviadas integer DEFAULT 0,
-  conversaciones_analizadas integer DEFAULT 0,
-  valor_total_ventas numeric DEFAULT 0.00,
-  tasa_conversion numeric DEFAULT 0.00 CHECK (tasa_conversion >= 0::numeric AND tasa_conversion <= 100::numeric),
-  valor_promedio_venta numeric DEFAULT 0.00,
-  score_promedio_ventas numeric DEFAULT 0.00,
-  nivel_rendimiento character varying DEFAULT 'REGULAR'::character varying,
-  requiere_seguimiento boolean DEFAULT false,
-  ventas_exitosas jsonb DEFAULT '[]'::jsonb,
-  oportunidades_perdidas jsonb DEFAULT '[]'::jsonb,
-  recomendaciones jsonb DEFAULT '[]'::jsonb,
-  performance_analysis_id uuid,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT daily_sales_reports_pkey PRIMARY KEY (id),
-  CONSTRAINT daily_sales_reports_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id),
-  CONSTRAINT daily_sales_reports_performance_analysis_id_fkey FOREIGN KEY (performance_analysis_id) REFERENCES public.performance_analyses(id)
-);
-CREATE TABLE public.deudas_proveedores (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  vuelo_id uuid NOT NULL,
-  proveedor character varying NOT NULL,
-  cuenta_emision character varying NOT NULL,
-  monto_deuda numeric NOT NULL CHECK (monto_deuda >= 0::numeric),
-  moneda character varying NOT NULL DEFAULT 'USD'::character varying,
-  estado character varying NOT NULL DEFAULT 'PENDIENTE'::character varying CHECK (estado::text = ANY (ARRAY['PENDIENTE'::character varying, 'PAGADO_PARCIAL'::character varying, 'PAGADO_TOTAL'::character varying]::text[])),
-  saldo_pendiente numeric NOT NULL CHECK (saldo_pendiente >= 0::numeric),
-  fecha_generacion timestamp with time zone DEFAULT now(),
-  fecha_vencimiento date,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT deudas_proveedores_pkey PRIMARY KEY (id),
-  CONSTRAINT deudas_proveedores_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id)
-);
-CREATE TABLE public.equipos (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  nombre text NOT NULL,
-  descripcion text,
-  color text DEFAULT '#6366f1'::text,
-  gerente_id uuid NOT NULL,
-  is_active boolean DEFAULT true,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT equipos_pkey PRIMARY KEY (id),
-  CONSTRAINT equipos_gerente_id_fkey FOREIGN KEY (gerente_id) REFERENCES public.profiles(id)
-);
-CREATE TABLE public.media_files (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  bot_id uuid,
-  message_id uuid,
-  file_url text NOT NULL,
-  file_name text,
-  mimetype text,
-  file_size bigint,
-  thumbnail_url text,
-  created_at timestamp with time zone DEFAULT now(),
-  metadata jsonb DEFAULT '{}'::jsonb,
-  CONSTRAINT media_files_pkey PRIMARY KEY (id),
-  CONSTRAINT media_files_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id),
-  CONSTRAINT media_files_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.messages(id)
-);
-CREATE TABLE public.messages (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  bot_id uuid,
-  message_id text NOT NULL,
-  from_number text NOT NULL,
-  to_number text NOT NULL,
-  content text,
-  media_url text,
-  message_type text NOT NULL,
-  status text,
-  timestamp timestamp with time zone DEFAULT now(),
-  created_at timestamp with time zone DEFAULT now(),
-  chat_id uuid,
-  contact_id uuid,
-  body text,
-  type text DEFAULT 'text'::text,
-  from_me boolean DEFAULT false,
-  ack integer DEFAULT 0,
-  has_media boolean DEFAULT false,
-  media_mimetype text,
-  caption text,
-  quoted_message_id text,
-  is_forwarded boolean DEFAULT false,
-  broadcast boolean DEFAULT false,
-  metadata jsonb DEFAULT '{}'::jsonb,
-  CONSTRAINT messages_pkey PRIMARY KEY (id),
-  CONSTRAINT messages_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id),
-  CONSTRAINT messages_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id),
-  CONSTRAINT messages_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(id)
-);
-CREATE TABLE public.migration_audit (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  migration_name text NOT NULL,
-  executed_at timestamp with time zone DEFAULT now(),
-  details jsonb,
-  status text,
-  CONSTRAINT migration_audit_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.monedas (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  codigo text NOT NULL UNIQUE,
-  nombre text NOT NULL,
-  simbolo text NOT NULL,
-  activa boolean NOT NULL DEFAULT true,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  deleted_at timestamp with time zone,
-  deleted_by uuid,
-  CONSTRAINT monedas_pkey PRIMARY KEY (id),
-  CONSTRAINT monedas_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES public.profiles(id)
-);
-CREATE TABLE public.notificaciones (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  tipo character varying NOT NULL DEFAULT 'info'::character varying,
-  titulo character varying NOT NULL,
-  descripcion text,
-  leida boolean NOT NULL DEFAULT false,
-  datos jsonb DEFAULT '{}'::jsonb,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT notificaciones_pkey PRIMARY KEY (id),
-  CONSTRAINT notificaciones_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
-);
-CREATE TABLE public.pagos_deudas (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  deuda_id uuid NOT NULL,
-  monto_pagado numeric NOT NULL CHECK (monto_pagado > 0::numeric),
-  moneda character varying NOT NULL DEFAULT 'USD'::character varying,
-  metodo_pago character varying,
-  referencia_pago character varying,
-  comprobante_url text,
-  fecha_pago date NOT NULL,
-  registrado_por uuid NOT NULL,
-  observaciones text,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT pagos_deudas_pkey PRIMARY KEY (id),
-  CONSTRAINT pagos_deudas_deuda_id_fkey FOREIGN KEY (deuda_id) REFERENCES public.deudas_proveedores(id),
-  CONSTRAINT pagos_deudas_registrado_por_fkey FOREIGN KEY (registrado_por) REFERENCES public.profiles(id)
-);
 CREATE TABLE public.performance_analyses (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   analysis_name text NOT NULL,
@@ -506,23 +324,6 @@ CREATE TABLE public.performance_analyses (
   CONSTRAINT performance_analyses_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id),
   CONSTRAINT performance_analyses_created_by_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.profiles(id)
 );
-CREATE TABLE public.performance_improvements (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  worker_id uuid NOT NULL,
-  performance_analysis_id uuid,
-  parameter_name text NOT NULL,
-  improvement_suggestion text NOT NULL,
-  priority text DEFAULT 'medium'::text,
-  status text DEFAULT 'pending'::text,
-  assigned_to_user_id uuid,
-  completed_at timestamp with time zone,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT performance_improvements_pkey PRIMARY KEY (id),
-  CONSTRAINT performance_improvements_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id),
-  CONSTRAINT performance_improvements_analysis_id_fkey FOREIGN KEY (performance_analysis_id) REFERENCES public.performance_analyses(id),
-  CONSTRAINT performance_improvements_assigned_to_fkey FOREIGN KEY (assigned_to_user_id) REFERENCES public.profiles(id)
-);
 CREATE TABLE public.performance_reports (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   performance_analysis_id uuid NOT NULL,
@@ -541,126 +342,47 @@ CREATE TABLE public.performance_reports (
   CONSTRAINT performance_reports_analysis_id_fkey FOREIGN KEY (performance_analysis_id) REFERENCES public.performance_analyses(id),
   CONSTRAINT performance_reports_generated_by_fkey FOREIGN KEY (generated_by_user_id) REFERENCES public.profiles(id)
 );
-CREATE TABLE public.permissions (
+CREATE TABLE public.performance_improvements (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name character varying NOT NULL UNIQUE,
-  description text,
-  category character varying,
+  worker_id uuid NOT NULL,
+  performance_analysis_id uuid,
+  parameter_name text NOT NULL,
+  improvement_suggestion text NOT NULL,
+  priority text DEFAULT 'medium'::text,
+  status text DEFAULT 'pending'::text,
+  assigned_to_user_id uuid,
+  completed_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  is_system boolean DEFAULT false,
-  CONSTRAINT permissions_pkey PRIMARY KEY (id)
+  CONSTRAINT performance_improvements_pkey PRIMARY KEY (id),
+  CONSTRAINT performance_improvements_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id),
+  CONSTRAINT performance_improvements_analysis_id_fkey FOREIGN KEY (performance_analysis_id) REFERENCES public.performance_analyses(id),
+  CONSTRAINT performance_improvements_assigned_to_fkey FOREIGN KEY (assigned_to_user_id) REFERENCES public.profiles(id)
 );
-CREATE TABLE public.poc_customer_threads (
+CREATE TABLE public.daily_sales_reports (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  customer_phone text NOT NULL UNIQUE,
-  customer_name text,
-  first_message_at timestamp without time zone,
-  last_message_at timestamp without time zone,
-  created_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT poc_customer_threads_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.poc_thread_chat_history (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  thread_id uuid NOT NULL,
-  chat_id uuid NOT NULL,
-  bot_name text NOT NULL,
-  started_at timestamp without time zone NOT NULL,
-  ended_at timestamp without time zone,
-  created_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT poc_thread_chat_history_pkey PRIMARY KEY (id),
-  CONSTRAINT poc_thread_chat_history_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.poc_customer_threads(id)
-);
-CREATE TABLE public.poc_thread_chats (
-  thread_id uuid NOT NULL,
-  chat_id uuid NOT NULL,
-  bot_name text,
-  started_at timestamp without time zone,
-  ended_at timestamp without time zone,
-  CONSTRAINT poc_thread_chats_pkey PRIMARY KEY (thread_id, chat_id),
-  CONSTRAINT poc_thread_chats_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.poc_customer_threads(id)
-);
-CREATE TABLE public.poc_thread_events (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  thread_id uuid NOT NULL,
-  event_type character varying NOT NULL CHECK (event_type::text = ANY (ARRAY['SALE_CONFIRMED'::character varying, 'SALE_CANCELLED'::character varying, 'QUOTATION_SENT'::character varying, 'QUOTATION_ACCEPTED'::character varying, 'MEETING_SCHEDULED'::character varying, 'CALL_MADE'::character varying, 'LEAD_LOST'::character varying, 'LEAD_REACTIVATED'::character varying, 'REASSIGNMENT'::character varying, 'NOTE_ADDED'::character varying, 'STATUS_CHANGED'::character varying]::text[])),
-  event_subtype character varying CHECK (event_subtype IS NULL OR (event_subtype::text = ANY (ARRAY['AUTO_DETECTED'::character varying, 'AUTO_DETECTED_HISTORICAL'::character varying, 'MANUAL_MARK'::character varying]::text[]))),
-  occurred_at timestamp with time zone NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
-  created_by uuid,
-  event_data jsonb DEFAULT '{}'::jsonb,
-  notes text,
-  related_message_id uuid,
-  related_vuelo_id uuid,
-  related_cotizacion_id uuid,
-  is_milestone boolean DEFAULT false,
-  is_system_generated boolean DEFAULT false,
-  CONSTRAINT poc_thread_events_pkey PRIMARY KEY (id),
-  CONSTRAINT poc_thread_events_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.poc_customer_threads(id)
-);
-CREATE TABLE public.poc_thread_metrics (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  thread_id uuid UNIQUE,
-  total_messages integer DEFAULT 0,
-  total_chats integer DEFAULT 0,
-  advisors ARRAY,
-  avg_response_minutes numeric,
-  payment_mentions integer DEFAULT 0,
-  cotizacion_count integer DEFAULT 0,
-  updated_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT poc_thread_metrics_pkey PRIMARY KEY (id),
-  CONSTRAINT poc_thread_metrics_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.poc_customer_threads(id)
-);
-CREATE TABLE public.poc_thread_status (
-  thread_id uuid NOT NULL,
-  current_status character varying NOT NULL DEFAULT 'NUEVO'::character varying CHECK (current_status::text = ANY (ARRAY['NUEVO'::character varying, 'EN_NEGOCIACION'::character varying, 'VENTA_CONCRETADA'::character varying, 'POST_VENTA'::character varying, 'PERDIDO'::character varying]::text[])),
-  status_since timestamp with time zone DEFAULT now(),
-  previous_status character varying,
-  total_sales integer DEFAULT 0 CHECK (total_sales >= 0),
-  total_sales_amount numeric DEFAULT 0 CHECK (total_sales_amount >= 0::numeric),
-  first_sale_at timestamp with time zone,
-  last_sale_at timestamp with time zone,
-  first_contact_at timestamp with time zone,
-  last_activity_at timestamp with time zone,
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT poc_thread_status_pkey PRIMARY KEY (thread_id),
-  CONSTRAINT poc_thread_status_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.poc_customer_threads(id)
-);
-CREATE TABLE public.profiles (
-  id uuid NOT NULL,
-  email character varying NOT NULL UNIQUE,
-  full_name character varying,
-  role_id uuid,
-  is_active boolean DEFAULT true,
+  asesor_id uuid NOT NULL,
+  worker_id uuid,
+  report_date date NOT NULL,
+  ventas_confirmadas integer DEFAULT 0 CHECK (ventas_confirmadas >= 0),
+  leads_calientes integer DEFAULT 0,
+  cotizaciones_enviadas integer DEFAULT 0,
+  conversaciones_analizadas integer DEFAULT 0,
+  valor_total_ventas numeric DEFAULT 0.00,
+  tasa_conversion numeric DEFAULT 0.00 CHECK (tasa_conversion >= 0::numeric AND tasa_conversion <= 100::numeric),
+  valor_promedio_venta numeric DEFAULT 0.00,
+  score_promedio_ventas numeric DEFAULT 0.00,
+  nivel_rendimiento character varying DEFAULT 'REGULAR'::character varying,
+  requiere_seguimiento boolean DEFAULT false,
+  ventas_exitosas jsonb DEFAULT '[]'::jsonb,
+  oportunidades_perdidas jsonb DEFAULT '[]'::jsonb,
+  recomendaciones jsonb DEFAULT '[]'::jsonb,
+  performance_analysis_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  equipo_id uuid,
-  avatar_url text,
-  sede_id uuid,
-  CONSTRAINT profiles_pkey PRIMARY KEY (id),
-  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
-  CONSTRAINT profiles_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id),
-  CONSTRAINT profiles_equipo_id_fkey FOREIGN KEY (equipo_id) REFERENCES public.equipos(id),
-  CONSTRAINT profiles_sede_id_fkey FOREIGN KEY (sede_id) REFERENCES public.sedes(id)
-);
-CREATE TABLE public.role_permissions (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  role_id uuid NOT NULL,
-  permission_id uuid NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT role_permissions_pkey PRIMARY KEY (id),
-  CONSTRAINT role_permissions_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id),
-  CONSTRAINT role_permissions_permission_id_fkey FOREIGN KEY (permission_id) REFERENCES public.permissions(id)
-);
-CREATE TABLE public.roles (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name character varying NOT NULL UNIQUE,
-  description text,
-  permissions jsonb DEFAULT '{}'::jsonb,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  ranking integer DEFAULT 0,
-  CONSTRAINT roles_pkey PRIMARY KEY (id)
+  CONSTRAINT daily_sales_reports_pkey PRIMARY KEY (id),
+  CONSTRAINT daily_sales_reports_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id),
+  CONSTRAINT daily_sales_reports_performance_analysis_id_fkey FOREIGN KEY (performance_analysis_id) REFERENCES public.performance_analyses(id)
 );
 CREATE TABLE public.sales_analysis_config (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -684,97 +406,6 @@ CREATE TABLE public.sales_analysis_logs (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT sales_analysis_logs_pkey PRIMARY KEY (id),
   CONSTRAINT sales_analysis_logs_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES public.workers(id)
-);
-CREATE TABLE public.sedes (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  nombre character varying NOT NULL UNIQUE,
-  codigo character varying NOT NULL UNIQUE,
-  direccion text,
-  ciudad character varying,
-  pais character varying DEFAULT 'Venezuela'::character varying,
-  telefono character varying,
-  is_active boolean DEFAULT true,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT sedes_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.tags (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  bot_id uuid,
-  name text NOT NULL,
-  color text DEFAULT '#3B82F6'::text,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT tags_pkey PRIMARY KEY (id),
-  CONSTRAINT tags_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id)
-);
-CREATE TABLE public.tasas_conversion (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  moneda_origen_id uuid NOT NULL,
-  moneda_destino_id uuid NOT NULL,
-  tasa numeric NOT NULL,
-  descripcion text,
-  activa boolean NOT NULL DEFAULT true,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  actualizado_por uuid,
-  deleted_at timestamp with time zone,
-  deleted_by uuid,
-  CONSTRAINT tasas_conversion_pkey PRIMARY KEY (id),
-  CONSTRAINT tasas_conversion_moneda_origen_id_fkey FOREIGN KEY (moneda_origen_id) REFERENCES public.monedas(id),
-  CONSTRAINT tasas_conversion_moneda_destino_id_fkey FOREIGN KEY (moneda_destino_id) REFERENCES public.monedas(id),
-  CONSTRAINT tasas_conversion_actualizado_por_fkey FOREIGN KEY (actualizado_por) REFERENCES public.profiles(id),
-  CONSTRAINT tasas_conversion_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES public.profiles(id)
-);
-CREATE TABLE public.tasas_historial (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  tasa_conversion_id uuid NOT NULL,
-  moneda_origen_id uuid NOT NULL,
-  moneda_destino_id uuid NOT NULL,
-  tasa_anterior numeric,
-  tasa_nueva numeric,
-  motivo text,
-  modificado_por uuid NOT NULL,
-  fecha_cambio timestamp with time zone DEFAULT now(),
-  tipo_operacion character varying DEFAULT 'update'::character varying CHECK (tipo_operacion::text = ANY (ARRAY['create'::character varying, 'update'::character varying, 'delete'::character varying]::text[])),
-  CONSTRAINT tasas_historial_pkey PRIMARY KEY (id),
-  CONSTRAINT tasas_historial_tasa_conversion_id_fkey FOREIGN KEY (tasa_conversion_id) REFERENCES public.tasas_conversion(id),
-  CONSTRAINT tasas_historial_moneda_origen_id_fkey FOREIGN KEY (moneda_origen_id) REFERENCES public.monedas(id),
-  CONSTRAINT tasas_historial_moneda_destino_id_fkey FOREIGN KEY (moneda_destino_id) REFERENCES public.monedas(id),
-  CONSTRAINT tasas_historial_modificado_por_fkey FOREIGN KEY (modificado_por) REFERENCES public.profiles(id)
-);
-CREATE TABLE public.team_members (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  phone_number text NOT NULL UNIQUE,
-  full_name text NOT NULL,
-  created_at timestamp without time zone DEFAULT now(),
-  updated_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT team_members_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.user_permissions (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  permission_id uuid NOT NULL,
-  granted boolean DEFAULT true,
-  granted_by uuid,
-  reason text,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT user_permissions_pkey PRIMARY KEY (id),
-  CONSTRAINT user_permissions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
-  CONSTRAINT user_permissions_permission_id_fkey FOREIGN KEY (permission_id) REFERENCES public.permissions(id),
-  CONSTRAINT user_permissions_granted_by_fkey FOREIGN KEY (granted_by) REFERENCES public.profiles(id)
-);
-CREATE TABLE public.usuario_agencias (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  agencia_id uuid NOT NULL,
-  is_primary boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
-  created_by uuid,
-  CONSTRAINT usuario_agencias_pkey PRIMARY KEY (id),
-  CONSTRAINT usuario_agencias_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
-  CONSTRAINT usuario_agencias_agencia_id_fkey FOREIGN KEY (agencia_id) REFERENCES public.agencias(id),
-  CONSTRAINT usuario_agencias_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.vuelos (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -855,19 +486,145 @@ CREATE TABLE public.vuelos_adjuntos (
   CONSTRAINT vuelos_adjuntos_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id),
   CONSTRAINT vuelos_adjuntos_pasajero_id_fkey FOREIGN KEY (pasajero_id) REFERENCES public.vuelos_pasajeros(id)
 );
-CREATE TABLE public.vuelos_ediciones (
+CREATE TABLE public.anulables (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  vuelo_id uuid NOT NULL,
-  editado_por uuid NOT NULL,
-  editado_at timestamp with time zone DEFAULT now(),
-  campos_modificados jsonb NOT NULL DEFAULT '{}'::jsonb,
-  valores_anteriores jsonb NOT NULL DEFAULT '{}'::jsonb,
-  valores_nuevos jsonb NOT NULL DEFAULT '{}'::jsonb,
-  intento_numero integer NOT NULL,
-  razon_edicion text NOT NULL,
-  CONSTRAINT vuelos_ediciones_pkey PRIMARY KEY (id),
-  CONSTRAINT vuelos_ediciones_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id),
-  CONSTRAINT vuelos_ediciones_editado_por_fkey FOREIGN KEY (editado_por) REFERENCES public.profiles(id)
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  vuelo_id uuid,
+  pax_nombre text NOT NULL,
+  contacto_nombre text,
+  contacto_telefono text,
+  fecha_vuelo date,
+  ruta text,
+  localizador text,
+  estado_anulacion text DEFAULT 'PENDIENTE'::text CHECK (estado_anulacion = ANY (ARRAY['PENDIENTE'::text, 'ANULADO'::text, 'NO_ANULADO'::text])),
+  fecha_limite date,
+  fecha_anulacion date,
+  monto_recuperado numeric,
+  motivo_anulacion text,
+  observaciones text,
+  asignado_a uuid,
+  CONSTRAINT anulables_pkey PRIMARY KEY (id),
+  CONSTRAINT anulables_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id)
+);
+CREATE TABLE public.monedas (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  codigo text NOT NULL UNIQUE,
+  nombre text NOT NULL,
+  simbolo text NOT NULL,
+  activa boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  deleted_at timestamp with time zone,
+  deleted_by uuid,
+  CONSTRAINT monedas_pkey PRIMARY KEY (id),
+  CONSTRAINT monedas_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.tasas_conversion (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  moneda_origen_id uuid NOT NULL,
+  moneda_destino_id uuid NOT NULL,
+  tasa numeric NOT NULL,
+  descripcion text,
+  activa boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  actualizado_por uuid,
+  deleted_at timestamp with time zone,
+  deleted_by uuid,
+  CONSTRAINT tasas_conversion_pkey PRIMARY KEY (id),
+  CONSTRAINT tasas_conversion_moneda_origen_id_fkey FOREIGN KEY (moneda_origen_id) REFERENCES public.monedas(id),
+  CONSTRAINT tasas_conversion_moneda_destino_id_fkey FOREIGN KEY (moneda_destino_id) REFERENCES public.monedas(id),
+  CONSTRAINT tasas_conversion_actualizado_por_fkey FOREIGN KEY (actualizado_por) REFERENCES public.profiles(id),
+  CONSTRAINT tasas_conversion_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.tasas_historial (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  tasa_conversion_id uuid NOT NULL,
+  moneda_origen_id uuid NOT NULL,
+  moneda_destino_id uuid NOT NULL,
+  tasa_anterior numeric,
+  tasa_nueva numeric,
+  motivo text,
+  modificado_por uuid NOT NULL,
+  fecha_cambio timestamp with time zone DEFAULT now(),
+  tipo_operacion character varying DEFAULT 'update'::character varying CHECK (tipo_operacion::text = ANY (ARRAY['create'::character varying, 'update'::character varying, 'delete'::character varying]::text[])),
+  CONSTRAINT tasas_historial_pkey PRIMARY KEY (id),
+  CONSTRAINT tasas_historial_tasa_conversion_id_fkey FOREIGN KEY (tasa_conversion_id) REFERENCES public.tasas_conversion(id),
+  CONSTRAINT tasas_historial_moneda_origen_id_fkey FOREIGN KEY (moneda_origen_id) REFERENCES public.monedas(id),
+  CONSTRAINT tasas_historial_moneda_destino_id_fkey FOREIGN KEY (moneda_destino_id) REFERENCES public.monedas(id),
+  CONSTRAINT tasas_historial_modificado_por_fkey FOREIGN KEY (modificado_por) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.cotizaciones (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  created_by uuid NOT NULL,
+  nombre_cliente text NOT NULL,
+  estado text NOT NULL DEFAULT 'PENDIENTE'::text CHECK (estado = ANY (ARRAY['PENDIENTE'::text, 'EN_REVISION'::text, 'APROBADA'::text, 'RECHAZADA'::text])),
+  razon_rechazo text,
+  tipo_vuelo text NOT NULL CHECK (tipo_vuelo = ANY (ARRAY['solo_ida'::text, 'ida_vuelta'::text, 'migratorio'::text])),
+  origen text NOT NULL,
+  destino text NOT NULL,
+  aerolinea text,
+  fecha_salida date NOT NULL,
+  hora_salida time without time zone,
+  hora_llegada time without time zone,
+  tiene_escala boolean DEFAULT false,
+  escala_1_ciudad text,
+  escala_1_duracion text,
+  tiene_segunda_escala boolean DEFAULT false,
+  escala_2_ciudad text,
+  escala_2_duracion text,
+  precio_base numeric,
+  fee_emision numeric,
+  fee_agencia numeric,
+  total_cotizacion numeric,
+  moneda_precio text NOT NULL,
+  moneda_cotizacion text NOT NULL,
+  precio_final_cotizacion numeric NOT NULL,
+  tasa_cambio numeric,
+  metodo_pago text,
+  reserva_id uuid,
+  aereolinea_codigo text,
+  deleted_at timestamp with time zone,
+  deleted_by uuid,
+  fecha_regreso date,
+  hora_salida_regreso time without time zone,
+  hora_llegada_regreso time without time zone,
+  CONSTRAINT cotizaciones_pkey PRIMARY KEY (id),
+  CONSTRAINT cotizaciones_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES auth.users(id),
+  CONSTRAINT cotizaciones_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+);
+CREATE TABLE public.cotizaciones_pasajeros (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  cotizacion_id uuid NOT NULL,
+  tipo text NOT NULL CHECK (tipo = ANY (ARRAY['ADULTO'::text, 'NINO'::text, 'INFANTE'::text])),
+  orden integer NOT NULL,
+  precio_pantalla numeric NOT NULL CHECK (precio_pantalla >= 0::numeric),
+  fee_emision numeric DEFAULT 0 CHECK (fee_emision >= 0::numeric),
+  fee_agencia numeric DEFAULT 0 CHECK (fee_agencia >= 0::numeric),
+  equipaje_completo boolean DEFAULT false,
+  equipaje_mediano boolean DEFAULT false,
+  equipaje_ligero boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  deleted_at timestamp with time zone,
+  deleted_by uuid,
+  CONSTRAINT cotizaciones_pasajeros_pkey PRIMARY KEY (id),
+  CONSTRAINT cotizaciones_pasajeros_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES auth.users(id),
+  CONSTRAINT cotizaciones_pasajeros_cotizacion_id_fkey FOREIGN KEY (cotizacion_id) REFERENCES public.cotizaciones(id)
+);
+CREATE TABLE public.cotizaciones_historial (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  cotizacion_id uuid NOT NULL,
+  estado_anterior text,
+  estado_nuevo text NOT NULL,
+  changed_by uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  razon text,
+  CONSTRAINT cotizaciones_historial_pkey PRIMARY KEY (id),
+  CONSTRAINT cotizaciones_historial_cotizacion_id_fkey FOREIGN KEY (cotizacion_id) REFERENCES public.cotizaciones(id),
+  CONSTRAINT cotizaciones_historial_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES auth.users(id)
 );
 CREATE TABLE public.vuelos_pasajeros (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -897,28 +654,271 @@ CREATE TABLE public.vuelos_pasajeros (
   CONSTRAINT vuelos_pasajeros_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id),
   CONSTRAINT vuelos_pasajeros_cotizacion_pasajero_id_fkey FOREIGN KEY (cotizacion_pasajero_id) REFERENCES public.cotizaciones_pasajeros(id)
 );
-CREATE TABLE public.webhook_events (
+CREATE TABLE public.equipos (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  bot_id uuid,
-  event_type text NOT NULL,
-  event_data jsonb NOT NULL,
-  processed boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT now(),
-  processed_at timestamp with time zone,
-  CONSTRAINT webhook_events_pkey PRIMARY KEY (id),
-  CONSTRAINT webhook_events_bot_id_fkey FOREIGN KEY (bot_id) REFERENCES public.bots(id)
-);
-CREATE TABLE public.workers (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name character varying NOT NULL,
-  email character varying NOT NULL UNIQUE,
-  phone_number character varying,
-  role character varying DEFAULT 'agent'::character varying,
-  status character varying DEFAULT 'active'::character varying,
-  avatar_url text,
+  nombre text NOT NULL,
+  descripcion text,
+  color text DEFAULT '#6366f1'::text,
+  gerente_id uuid NOT NULL,
+  is_active boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  last_active timestamp with time zone,
-  metadata jsonb DEFAULT '{}'::jsonb,
-  CONSTRAINT workers_pkey PRIMARY KEY (id)
+  CONSTRAINT equipos_pkey PRIMARY KEY (id),
+  CONSTRAINT equipos_gerente_id_fkey FOREIGN KEY (gerente_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.notificaciones (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  tipo character varying NOT NULL DEFAULT 'info'::character varying,
+  titulo character varying NOT NULL,
+  descripcion text,
+  leida boolean NOT NULL DEFAULT false,
+  datos jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT notificaciones_pkey PRIMARY KEY (id),
+  CONSTRAINT notificaciones_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.permissions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL UNIQUE,
+  description text,
+  category character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  is_system boolean DEFAULT false,
+  CONSTRAINT permissions_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.role_permissions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  role_id uuid NOT NULL,
+  permission_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT role_permissions_pkey PRIMARY KEY (id),
+  CONSTRAINT role_permissions_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id),
+  CONSTRAINT role_permissions_permission_id_fkey FOREIGN KEY (permission_id) REFERENCES public.permissions(id)
+);
+CREATE TABLE public.user_permissions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  permission_id uuid NOT NULL,
+  granted boolean DEFAULT true,
+  granted_by uuid,
+  reason text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_permissions_pkey PRIMARY KEY (id),
+  CONSTRAINT user_permissions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
+  CONSTRAINT user_permissions_permission_id_fkey FOREIGN KEY (permission_id) REFERENCES public.permissions(id),
+  CONSTRAINT user_permissions_granted_by_fkey FOREIGN KEY (granted_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.agencias (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  nombre character varying NOT NULL UNIQUE,
+  codigo character varying NOT NULL UNIQUE,
+  descripcion text,
+  logo_url text,
+  color_primario character varying DEFAULT '#6366f1'::character varying,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT agencias_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.sedes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  nombre character varying NOT NULL UNIQUE,
+  codigo character varying NOT NULL UNIQUE,
+  direccion text,
+  ciudad character varying,
+  pais character varying DEFAULT 'Venezuela'::character varying,
+  telefono character varying,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT sedes_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.usuario_agencias (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  agencia_id uuid NOT NULL,
+  is_primary boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  created_by uuid,
+  CONSTRAINT usuario_agencias_pkey PRIMARY KEY (id),
+  CONSTRAINT usuario_agencias_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
+  CONSTRAINT usuario_agencias_agencia_id_fkey FOREIGN KEY (agencia_id) REFERENCES public.agencias(id),
+  CONSTRAINT usuario_agencias_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.vuelos_ediciones (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  vuelo_id uuid NOT NULL,
+  editado_por uuid NOT NULL,
+  editado_at timestamp with time zone DEFAULT now(),
+  campos_modificados jsonb NOT NULL DEFAULT '{}'::jsonb,
+  valores_anteriores jsonb NOT NULL DEFAULT '{}'::jsonb,
+  valores_nuevos jsonb NOT NULL DEFAULT '{}'::jsonb,
+  intento_numero integer NOT NULL,
+  razon_edicion text NOT NULL,
+  CONSTRAINT vuelos_ediciones_pkey PRIMARY KEY (id),
+  CONSTRAINT vuelos_ediciones_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id),
+  CONSTRAINT vuelos_ediciones_editado_por_fkey FOREIGN KEY (editado_por) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.deudas_proveedores (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  vuelo_id uuid NOT NULL,
+  proveedor character varying NOT NULL,
+  cuenta_emision character varying NOT NULL,
+  monto_deuda numeric NOT NULL CHECK (monto_deuda >= 0::numeric),
+  moneda character varying NOT NULL DEFAULT 'USD'::character varying,
+  estado character varying NOT NULL DEFAULT 'PENDIENTE'::character varying CHECK (estado::text = ANY (ARRAY['PENDIENTE'::character varying, 'PAGADO_PARCIAL'::character varying, 'PAGADO_TOTAL'::character varying]::text[])),
+  saldo_pendiente numeric NOT NULL CHECK (saldo_pendiente >= 0::numeric),
+  fecha_generacion timestamp with time zone DEFAULT now(),
+  fecha_vencimiento date,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT deudas_proveedores_pkey PRIMARY KEY (id),
+  CONSTRAINT deudas_proveedores_vuelo_id_fkey FOREIGN KEY (vuelo_id) REFERENCES public.vuelos(id)
+);
+CREATE TABLE public.pagos_deudas (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  deuda_id uuid NOT NULL,
+  monto_pagado numeric NOT NULL CHECK (monto_pagado > 0::numeric),
+  moneda character varying NOT NULL DEFAULT 'USD'::character varying,
+  metodo_pago character varying,
+  referencia_pago character varying,
+  comprobante_url text,
+  fecha_pago date NOT NULL,
+  registrado_por uuid NOT NULL,
+  observaciones text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT pagos_deudas_pkey PRIMARY KEY (id),
+  CONSTRAINT pagos_deudas_deuda_id_fkey FOREIGN KEY (deuda_id) REFERENCES public.deudas_proveedores(id),
+  CONSTRAINT pagos_deudas_registrado_por_fkey FOREIGN KEY (registrado_por) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.auditoria_cambios_estado (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entidad_tipo character varying NOT NULL,
+  entidad_id uuid NOT NULL,
+  campo_cambiado character varying NOT NULL,
+  valor_anterior character varying,
+  valor_nuevo character varying NOT NULL,
+  usuario_id uuid,
+  usuario_nombre character varying,
+  razon_cambio text,
+  ip_address inet,
+  fecha_cambio timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT auditoria_cambios_estado_pkey PRIMARY KEY (id),
+  CONSTRAINT auditoria_cambios_estado_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.migration_audit (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  migration_name text NOT NULL,
+  executed_at timestamp with time zone DEFAULT now(),
+  details jsonb,
+  status text,
+  CONSTRAINT migration_audit_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.conversation_metrics (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  chat_id uuid NOT NULL UNIQUE,
+  total_messages integer NOT NULL DEFAULT 0,
+  incoming_messages integer NOT NULL DEFAULT 0,
+  outgoing_messages integer NOT NULL DEFAULT 0,
+  avg_response_time_minutes numeric,
+  max_response_time_minutes numeric,
+  response_samples integer DEFAULT 0,
+  payment_mentions_count integer DEFAULT 0,
+  payment_first_mention_at timestamp with time zone,
+  payment_last_mention_at timestamp with time zone,
+  payment_last_from_me boolean,
+  cotizacion_mentions_count integer DEFAULT 0,
+  cotizacion_files jsonb DEFAULT '[]'::jsonb,
+  last_calculated_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT conversation_metrics_pkey PRIMARY KEY (id),
+  CONSTRAINT conversation_metrics_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id)
+);
+CREATE TABLE public.poc_customer_threads (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  customer_phone text NOT NULL UNIQUE,
+  customer_name text,
+  first_message_at timestamp without time zone,
+  last_message_at timestamp without time zone,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT poc_customer_threads_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.poc_thread_chats (
+  thread_id uuid NOT NULL,
+  chat_id uuid NOT NULL,
+  bot_name text,
+  started_at timestamp without time zone,
+  ended_at timestamp without time zone,
+  CONSTRAINT poc_thread_chats_pkey PRIMARY KEY (thread_id, chat_id),
+  CONSTRAINT poc_thread_chats_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.poc_customer_threads(id)
+);
+CREATE TABLE public.poc_thread_metrics (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  thread_id uuid UNIQUE,
+  total_messages integer DEFAULT 0,
+  total_chats integer DEFAULT 0,
+  advisors ARRAY,
+  avg_response_minutes numeric,
+  payment_mentions integer DEFAULT 0,
+  cotizacion_count integer DEFAULT 0,
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT poc_thread_metrics_pkey PRIMARY KEY (id),
+  CONSTRAINT poc_thread_metrics_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.poc_customer_threads(id)
+);
+CREATE TABLE public.poc_thread_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  thread_id uuid NOT NULL,
+  event_type character varying NOT NULL CHECK (event_type::text = ANY (ARRAY['VENTA_CONFIRMADA'::character varying, 'VENTA_CANCELADA'::character varying, 'COTIZACION_ENVIADA'::character varying, 'COTIZACION_ACEPTADA'::character varying, 'REUNION_AGENDADA'::character varying, 'LLAMADA_REALIZADA'::character varying, 'LEAD_PERDIDO'::character varying, 'LEAD_REACTIVADO'::character varying, 'REASIGNACION'::character varying, 'NOTA_AGREGADA'::character varying, 'ESTADO_CAMBIADO'::character varying]::text[])),
+  event_subtype character varying CHECK (event_subtype IS NULL OR (event_subtype::text = ANY (ARRAY['AUTO_DETECTED'::character varying, 'AUTO_DETECTED_HISTORICAL'::character varying, 'MANUAL_MARK'::character varying]::text[]))),
+  occurred_at timestamp with time zone NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  created_by uuid,
+  event_data jsonb DEFAULT '{}'::jsonb,
+  notes text,
+  related_message_id uuid,
+  related_vuelo_id uuid,
+  related_cotizacion_id uuid,
+  is_milestone boolean DEFAULT false,
+  is_system_generated boolean DEFAULT false,
+  CONSTRAINT poc_thread_events_pkey PRIMARY KEY (id),
+  CONSTRAINT poc_thread_events_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.poc_customer_threads(id)
+);
+CREATE TABLE public.poc_thread_status (
+  thread_id uuid NOT NULL,
+  current_status character varying NOT NULL DEFAULT 'NUEVO'::character varying CHECK (current_status::text = ANY (ARRAY['NUEVO'::character varying, 'EN_NEGOCIACION'::character varying, 'VENTA_CONCRETADA'::character varying, 'POST_VENTA'::character varying, 'PERDIDO'::character varying]::text[])),
+  status_since timestamp with time zone DEFAULT now(),
+  previous_status character varying,
+  total_sales integer DEFAULT 0 CHECK (total_sales >= 0),
+  total_sales_amount numeric DEFAULT 0 CHECK (total_sales_amount >= 0::numeric),
+  first_sale_at timestamp with time zone,
+  last_sale_at timestamp with time zone,
+  first_contact_at timestamp with time zone,
+  last_activity_at timestamp with time zone,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT poc_thread_status_pkey PRIMARY KEY (thread_id),
+  CONSTRAINT poc_thread_status_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.poc_customer_threads(id)
+);
+CREATE TABLE public.poc_thread_chat_history (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  thread_id uuid NOT NULL,
+  chat_id uuid NOT NULL,
+  bot_name text NOT NULL,
+  started_at timestamp without time zone NOT NULL,
+  ended_at timestamp without time zone,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT poc_thread_chat_history_pkey PRIMARY KEY (id),
+  CONSTRAINT poc_thread_chat_history_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.poc_customer_threads(id)
+);
+CREATE TABLE public.team_members (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  phone_number text NOT NULL UNIQUE,
+  full_name text NOT NULL,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT team_members_pkey PRIMARY KEY (id)
 );
