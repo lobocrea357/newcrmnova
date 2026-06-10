@@ -1,18 +1,26 @@
 // dashboard/src/hooks/useConversacionesFiltros.js
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { parseBotSessionName, capitalizeWord } from '@/lib/botNameParser'
 
 export function useConversacionesFiltros(bots = []) {
   // Estados de filtro
-  const [searchFilter, setSearchFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [leaderFilter, setLeaderFilter] = useState('all')
   const [leadFilter, setLeadFilter] = useState('all')
   const [sedeFilter, setSedeFilter] = useState('all')
-  
+
   // Estados de UI
   const [showFilters, setShowFilters] = useState(false)
   const [botSearchQuery, setBotSearchQuery] = useState('')
+  const [debouncedBotSearch, setDebouncedBotSearch] = useState('')
+
+  // Debouncing para búsquedas
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedBotSearch(botSearchQuery)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [botSearchQuery])
   
   // Helpers puros (exportados para testing)
   const isBotActive = useCallback((bot) => {
@@ -31,23 +39,14 @@ export function useConversacionesFiltros(bots = []) {
   
   const filterBots = useCallback((botsToFilter) => {
     return botsToFilter.filter(bot => {
+      // Validar que bot.session_name exista antes de parsear
+      if (!bot || !bot.session_name) return false;
+      
       const meta = parseBotSessionName(bot.session_name)
-      
-      // Filtro de búsqueda global
-      if (searchFilter) {
-        const searchLower = searchFilter.toLowerCase()
-        const matchesSearch =
-          meta.fullName.toLowerCase().includes(searchLower) ||
-          bot.session_name?.toLowerCase().includes(searchLower) ||
-          bot.phone_number?.toLowerCase().includes(searchLower) ||
-          bot.id?.toString().includes(searchLower)
 
-        if (!matchesSearch) return false
-      }
-      
-      // Filtro de búsqueda de asesores en el panel lateral
-      if (botSearchQuery) {
-        const botSearchLower = botSearchQuery.toLowerCase()
+      // Filtro de búsqueda de asesores en el panel lateral (usando debounced)
+      if (debouncedBotSearch) {
+        const botSearchLower = debouncedBotSearch.toLowerCase()
         const matchesBotSearch =
           meta.fullName.toLowerCase().includes(botSearchLower) ||
           bot.session_name?.toLowerCase().includes(botSearchLower) ||
@@ -80,7 +79,7 @@ export function useConversacionesFiltros(bots = []) {
       
       return true
     })
-  }, [searchFilter, statusFilter, leaderFilter, leadFilter, sedeFilter, botSearchQuery])
+  }, [debouncedBotSearch, statusFilter, leaderFilter, leadFilter, sedeFilter, isBotActive])
   
   const filteredBots = useMemo(() => {
     return filterBots(bots)
@@ -88,24 +87,15 @@ export function useConversacionesFiltros(bots = []) {
   
   const activeFiltersCount = useMemo(() => {
     let count = 0
-    if (searchFilter) count++
     if (statusFilter !== 'all') count++
     if (leaderFilter !== 'all') count++
     if (leadFilter !== 'all') count++
     if (sedeFilter !== 'all') count++
     return count
-  }, [searchFilter, statusFilter, leaderFilter, leadFilter, sedeFilter])
+  }, [statusFilter, leaderFilter, leadFilter, sedeFilter])
   
   const activeFilterPills = useMemo(() => {
     const pills = []
-
-    if (searchFilter) {
-      const trimmed =
-        searchFilter.length > 20
-          ? `${searchFilter.slice(0, 20)}…`
-          : searchFilter
-      pills.push({ key: 'search', label: `Búsqueda: "${trimmed}"` })
-    }
 
     if (statusFilter !== 'all') {
       let label = 'Todos'
@@ -136,25 +126,23 @@ export function useConversacionesFiltros(bots = []) {
     }
 
     return pills
-  }, [searchFilter, statusFilter, leaderFilter, leadFilter, sedeFilter])
+  }, [statusFilter, leaderFilter, leadFilter, sedeFilter])
   
   const clearFilters = useCallback(() => {
-    setSearchFilter('')
     setStatusFilter('all')
     setLeaderFilter('all')
     setLeadFilter('all')
     setSedeFilter('all')
-  }, [setSearchFilter, setStatusFilter, setLeaderFilter, setLeadFilter, setSedeFilter])
+  }, [setStatusFilter, setLeaderFilter, setLeadFilter, setSedeFilter])
   
   const handleRemoveFilter = useCallback((key) => {
     switch (key) {
-      case 'search': setSearchFilter(''); break
       case 'status': setStatusFilter('all'); break
       case 'leader': setLeaderFilter('all'); break
       case 'lead': setLeadFilter('all'); break
       case 'sede': setSedeFilter('all'); break
     }
-  }, [setSearchFilter, setStatusFilter, setLeaderFilter, setLeadFilter, setSedeFilter])
+  }, [setStatusFilter, setLeaderFilter, setLeadFilter, setSedeFilter])
   
   const getFilterPillClasses = useCallback((key) => {
     switch (key) {
@@ -166,7 +154,6 @@ export function useConversacionesFiltros(bots = []) {
         return 'bg-amber-50 text-amber-700 border border-amber-200'
       case 'sede':
         return 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-      case 'search':
       default:
         return 'bg-gray-50 text-gray-700 border border-gray-200'
     }
@@ -174,7 +161,6 @@ export function useConversacionesFiltros(bots = []) {
   
   return {
     // Estados
-    searchFilter, setSearchFilter,
     statusFilter, setStatusFilter,
     leaderFilter, setLeaderFilter,
     leadFilter, setLeadFilter,

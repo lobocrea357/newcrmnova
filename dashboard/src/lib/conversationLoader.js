@@ -90,12 +90,23 @@ export async function loadConversationsForAnalysis(botId, options = {}) {
       globalStats.total_loaded += chats.length;
       totalProcessed += chats.length;
 
-      // Aplicar filtros estructurales
-      const { filtered, stats } = applyStructuralFilters(chats, {
-        excludeGroups,
-        excludeInternal,
-        useCache,
-      });
+      // Aplicar filtros estructurales con manejo de errores
+      let filtered = [];
+      let stats = { excluded_groups: 0, excluded_internal: 0, excluded_cache: 0, passed: 0 };
+      
+      try {
+        const result = applyStructuralFilters(chats, {
+          excludeGroups,
+          excludeInternal,
+          useCache,
+        });
+        filtered = result.filtered || [];
+        stats = result.stats || stats;
+      } catch (error) {
+        console.error("Error aplicando filtros estructurales:", error);
+        // Si falla, usar chats sin filtrar
+        filtered = chats;
+      }
 
       // Acumular estadísticas
       globalStats.excluded_groups += stats.excluded_groups;

@@ -8,7 +8,11 @@ import { parseBotSessionName } from '@/lib/botNameParser'
  * @param {string} advisorSessionName — session_name del bot/asesor
  */
 export function generatePdfReport(payload, advisorSessionName) {
-  if (!payload) return
+  // Validación temprana de payload
+  if (!payload || typeof payload !== 'object') {
+    console.error('generatePdfReport: payload inválido', payload);
+    return;
+  }
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const PW = doc.internal.pageSize.getWidth()
