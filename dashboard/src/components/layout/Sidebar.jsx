@@ -33,27 +33,27 @@ import {
 const BASE_MENU_ITEMS = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/conversaciones', label: 'Conversaciones', icon: MessageSquare },
-    // { href: '/rutas-riesgo', label: 'Rutas en Riesgo', icon: AlertTriangle },
-    // { href: '/analisis/rendimiento', label: 'Rendimiento', icon: TrendingUp },
-    // { href: '/manual-ventas', label: 'Manual de Ventas', icon: BookOpen },
-    // { href: '/cotizador', label: 'Cotizador', icon: Calculator },
-    // { href: '/ventas', label: 'Ventas', icon: TrendingUp },
-    // { href: '/ventas/cotizaciones', label: 'Cotizaciones', icon: ClipboardList },
-    // { href: '/ventas/vuelos', label: 'Vuelos', icon: PlaneTakeoff },
-    // { href: '/ventas/anulables', label: 'Anulables', icon: XCircle },
+    { href: '/rutas-riesgo', label: 'Rutas en Riesgo', icon: AlertTriangle },
+    { href: '/analisis/rendimiento', label: 'Rendimiento', icon: TrendingUp },
+    { href: '/manual-ventas', label: 'Manual de Ventas', icon: BookOpen },
+    { href: '/cotizador', label: 'Cotizador', icon: Calculator },
+    { href: '/ventas', label: 'Ventas', icon: TrendingUp },
+    { href: '/ventas/cotizaciones', label: 'Cotizaciones', icon: ClipboardList },
+    { href: '/ventas/vuelos', label: 'Vuelos', icon: PlaneTakeoff },
+    { href: '/ventas/anulables', label: 'Anulables', icon: XCircle },
     // Módulo Admin Finanzas - Solo Dashboard Emisiones como entrada
-    // { href: '/admin/dashboard-emisiones', label: 'Administracion', icon: BarChart3 },
+    { href: '/admin/dashboard-emisiones', label: 'Administracion', icon: BarChart3 },
     // Eliminadas: Confirmar Pagos, Control Emisiones, Gestión Deudas
     // Ahora se acceden vía tabs dentro de Dashboard Emisiones
-    // { href: '/emisiones', label: 'Emisiones', icon: Send },
-    // { href: '/analisis/reportes', label: 'Reportes', icon: FileText },
-    // { href: '/inteligencia-artificial', label: 'IA', icon: Brain },
-    // { href: '/configuracion', label: 'Configuración', icon: Settings },
+    { href: '/emisiones', label: 'Emisiones', icon: Send },
+    { href: '/analisis/reportes', label: 'Reportes', icon: FileText },
+    { href: '/inteligencia-artificial', label: 'IA', icon: Brain },
+    { href: '/configuracion', label: 'Configuración', icon: Settings },
     // Rutas POC - Visible solo para super_admin y admin
     { href: '/conversaciones-poc', label: 'Conversaciones POC', icon: Clock, adminOnly: true },
-    // { href: '/dashboard-poc', label: 'Dashboard Leads POC', icon: UsersIcon, superAdminOnly: true },
+    { href: '/dashboard-poc', label: 'Dashboard Leads POC', icon: UsersIcon, superAdminOnly: true },
     // Rutas Admin - Visible para admin, super_admin y manager
-    // { href: '/admin/team-members', label: 'Team Members', icon: Users, adminOnly: true },
+    { href: '/admin/team-members', label: 'Team Members', icon: Users, adminOnly: true },
 ]
 
 const Sidebar = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse }) => {
