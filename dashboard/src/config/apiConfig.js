@@ -171,6 +171,18 @@ export const POC_API = {
   syncHistoricalSales: (dryRun = false) => buildApiUrl(`/api/poc/sync-historical-sales?dryRun=${dryRun}`)
 }
 
+// URLs específicas para APIs de conversaciones (Express - puerto 4000)
+export const CONVERSACIONES_API = {
+  syncBot: (sessionName) => buildApiUrl(`/api/metadata-sync/${sessionName}/all`),
+  syncAllBots: buildApiUrl('/api/message-history/all-bots'),
+}
+
+// URLs específicas para Next.js API Routes internas del módulo de conversaciones
+export const NEXT_CONVERSACIONES_API = {
+  generateReport: '/api/generate-report',
+  getMessages: '/api/rendimiento/get-messages',
+}
+
 // Exportar URL base para otros servicios
 export { BACKEND_URL }
 

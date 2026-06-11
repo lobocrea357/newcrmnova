@@ -26,7 +26,15 @@ const baseConfig = {
   },
 };
 
-// 1. Toast de éxito
+/**
+ * Muestra un toast de éxito con borde verde
+ * @param {string} message - Mensaje a mostrar
+ * @param {Object} options - Opciones adicionales de react-hot-toast
+ * @returns {string} ID del toast
+ * @example
+ * toastSuccess('Guardado exitosamente')
+ * toastSuccess('Cotización creada', { duration: 5000 })
+ */
 export const toastSuccess = (message, options = {}) => {
   return toast.success(message, {
     ...baseConfig,
@@ -45,7 +53,15 @@ export const toastSuccess = (message, options = {}) => {
   });
 };
 
-// 2. Toast de error
+/**
+ * Muestra un toast de error con borde rojo (dura 4s por defecto)
+ * @param {string} message - Mensaje de error
+ * @param {Object} options - Opciones adicionales de react-hot-toast
+ * @returns {string} ID del toast
+ * @example
+ * toastError('Error al guardar')
+ * toastError('No se pudo conectar al servidor', { duration: 6000 })
+ */
 export const toastError = (message, options = {}) => {
   return toast.error(message, {
     ...baseConfig,
@@ -65,7 +81,15 @@ export const toastError = (message, options = {}) => {
   });
 };
 
-// 3. Toast informativo
+/**
+ * Muestra un toast informativo con borde azul
+ * @param {string} message - Mensaje informativo
+ * @param {Object} options - Opciones adicionales de react-hot-toast
+ * @returns {string} ID del toast
+ * @example
+ * toastInfo('Proceso iniciado')
+ * toastInfo('Sincronizando datos...', { duration: 5000 })
+ */
 export const toastInfo = (message, options = {}) => {
   return toast(message, {
     ...baseConfig,
@@ -81,7 +105,15 @@ export const toastInfo = (message, options = {}) => {
   });
 };
 
-// 4. Toast de advertencia
+/**
+ * Muestra un toast de advertencia con borde ámbar
+ * @param {string} message - Mensaje de advertencia
+ * @param {Object} options - Opciones adicionales de react-hot-toast
+ * @returns {string} ID del toast
+ * @example
+ * toastWarning('Cuidado con esta acción')
+ * toastWarning('Cambios no guardados', { duration: 5000 })
+ */
 export const toastWarning = (message, options = {}) => {
   return toast(message, {
     ...baseConfig,
@@ -97,7 +129,17 @@ export const toastWarning = (message, options = {}) => {
   });
 };
 
-// 5. Toast de carga (loading)
+/**
+ * Muestra un toast de carga (no se auto-cierra, usar toastDismiss)
+ * @param {string} message - Mensaje de carga
+ * @param {Object} options - Opciones adicionales de react-hot-toast
+ * @returns {string} ID del toast (necesario para toastDismiss)
+ * @example
+ * const loadingId = toastLoading('Guardando...')
+ * // ... después de completar
+ * toastDismiss(loadingId)
+ * toastSuccess('Guardado')
+ */
 export const toastLoading = (message, options = {}) => {
   return toast.loading(message, {
     ...baseConfig,
@@ -113,7 +155,25 @@ export const toastLoading = (message, options = {}) => {
   });
 };
 
-// 6. Promise toast (para operaciones asíncronas)
+/**
+ * Muestra un toast que maneja automáticamente loading/success/error de una promesa
+ * @param {Promise} promise - Promesa a ejecutar
+ * @param {Object} messages - Mensajes para cada estado
+ * @param {string} messages.loading - Mensaje durante carga
+ * @param {string} messages.success - Mensaje al completar
+ * @param {string} messages.error - Mensaje al fallar
+ * @param {Object} options - Opciones adicionales de react-hot-toast
+ * @returns {Promise} La misma promesa pasada
+ * @example
+ * await toastPromise(
+ *   api.guardarCotizacion(data),
+ *   {
+ *     loading: 'Guardando cotización...',
+ *     success: 'Cotización guardada',
+ *     error: 'Error al guardar'
+ *   }
+ * )
+ */
 export const toastPromise = (promise, messages, options = {}) => {
   return toast.promise(
     promise,
@@ -151,7 +211,15 @@ export const toastPromise = (promise, messages, options = {}) => {
   );
 };
 
-// 7. Dismiss (cerrar toast específico o todos)
+/**
+ * Cierra un toast específico o todos los toasts
+ * @param {string} toastId - ID del toast a cerrar (opcional, si no se pasa cierra todos)
+ * @returns {void}
+ * @example
+ * const id = toastLoading('Cargando...')
+ * toastDismiss(id) // Cierra toast específico
+ * toastDismiss() // Cierra todos los toasts
+ */
 export const toastDismiss = (toastId) => {
   if (toastId) {
     toast.dismiss(toastId);
@@ -160,7 +228,17 @@ export const toastDismiss = (toastId) => {
   }
 };
 
-// 8. Toast personalizado (para casos especiales)
+/**
+ * Muestra un toast personalizado con configuración base del proyecto
+ * @param {string} message - Mensaje a mostrar
+ * @param {Object} options - Opciones adicionales de react-hot-toast
+ * @returns {string} ID del toast
+ * @example
+ * toastCustom('Mensaje custom', {
+ *   duration: 10000,
+ *   style: { border: '2px solid purple' }
+ * })
+ */
 export const toastCustom = (message, options = {}) => {
   return toast(message, {
     ...baseConfig,

@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useBots } from '@/hooks/useBots'
 import { useConversacionesFiltros } from '@/hooks/useConversacionesFiltros'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
+import { successAlert, errorAlert, warningAlert } from '@/helpers/sweetAlerts'
 import {
   CONVERSATIONS_PAGE_SIZE,
   SALES_LIMIT,
@@ -23,6 +24,7 @@ import {
 } from '@/lib/constants/conversacionesConstants'
 import { LEADERS, LEADS, SEDES } from '@/lib/constants/filtrosConstants'
 import { DEFAULT_AUDIT_PROMPT } from '@/lib/config/reportPrompts'
+import { CONVERSACIONES_API, NEXT_CONVERSACIONES_API } from '@/config/apiConfig'
 import ContactAvatar from '@/components/ContactAvatar'
 import HighlightText from '@/components/HighlightText'
 import SalesModal from '@/components/conversaciones/SalesModal'
@@ -101,7 +103,7 @@ function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [lastChatId, setLastChatId] = useLocalStorage('conversaciones:lastChatId', null);
-  const [prevBotIdFromUrl, setPrevBotIdFromUrl] = useState(null);
+  const prevBotIdFromUrlRef = useRef(null);
   
   // Estados para búsqueda global
   const [globalSearchQuery, setGlobalSearchQuery] = useLocalStorage('conversaciones:globalSearchQuery', '');
@@ -110,6 +112,15 @@ function DashboardContent() {
   const [isGlobalSearchActive, setIsGlobalSearchActive] = useState(false);
   const [loadingGlobalSearch, setLoadingGlobalSearch] = useState(false);
   const searchTimeoutRef = useRef(null);
+
+  // Cleanup de searchTimeoutRef al desmontar
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -131,16 +142,16 @@ function DashboardContent() {
     if (!bots || bots.length === 0) return;
 
     // Evitar race condition: solo ejecutar si el botId cambió
-    if (botIdFromUrl === prevBotIdFromUrl) return;
+    if (botIdFromUrl === prevBotIdFromUrlRef.current) return;
 
     setSelectedBotId(botIdFromUrl);
-    setPrevBotIdFromUrl(botIdFromUrl);
+    prevBotIdFromUrlRef.current = botIdFromUrl;
 
     // Intentar restaurar la página guardada para este bot desde conversationsPagination
     const savedPagination = conversationsPagination[botIdFromUrl];
     const page = savedPagination && savedPagination.currentPage ? savedPagination.currentPage : 1;
     fetchConversations(botIdFromUrl, page);
-  }, [searchParams, bots, prevBotIdFromUrl]);
+  }, [searchParams, bots, conversationsPagination]);
 
   // Cargar cotizaciones para todos los bots visibles automáticamente
   useEffect(() => {
@@ -188,8 +199,7 @@ function DashboardContent() {
     try {
       setSyncingBot(sessionName);
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-      const response = await fetch(`${apiUrl}/api/metadata-sync/${sessionName}/all`, {
+      const response = await fetch(CONVERSACIONES_API.syncBot(sessionName), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -203,14 +213,11 @@ function DashboardContent() {
         const chatsUpdated = result.data.chats.updated;
         const botUpdated = result.data.bot?.updated;
 
-        alert(
-          `✅ SINCRONIZACIÓN COMPLETADA\n\n` +
-            `📊 Resultados:\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `• Contactos actualizados: ${contactsUpdated}\n` +
-            `• Chats actualizados: ${chatsUpdated}\n` +
-            `• Bot actualizado: ${botUpdated ? "Sí ✓" : "No (ya tenía datos)"}\n\n` +
-            `Los datos se reflejarán al recargar la página.`,
+        successAlert(
+          `Sincronización completada:\n` +
+            `• ${contactsUpdated} contactos actualizados\n` +
+            `• ${chatsUpdated} chats actualizados\n` +
+            `• Bot: ${botUpdated ? 'Actualizado' : 'Sin cambios'}`
         );
 
         // Recargar datos para reflejar los cambios
@@ -229,25 +236,22 @@ function DashboardContent() {
           errorMsg.includes("NO existe") ||
           errorMsg.includes("does not exist")
         ) {
-          alert(
-            `⚠️ BOT NO CONECTADO EN WAHA\n\n` +
-              `El bot "${sessionName}" no está activo en WAHA.\n\n` +
-              `Para sincronizar datos necesitas:\n` +
-              `  1. Conectar el bot en WAHA (escanear QR)\n` +
-              `  2. Esperar que el estado sea "WORKING"\n` +
-              `  3. Intentar la sincronización nuevamente\n\n` +
-              `❌ Detalles: ${errorMsg}`,
+          warningAlert(
+            `El bot "${sessionName}" no está activo en WAHA.\n\n` +
+              `Para sincronizar necesitas:\n` +
+              `1. Conectar el bot en WAHA (escanear QR)\n` +
+              `2. Esperar estado "WORKING"\n` +
+              `3. Intentar nuevamente\n\n` +
+              `Error: ${errorMsg}`
           );
         } else {
-          alert(`❌ Error en la sincronización:\n\n${errorMsg}`);
+          errorAlert(`Error en la sincronización: ${errorMsg}`);
         }
       }
     } catch (error) {
       console.error("Error sincronizando bot:", error);
-      alert(
-        `❌ ERROR DE CONEXIÓN\n\n` +
-          `No se pudo conectar con el servidor.\n\n` +
-          `Detalles: ${error.message || "Error desconocido"}`,
+      errorAlert(
+        `No se pudo conectar con el servidor: ${error.message || 'Error desconocido'}`
       );
     } finally {
       setSyncingBot(null);
@@ -321,12 +325,11 @@ function DashboardContent() {
       "🚀 Iniciando sincronización COMPLETA de TODOS los bots desde WAHA",
     );
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
 
     try {
-      const response = await fetch(`${apiUrl}/api/message-history/all-bots`, {
+      const response = await fetch(CONVERSACIONES_API.syncAllBots, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -415,6 +418,11 @@ function DashboardContent() {
     router.push(`/conversaciones?${params.toString()}`);
   };
 
+  // Valores derivados (calculados antes de usarlos en handlers)
+  const selectedBot = selectedBotId
+    ? bots.find((bot) => String(bot.id) === String(selectedBotId))
+    : null;
+
   const handleGenerateReport = async () => {
     if (!selectedBotId) return;
     if (!session?.access_token) {
@@ -435,7 +443,7 @@ function DashboardContent() {
     setReportLoading(true);
     setReportError(null);
     try {
-      const response = await fetch("/api/generate-report", {
+      const response = await fetch(NEXT_CONVERSACIONES_API.generateReport, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -535,10 +543,6 @@ function DashboardContent() {
   const handlePageChange = async (botId, newPage) => {
     await fetchConversations(botId, newPage);
   };
-
-  const selectedBot = selectedBotId
-    ? bots.find((bot) => String(bot.id) === String(selectedBotId))
-    : null;
 
   const selectedBotConversations = selectedBotId
     ? conversations[selectedBotId] || []
