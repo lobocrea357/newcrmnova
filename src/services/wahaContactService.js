@@ -84,6 +84,7 @@ export class WahaContactService {
         name: null,
         push_name: null,
         profile_picture_url: null,
+        profile_picture_hash: null, // Nuevo campo
         is_business: false,
         is_enterprise: false
       };
@@ -107,9 +108,12 @@ export class WahaContactService {
         console.log(`ℹ️ About del contacto: ${about.about}`);
       } */
 
-      // Extraer URL de foto de perfil
+      // Extraer URL de foto de perfil y calcular hash
       if (profilePicture && profilePicture.profilePictureURL) {
         fullData.profile_picture_url = profilePicture.profilePictureURL;
+        
+        // Calcular hash de la imagen para detectar cambios
+        fullData.profile_picture_hash = await this.calculateImageHash(profilePicture.profilePictureURL);
       }
 
       console.log(`\n✅ WAHA - Datos finales obtenidos:`, {
@@ -129,6 +133,7 @@ export class WahaContactService {
         name: null,
         push_name: null,
         profile_picture_url: null,
+        profile_picture_hash: null, // Nuevo campo
         is_business: false,
         is_enterprise: false
       };
@@ -156,6 +161,32 @@ export class WahaContactService {
       return null;
     } catch (error) {
       console.error(`Error obteniendo info del chat ${chatId}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Calcula hash SHA256 de una imagen desde su URL
+   * Útil para detectar cambios reales en fotos de perfil
+   */
+  async calculateImageHash(imageUrl) {
+    try {
+      if (!imageUrl) return null;
+      
+      // Descargar imagen
+      const response = await fetch(imageUrl);
+      if (!response.ok) return null;
+      
+      const buffer = await response.arrayBuffer();
+      const bufferArray = new Uint8Array(buffer);
+      
+      // Calcular hash SHA256 usando crypto de Node.js
+      const crypto = await import('crypto');
+      const hash = crypto.createHash('sha256');
+      hash.update(bufferArray);
+      return hash.digest('hex');
+    } catch (error) {
+      console.error('Error calculando hash de imagen:', error.message);
       return null;
     }
   }

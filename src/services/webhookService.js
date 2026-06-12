@@ -6,6 +6,7 @@ import { MessageService } from './messageService.js';
 import { MediaService } from './mediaService.js';
 import { TranscriptionService } from './transcriptionService.js';
 import WahaContactService from './wahaContactService.js';
+import ContactSyncService from './contactSyncService.js';
 import pocThreadService from './pocThreadService.js';
 import { isBotInPoC, getPoCBots } from '../config/pocConfig.js';
 
@@ -305,7 +306,7 @@ export class WebhookService {
   }
 
   /**
-   * Obtiene o crea el contacto (SIEMPRE verifica datos faltantes)
+   * Obtiene o crea el contacto (INTEGRADO CON CONTACT SYNC SERVICE)
    */
   async getOrCreateContact(botId, payload, session, eventMe = null) {
     try {
@@ -349,56 +350,36 @@ export class WebhookService {
         .eq('phone_number', contactNumber)
         .maybeSingle();
 
-      // 🔍 DEBUG: Analizar cada propiedad del payload para nombres
-      console.log(`\n🔍 ========== DEBUG: ANÁLISIS DE NOMBRES DEL CONTACTO ==========`);
-      console.log(`payload._data?.notifyName: ${payload._data?.notifyName || 'NULL'}`);
-      console.log(`payload.pushName: ${payload.pushName || 'NULL'}`);
-      console.log(`payload.verifiedBizName: ${payload.verifiedBizName || 'NULL'}`);
-      console.log(`payload._data?.pushName: ${payload._data?.pushName || 'NULL'}`);
-      console.log(`payload._data?.verifiedName: ${payload._data?.verifiedName || 'NULL'}`);
-      console.log(`payload.from: ${payload.from}`);
-      console.log(`payload.to: ${payload.to || 'NO EXISTE'}`);
-      console.log(`payload.fromMe: ${payload.fromMe}`);
-      console.log(`==========================================\n`);
-
-      // Función para verificar si un nombre es el nombre del bot (incorrecto)
-      const isInvalidName = (name) => {
-        if (!name) return true;
-        if (!botPushName) return false;
-        // Comparar ignorando emojis y espacios extra
-        const normalize = (str) => str?.toLowerCase().replace(/[^\w\s]/g, '').trim();
-        return normalize(name) === normalize(botPushName);
-      };
-
-      // Si el contacto existe, verificar si tiene nombre válido
+      // Si el contacto existe, usar ContactSyncService para sincronizar si es necesario
       if (existingContact) {
-        const hasValidName = existingContact.name && !isInvalidName(existingContact.name);
-        const hasProfilePic = existingContact.profile_picture_url;
+        console.log(`   ✅ Contacto existente encontrado: ${existingContact.name || contactNumber}`);
         
-        if (hasValidName && hasProfilePic) {
-          console.log(`   ✅ Contacto con datos completos y válidos: ${existingContact.name}`);
-          return existingContact;
-        }
+        // Usar ContactSyncService para sincronizar con WAHA si es necesario
+        const syncedContact = await ContactSyncService.syncContactWithWaha(
+          botId,
+          contactNumber,
+          contactId,
+          session,
+          existingContact,
+          botPushName
+        );
         
-        // Si el nombre es igual al del bot, necesita corrección
-        if (isInvalidName(existingContact.name)) {
-          console.log(`   ⚠️ Contacto tiene nombre del bot, necesita corrección`);
-        }
+        return syncedContact;
       }
 
-      // Consultar WAHA para obtener datos reales
-      console.log(`   🔍 Consultando datos desde WAHA...`);
+      // Si el contacto no existe, crearlo con datos de WAHA
+      console.log(`   🆕 Contacto nuevo, consultando datos desde WAHA...`);
       const wahaContactData = await WahaContactService.getFullContactData(session, contactId);
 
       // Determinar el nombre correcto (NUNCA usar el nombre del bot)
       let finalName = null;
       
       // Prioridad: WAHA > verifiedBizName > número de teléfono
-      if (wahaContactData.name && !isInvalidName(wahaContactData.name)) {
+      if (wahaContactData.name && !ContactSyncService.isInvalidName(wahaContactData.name, botPushName)) {
         finalName = wahaContactData.name;
-      } else if (payload.verifiedBizName && !isInvalidName(payload.verifiedBizName)) {
+      } else if (payload.verifiedBizName && !ContactSyncService.isInvalidName(payload.verifiedBizName, botPushName)) {
         finalName = payload.verifiedBizName;
-      } else if (payload._data?.verifiedName && !isInvalidName(payload._data?.verifiedName)) {
+      } else if (payload._data?.verifiedName && !ContactSyncService.isInvalidName(payload._data?.verifiedName, botPushName)) {
         finalName = payload._data?.verifiedName;
       }
       
@@ -412,8 +393,10 @@ export class WebhookService {
         name: finalName,
         push_name: finalName,
         profile_picture_url: wahaContactData.profile_picture_url,
+        profile_picture_hash: wahaContactData.profile_picture_hash,
         is_business: wahaContactData.is_business,
-        is_enterprise: wahaContactData.is_enterprise
+        is_enterprise: wahaContactData.is_enterprise,
+        last_waha_sync: new Date().toISOString() // Marcar como sincronizado al crear
       };
 
       console.log(`   👤 Nombre final: ${finalContactData.name}`);
