@@ -133,7 +133,7 @@ export function useConversacionesFiltros(bots = []) {
     setLeaderFilter('all')
     setLeadFilter('all')
     setSedeFilter('all')
-  }, [setStatusFilter, setLeaderFilter, setLeadFilter, setSedeFilter])
+  }, [])
   
   const handleRemoveFilter = useCallback((key) => {
     switch (key) {

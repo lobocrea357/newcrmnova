@@ -1,6 +1,7 @@
 // dashboard/src/components/conversaciones/SalesModal.jsx
 'use client'
 
+import { useEffect, useCallback } from 'react'
 import { RefreshCw, X, ArrowUp, ArrowRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
@@ -16,14 +17,33 @@ import { useRouter } from 'next/navigation'
 export default function SalesModal({ isOpen, onClose, conversations, loading, error }) {
   const router = useRouter()
 
+  // Cerrar con Escape
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') {
+      onClose()
+    }
+  }, [onClose])
+
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen, handleKeyDown])
+
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sales-modal-title"
+    >
       <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h3 className="text-xl font-semibold text-gray-900">
+            <h3 id="sales-modal-title" className="text-xl font-semibold text-gray-900">
               Ventas Concretadas
             </h3>
             <p className="text-sm text-gray-500">
@@ -34,6 +54,7 @@ export default function SalesModal({ isOpen, onClose, conversations, loading, er
             type="button"
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
+            aria-label="Cerrar modal"
           >
             <X className="h-6 w-6" />
           </button>

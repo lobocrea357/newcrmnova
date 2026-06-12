@@ -4,7 +4,6 @@
 import { MessageSquare, Phone, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import ContactAvatar from '@/components/ContactAvatar'
 import { parseBotSessionName } from '@/lib/botNameParser'
-import { useConversacionesFiltros } from '@/hooks/useConversacionesFiltros'
 import GlobalSearchBar from '@/components/conversaciones/GlobalSearchBar'
 
 export default function ConversationsList({
@@ -23,10 +22,9 @@ export default function ConversationsList({
   loadingGlobalSearch,
   isGlobalSearchActive,
   globalSearchResults,
-  onResultClick
+  onResultClick,
+  formatBotStatus
 }) {
-  // Obtener formatBotStatus del hook
-  const { formatBotStatus } = useConversacionesFiltros([]);
   if (!selectedBot) {
     return (
       <div className="h-full flex items-center justify-center text-center px-6 py-12">

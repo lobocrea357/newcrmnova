@@ -1,6 +1,7 @@
 // dashboard/src/components/conversaciones/ReportModal.jsx
 'use client'
 
+import { useEffect, useCallback } from 'react'
 import { X, Edit3, Download, Sparkles, Loader2 } from 'lucide-react'
 
 /**
@@ -27,10 +28,29 @@ export default function ReportModal({
   onGenerate,
   onDownload,
 }) {
+  // Cerrar con Escape (solo si no está cargando)
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape' && !loading) {
+      onClose()
+    }
+  }, [onClose, loading])
+
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen, handleKeyDown])
+
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="report-modal-title"
+    >
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
@@ -41,7 +61,7 @@ export default function ReportModal({
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500 font-semibold">
               Reporte IA
             </p>
-            <h3 className="text-2xl font-semibold text-slate-900">
+            <h3 id="report-modal-title" className="text-2xl font-semibold text-slate-900">
               Generar reporte del asesor
             </h3>
             <p className="text-sm text-slate-500 mt-1">
@@ -53,6 +73,7 @@ export default function ReportModal({
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 transition-colors"
             disabled={loading}
+            aria-label="Cerrar modal"
           >
             <X className="h-5 w-5" />
           </button>

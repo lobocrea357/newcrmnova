@@ -1,15 +1,12 @@
 'use client'
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { generatePdfReport } from '@/lib/conversaciones/generatePdfReport'
-import { parseBotSessionName, capitalizeWord } from '@/lib/botNameParser'
-import { formatResponseTime } from '@/lib/utils/formatDate'
 import {
-  getAllWorkers,
   getConversationsByBot,
   globalSearchChats,
   getCompletedSalesCount,
   getCompletedSalesConversations,
-  getBotCotizacionesCount
+  getAllBotsCotizacionesCount
 } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
@@ -22,45 +19,20 @@ import {
   SALES_LIMIT,
   SYNC_TIMEOUT_MS
 } from '@/lib/constants/conversacionesConstants'
-import { LEADERS, LEADS, SEDES } from '@/lib/constants/filtrosConstants'
 import { DEFAULT_AUDIT_PROMPT } from '@/lib/config/reportPrompts'
 import { CONVERSACIONES_API, NEXT_CONVERSACIONES_API } from '@/config/apiConfig'
-import ContactAvatar from '@/components/ContactAvatar'
-import HighlightText from '@/components/HighlightText'
 import SalesModal from '@/components/conversaciones/SalesModal'
 import SyncModal from '@/components/conversaciones/SyncModal'
 import ReportModal from '@/components/conversaciones/ReportModal'
 import StatsCards from '@/components/conversaciones/StatsCards'
 import ConversationsFiltersPanel from '@/components/conversaciones/ConversationsFiltersPanel'
 import AdvisorsList from '@/components/conversaciones/AdvisorsList'
-import GlobalSearchBar from '@/components/conversaciones/GlobalSearchBar'
 import ConversationsList from '@/components/conversaciones/ConversationsList'
-import {
-  Bot,
-  MessageSquare,
-  RefreshCw,
-  Search,
-  Filter,
-  Phone,
-  Circle,
-  ChevronDown,
-  ChevronUp,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  CheckCheck,
-  ArrowUp,
-  ArrowDown,
-  Clock3,
-  CreditCard,
-  FileText
-} from "lucide-react";
+import { RefreshCw } from "lucide-react";
 
 function DashboardContent() {
   const { user, session } = useAuth();
-  const { bots, loading: botsLoading, error: botsError } = useBots();
-  const [workers, setWorkers] = useState([]);
+  const { bots, loading: botsLoading } = useBots();
   const [conversations, setConversations] = useState({});
   const [conversationsPagination, setConversationsPagination] = useLocalStorage('conversaciones:botPages', {});
   const [botCotizaciones, setBotCotizaciones] = useState({});
@@ -105,17 +77,21 @@ function DashboardContent() {
   const [lastChatId, setLastChatId] = useLocalStorage('conversaciones:lastChatId', null);
   const prevBotIdFromUrlRef = useRef(null);
   
-  // Estados para búsqueda global
-  const [globalSearchQuery, setGlobalSearchQuery] = useLocalStorage('conversaciones:globalSearchQuery', '');
-  const [globalSearchResults, setGlobalSearchResults] = useLocalStorage('conversaciones:globalSearchResults', []);
+  // Estados para búsqueda global (no persistir resultados para evitar estado inconsistente)
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [globalSearchResults, setGlobalSearchResults] = useState([]);
   const [lastSearchQuery, setLastSearchQuery] = useLocalStorage('conversaciones:lastSearchQuery', '');
-  const [isGlobalSearchActive, setIsGlobalSearchActive] = useState(false);
   const [loadingGlobalSearch, setLoadingGlobalSearch] = useState(false);
   const searchTimeoutRef = useRef(null);
+  const isMountedRef = useRef(true);
 
-  // Cleanup de searchTimeoutRef al desmontar
+  // isGlobalSearchActive derivado del estado (no persistido)
+  const isGlobalSearchActive = globalSearchQuery.trim().length > 0;
+
+  // Cleanup al desmontar
   useEffect(() => {
     return () => {
+      isMountedRef.current = false;
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
@@ -144,6 +120,13 @@ function DashboardContent() {
     // Evitar race condition: solo ejecutar si el botId cambió
     if (botIdFromUrl === prevBotIdFromUrlRef.current) return;
 
+    // Validar que el bot existe en la lista de bots
+    const botExists = bots.find(b => String(b.id) === String(botIdFromUrl));
+    if (!botExists) {
+      console.warn(`Bot ${botIdFromUrl} no encontrado en la lista de bots`);
+      return;
+    }
+
     setSelectedBotId(botIdFromUrl);
     prevBotIdFromUrlRef.current = botIdFromUrl;
 
@@ -151,39 +134,22 @@ function DashboardContent() {
     const savedPagination = conversationsPagination[botIdFromUrl];
     const page = savedPagination && savedPagination.currentPage ? savedPagination.currentPage : 1;
     fetchConversations(botIdFromUrl, page);
-  }, [searchParams, bots, conversationsPagination]);
+  }, [searchParams, bots]);
 
-  // Cargar cotizaciones para todos los bots visibles automáticamente
+  // Cargar cotizaciones para todos los bots en una sola query (evita N+1)
   useEffect(() => {
     if (!bots || bots.length === 0) return;
 
     let isMounted = true;
-    const abortController = new AbortController();
 
     const loadCotizaciones = async () => {
-      const cotizacionesMap = {};
-      
-      // Cargar cotizaciones para cada bot en paralelo
-      await Promise.all(
-        bots.map(async (bot) => {
-          try {
-            const count = await getBotCotizacionesCount(bot.id);
-            if (isMounted) {
-              cotizacionesMap[bot.id] = count;
-            }
-          } catch (error) {
-            if (!abortController.signal.aborted) {
-              console.error(`Error cargando cotizaciones para bot ${bot.id}:`, error);
-              if (isMounted) {
-                cotizacionesMap[bot.id] = 0;
-              }
-            }
-          }
-        })
-      );
-      
-      if (isMounted) {
-        setBotCotizaciones(cotizacionesMap);
+      try {
+        const cotizacionesPorBot = await getAllBotsCotizacionesCount();
+        if (isMounted) {
+          setBotCotizaciones(cotizacionesPorBot);
+        }
+      } catch (error) {
+        console.error('Error cargando cotizaciones:', error);
       }
     };
 
@@ -191,7 +157,6 @@ function DashboardContent() {
 
     return () => {
       isMounted = false;
-      abortController.abort();
     };
   }, [bots]);
 
@@ -263,21 +228,18 @@ function DashboardContent() {
       setLoading(true);
       setLoadingSales(true);
 
-      const [workersData, completedSales] = await Promise.all([
-        getAllWorkers(),
-        getCompletedSalesCount(),
-      ]);
+      const completedSales = await getCompletedSalesCount();
 
-      // console.log("👷 Workers obtenidos:", workersData.length);
-      // console.log("🤖 Bots obtenidos:", bots.length);
-
-      setWorkers(workersData);
+      if (!isMountedRef.current) return;
       setSalesCount(completedSales || 0);
     } catch (error) {
+      if (!isMountedRef.current) return;
       console.error("Error fetching data:", error);
     } finally {
-      setLoading(false);
-      setLoadingSales(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+        setLoadingSales(false);
+      }
     }
   };
 
@@ -308,6 +270,7 @@ function DashboardContent() {
     setSyncLogs((prev) => [
       ...prev,
       {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         message,
         type,
         time: new Date().toLocaleTimeString("es-ES"),
@@ -424,18 +387,27 @@ function DashboardContent() {
     : null;
 
   const handleGenerateReport = async () => {
-    if (!selectedBotId) return;
-    if (!session?.access_token) {
+    // Validación temprana de botId
+    if (!selectedBotId) {
+      setReportError("No hay asesor seleccionado. Por favor, selecciona un asesor e intenta nuevamente.");
+      return;
+    }
+
+    // Recalcular selectedBot para asegurar datos frescos
+    const currentSelectedBot = bots.find((bot) => String(bot.id) === String(selectedBotId));
+    
+    // Validar que el bot existe
+    if (!currentSelectedBot) {
       setReportError(
-        "No se pudo validar la sesión actual. Vuelve a iniciar sesión e inténtalo de nuevo.",
+        "No se pudo encontrar el asesor seleccionado. Por favor, selecciona un asesor e intenta nuevamente.",
       );
       return;
     }
-    
-    // Validar que selectedBot exista antes de continuar
-    if (!selectedBot) {
+
+    // Validar sesión
+    if (!session?.access_token) {
       setReportError(
-        "No se pudo encontrar el bot seleccionado. Por favor, selecciona un asesor e intenta nuevamente.",
+        "No se pudo validar la sesión actual. Vuelve a iniciar sesión e inténtalo de nuevo.",
       );
       return;
     }
@@ -459,7 +431,7 @@ function DashboardContent() {
         throw new Error(data.error || "No se pudo generar el reporte.");
       }
       setReportData(data);
-      generatePdfReport(data, selectedBot.session_name);
+      generatePdfReport(data, currentSelectedBot.session_name);
     } catch (error) {
       console.error("Error generating report:", error);
       setReportError(error.message);
@@ -488,22 +460,18 @@ function DashboardContent() {
   const handleGlobalSearch = (query) => {
     setGlobalSearchQuery(query);
 
-    if (!query || query.trim() === "") {
-      setIsGlobalSearchActive(false);
-      setGlobalSearchResults([]);
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-      return;
-    }
-
-    setIsGlobalSearchActive(true);
-    setLoadingGlobalSearch(true);
-
-    // Limpiar timeout anterior
+    // Limpiar timeout anterior siempre
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
+
+    if (!query || query.trim() === "") {
+      setGlobalSearchResults([]);
+      setLoadingGlobalSearch(false);
+      return;
+    }
+
+    setLoadingGlobalSearch(true);
 
     // Debouncing: esperar 500ms antes de ejecutar búsqueda
     searchTimeoutRef.current = setTimeout(async () => {
@@ -521,9 +489,12 @@ function DashboardContent() {
 
   // Función para limpiar búsqueda global
   const handleClearGlobalSearch = () => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
     setGlobalSearchQuery("");
     setGlobalSearchResults([]);
-    setIsGlobalSearchActive(false);
+    setLoadingGlobalSearch(false);
   };
 
   // Función para manejar click en resultado de búsqueda global
@@ -540,21 +511,10 @@ function DashboardContent() {
     );
   };
 
-  const handlePageChange = async (botId, newPage) => {
-    await fetchConversations(botId, newPage);
-  };
-
   const selectedBotConversations = selectedBotId
     ? conversations[selectedBotId] || []
     : [];
 
-  const selectedBotPagination = selectedBotId
-    ? conversationsPagination[selectedBotId] || {
-        currentPage: 1,
-        totalPages: 0,
-        total: 0,
-      }
-    : { currentPage: 1, totalPages: 0, total: 0 };
 
   if (loading) {
     return (
@@ -599,7 +559,7 @@ function DashboardContent() {
             onClick={() => setCompactMode((prev) => !prev)}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-white text-xs text-gray-700 hover:bg-gray-50"
           >
-            Modo: {compactMode ? "Compacto" : "Detallado"}
+            Vista: {compactMode ? "Compacta" : "Detallada"}
           </button>
         </div>
 
@@ -672,6 +632,7 @@ function DashboardContent() {
             isGlobalSearchActive={isGlobalSearchActive}
             globalSearchResults={globalSearchResults}
             onResultClick={handleGlobalSearchResultClick}
+            formatBotStatus={formatBotStatus}
           />
         </div>
       </main>

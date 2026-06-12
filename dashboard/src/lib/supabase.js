@@ -266,6 +266,7 @@ export async function getBotsByWorker(workerId) {
  * OPTIMIZADO: Usa conversation_metrics en lugar de escanear mensajes
  * @param {string} botId - ID del bot
  * @returns {Promise<number>} Total de cotizaciones
+ * @deprecated Usar getAllBotsCotizacionesCount para evitar N+1 queries
  */
 export async function getBotCotizacionesCount(botId) {
   try {
@@ -296,6 +297,46 @@ export async function getBotCotizacionesCount(botId) {
   } catch (error) {
     console.error("Error contando cotizaciones:", error);
     return 0;
+  }
+}
+
+/**
+ * Obtiene el conteo de cotizaciones para TODOS los bots en una sola query
+ * OPTIMIZADO: Evita N+1 queries al cargar cotizaciones por bot
+ * @returns {Promise<Object>} Objeto { botId: count, ... }
+ */
+export async function getAllBotsCotizacionesCount() {
+  try {
+    const { data, error } = await supabase
+      .from("chats")
+      .select(`
+        bot_id,
+        metrics:conversation_metrics(cotizacion_mentions_count)
+      `)
+      .eq("is_group", false)
+      .not("chat_id", "ilike", "%status%")
+      .not("chat_id", "ilike", "%@broadcast%")
+      .not("chat_id", "ilike", "%@g.us");
+
+    if (error || !data) {
+      console.error("Error obteniendo cotizaciones agregadas:", error);
+      return {};
+    }
+
+    // Agrupar y sumar por bot_id
+    const cotizacionesPorBot = {};
+    data.forEach((chat) => {
+      const botId = chat.bot_id;
+      const count = chat.metrics?.[0]?.cotizacion_mentions_count || 0;
+      if (botId) {
+        cotizacionesPorBot[botId] = (cotizacionesPorBot[botId] || 0) + count;
+      }
+    });
+
+    return cotizacionesPorBot;
+  } catch (error) {
+    console.error("Error obteniendo cotizaciones agregadas:", error);
+    return {};
   }
 }
 
@@ -499,94 +540,79 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
     return { data: [], total, totalPages, currentPage: page };
   }
 
-  // Procesar conversaciones con métricas precalculadas
-  const conversationsWithDetails = await Promise.all(
-    data.map(async (chat) => {
-      // Obtener solo el último mensaje (1 query por conversación)
-      const { data: lastMessage } = await supabase
-        .from("messages")
-        .select("body, timestamp, from_me")
-        .eq("chat_id", chat.id)
-        .order("timestamp", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+  // Procesar conversaciones con métricas precalculadas (sin N+1 queries)
+  const conversationsWithDetails = data.map((chat) => {
+    // Determinar nombre de contacto
+    let displayName = "Sin nombre";
+    let displayPhone = "";
+    let isValidContact = false;
 
-      // Determinar nombre de contacto
-      let displayName = "Sin nombre";
-      let displayPhone = "";
-      let isValidContact = false;
-
-      if (chat.contact?.name && chat.contact.name.trim() !== "") {
-        displayName = chat.contact.name.trim();
-        displayPhone = chat.contact.phone_number || chat.contact_number || "";
+    if (chat.contact?.name && chat.contact.name.trim() !== "") {
+      displayName = chat.contact.name.trim();
+      displayPhone = chat.contact.phone_number || chat.contact_number || "";
+      isValidContact = true;
+    } else if (chat.contact?.push_name && chat.contact.push_name.trim() !== "") {
+      displayName = chat.contact.push_name.trim();
+      displayPhone = chat.contact.phone_number || chat.contact_number || "";
+      isValidContact = true;
+    } else if (chat.name && chat.name.trim() !== "") {
+      displayName = chat.name.trim();
+      displayPhone = chat.contact?.phone_number || chat.contact_number || "";
+      isValidContact = true;
+    } else if (chat.contact_name && chat.contact_name.trim() !== "") {
+      displayName = chat.contact_name.trim();
+      displayPhone = chat.contact_number || "";
+      isValidContact = true;
+    } else if (chat.contact?.phone_number) {
+      displayName = chat.contact.phone_number;
+      displayPhone = chat.contact.phone_number;
+      isValidContact = true;
+    } else if (chat.contact_number) {
+      displayName = chat.contact_number;
+      displayPhone = chat.contact_number;
+      isValidContact = true;
+    } else if (chat.chat_id) {
+      const phoneFromChatId = chat.chat_id.split("@")[0];
+      if (phoneFromChatId && phoneFromChatId !== "status") {
+        displayName = phoneFromChatId;
+        displayPhone = phoneFromChatId;
         isValidContact = true;
-      } else if (chat.contact?.push_name && chat.contact.push_name.trim() !== "") {
-        displayName = chat.contact.push_name.trim();
-        displayPhone = chat.contact.phone_number || chat.contact_number || "";
-        isValidContact = true;
-      } else if (chat.name && chat.name.trim() !== "") {
-        displayName = chat.name.trim();
-        displayPhone = chat.contact?.phone_number || chat.contact_number || "";
-        isValidContact = true;
-      } else if (chat.contact_name && chat.contact_name.trim() !== "") {
-        displayName = chat.contact_name.trim();
-        displayPhone = chat.contact_number || "";
-        isValidContact = true;
-      } else if (chat.contact?.phone_number) {
-        displayName = chat.contact.phone_number;
-        displayPhone = chat.contact.phone_number;
-        isValidContact = true;
-      } else if (chat.contact_number) {
-        displayName = chat.contact_number;
-        displayPhone = chat.contact_number;
-        isValidContact = true;
-      } else if (chat.chat_id) {
-        const phoneFromChatId = chat.chat_id.split("@")[0];
-        if (phoneFromChatId && phoneFromChatId !== "status") {
-          displayName = phoneFromChatId;
-          displayPhone = phoneFromChatId;
-          isValidContact = true;
-        }
       }
+    }
 
-      // Construir métricas usando datos precalculados
-      const metrics = chat.metrics?.[0];
-      const conversationMetrics = metrics ? {
-        response: metrics.response_samples > 0 ? {
-          averageMinutes: Number(metrics.avg_response_time_minutes?.toFixed(1) || 0),
-          maxMinutes: Number(metrics.max_response_time_minutes?.toFixed(1) || 0),
-          samples: metrics.response_samples
-        } : null,
-        paymentMentions: metrics.payment_mentions_count > 0 ? {
-          count: metrics.payment_mentions_count,
-          firstTimestamp: metrics.payment_first_mention_at,
-          lastTimestamp: metrics.payment_last_mention_at,
-          lastFromMe: metrics.payment_last_from_me
-        } : null,
-        cotizacionMentions: metrics.cotizacion_mentions_count > 0 ? {
-          count: metrics.cotizacion_mentions_count,
-          files: metrics.cotizacion_files || []
-        } : null
-      } : null; // NULL si no hay métricas (chat sin actividad reciente)
+    // Construir métricas usando datos precalculados
+    const metrics = chat.metrics?.[0];
+    const conversationMetrics = metrics ? {
+      response: metrics.response_samples > 0 ? {
+        averageMinutes: Number(metrics.avg_response_time_minutes?.toFixed(1) || 0),
+        maxMinutes: Number(metrics.max_response_time_minutes?.toFixed(1) || 0),
+        samples: metrics.response_samples
+      } : null,
+      paymentMentions: metrics.payment_mentions_count > 0 ? {
+        count: metrics.payment_mentions_count,
+        firstTimestamp: metrics.payment_first_mention_at,
+        lastTimestamp: metrics.payment_last_mention_at,
+        lastFromMe: metrics.payment_last_from_me
+      } : null,
+      cotizacionMentions: metrics.cotizacion_mentions_count > 0 ? {
+        count: metrics.cotizacion_mentions_count,
+        files: metrics.cotizacion_files || []
+      } : null
+    } : null;
 
-      return {
-        ...chat,
-        message_count: metrics?.total_messages || 0,
-        contact_name: displayName,
-        contact_phone: displayPhone,
-        contact_profile_picture_url: chat.contact?.profile_picture_url || null,
-        last_message_preview:
-          lastMessage?.body?.substring(0, 100) ||
-          chat.last_message?.substring(0, 100) ||
-          "",
-        last_message_timestamp:
-          lastMessage?.timestamp || chat.last_message_time || chat.updated_at,
-        last_message_from_me: lastMessage?.from_me || false,
-        is_valid_contact: isValidContact,
-        conversation_metrics: conversationMetrics
-      };
-    })
-  );
+    return {
+      ...chat,
+      message_count: metrics?.total_messages || 0,
+      contact_name: displayName,
+      contact_phone: displayPhone,
+      contact_profile_picture_url: chat.contact?.profile_picture_url || null,
+      last_message_preview: chat.last_message?.substring(0, 100) || "",
+      last_message_timestamp: chat.last_message_time || chat.updated_at,
+      last_message_from_me: chat.last_message_from_me || false,
+      is_valid_contact: isValidContact,
+      conversation_metrics: conversationMetrics
+    };
+  });
 
   return {
     data: conversationsWithDetails,
@@ -677,8 +703,21 @@ export async function getPaginatedMessages(
     }
   }
 
-  // Determinar si hay más mensajes
-  const hasMore = messages && messages.length === limit;
+  // Determinar si hay más mensajes (fix: considerar total real, no solo si devolvió limit)
+  const loadedCount = sortedMessages.length;
+  const oldestLoadedTimestamp = sortedMessages[0]?.timestamp;
+  
+  // hasMore es true solo si: cargamos el límite completo Y hay mensajes más antiguos
+  let hasMore = false;
+  if (loadedCount === limit && oldestLoadedTimestamp) {
+    // Verificar si hay mensajes anteriores al más antiguo cargado
+    const { count: olderCount } = await supabase
+      .from("messages")
+      .select("*", { count: "exact", head: true })
+      .eq("chat_id", chatId)
+      .lt("timestamp", oldestLoadedTimestamp);
+    hasMore = (olderCount || 0) > 0;
+  }
 
   return {
     messages: sortedMessages,

@@ -1,6 +1,7 @@
 // dashboard/src/components/conversaciones/SyncModal.jsx
 'use client'
 
+import { useEffect, useCallback } from 'react'
 import { X } from 'lucide-react'
 
 /**
@@ -12,14 +13,33 @@ import { X } from 'lucide-react'
  * @param {Function} props.onClose
  */
 export default function SyncModal({ syncProgress, syncLogs, syncing, onClose }) {
+  // Cerrar con Escape (solo si no está sincronizando)
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape' && !syncing) {
+      onClose()
+    }
+  }, [onClose, syncing])
+
+  useEffect(() => {
+    if (syncProgress) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [syncProgress, handleKeyDown])
+
   if (!syncProgress) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sync-modal-title"
+    >
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h3 className="text-xl font-semibold text-gray-900">
+            <h3 id="sync-modal-title" className="text-xl font-semibold text-gray-900">
               Sincronización Completa
             </h3>
             <p className="text-sm text-gray-500">
@@ -31,6 +51,7 @@ export default function SyncModal({ syncProgress, syncLogs, syncing, onClose }) 
             onClick={onClose}
             className={`text-gray-400 hover:text-gray-600 ${syncing ? 'pointer-events-none opacity-50' : ''}`}
             disabled={syncing}
+            aria-label="Cerrar modal"
           >
             <X className="h-6 w-6" />
           </button>
@@ -56,9 +77,9 @@ export default function SyncModal({ syncProgress, syncLogs, syncing, onClose }) 
               </p>
             ) : (
               <ul className="space-y-2">
-                {syncLogs.map((log, index) => (
+                {syncLogs.map((log) => (
                   <li
-                    key={`${log.time}-${index}`}
+                    key={log.id}
                     className="flex items-start gap-2"
                   >
                     <span className="text-[11px] text-gray-400">

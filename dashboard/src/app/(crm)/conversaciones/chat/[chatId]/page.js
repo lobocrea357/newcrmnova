@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useRef, useEffect, Suspense } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import ChatView from '@/components/ChatView'
 import ContactAvatar from '@/components/ContactAvatar'
@@ -11,19 +11,29 @@ import { Search, X, RefreshCw, Phone, Bot, CheckCheck, Sparkles } from 'lucide-r
 import ChatAnalysis from '@/components/ChatAnalysis'
 import MessageInsightsPanel from '@/components/MessageInsightsPanel'
 
-export default function ChatPage() {
+function ChatPageContent() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
   const chatId = params.chatId
   const fromSearch = searchParams.get('fromSearch') === 'true'
+  const searchTimeoutRef = useRef(null)
 
   const [globalSearchQuery, setGlobalSearchQuery] = useLocalStorage('conversaciones:chatSearchQuery', '')
-  const [globalSearchResults, setGlobalSearchResults] = useLocalStorage('conversaciones:chatSearchResults', [])
+  const [globalSearchResults, setGlobalSearchResults] = useState([]) // No persistir resultados para evitar estado inconsistente
   const [loadingGlobalSearch, setLoadingGlobalSearch] = useState(false)
   const [showSearchSidebar, setShowSearchSidebar] = useState(false)
-  const [messages, setMessages] = useState([]) // Estado para mensajes cargados desde ChatView
-  const [showInsights, setShowInsights] = useState(false) // Toggle para móvil
+  const [messages, setMessages] = useState([])
+  const [showInsights, setShowInsights] = useState(false)
+
+  // Cleanup timeout al desmontar
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const handleClose = () => {
     const botId = searchParams.get("botId");
@@ -35,30 +45,44 @@ export default function ChatPage() {
     }
   };
 
-  const handleGlobalSearch = async (query) => {
+  // Búsqueda global con debounce (500ms)
+  const handleGlobalSearch = (query) => {
     setGlobalSearchQuery(query);
+
+    // Limpiar timeout anterior siempre
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
 
     if (!query || query.trim() === "") {
       setGlobalSearchResults([]);
+      setLoadingGlobalSearch(false);
       return;
     }
 
     setLoadingGlobalSearch(true);
 
-    try {
-      const results = await globalSearchChats(query);
-      setGlobalSearchResults(results);
-    } catch (error) {
-      console.error("Error en búsqueda global:", error);
-      setGlobalSearchResults([]);
-    } finally {
-      setLoadingGlobalSearch(false);
-    }
+    // Debouncing: esperar 500ms antes de ejecutar búsqueda
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results = await globalSearchChats(query);
+        setGlobalSearchResults(results);
+      } catch (error) {
+        console.error("Error en búsqueda global:", error);
+        setGlobalSearchResults([]);
+      } finally {
+        setLoadingGlobalSearch(false);
+      }
+    }, 500);
   };
 
   const handleClearGlobalSearch = () => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
     setGlobalSearchQuery("");
     setGlobalSearchResults([]);
+    setLoadingGlobalSearch(false);
   };
 
   const handleSearchResultClick = (chat) => {
@@ -233,5 +257,20 @@ export default function ChatPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={
+      <div className="h-dvh flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center">
+          <RefreshCw className="h-10 w-10 text-indigo-600 animate-spin mx-auto mb-3" />
+          <p className="text-slate-600">Cargando conversación...</p>
+        </div>
+      </div>
+    }>
+      <ChatPageContent />
+    </Suspense>
   )
 }
