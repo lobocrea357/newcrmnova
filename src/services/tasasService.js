@@ -11,10 +11,14 @@ class TasasService {
     try {
       console.log(`[TasasService] Actualizando tasa ${id} a ${nuevaTasa} por usuario ${userId}`);
 
-      // 1. Obtener estado actual
+      // 1. Obtener estado actual con información de monedas
       const { data: actual, error: errorActual } = await supabase
         .from('tasas_conversion')
-        .select('*')
+        .select(`
+          *,
+          moneda_origen:monedas!tasas_conversion_moneda_origen_id_fkey(codigo, simbolo),
+          moneda_destino:monedas!tasas_conversion_moneda_destino_id_fkey(codigo, simbolo)
+        `)
         .eq('id', id)
         .single();
 
@@ -27,11 +31,16 @@ class TasasService {
         throw new Error('Tasa no encontrada');
       }
 
-      // 2. Actualizar tasa
+      // 2. Generar nueva descripción con la tasa actualizada
+      const nuevaDescripcion = `1 ${actual.moneda_origen.codigo} equivale a ${nuevaTasa} ${actual.moneda_destino.simbolo}`;
+      console.log(`[TasasService] Nueva descripción: ${nuevaDescripcion}`);
+
+      // 3. Actualizar tasa y descripción
       const { data: updated, error: errorUpdate } = await supabase
         .from('tasas_conversion')
         .update({ 
           tasa: parseFloat(nuevaTasa),
+          descripcion: nuevaDescripcion,
           actualizado_por: userId,
           updated_at: new Date().toISOString()
         })
@@ -120,7 +129,8 @@ class TasasService {
         null,
         parseFloat(tasa),
         userId,
-        'Creación de conversión'
+        'Creación de conversión',
+        'create'
       );
 
       return data;
@@ -132,16 +142,20 @@ class TasasService {
   }
 
   /**
-   * Eliminar conversión y registrar en historial
+   * Eliminar conversión (SOFT DELETE) y registrar en historial
    */
   async eliminarConversion(id, userId, motivo = 'Eliminación de conversión') {
     try {
-      console.log(`[TasasService] Eliminando conversión ${id}`);
+      console.log(`[TasasService] Eliminando conversión ${id} (soft delete)`);
 
-      // 1. Obtener datos antes de eliminar
+      // 1. Obtener datos antes de marcar como eliminado
       const { data: actual, error: errorActual } = await supabase
         .from('tasas_conversion')
-        .select('*')
+        .select(`
+          *,
+          moneda_origen:monedas!tasas_conversion_moneda_origen_id_fkey(codigo, simbolo),
+          moneda_destino:monedas!tasas_conversion_moneda_destino_id_fkey(codigo, simbolo)
+        `)
         .eq('id', id)
         .single();
 
@@ -154,7 +168,27 @@ class TasasService {
         throw new Error('Conversión no encontrada');
       }
 
-      // 2. Registrar eliminación ANTES de eliminar
+      if (actual.deleted_at) {
+        throw new Error('Esta conversión ya fue eliminada');
+      }
+
+      // 2. Marcar como eliminado (SOFT DELETE)
+      console.log(`[TasasService] Marcando conversión como eliminada`);
+      const { error: errorDelete } = await supabase
+        .from('tasas_conversion')
+        .update({
+          deleted_at: new Date().toISOString(),
+          deleted_by: userId,
+          activa: false
+        })
+        .eq('id', id);
+
+      if (errorDelete) {
+        console.error('[TasasService] Error marcando conversión como eliminada:', errorDelete);
+        throw errorDelete;
+      }
+
+      // 3. Registrar eliminación en historial
       console.log(`[TasasService] Registrando eliminación en historial`);
       await this.registrarCambio(
         id,
@@ -163,34 +197,11 @@ class TasasService {
         actual.tasa,
         null,
         userId,
-        motivo
+        motivo,
+        'delete'
       );
 
-      // 3. Eliminar historial asociado PRIMERO (respetar llave foránea)
-      console.log(`[TasasService] Eliminando historial asociado`);
-      const { error: errorHistorial } = await supabase
-        .from('tasas_historial')
-        .delete()
-        .eq('tasa_conversion_id', id);
-
-      if (errorHistorial) {
-        console.error('[TasasService] Error eliminando historial:', errorHistorial);
-        // No lanzar error, continuar con eliminación principal
-      }
-
-      // 4. Eliminar conversión
-      console.log(`[TasasService] Eliminando conversión principal`);
-      const { error: errorDelete } = await supabase
-        .from('tasas_conversion')
-        .delete()
-        .eq('id', id);
-
-      if (errorDelete) {
-        console.error('[TasasService] Error eliminando conversión:', errorDelete);
-        throw errorDelete;
-      }
-
-      console.log(`[TasasService] Conversión eliminada exitosamente`);
+      console.log(`[TasasService] Conversión eliminada exitosamente (soft delete)`);
 
     } catch (error) {
       console.error('[TasasService] Error en eliminarConversion:', error);
@@ -201,7 +212,7 @@ class TasasService {
   /**
    * Registrar cambio en historial
    */
-  async registrarCambio(tasaConversionId, origenId, destinoId, tasaAnterior, tasaNueva, userId, motivo) {
+  async registrarCambio(tasaConversionId, origenId, destinoId, tasaAnterior, tasaNueva, userId, motivo, tipoOperacion = 'update') {
     try {
       const { error } = await supabase
         .from('tasas_historial')
@@ -213,6 +224,7 @@ class TasasService {
           tasa_nueva: tasaNueva,
           motivo,
           modificado_por: userId,
+          tipo_operacion: tipoOperacion,
           fecha_cambio: new Date().toISOString()
         }]);
 
@@ -221,7 +233,7 @@ class TasasService {
         throw error;
       }
 
-      console.log('[TasasService] Cambio registrado en historial exitosamente');
+      console.log(`[TasasService] Cambio registrado en historial exitosamente (${tipoOperacion})`);
 
     } catch (error) {
       console.error('[TasasService] Error en registrarCambio:', error);

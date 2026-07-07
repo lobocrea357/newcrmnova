@@ -9,7 +9,12 @@ const router = express.Router();
  */
 router.post('/waha', async (req, res) => {
   try {
-    console.log('Webhook recibido:', JSON.stringify(req.body, null, 2));
+    // 🔍 LOG CRÍTICO - Debe aparecer SIEMPRE que llegue un webhook
+    console.log('\n\n🔔🔔🔔🔔🔔🔔🔔🔔🔔🔔🔔🔔🔔🔔🔔🔔');
+    console.log('🔔 WEBHOOK POST /webhooks/waha RECIBIDO');
+    console.log('🔔 Timestamp:', new Date().toISOString());
+    console.log('🔔 Body:', JSON.stringify(req.body, null, 2));
+    console.log('🔔🔔🔔🔔🔔🔔🔔🔔🔔🔔🔔🔔🔔🔔🔔🔔\n\n');
     
     await webhookService.processWebhook(req.body);
     

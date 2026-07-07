@@ -379,3 +379,74 @@ export async function getUsersByRole(roleId) {
     return { data: null, error: error.message };
   }
 }
+
+/**
+ * Obtener roles filtrados por ranking del usuario actual
+ * @param {string} currentUserId - ID del usuario actual
+ * @param {string} currentRanking - Nombre del rol del usuario actual
+ * @returns {Promise<Array>}
+ */
+export async function getRolesFilteredByRanking(currentUserId, currentRanking) {
+  try {
+    const { data, error } = await supabase
+      .from('roles')
+      .select('*')
+      .order('ranking', { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    // Super admin ve todos los roles
+    if (currentRanking === 'super_admin') {
+      return data;
+    }
+
+    // Admin ve roles con ranking menor
+    if (currentRanking === 'admin') {
+      return data.filter(role => {
+        const roleRanking = role.ranking || 0;
+        return roleRanking < 100; // admin tiene ranking 100
+      });
+    }
+
+    return [];
+  } catch (error) {
+    console.error('Error al obtener roles filtrados por ranking:', error);
+    return [];
+  }
+}
+
+/**
+ * Validar si un usuario puede gestionar un rol específico
+ * @param {string} currentUserId - ID del usuario que intenta gestionar el rol
+ * @param {number} targetRoleRanking - Ranking del rol objetivo
+ * @returns {Promise<boolean>}
+ */
+export async function canManageRole(currentUserId, targetRoleRanking) {
+  try {
+    // Import userService dinámicamente para evitar circular dependency
+    const { getUserById } = await import('./userService.js');
+    const currentUser = await getUserById(currentUserId);
+
+    if (!currentUser.data) {
+      return false;
+    }
+
+    // Super admin puede gestionar todos los roles
+    if (currentUser.data.role?.name === 'super_admin') {
+      return true;
+    }
+
+    // Admin no puede gestionar roles de igual o superior ranking
+    if (currentUser.data.role?.name === 'admin') {
+      const currentRanking = currentUser.data.role?.ranking || 0;
+      return targetRoleRanking < currentRanking;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Error validando gestión de rol:', error);
+    return false;
+  }
+}

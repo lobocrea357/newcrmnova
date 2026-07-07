@@ -14,6 +14,8 @@ package-lock.json
 *.env
 .env.backup
 
+
+
 # Credenciales sensibles
 CREDENCIALES_DOCKER.md
 credentials.json

@@ -1,10 +1,9 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import { getUserInfo, isRouteHidden } from '@/lib/userConfig'
+import { useUserProfile } from '@/contexts/UserProfileContext'
 import {
     LayoutDashboard,
     MessageSquare,
@@ -16,57 +15,121 @@ import {
     AlertTriangle,
     XCircle,
     Settings,
-    User,
-    Plane,
     PlaneTakeoff,
     Calculator,
-    X
+    ClipboardList,
+    X,
+    CheckCircle,
+    Send,
+    UserPlus,
+    Package,
+    CreditCard,
+    BarChart3,
+    Clock,
+    Users as UsersIcon
 } from 'lucide-react'
 
-const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
+// menuItems como constante fuera del componente para evitar recreación en cada render
+const BASE_MENU_ITEMS = [
+    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/conversaciones', label: 'Conversaciones', icon: MessageSquare },
+    { href: '/rutas-riesgo', label: 'Rutas en Riesgo', icon: AlertTriangle },
+    { href: '/analisis/rendimiento', label: 'Rendimiento', icon: TrendingUp },
+    { href: '/manual-ventas', label: 'Manual de Ventas', icon: BookOpen },
+    { href: '/cotizador', label: 'Cotizador', icon: Calculator },
+    { href: '/ventas', label: 'Ventas', icon: TrendingUp },
+    { href: '/ventas/cotizaciones', label: 'Cotizaciones', icon: ClipboardList },
+    { href: '/ventas/vuelos', label: 'Vuelos', icon: PlaneTakeoff },
+    { href: '/ventas/anulables', label: 'Anulables', icon: XCircle },
+    // Módulo Admin Finanzas - Solo Dashboard Emisiones como entrada
+    { href: '/admin/dashboard-emisiones', label: 'Administracion', icon: BarChart3 },
+    // Eliminadas: Confirmar Pagos, Control Emisiones, Gestión Deudas
+    // Ahora se acceden vía tabs dentro de Dashboard Emisiones
+    { href: '/emisiones', label: 'Emisiones', icon: Send },
+    { href: '/analisis/reportes', label: 'Reportes', icon: FileText },
+    { href: '/inteligencia-artificial', label: 'IA', icon: Brain },
+    { href: '/configuracion', label: 'Configuración', icon: Settings },
+    // Rutas POC - Visible solo para super_admin y admin
+    { href: '/conversaciones-poc', label: 'Conversaciones POC', icon: Clock, adminOnly: true },
+    { href: '/dashboard-poc', label: 'Dashboard Leads POC', icon: UsersIcon, superAdminOnly: true },
+    // Rutas Admin - Visible para admin, super_admin y manager
+    { href: '/admin/team-members', label: 'Team Members', icon: Users, adminOnly: true },
+]
+
+const Sidebar = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse }) => {
     const pathname = usePathname()
-    const [user, setUser] = useState(null)
-    const [userInfo, setUserInfo] = useState(null)
-    const [loading, setLoading] = useState(true)
+    const { profile, role, loading: profileLoading, isSuperAdmin, isAdmin, isManager } = useUserProfile()
 
-    useEffect(() => {
-        loadUser()
-    }, [])
+    // Solo hay un loading: el del perfil
+    const loading = profileLoading
 
-    const loadUser = async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser()
-            setUser(user)
-            const info = getUserInfo(user?.email)
-            setUserInfo(info)
-            console.log('🔐 Usuario loggeado (Sidebar):', {
-                id: user?.id,
-                email: user?.email,
-                fullName: user?.user_metadata?.full_name,
-                metadata: user?.user_metadata,
-                role: user?.role,
-                appMetadata: user?.app_metadata,
-                fullPayload: user,
-                customInfo: info
-            })
-        } finally {
-            setLoading(false)
-        }
+    // IMPORTANTE: Solo evaluar permisos cuando el perfil ha cargado completamente
+    const permissionsLoaded = !profileLoading && profile !== null
+    const canManageTeam = permissionsLoaded && (isSuperAdmin || isAdmin || isManager)
+
+    // ROUTES_BY_ROLE — fuente única de verdad para el acceso al Sidebar.
+    // null = sin restricciones (puede ver todo).
+    // array = lista de rutas permitidas (prefijos).
+    const ROUTES_BY_ROLE = {
+        super_admin: null,
+        admin: null,
+        gerente: [
+            '/', '/conversaciones', '/analisis/rendimiento',
+            '/gestion-equipos', '/cotizador', '/ventas/cotizaciones',
+            '/ventas/vuelos', '/configuracion'
+        ],
+        asesor: [
+            '/', '/cotizador', '/ventas', '/ventas/cotizaciones',
+            '/ventas/vuelos', '/ventas/vuelos/nuevo'
+        ],
+        administracion: [
+            '/', '/cotizador', '/ventas', '/ventas/cotizaciones',
+            '/ventas/vuelos', '/ventas/vuelos/nuevo', '/admin/dashboard-emisiones' // Consolidado - acceso vía tabs
+        ],
+        emisor: ['/', '/emisiones'],
     }
 
-    const menuItems = [
-        { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-        { href: '/conversaciones', label: 'Conversaciones', icon: MessageSquare },
-        { href: '/rutas-riesgo', label: 'Rutas en Riesgo', icon: AlertTriangle },
-        { href: '/rendimiento', label: 'Rendimiento', icon: TrendingUp },
-        { href: '/manual-ventas', label: 'Manual de Ventas', icon: BookOpen },
-        { href: '/cotizador', label: 'Cotizador', icon: Calculator },
-        { href: '/vuelos', label: 'Vuelos', icon: PlaneTakeoff },
-        { href: '/anulables', label: 'Anulables', icon: XCircle },
-        { href: '/reportes', label: 'Reportes', icon: FileText },
-        { href: '/inteligencia-artificial', label: 'IA', icon: Brain },
-        { href: '/configuracion', label: 'Configuración', icon: Settings },
-    ]
+    // Determinar las rutas permitidas para el rol actual
+    let allowedRoutes = null
+    if (role) {
+        const roleConfig = ROUTES_BY_ROLE[role.toLowerCase()]
+        allowedRoutes = roleConfig !== undefined ? roleConfig : ['/']
+    }
+
+    // Función que determina si una ruta está visible para el usuario actual
+    const isRouteVisible = (href, superAdminOnly = false, adminOnly = false) => {
+        // Si no cargó el perfil aún, no mostrar nada (seguridad)
+        if (!permissionsLoaded) return false
+
+        // Si la ruta es solo para super_admin, verificar rol
+        if (superAdminOnly) {
+            return isSuperAdmin
+        }
+
+        // Si la ruta es solo para admin/super_admin/manager, verificar rol
+        if (adminOnly) {
+            return isSuperAdmin || isAdmin || isManager
+        }
+
+        // Si allowedRoutes es null → puede ver todo
+        if (allowedRoutes === null) return true
+
+        // Verificar si la ruta está en las rutas permitidas
+        return allowedRoutes.some(allowed => href === allowed || href.startsWith(allowed + '/'))
+    }
+
+    // Crear array final de menuItems sin mutar el original
+    const finalMenuItems = React.useMemo(() => {
+        const items = [...BASE_MENU_ITEMS]
+        // Agregar ruta de gestión de equipos solo si tiene permiso
+        if (canManageTeam) {
+            const configIndex = items.findIndex(item => item.href === '/configuracion')
+            if (configIndex !== -1 && !items.some(item => item.href === '/gestion-equipos')) {
+                items.splice(configIndex, 0, { href: '/gestion-equipos', label: 'Gestión de Equipos', icon: UserPlus })
+            }
+        }
+        return items
+    }, [canManageTeam])
 
     const isActive = (href) => {
         if (href === '/') {
@@ -101,7 +164,15 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
                 {/* Header Logo */}
                 <div className="p-5 border-b border-gray-700">
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        <button
+                            onClick={onToggleCollapse}
+                            className="hidden lg:flex h-10 w-10 rounded-lg items-center justify-center flex-shrink-0 overflow-hidden hover:bg-gray-700 transition-colors cursor-pointer group"
+                            title={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
+                        >
+                            <img src="/logo-blanco2.png" alt="Logo" className="h-12 w-12 object-contain group-hover:scale-110 transition-transform duration-200" />
+                        </button>
+                        {/* Logo no clickeable en móvil */}
+                        <div className="lg:hidden h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
                             <img src="/logo-blanco2.png" alt="Logo" className="h-12 w-12 object-contain" />
                         </div>
                         {!collapsed && (
@@ -131,12 +202,12 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
                                 </li>
                             ))
                         ) : (
-                            menuItems.map((item) => {
+                                finalMenuItems.map((item) => {
                                 const Icon = item.icon
                                 const active = isActive(item.href)
 
-                                // Filtrar rutas según permisos del usuario
-                                if (user?.email && isRouteHidden(user.email, item.href)) {
+                                    // Filtrar rutas según ROUTES_BY_ROLE, superAdminOnly y adminOnly
+                                    if (!isRouteVisible(item.href, item.superAdminOnly, item.adminOnly)) {
                                     return null
                                 }
 
@@ -178,21 +249,29 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false }) => {
                             )}
                         </div>
                     ) : (
-                            <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
+                        <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
+                            {profile?.avatar_url ? (
+                                <img
+                                    src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${profile.avatar_url}`}
+                                    alt="Avatar"
+                                    className="h-10 w-10 rounded-full object-cover flex-shrink-0"
+                                />
+                            ) : (
                                 <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
                                     <span className="text-sm font-semibold text-white">
-                                        {(userInfo?.fullName || user?.user_metadata?.full_name || user?.email || 'U').charAt(0).toUpperCase()}
+                                        {(profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase()}
                                     </span>
                                 </div>
-                                {!collapsed && (
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-white truncate">
-                                            {userInfo?.fullName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuario'}
-                                        </p>
-                                        <p className="text-xs text-gray-400">{userInfo?.role || 'Usuario'}</p>
-                                    </div>
-                                )}
-                            </div>
+                            )}
+                            {!collapsed && (
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-white truncate">
+                                        {profile?.full_name || profile?.email?.split('@')[0] || 'Usuario'}
+                                    </p>
+                                    <p className="text-xs text-gray-400">{role || 'Usuario'}</p>
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
             </aside>

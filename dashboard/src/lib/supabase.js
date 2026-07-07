@@ -20,14 +20,26 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
  */
 export async function handleAuthError(error) {
   if (
+    error?.message?.includes("Auth session missing") ||
+    error?.name === "AuthSessionMissingError"
+  ) {
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
+    return;
+  }
+
+  if (
     error?.message?.includes("Invalid Refresh Token") ||
     error?.message?.includes("refresh_token_not_found") ||
     error?.message?.includes("JWT expired")
   ) {
-    // Clear the invalid session
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (signOutError) {
+      console.warn("Error al cerrar sesión inválida:", signOutError);
+    }
 
-    // Redirect to login if we're in a browser environment
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
@@ -249,6 +261,85 @@ export async function getBotsByWorker(workerId) {
   }));
 }
 
+/**
+ * Cuenta el total de cotizaciones (PDFs) enviadas por un bot
+ * OPTIMIZADO: Usa conversation_metrics en lugar de escanear mensajes
+ * @param {string} botId - ID del bot
+ * @returns {Promise<number>} Total de cotizaciones
+ * @deprecated Usar getAllBotsCotizacionesCount para evitar N+1 queries
+ */
+export async function getBotCotizacionesCount(botId) {
+  try {
+    // Obtener suma de cotizaciones desde métricas precalculadas
+    const { data, error } = await supabase
+      .from("chats")
+      .select(`
+        metrics:conversation_metrics(cotizacion_mentions_count)
+      `)
+      .eq("bot_id", botId)
+      .eq("is_group", false)
+      .not("chat_id", "ilike", "%status%")
+      .not("chat_id", "ilike", "%@broadcast%")
+      .not("chat_id", "ilike", "%@g.us");
+
+    if (error || !data) {
+      console.error("Error contando cotizaciones:", error);
+      return 0;
+    }
+
+    // Sumar cotizaciones de todas las conversaciones
+    const totalCotizaciones = data.reduce((sum, chat) => {
+      const count = chat.metrics?.[0]?.cotizacion_mentions_count || 0;
+      return sum + count;
+    }, 0);
+
+    return totalCotizaciones;
+  } catch (error) {
+    console.error("Error contando cotizaciones:", error);
+    return 0;
+  }
+}
+
+/**
+ * Obtiene el conteo de cotizaciones para TODOS los bots en una sola query
+ * OPTIMIZADO: Evita N+1 queries al cargar cotizaciones por bot
+ * @returns {Promise<Object>} Objeto { botId: count, ... }
+ */
+export async function getAllBotsCotizacionesCount() {
+  try {
+    const { data, error } = await supabase
+      .from("chats")
+      .select(`
+        bot_id,
+        metrics:conversation_metrics(cotizacion_mentions_count)
+      `)
+      .eq("is_group", false)
+      .not("chat_id", "ilike", "%status%")
+      .not("chat_id", "ilike", "%@broadcast%")
+      .not("chat_id", "ilike", "%@g.us");
+
+    if (error || !data) {
+      console.error("Error obteniendo cotizaciones agregadas:", error);
+      return {};
+    }
+
+    // Agrupar y sumar por bot_id
+    const cotizacionesPorBot = {};
+    data.forEach((chat) => {
+      const botId = chat.bot_id;
+      const count = chat.metrics?.[0]?.cotizacion_mentions_count || 0;
+      if (botId) {
+        cotizacionesPorBot[botId] = (cotizacionesPorBot[botId] || 0) + count;
+      }
+    });
+
+    return cotizacionesPorBot;
+  } catch (error) {
+    console.error("Error obteniendo cotizaciones agregadas:", error);
+    return {};
+  }
+}
+
 // Bots excluidos (prueba/testing - no son asesores reales)
 const EXCLUDED_BOT_PATTERNS = ["abraham", "abrahama", "paul", "hernandez"];
 
@@ -359,30 +450,46 @@ function analyzeConversationMetrics(messages = []) {
     }
   });
 
+  // Detectar PDFs de cotización
+  const cotizacionMentions = {
+    count: 0,
+    files: [],
+  };
+  const pdfPattern = /Cotizacion_[A-Z_]+_\d{4}-\d{2}-\d{2}\.pdf/g;
+
+  messages.forEach((msg) => {
+    const rawBody = msg.body || msg.content || "";
+    if (!rawBody) return;
+
+    const matches = rawBody.match(pdfPattern);
+    if (matches) {
+      cotizacionMentions.count += matches.length;
+      cotizacionMentions.files.push(...matches);
+    }
+  });
+
   return {
     response: responseMetrics,
     paymentMentions: paymentMentions.count > 0 ? paymentMentions : null,
+    cotizacionMentions: cotizacionMentions.count > 0 ? cotizacionMentions : null,
   };
 }
 
 /**
  * Obtiene las conversaciones de un bot específico con paginación
- * OPTIMIZADO: Mejor manejo de nombres y números de contacto
+ * OPTIMIZADO: Usa tabla conversation_metrics para evitar N+1 queries
  * @param {string} botId - ID del bot
  * @param {number} page - Número de página (empezando en 1)
  * @param {number} pageSize - Cantidad de conversaciones por página (default: 10)
  * @returns {Promise<{data: Array, total: number, totalPages: number, currentPage: number}>}
  */
 export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
-  // console.log('🔍 Obteniendo conversaciones para bot:', botId, 'página:', page)
-
-  // Primero obtener el total de conversaciones (excluyendo estados, canales y grupos)
-  // FILTRO ESTRUCTURAL: Solo chats 1-a-1 con clientes
+  // Contar total de conversaciones
   const { count: totalCount, error: countError } = await supabase
     .from("chats")
     .select("*", { count: "exact", head: true })
     .eq("bot_id", botId)
-    .eq("is_group", false) // ← NUEVO: Excluir grupos
+    .eq("is_group", false)
     .not("chat_id", "ilike", "%status%")
     .not("chat_id", "ilike", "%@broadcast%")
     .not("chat_id", "ilike", "%@g.us");
@@ -394,34 +501,35 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
 
   const total = totalCount || 0;
   const totalPages = Math.ceil(total / pageSize);
-
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // Obtener las conversaciones con mejor ordenamiento
-  let query = supabase
+  // OPTIMIZADO: Query única con JOIN a conversation_metrics
+  const { data, error } = await supabase
     .from("chats")
-    .select(
-      `
+    .select(`
       *,
-      contact:contacts(id, name, phone_number, profile_picture_url, push_name)
-    `,
-    )
+      contact:contacts(id, name, phone_number, profile_picture_url, push_name),
+      metrics:conversation_metrics(
+        total_messages,
+        avg_response_time_minutes,
+        max_response_time_minutes,
+        response_samples,
+        payment_mentions_count,
+        payment_first_mention_at,
+        payment_last_mention_at,
+        payment_last_from_me,
+        cotizacion_mentions_count,
+        cotizacion_files
+      )
+    `)
     .eq("bot_id", botId)
-    .eq("is_group", false) // ← NUEVO: Excluir grupos
+    .eq("is_group", false)
     .not("chat_id", "ilike", "%status%")
     .not("chat_id", "ilike", "%@broadcast%")
-    .not("chat_id", "ilike", "%@g.us");
-
-  // Ordenar por last_message_time (descendente) - los NULL van al final
-  query = query.order("last_message_time", {
-    ascending: false,
-    nullsFirst: false,
-  });
-
-  query = query.range(from, to);
-
-  const { data, error } = await query;
+    .not("chat_id", "ilike", "%@g.us")
+    .order("last_message_time", { ascending: false, nullsFirst: false })
+    .range(from, to);
 
   if (error) {
     console.error("❌ Error al obtener conversaciones:", error);
@@ -432,158 +540,85 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
     return { data: [], total, totalPages, currentPage: page };
   }
 
-  // OPTIMIZADO: Obtener mensajes de todos los chats EN PARALELO (Promise.all)
-  // Esto es más rápido que secuencial y más seguro que batch query
-  const chatsWithDetails = await Promise.all(
-    data.map(async (chat) => {
-      // Ejecutar todas las queries de este chat en paralelo
-      const [countResult, lastMessageResult, allMessagesResult] =
-        await Promise.all([
-          // Contar mensajes
-          supabase
-            .from("messages")
-            .select("*", { count: "exact", head: true })
-            .eq("chat_id", chat.id),
+  // Procesar conversaciones con métricas precalculadas (sin N+1 queries)
+  const conversationsWithDetails = data.map((chat) => {
+    // Determinar nombre de contacto
+    let displayName = "Sin nombre";
+    let displayPhone = "";
+    let isValidContact = false;
 
-          // Obtener último mensaje
-          supabase
-            .from("messages")
-            .select("body, timestamp, from_me")
-            .eq("chat_id", chat.id)
-            .order("timestamp", { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-
-          // Obtener todos los mensajes para métricas
-          supabase
-            .from("messages")
-            .select("from_me, body, content, timestamp")
-            .eq("chat_id", chat.id)
-            .order("timestamp", { ascending: true }),
-        ]);
-
-      const count = countResult.count || 0;
-      const lastMessage = lastMessageResult.data;
-      const chatMessages = allMessagesResult.data || [];
-
-      // Calcular métricas detalladas si hay mensajes
-      let conversationMetrics = null;
-      if (count > 0 && chatMessages.length > 0) {
-        conversationMetrics = analyzeConversationMetrics(chatMessages);
-      } else if (count > 0 && chatMessages.length === 0) {
-        // Si hay count pero no mensajes, hay un problema - loggearlo
-        console.warn(
-          `⚠️ Chat ${chat.id} tiene ${count} mensajes pero no se cargaron`,
-        );
-      }
-
-      // OPTIMIZADO: Lógica mejorada para determinar nombre y número
-      let displayName = "Sin nombre";
-      let displayPhone = "";
-      let isValidContact = false;
-
-      // Prioridad 1: Contacto relacionado con nombre
-      if (chat.contact?.name && chat.contact.name.trim() !== "") {
-        displayName = chat.contact.name.trim();
-        displayPhone = chat.contact.phone_number || chat.contact_number || "";
+    if (chat.contact?.name && chat.contact.name.trim() !== "") {
+      displayName = chat.contact.name.trim();
+      displayPhone = chat.contact.phone_number || chat.contact_number || "";
+      isValidContact = true;
+    } else if (chat.contact?.push_name && chat.contact.push_name.trim() !== "") {
+      displayName = chat.contact.push_name.trim();
+      displayPhone = chat.contact.phone_number || chat.contact_number || "";
+      isValidContact = true;
+    } else if (chat.name && chat.name.trim() !== "") {
+      displayName = chat.name.trim();
+      displayPhone = chat.contact?.phone_number || chat.contact_number || "";
+      isValidContact = true;
+    } else if (chat.contact_name && chat.contact_name.trim() !== "") {
+      displayName = chat.contact_name.trim();
+      displayPhone = chat.contact_number || "";
+      isValidContact = true;
+    } else if (chat.contact?.phone_number) {
+      displayName = chat.contact.phone_number;
+      displayPhone = chat.contact.phone_number;
+      isValidContact = true;
+    } else if (chat.contact_number) {
+      displayName = chat.contact_number;
+      displayPhone = chat.contact_number;
+      isValidContact = true;
+    } else if (chat.chat_id) {
+      const phoneFromChatId = chat.chat_id.split("@")[0];
+      if (phoneFromChatId && phoneFromChatId !== "status") {
+        displayName = phoneFromChatId;
+        displayPhone = phoneFromChatId;
         isValidContact = true;
       }
-      // Prioridad 2: Push name del contacto
-      else if (
-        chat.contact?.push_name &&
-        chat.contact.push_name.trim() !== ""
-      ) {
-        displayName = chat.contact.push_name.trim();
-        displayPhone = chat.contact.phone_number || chat.contact_number || "";
-        isValidContact = true;
-      }
-      // Prioridad 3: Nombre del chat (campo name)
-      else if (chat.name && chat.name.trim() !== "") {
-        displayName = chat.name.trim();
-        displayPhone = chat.contact?.phone_number || chat.contact_number || "";
-        isValidContact = true;
-      }
-      // Prioridad 4: contact_name del chat
-      else if (chat.contact_name && chat.contact_name.trim() !== "") {
-        displayName = chat.contact_name.trim();
-        displayPhone = chat.contact_number || "";
-        isValidContact = true;
-      }
-      // Prioridad 5: Número de teléfono del contacto
-      else if (chat.contact?.phone_number) {
-        displayName = chat.contact.phone_number;
-        displayPhone = chat.contact.phone_number;
-        isValidContact = true;
-      }
-      // Prioridad 6: contact_number del chat
-      else if (chat.contact_number) {
-        displayName = chat.contact_number;
-        displayPhone = chat.contact_number;
-        isValidContact = true;
-      }
-      // Prioridad 7: Extraer de chat_id (formato: 123456789@c.us)
-      else if (chat.chat_id) {
-        const phoneFromChatId = chat.chat_id.split("@")[0];
-        if (phoneFromChatId && phoneFromChatId !== "status") {
-          displayName = phoneFromChatId;
-          displayPhone = phoneFromChatId;
-          isValidContact = true;
-        }
-      }
+    }
 
-      // Si tenemos un número válido pero no nombre, usar el número como nombre
-      if (!isValidContact && displayPhone) {
-        displayName = displayPhone;
-        isValidContact = true;
-      }
+    // Construir métricas usando datos precalculados
+    const metrics = chat.metrics?.[0];
+    const conversationMetrics = metrics ? {
+      response: metrics.response_samples > 0 ? {
+        averageMinutes: Number(metrics.avg_response_time_minutes?.toFixed(1) || 0),
+        maxMinutes: Number(metrics.max_response_time_minutes?.toFixed(1) || 0),
+        samples: metrics.response_samples
+      } : null,
+      paymentMentions: metrics.payment_mentions_count > 0 ? {
+        count: metrics.payment_mentions_count,
+        firstTimestamp: metrics.payment_first_mention_at,
+        lastTimestamp: metrics.payment_last_mention_at,
+        lastFromMe: metrics.payment_last_from_me
+      } : null,
+      cotizacionMentions: metrics.cotizacion_mentions_count > 0 ? {
+        count: metrics.cotizacion_mentions_count,
+        files: metrics.cotizacion_files || []
+      } : null
+    } : null;
 
-      // Logging mejorado para debugging
-      if (!isValidContact && count > 0) {
-        console.warn(
-          `⚠️ Chat ${chat.id} tiene ${count} mensajes pero no se pudo determinar contacto válido`,
-          {
-            chat_id: chat.chat_id,
-            contact_id: chat.contact_id,
-            contact_name: chat.contact?.name,
-            contact_push_name: chat.contact?.push_name,
-            contact_phone: chat.contact?.phone_number,
-            chat_name: chat.name,
-            chat_contact_name: chat.contact_name,
-            chat_contact_number: chat.contact_number,
-          },
-        );
-      }
+    return {
+      ...chat,
+      message_count: metrics?.total_messages || 0,
+      contact_name: displayName,
+      contact_phone: displayPhone,
+      contact_profile_picture_url: chat.contact?.profile_picture_url || null,
+      last_message_preview: chat.last_message?.substring(0, 100) || "",
+      last_message_timestamp: chat.last_message_time || chat.updated_at,
+      last_message_from_me: chat.last_message_from_me || false,
+      is_valid_contact: isValidContact,
+      conversation_metrics: conversationMetrics
+    };
+  });
 
-      return {
-        ...chat,
-        message_count: count || 0,
-        contact_name: displayName,
-        contact_phone: displayPhone,
-        contact_profile_picture_url: chat.contact?.profile_picture_url || null,
-        last_message_preview:
-          lastMessage?.body?.substring(0, 100) ||
-          chat.last_message?.substring(0, 100) ||
-          "",
-        last_message_timestamp:
-          lastMessage?.timestamp || chat.last_message_time || chat.updated_at,
-        last_message_from_me: lastMessage?.from_me || false,
-        is_valid_contact: isValidContact,
-        conversation_metrics: conversationMetrics,
-      };
-    }),
-  );
-
-  // IMPORTANTE: NO reordenar aquí con .sort() porque corrompe la paginación
-  // El ordenamiento correcto ya viene de la base de datos (ORDER BY last_message_time DESC)
-  const validChats = chatsWithDetails;
-
-  // IMPORTANTE: Usar el total original de la BD para calcular páginas correctamente
-  // NO usar validChats.length porque eso solo cuenta las conversaciones de la página actual
   return {
-    data: validChats,
-    total: total, // Total original de la BD
-    totalPages: totalPages, // Páginas calculadas del total original
-    currentPage: page,
+    data: conversationsWithDetails,
+    total: total,
+    totalPages: totalPages,
+    currentPage: page
   };
 }
 
@@ -668,8 +703,21 @@ export async function getPaginatedMessages(
     }
   }
 
-  // Determinar si hay más mensajes
-  const hasMore = messages && messages.length === limit;
+  // Determinar si hay más mensajes (fix: considerar total real, no solo si devolvió limit)
+  const loadedCount = sortedMessages.length;
+  const oldestLoadedTimestamp = sortedMessages[0]?.timestamp;
+  
+  // hasMore es true solo si: cargamos el límite completo Y hay mensajes más antiguos
+  let hasMore = false;
+  if (loadedCount === limit && oldestLoadedTimestamp) {
+    // Verificar si hay mensajes anteriores al más antiguo cargado
+    const { count: olderCount } = await supabase
+      .from("messages")
+      .select("*", { count: "exact", head: true })
+      .eq("chat_id", chatId)
+      .lt("timestamp", oldestLoadedTimestamp);
+    hasMore = (olderCount || 0) > 0;
+  }
 
   return {
     messages: sortedMessages,
@@ -1116,14 +1164,19 @@ export async function getCompletedSalesCount() {
       .order("last_message_time", { ascending: false });
 
     if (error) {
-      console.error("❌ Error obteniendo ventas concretadas:", error);
+      console.error("❌ Error obteniendo ventas concretadas:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       return 0;
     }
 
     // console.log(`✅ ${chatsWithSales?.length || 0} ventas concretadas encontradas`)
     return chatsWithSales?.length || 0;
   } catch (error) {
-    console.error("❌ Error en getCompletedSalesCount:", error);
+    console.error("❌ Exception en getCompletedSalesCount:", error.message || error);
     return 0;
   }
 }

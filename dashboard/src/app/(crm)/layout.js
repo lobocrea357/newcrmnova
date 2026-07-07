@@ -4,11 +4,17 @@ import { useState } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Sidebar from "@/components/layout/Sidebar";
 import { useAuthRequired } from "@/hooks/useRouteGuard";
+import { RankingProvider } from "@/contexts/RankingContext";
+import ToastContainer from "@/components/ui/ToastContainer";
+import { useMetaNotifications } from "@/hooks/useMetaNotifications";
 
 export default function CRMLayout({ children }) {
   const { loading, isAuthenticated } = useAuthRequired();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // NUEVO: Activar sistema de notificaciones de metas
+  useMetaNotifications();
 
   // Mientras verificamos la sesión o si no está autenticado (se redirige desde el hook)
   if (loading || !isAuthenticated) {
@@ -23,24 +29,27 @@ export default function CRMLayout({ children }) {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden">
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        collapsed={sidebarCollapsed}
-      />
-      <div
-        className={`transition-all duration-300 ${
-          sidebarCollapsed ? "lg:ml-20" : "lg:ml-64"
-        }`}
-      >
-        <Navbar
-          onMenuClick={() => setSidebarOpen(true)}
+    <RankingProvider>
+      <div className="min-h-screen overflow-x-hidden">
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-          sidebarCollapsed={sidebarCollapsed}
         />
-        <main>{children}</main>
+        <div
+          className={`transition-all duration-300 ${
+            sidebarCollapsed ? "lg:ml-20" : "lg:ml-64"
+          }`}
+        >
+          <Navbar
+            onMenuClick={() => setSidebarOpen(true)}
+          />
+          <main>{children}</main>
+        </div>
       </div>
-    </div>
+      {/* Toasts específicos del CRM */}
+      <ToastContainer />
+    </RankingProvider>
   );
 }

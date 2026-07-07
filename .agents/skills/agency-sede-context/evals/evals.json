@@ -1,0 +1,53 @@
+{
+  "skill_name": "agency-sede-context",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Voy a crear una página de cotizaciones que solo deben ver los usuarios de la agencia Nova Flash. Necesito validar que el usuario pertenezca a esa agencia y filtrar las cotizaciones por su agencia.",
+      "expected_output": "Component that uses hasAgencia('nova_flash') for validation and getAgenciaIds() for data filtering",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Quiero tematizar el dashboard con los colores de la agencia principal del usuario. Si es Nova Flash debe usar índigo, si es Nova Colombia debe usar azul, etc.",
+      "expected_output": "Component that uses primaryAgencia.color_primario for theming",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Necesito crear un reporte que muestre las ventas por sede del usuario. Solo debe mostrar datos de la sede a la que pertenece el usuario.",
+      "expected_output": "Component that uses getSede() and getSedeId() for sede-based reporting",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Voy a hacer un selector de agencias para usuarios que tienen múltiples agencias asignadas. Debe mostrar todas las agencias y destacar cuál es la primaria.",
+      "expected_output": "Component that uses getAllAgencias() and primaryAgencia for agency selection",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "Quiero proteger una ruta para que solo usuarios de Apolo Viajes puedan acceder. Si no pertenecen a esa agencia, debe redirigir a no-autorizado.",
+      "expected_output": "Route protection using hasAgencia('apolo_viajes') with router redirect",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "Necesito mostrar en el perfil del usuario su agencia principal y su sede con sus datos completos (nombre, ciudad, país, etc.).",
+      "expected_output": "Profile component displaying primaryAgencia and sede object data",
+      "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "Voy a crear una validación de negocio: solo usuarios cuya agencia primaria sea Nova Flash pueden aprobar cotizaciones de esa agencia.",
+      "expected_output": "Business logic using isAgenciaPrimary('nova_flash') for approval validation",
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "Quiero hacer un componente que muestre un banner especial solo para usuarios que trabajan en la sede del Parral.",
+      "expected_output": "Component using isSedeCode('parral') for sede-specific content",
+      "files": []
+    }
+  ]
+}

@@ -1,68 +1,42 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useRef, useEffect, Suspense } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import ChatView from '@/components/ChatView'
 import ContactAvatar from '@/components/ContactAvatar'
 import HighlightText from '@/components/HighlightText'
 import { globalSearchChats } from '@/lib/supabase'
-import { Search, X, RefreshCw, Phone, Bot, CheckCheck } from 'lucide-react'
+import { useLocalStorage } from '@/hooks/useLocalStorage'
+import { Search, X, RefreshCw, Phone, Bot, CheckCheck, Sparkles } from 'lucide-react'
 import ChatAnalysis from '@/components/ChatAnalysis'
 import MessageInsightsPanel from '@/components/MessageInsightsPanel'
 
-export default function ChatPage() {
+function ChatPageContent() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
   const chatId = params.chatId
   const fromSearch = searchParams.get('fromSearch') === 'true'
+  const searchTimeoutRef = useRef(null)
 
-  const [globalSearchQuery, setGlobalSearchQuery] = useState('')
-  const [globalSearchResults, setGlobalSearchResults] = useState([])
+  const [globalSearchQuery, setGlobalSearchQuery] = useLocalStorage('conversaciones:chatSearchQuery', '')
+  const [globalSearchResults, setGlobalSearchResults] = useState([]) // No persistir resultados para evitar estado inconsistente
   const [loadingGlobalSearch, setLoadingGlobalSearch] = useState(false)
   const [showSearchSidebar, setShowSearchSidebar] = useState(false)
-  const [messages, setMessages] = useState([]) // Estado para mensajes cargados desde ChatView
+  const [messages, setMessages] = useState([])
+  const [showInsights, setShowInsights] = useState(false)
 
-  // Restaurar búsqueda global si viene desde búsqueda
+  // Cleanup timeout al desmontar
   useEffect(() => {
-    if (fromSearch && typeof window !== "undefined") {
-      try {
-        const savedQuery = window.localStorage.getItem(
-          "conversaciones:globalSearchQuery",
-        );
-        const savedResults = window.localStorage.getItem(
-          "conversaciones:globalSearchResults",
-        );
-
-        if (savedQuery && savedResults) {
-          setGlobalSearchQuery(savedQuery);
-          setGlobalSearchResults(JSON.parse(savedResults));
-          setShowSearchSidebar(true);
-        }
-      } catch (error) {
-        console.error("Error restaurando búsqueda:", error);
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
       }
     }
-  }, [fromSearch]);
+  }, [])
 
   const handleClose = () => {
     const botId = searchParams.get("botId");
-
-    // Si viene desde búsqueda, guardar el estado antes de regresar
-    if (showSearchSidebar && typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem(
-          "conversaciones:globalSearchQuery",
-          globalSearchQuery,
-        );
-        window.localStorage.setItem(
-          "conversaciones:globalSearchResults",
-          JSON.stringify(globalSearchResults),
-        );
-      } catch (error) {
-        console.error("Error guardando búsqueda:", error);
-      }
-    }
 
     if (botId) {
       router.push(`/conversaciones?botId=${botId}&chatId=${chatId}`);
@@ -71,51 +45,49 @@ export default function ChatPage() {
     }
   };
 
-  const handleGlobalSearch = async (query) => {
+  // Búsqueda global con debounce (500ms)
+  const handleGlobalSearch = (query) => {
     setGlobalSearchQuery(query);
+
+    // Limpiar timeout anterior siempre
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
 
     if (!query || query.trim() === "") {
       setGlobalSearchResults([]);
+      setLoadingGlobalSearch(false);
       return;
     }
 
     setLoadingGlobalSearch(true);
 
-    try {
-      const results = await globalSearchChats(query);
-      setGlobalSearchResults(results);
-    } catch (error) {
-      console.error("Error en búsqueda global:", error);
-      setGlobalSearchResults([]);
-    } finally {
-      setLoadingGlobalSearch(false);
-    }
+    // Debouncing: esperar 500ms antes de ejecutar búsqueda
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results = await globalSearchChats(query);
+        setGlobalSearchResults(results);
+      } catch (error) {
+        console.error("Error en búsqueda global:", error);
+        setGlobalSearchResults([]);
+      } finally {
+        setLoadingGlobalSearch(false);
+      }
+    }, 500);
   };
 
   const handleClearGlobalSearch = () => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
     setGlobalSearchQuery("");
     setGlobalSearchResults([]);
+    setLoadingGlobalSearch(false);
   };
 
   const handleSearchResultClick = (chat) => {
     const newChatId = String(chat.id);
     const botId = String(chat.bot_id);
-
-    // Guardar búsqueda antes de navegar
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem(
-          "conversaciones:globalSearchQuery",
-          globalSearchQuery,
-        );
-        window.localStorage.setItem(
-          "conversaciones:globalSearchResults",
-          JSON.stringify(globalSearchResults),
-        );
-      } catch (error) {
-        console.error("Error guardando búsqueda:", error);
-      }
-    }
 
     router.push(
       `/conversaciones/chat/${newChatId}?botId=${botId}&fromSearch=true`,
@@ -123,10 +95,10 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="max-w-[1800px] mx-auto h-[calc(100vh-2rem)]">
+    <div className="h-dvh sm:h-auto sm:min-h-dvh bg-gradient-to-br from-blue-50 to-indigo-100 sm:p-4 p-0 overflow-hidden text-slate-900">
+      <div className="max-w-[1800px] mx-auto h-[calc(100dvh-64px)] sm:h-[calc(100dvh-120px)]">
         {/* Contenedor con overflow-x para mobile */}
-        <div className="flex gap-4 h-full overflow-x-auto">
+        <div className="flex sm:gap-4 gap-0 h-full overflow-x-auto">
           {/* Sidebar de búsqueda global (solo si viene desde búsqueda) */}
           {showSearchSidebar && (
             <div className="w-[280px] md:w-80 min-w-[280px] md:min-w-[320px] bg-white rounded-lg shadow-xl flex-shrink-0 flex flex-col overflow-hidden">
@@ -258,21 +230,47 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Insights Panel */}
-          <MessageInsightsPanel messages={messages} />
+          {/* Insights Panel - Oculto en móviles a menos que se active */}
+          <div className={`${showInsights ? 'flex' : 'hidden'} lg:flex`}>
+            <MessageInsightsPanel messages={messages} />
+          </div>
+          
+          {/* Botón para alternar Insights en móvil */}
+          <button 
+            onClick={() => setShowInsights(!showInsights)}
+            className="lg:hidden fixed bottom-6 left-4 z-50 bg-white p-3 rounded-full shadow-lg border border-gray-200 text-indigo-600 active:scale-95 transition-transform"
+            title="Ver Insights"
+          >
+            {showInsights ? <X className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
+          </button>
 
           {/* Chat Area */}
-          <div className="flex-1 min-w-[85vw] lg:min-w-0 bg-white rounded-lg shadow-xl overflow-hidden">
+          <div className="flex-1 min-w-full lg:min-w-0 bg-white sm:rounded-lg shadow-xl overflow-hidden relative">
             <ChatView 
               chatId={chatId} 
               onClose={handleClose}
               onMessagesLoaded={setMessages}
             />
+            {/* El botón de Análisis IA ahora es absoluto dentro de este contenedor */}
+            <ChatAnalysis messages={messages} chatId={chatId} />
           </div>
-
-          <ChatAnalysis messages={messages} chatId={chatId} />
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={
+      <div className="h-dvh flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center">
+          <RefreshCw className="h-10 w-10 text-indigo-600 animate-spin mx-auto mb-3" />
+          <p className="text-slate-600">Cargando conversación...</p>
+        </div>
+      </div>
+    }>
+      <ChatPageContent />
+    </Suspense>
   )
 }

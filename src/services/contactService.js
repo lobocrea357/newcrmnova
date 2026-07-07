@@ -99,6 +99,52 @@ export class ContactService {
   }
 
   /**
+   * Actualiza un contacto existente
+   */
+  async updateContact(contactId, updateData) {
+    try {
+      console.log(`\n🔍 ========== CONTACT SERVICE: updateContact ==========`);
+      console.log(`Contact ID: ${contactId}`);
+      console.log(`Update Data:`, JSON.stringify(updateData, null, 2));
+      
+      const { data: updatedContact, error: updateError } = await supabase
+        .from('contacts')
+        .update(updateData)
+        .eq('id', contactId)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+      
+      console.log(`✅ Contacto actualizado exitosamente`);
+      console.log(`==========================================\n`);
+      return updatedContact;
+    } catch (error) {
+      console.error('Error en updateContact:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Actualiza solo el timestamp de sincronización de un contacto
+   */
+  async updateSyncTimestamp(contactId) {
+    try {
+      const { error } = await supabase
+        .from('contacts')
+        .update({ last_waha_sync: new Date().toISOString() })
+        .eq('id', contactId);
+
+      if (error) throw error;
+      
+      console.log(`✅ Timestamp de sincronización actualizado`);
+    } catch (error) {
+      console.error('Error en updateSyncTimestamp:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Obtiene todos los contactos de un bot
    */
   async getContactsByBot(botId) {

@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }) => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔐 Auth state change:', event, session?.user?.email)
+        // console.log('🔐 Auth state change:', event, session?.user?.email)
 
         if (event === 'SIGNED_OUT' || !session) {
           setUser(null)
@@ -100,18 +100,25 @@ export const AuthProvider = ({ children }) => {
       setLoading(true)
       const { error } = await supabase.auth.signOut()
 
-      if (error) {
+      if (error && 
+          !error.message?.includes('Auth session missing') && 
+          error.name !== 'AuthSessionMissingError') {
         throw error
       }
 
+    } catch (error) {
+      if (error.message?.includes('Auth session missing') || 
+          error.name === 'AuthSessionMissingError') {
+        console.log('ℹ️ Sesión ya cerrada, limpiando estado local')
+      } else {
+        console.error('❌ Sign out error:', error)
+        await handleAuthError(error)
+      }
+    } finally {
       setUser(null)
       setSession(null)
-      router.push('/login')
-    } catch (error) {
-      console.error('❌ Sign out error:', error)
-      await handleAuthError(error)
-    } finally {
       setLoading(false)
+      router.push('/login')
     }
   }
 

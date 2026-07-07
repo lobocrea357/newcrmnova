@@ -6,6 +6,7 @@ import {
   AlertCircle, Calendar, MapPin, DollarSign, CheckCircle, 
   XCircle, Plane, ExternalLink, Edit, Save, X 
 } from 'lucide-react'
+import { ANULABLES_API } from '@/config/apiConfig'
 
 export default function AnulableDetail({ anulable }) {
   const router = useRouter()
@@ -41,7 +42,7 @@ export default function AnulableDetail({ anulable }) {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      const response = await fetch(`/api/anulables/${anulable.id}`, {
+      const response = await fetch(ANULABLES_API.actualizar(anulable.id), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -114,7 +115,7 @@ export default function AnulableDetail({ anulable }) {
               </div>
             </div>
             <Link 
-              href={`/vuelos/${anulable.vuelo.id}`}
+              href={`/ventas/vuelos/${anulable.vuelo.id}`}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Ver Vuelo

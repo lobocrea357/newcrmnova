@@ -132,7 +132,7 @@ function ContactAvatar({
           {/* Placeholder mientras carga */}
           {imageLoading && (
             <div className={`absolute inset-0 ${sizeClass} rounded-full ${bgColor} flex items-center justify-center`}>
-              <span className={`${textSize} font-semibold text-white opacity-50`}>
+              <span className={`${textSize} font-semibold text-white opacity-50`} translate="no">
                 {initials}
               </span>
             </div>
@@ -141,7 +141,7 @@ function ContactAvatar({
       ) : (
         /* Avatar con iniciales cuando no hay imagen o falló */
         <div className={`${sizeClass} rounded-full ${bgColor} flex items-center justify-center`}>
-          <span className={`${textSize} font-semibold text-white`}>
+          <span className={`${textSize} font-semibold text-white`} translate="no">
             {initials}
           </span>
         </div>

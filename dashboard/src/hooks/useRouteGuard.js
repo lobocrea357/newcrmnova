@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { useUserProfile } from './useUserProfile'
+import { useUserProfile } from '@/contexts/UserProfileContext'
 
 /**
  * Hook para proteger páginas que requieren autenticación y roles específicos
@@ -24,7 +24,7 @@ export const useRouteGuard = (options = {}) => {
 
   const router = useRouter()
   const { user, loading: authLoading, isAuthenticated, initialized } = useAuth()
-  const { profile, role, loading: profileLoading, isAdmin, isManager } = useUserProfile()
+  const { profile, role, loading: profileLoading, isSuperAdmin, isAdmin, isManager, isRole } = useUserProfile()
 
   useEffect(() => {
     // Esperar a que se inicialice la autenticación y el perfil
@@ -38,8 +38,11 @@ export const useRouteGuard = (options = {}) => {
     }
 
     // Si hay roles específicos requeridos
-    if (allowedRoles && isAuthenticated && user) {
-      const hasPermission = allowedRoles.includes(role)
+    if (allowedRoles && allowedRoles.length > 0 && isAuthenticated && role) {
+      // ✅ Usar helper isRole para comparar correctamente (case-insensitive)
+      const hasPermission = allowedRoles.some(allowedRole => 
+        isRole(allowedRole)
+      )
 
       if (!hasPermission) {
         console.log('🚫 Acceso denegado: Rol no autorizado', {
@@ -50,7 +53,7 @@ export const useRouteGuard = (options = {}) => {
         return
       }
     }
-  }, [initialized, authLoading, profileLoading, isAuthenticated, user, role, requireAuth, allowedRoles, router, redirectTo])
+  }, [initialized, authLoading, profileLoading, isAuthenticated, user, role, isRole, requireAuth, allowedRoles, router, redirectTo])
 
   return {
     user,
@@ -58,9 +61,10 @@ export const useRouteGuard = (options = {}) => {
     loading: authLoading || !initialized || profileLoading,
     isAuthenticated,
     role,
+    isSuperAdmin,
     isAdmin,
     isManager,
-    isAuthorized: !allowedRoles || allowedRoles.includes(role)
+    isAuthorized: !allowedRoles || allowedRoles.length === 0 || allowedRoles.some(ar => isRole(ar))
   }
 }
 
@@ -72,22 +76,22 @@ export const useAuthRequired = () => {
 }
 
 /**
- * Hook para páginas de administrador
+ * Hook para páginas de administrador (incluye super_admin)
  */
 export const useAdminRequired = () => {
   return useRouteGuard({
     requireAuth: true,
-    allowedRoles: ['admin', 'superadmin']
+    allowedRoles: ['super_admin', 'admin']
   })
 }
 
 /**
- * Hook para páginas de gerente o administrador
+ * Hook para páginas de gerente o administrador (incluye super_admin)
  */
 export const useManagerRequired = () => {
   return useRouteGuard({
     requireAuth: true,
-    allowedRoles: ['admin', 'superadmin', 'gerente', 'manager']
+    allowedRoles: ['super_admin', 'admin', 'gerente']
   })
 }
 

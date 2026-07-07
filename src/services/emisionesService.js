@@ -1,0 +1,288 @@
+import { supabase } from '../config/supabase.js';
+import { notificarEmisionAutorizada, notificarDeudaGenerada } from './notificacionesService.js';
+import { registrarCambioEstado } from './auditoriaService.js';
+
+/**
+ * Autorizar emisión de un vuelo
+ */
+export async function autorizarEmision(vueloId, userId, cuentaEmision, observaciones) {
+  try {
+    // 1. Obtener vuelo
+    const { data: vuelo, error: errorVuelo } = await supabase
+      .from('vuelos')
+      .select('*, created_by, forma_emision, costo_base_proveedor')
+      .eq('id', vueloId)
+      .single();
+
+    if (errorVuelo) throw new Error('Vuelo no encontrado');
+
+    // 2. Validar estado
+    if (vuelo.estado !== 'PENDIENTE_EMISION') {
+      throw new Error('El vuelo no está en estado PENDIENTE_EMISION');
+    }
+
+    // 3. Actualizar vuelo con autorización
+    const { data: vueloActualizado, error: errorUpdate } = await supabase
+      .from('vuelos')
+      .update({
+        autorizado_emision: true,
+        autorizado_por: userId,
+        fecha_autorizacion_emision: new Date().toISOString(),
+        cuenta_emision_asignada: cuentaEmision,
+        observaciones_emision: observaciones
+      })
+      .eq('id', vueloId)
+      .select()
+      .single();
+
+    if (errorUpdate) throw errorUpdate;
+
+    // 4. Obtener nombre del admin
+    const { data: admin } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', userId)
+      .single();
+
+    const adminNombre = admin?.full_name || 'Administración';
+
+    // 4.5. Registrar cambio en auditoría
+    await registrarCambioEstado({
+      entidadTipo: 'vuelo',
+      entidadId: vueloId,
+      campoCambiado: 'autorizado_emision',
+      valorAnterior: vuelo.autorizado_emision ? 'true' : 'false',
+      valorNuevo: 'true',
+      usuarioId: userId,
+      usuarioNombre: adminNombre,
+      razonCambio: observaciones || 'Autorización de emisión'
+    });
+
+    // 5. Si es a crédito, crear deuda
+    let deudaCreada = null;
+    if (vuelo.forma_emision === 'CREDITO') {
+      deudaCreada = await crearDeudaProveedor(vuelo, cuentaEmision);
+    }
+
+    // 6. Notificar a emisor (rol: emisor)
+    await notificarEmisionAutorizada(vueloActualizado, adminNombre);
+
+    // 7. Si creó deuda, notificar a administración
+    if (deudaCreada) {
+      await notificarDeudaGenerada(deudaCreada, vueloActualizado);
+    }
+
+    return {
+      vuelo: vueloActualizado,
+      deuda: deudaCreada
+    };
+  } catch (error) {
+    console.error('Error autorizando emisión:', error);
+    throw error;
+  }
+}
+
+/**
+ * Crear deuda con proveedor
+ */
+async function crearDeudaProveedor(vuelo, cuentaEmision) {
+  try {
+    // Usar costo_base_proveedor si está disponible, fallback a cálculo desde pasajeros
+    let montoDeuda;
+
+    if (vuelo.costo_base_proveedor && vuelo.costo_base_proveedor > 0) {
+      // Usar costo_base_proveedor del vuelo (campo nuevo para gestión de crédito)
+      montoDeuda = parseFloat(vuelo.costo_base_proveedor);
+      console.log(`[EmisionesService] Usando costo_base_proveedor: $${montoDeuda}`);
+    } else {
+      // Fallback: calcular suma de precios_pantalla de pasajeros (para vuelos viejos)
+      const { data: pasajeros } = await supabase
+        .from('vuelos_pasajeros')
+        .select('precio_pantalla')
+        .eq('vuelo_id', vuelo.id);
+
+      montoDeuda = pasajeros.reduce((sum, p) => sum + parseFloat(p.precio_pantalla || 0), 0);
+      console.log(`[EmisionesService] Usando suma de precios_pantalla (fallback): $${montoDeuda}`);
+    }
+
+    // Determinar proveedor según cuenta
+    const proveedorMap = {
+      'SABRE': 'SABRE',
+      'AMADEUS': 'AMADEUS',
+      'EXPEDIA': 'EXPEDIA'
+    };
+
+    const proveedor = Object.keys(proveedorMap).find(key =>
+      cuentaEmision.includes(key)
+    ) || 'OTRO';
+
+    // Fecha de vencimiento: 30 días desde hoy
+    const fechaVencimiento = new Date();
+    fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
+
+    const { data: deuda, error } = await supabase
+      .from('deudas_proveedores')
+      .insert({
+        vuelo_id: vuelo.id,
+        proveedor,
+        cuenta_emision: cuentaEmision,
+        monto_deuda: montoDeuda,
+        saldo_pendiente: montoDeuda,
+        fecha_vencimiento: fechaVencimiento.toISOString().split('T')[0]
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    console.log(`✅ Deuda creada con ${proveedor}: $${montoDeuda}`);
+    return deuda;
+  } catch (error) {
+    console.error('Error creando deuda:', error);
+    return null;
+  }
+}
+
+/**
+ * Autorizar múltiples vuelos en batch
+ */
+export async function autorizarEmisionBatch(vueloIds, userId, cuentaEmision, observaciones) {
+  const resultados = [];
+
+  for (const vueloId of vueloIds) {
+    try {
+      const resultado = await autorizarEmision(vueloId, userId, cuentaEmision, observaciones);
+      resultados.push({ vueloId, success: true, ...resultado });
+    } catch (error) {
+      resultados.push({ vueloId, success: false, error: error.message });
+    }
+  }
+
+  return resultados;
+}
+
+/**
+ * Rechazar emisión de un vuelo
+ */
+export async function rechazarEmision(vueloId, userId, motivo) {
+  try {
+    // 1. Obtener vuelo
+    const { data: vuelo, error: errorVuelo } = await supabase
+      .from('vuelos')
+      .select('*')
+      .eq('id', vueloId)
+      .single();
+
+    if (errorVuelo) throw new Error('Vuelo no encontrado');
+
+    // 2. Validar estado
+    if (vuelo.estado !== 'PENDIENTE_EMISION') {
+      throw new Error('El vuelo no está en estado PENDIENTE_EMISION');
+    }
+
+    // 3. Obtener nombre del admin
+    const { data: admin } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', userId)
+      .single();
+
+    const adminNombre = admin?.full_name || 'Administración';
+
+    // 4. Actualizar vuelo con rechazo
+    const { data: vueloActualizado, error: errorUpdate } = await supabase
+      .from('vuelos')
+      .update({
+        autorizado_emision: false,
+        rechazado_emision: true,
+        rechazado_por: userId,
+        fecha_rechazo_emision: new Date().toISOString(),
+        motivo_rechazo_emision: motivo
+      })
+      .eq('id', vueloId)
+      .select()
+      .single();
+
+    if (errorUpdate) throw errorUpdate;
+
+    // 5. Registrar cambio en auditoría
+    await registrarCambioEstado({
+      entidadTipo: 'vuelo',
+      entidadId: vueloId,
+      campoCambiado: 'estado_emision',
+      valorAnterior: 'PENDIENTE',
+      valorNuevo: 'RECHAZADO',
+      usuarioId: userId,
+      usuarioNombre: adminNombre,
+      razonCambio: motivo
+    });
+
+    return vueloActualizado;
+  } catch (error) {
+    console.error('Error rechazando emisión:', error);
+    throw error;
+  }
+}
+
+/**
+ * Marcar vuelo como emitido
+ */
+export async function marcarComoEmitido(vueloId, userId) {
+  try {
+    // 1. Obtener vuelo
+    const { data: vuelo, error: errorVuelo } = await supabase
+      .from('vuelos')
+      .select('*')
+      .eq('id', vueloId)
+      .single();
+
+    if (errorVuelo) throw new Error('Vuelo no encontrado');
+
+    // 2. Obtener nombre del emisor
+    const { data: emisor } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', userId)
+      .single();
+
+    const emisorNombre = emisor?.full_name || 'Emisor';
+
+    // 3. Actualizar vuelo como emitido
+    const { data: vueloActualizado, error: errorUpdate } = await supabase
+      .from('vuelos')
+      .update({
+        estado: 'EMITIDO',
+        emitido_por: userId,
+        fecha_emision: new Date().toISOString()
+      })
+      .eq('id', vueloId)
+      .select()
+      .single();
+
+    if (errorUpdate) throw errorUpdate;
+
+    // 4. Registrar cambio en auditoría
+    await registrarCambioEstado({
+      entidadTipo: 'vuelo',
+      entidadId: vueloId,
+      campoCambiado: 'estado',
+      valorAnterior: vuelo.estado,
+      valorNuevo: 'EMITIDO',
+      usuarioId: userId,
+      usuarioNombre: emisorNombre,
+      razonCambio: 'Vuelo emitido exitosamente'
+    });
+
+    return vueloActualizado;
+  } catch (error) {
+    console.error('Error marcando vuelo como emitido:', error);
+    throw error;
+  }
+}
+
+export default {
+  autorizarEmision,
+  autorizarEmisionBatch,
+  rechazarEmision,
+  marcarComoEmitido
+};

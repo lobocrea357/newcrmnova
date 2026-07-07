@@ -1,0 +1,35 @@
+{
+  "skill_name": "notification-types-catalog",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Necesito crear una notificación cuando se anula un vuelo. ¿Qué tipo de notificación debería usar o necesito crear uno nuevo?",
+      "expected_output": "El agente debería revisar el catálogo y determinar si alguno de los tipos existentes (vuelo_creado, vuelo_emitido, pago_observado, pago_confirmado) aplica. Como ninguno aplica específicamente para anulación, debería recomendar crear un nuevo tipo (ej: vuelo_anulado) siguiendo la guía de creación de nuevos tipos en el catálogo.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Quiero notificar cuando una cotización es rechazada. ¿Qué tipo de notificación existe para esto?",
+      "expected_output": "El agente debería revisar el catálogo y notar que no existe un tipo específico para rechazos. Debería recomendar crear un nuevo tipo (ej: cotizacion_rechazada) siguiendo las guías del catálogo, con icono rojo para indicar rechazo/error.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "¿Qué metadatos debo incluir para el tipo pago_observado?",
+      "expected_output": "El agente debería listar los metadatos requeridos (vuelo_id, admin_nombre, motivo, monto_esperado, observaciones, ruta, pax_nombre, estado_vuelo) y opcionales (monto_faltante, accion_requerida) del catálogo, explicando qué valor debe tener cada campo y los valores válidos para motivo.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Necesito elegir un icono para un nuevo tipo de notificación sobre cambios en agencia. ¿Qué icono me recomiendas?",
+      "expected_output": "El agente debería recomendar un icono de Lucide React apropiado para cambios/edición (ej: Building2, Settings, Edit) con un color apropiado (azul para información general), siguiendo las convenciones del catálogo.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "Voy a crear un tipo de notificación nuevo. ¿Cuáles son los pasos que debo seguir?",
+      "expected_output": "El agente debería listar los pasos de la guía: 1) Evaluar si se necesita nuevo tipo, 2) Definir el nombre en snake_case, 3) Definir metadatos requeridos/opcionales, 4) Elegir icono de Lucide, 5) Agregar al catálogo, 6) Actualizar frontend si aplica, 7) Documentar en notification-implementation si requiere instrucciones especiales.",
+      "files": []
+    }
+  ]
+}

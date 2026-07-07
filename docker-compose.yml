@@ -110,8 +110,10 @@ services:
         # Build args para Next.js (necesarios en build time)
         NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
         SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
         OPENAI_API_KEY: ${OPENAI_API_KEY}
+        GOOGLE_API_KEY: ${GOOGLE_API_KEY}
     container_name: crm-dashboard
     restart: unless-stopped
     ports:
@@ -126,6 +128,8 @@ services:
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
     networks:
       - crm_network
     healthcheck:

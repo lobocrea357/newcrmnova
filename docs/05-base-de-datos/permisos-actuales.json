@@ -1,0 +1,338 @@
+[
+  {
+    "id": "b907383a-ce55-4439-8ea5-b744e19ceb55",
+    "name": "tasas.view",
+    "description": "Ver tasas de conversión",
+    "category": "tasas",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "bdc24eb9-e752-491c-bc46-c1b1293cb37c",
+    "name": "tasas.create",
+    "description": "Crear nuevas tasas de conversión",
+    "category": "tasas",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "f903ad2e-7bc5-46b9-8e7f-d1a35653fcbe",
+    "name": "tasas.edit",
+    "description": "Editar tasas existentes",
+    "category": "tasas",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "0abf337e-84bc-4f4b-ab2b-5a38a21d083a",
+    "name": "tasas.delete",
+    "description": "Eliminar tasas de conversión",
+    "category": "tasas",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "ef5c8099-ec8c-4676-9618-75ebd06a7456",
+    "name": "tasas.history",
+    "description": "Ver historial de cambios de tasas",
+    "category": "tasas",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "19754b25-a67d-48bb-af76-df88e1f3a28e",
+    "name": "monedas.view",
+    "description": "Ver monedas",
+    "category": "monedas",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "beb4e317-c68c-46eb-ab39-26245df770b4",
+    "name": "monedas.create",
+    "description": "Crear nuevas monedas",
+    "category": "monedas",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "b87d7943-7a40-4678-b18e-61220189ea77",
+    "name": "monedas.edit",
+    "description": "Editar monedas existentes",
+    "category": "monedas",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "558fc255-a5c2-48fb-9022-ffd11032c922",
+    "name": "monedas.delete",
+    "description": "Eliminar monedas",
+    "category": "monedas",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "d4c5ca5b-c6b4-4c7a-9a7c-e47f1cde2ada",
+    "name": "users.view",
+    "description": "Ver lista de usuarios",
+    "category": "usuarios",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "db5f102d-b54a-49d5-b6e3-bdcabc5c975d",
+    "name": "users.create",
+    "description": "Crear nuevos usuarios",
+    "category": "usuarios",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "06a1a6b5-d657-4344-a87a-b31870f0bad9",
+    "name": "users.edit",
+    "description": "Editar usuarios existentes",
+    "category": "usuarios",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "3457859e-ab85-47fb-8aa9-2d36df5c13cc",
+    "name": "users.delete",
+    "description": "Eliminar/desactivar usuarios",
+    "category": "usuarios",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "b4fecf66-7395-4920-a9fb-43292e278fec",
+    "name": "users.manage_permissions",
+    "description": "Gestionar permisos de usuarios",
+    "category": "usuarios",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "b8a56f4f-194b-48d1-bf28-80d7bfdaaed1",
+    "name": "equipos.view",
+    "description": "Ver equipos",
+    "category": "equipos",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "5aad077b-7655-43cc-b84f-114fbe8e4df1",
+    "name": "equipos.create",
+    "description": "Crear nuevos equipos",
+    "category": "equipos",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "675137f1-7ebe-44d5-a28b-c7b0f95a425b",
+    "name": "equipos.edit",
+    "description": "Editar equipos existentes",
+    "category": "equipos",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "11deba3d-a652-4265-97a8-cfe07ae55889",
+    "name": "equipos.delete",
+    "description": "Eliminar equipos",
+    "category": "equipos",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "dbb6830f-67ea-4fc5-811c-3d112526fd7f",
+    "name": "equipos.assign",
+    "description": "Asignar usuarios a equipos",
+    "category": "equipos",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "941ddd02-86c4-48bd-a4aa-86f0f58381e1",
+    "name": "cotizaciones.view",
+    "description": "Ver cotizaciones",
+    "category": "cotizaciones",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "5adac35c-08a5-407a-ad07-4d298fdba6c6",
+    "name": "cotizaciones.create",
+    "description": "Crear cotizaciones",
+    "category": "cotizaciones",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "09070564-1f20-4800-9174-6d966002bae5",
+    "name": "cotizaciones.edit",
+    "description": "Editar cotizaciones",
+    "category": "cotizaciones",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "a2fac353-4f54-4007-9eca-14190bdd1f0d",
+    "name": "cotizaciones.delete",
+    "description": "Eliminar cotizaciones",
+    "category": "cotizaciones",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "fd3c6334-5eea-4065-b59d-4eab16e55293",
+    "name": "cotizaciones.export",
+    "description": "Exportar cotizaciones a PDF",
+    "category": "cotizaciones",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "8b295c61-cb9c-461b-8ac5-94fc244f6388",
+    "name": "vuelos.view",
+    "description": "Ver vuelos",
+    "category": "vuelos",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "ab103d75-3a34-4ae8-8baa-2774b2fe5f1a",
+    "name": "vuelos.create",
+    "description": "Crear vuelos",
+    "category": "vuelos",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "2e68931d-a611-4647-811d-f08840a66fa4",
+    "name": "vuelos.edit",
+    "description": "Editar vuelos",
+    "category": "vuelos",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "bcf7d83f-4fec-4978-9b21-47acf481de96",
+    "name": "vuelos.delete",
+    "description": "Eliminar vuelos",
+    "category": "vuelos",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "532c365b-faf3-4567-9a29-e82752e7c241",
+    "name": "vuelos.confirm_payment",
+    "description": "Confirmar pagos de vuelos",
+    "category": "vuelos",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "70f52463-e589-4a71-be08-ee2375d6d141",
+    "name": "vuelos.emit",
+    "description": "Emitir vuelos",
+    "category": "vuelos",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "726a8897-aec3-4ada-9e76-19fb3da32153",
+    "name": "analisis.view",
+    "description": "Ver análisis de rendimiento",
+    "category": "analisis",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "839fec7a-191d-4cd1-9cbf-cc3dad9edd6b",
+    "name": "analisis.create",
+    "description": "Crear análisis de rendimiento",
+    "category": "analisis",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "01aeb3b1-009c-4343-81e8-0da38f4dfd20",
+    "name": "analisis.export",
+    "description": "Exportar reportes de análisis",
+    "category": "analisis",
+    "created_at": "2026-03-25 19:42:54.410779+00",
+    "updated_at": "2026-03-25 19:42:54.410779+00"
+  },
+  {
+    "id": "a65ea05b-5ac4-4dca-a432-4f674d71763d",
+    "name": "permissions.view",
+    "description": "Ver permisos del sistema",
+    "category": "permisos",
+    "created_at": "2026-03-27 14:35:22.772756+00",
+    "updated_at": "2026-03-27 14:35:22.772756+00"
+  },
+  {
+    "id": "78a22b5f-a859-49b5-a4c0-ba09dc307f57",
+    "name": "permissions.create",
+    "description": "Crear nuevos permisos",
+    "category": "permisos",
+    "created_at": "2026-03-27 14:35:22.772756+00",
+    "updated_at": "2026-03-27 14:35:22.772756+00"
+  },
+  {
+    "id": "65b0b54b-948a-463b-9c84-81a8db78ca29",
+    "name": "permissions.edit",
+    "description": "Editar permisos existentes",
+    "category": "permisos",
+    "created_at": "2026-03-27 14:35:22.772756+00",
+    "updated_at": "2026-03-27 14:35:22.772756+00"
+  },
+  {
+    "id": "f8c8575b-a024-40ba-bf97-8c7c71bf18bf",
+    "name": "permissions.delete",
+    "description": "Eliminar permisos",
+    "category": "permisos",
+    "created_at": "2026-03-27 14:35:22.772756+00",
+    "updated_at": "2026-03-27 14:35:22.772756+00"
+  },
+  {
+    "id": "8eeb51fb-b560-47a3-8ec3-c38f51116d96",
+    "name": "permissions.assign",
+    "description": "Asignar permisos a roles y usuarios",
+    "category": "permisos",
+    "created_at": "2026-03-27 14:35:22.772756+00",
+    "updated_at": "2026-03-27 14:35:22.772756+00"
+  },
+  {
+    "id": "3285231a-f2d5-4913-a7b6-4275f129baa2",
+    "name": "roles.view",
+    "description": "Ver roles del sistema",
+    "category": "roles",
+    "created_at": "2026-03-27 14:35:22.772756+00",
+    "updated_at": "2026-03-27 14:35:22.772756+00"
+  },
+  {
+    "id": "d3482207-e99d-40fa-b5f8-a70ec8326054",
+    "name": "roles.create",
+    "description": "Crear nuevos roles",
+    "category": "roles",
+    "created_at": "2026-03-27 14:35:22.772756+00",
+    "updated_at": "2026-03-27 14:35:22.772756+00"
+  },
+  {
+    "id": "b6a91353-758f-4623-9731-4c9ba6cef8fc",
+    "name": "roles.edit",
+    "description": "Editar roles existentes",
+    "category": "roles",
+    "created_at": "2026-03-27 14:35:22.772756+00",
+    "updated_at": "2026-03-27 14:35:22.772756+00"
+  },
+  {
+    "id": "cd7b103e-b50e-42b5-98fb-51a31636cc2f",
+    "name": "roles.delete",
+    "description": "Eliminar roles",
+    "category": "roles",
+    "created_at": "2026-03-27 14:35:22.772756+00",
+    "updated_at": "2026-03-27 14:35:22.772756+00"
+  }
+]

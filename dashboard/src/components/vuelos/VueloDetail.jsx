@@ -1,18 +1,25 @@
 'use client'
 import { useState } from 'react'
-import { 
-  Plane, Users, Calendar, Clock, MapPin, Building, DollarSign, 
-  FileText, Copy, CheckCircle, Download, ExternalLink, AlertCircle 
+import {
+  Plane, Users, Calendar, Clock, MapPin, Building, DollarSign,
+  FileText, Copy, CheckCircle, Download, ExternalLink, AlertCircle
 } from 'lucide-react'
 import { generarFormatoWhatsApp } from '@/lib/utils/vuelos-calculations'
+import ImageModal from '@/components/shared/ImageModal'
+import HistorialEdiciones from './HistorialEdiciones'
+import HistorialCambiosEstado from './HistorialCambiosEstado'
+import SolicitarAutorizacionButton from './SolicitarAutorizacionButton'
 
 export default function VueloDetail({ vuelo }) {
   const [copied, setCopied] = useState(false)
+  const [imageModalOpen, setImageModalOpen] = useState(false)
+  const [selectedImage, setSelectedImage] = useState({ url: '', name: '' })
 
   const totalPax = vuelo.num_adultos + vuelo.num_ninos + vuelo.num_infantes
 
   const formatDate = (dateString) => {
-    const date = new Date(dateString)
+    const [year, month, day] = dateString.split('-')
+    const date = new Date(year, month - 1, day)
     return date.toLocaleDateString('es-ES', { 
       day: '2-digit', 
       month: 'long', 
@@ -29,10 +36,9 @@ export default function VueloDetail({ vuelo }) {
 
   const getTipoVueloLabel = (tipo) => {
     const labels = {
-      'MIGRACION': 'Migración',
-      'TURISMO': 'Turismo',
-      'NEGOCIOS': 'Negocios',
-      'OTRO': 'Otro'
+      'solo_ida': 'Solo Ida',
+      'ida_vuelta': 'Ida y Vuelta',
+      'migratorio': 'Fines Migratorios'
     }
     return labels[tipo] || tipo
   }
@@ -83,6 +89,20 @@ export default function VueloDetail({ vuelo }) {
             <div className="text-sm text-purple-200 mb-1">Tipo</div>
             <div className="font-semibold">{getTipoVueloLabel(vuelo.tipo_vuelo)}</div>
           </div>
+        </div>
+      </div>
+
+      {/* Acciones del Vuelo */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Clock className="w-5 h-5 text-purple-600" />
+          Acciones del Vuelo
+        </h3>
+        <div className="flex items-center gap-3">
+          <SolicitarAutorizacionButton
+            vueloId={vuelo.id}
+            vueloEstado={vuelo.estado}
+          />
         </div>
       </div>
 
@@ -198,6 +218,163 @@ export default function VueloDetail({ vuelo }) {
         </div>
       </div>
 
+      {/* Datos de Pasajeros */}
+      {vuelo.pasajeros && vuelo.pasajeros.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-purple-600" />
+            Datos de Pasajeros
+          </h3>
+
+          <div className="space-y-4">
+            {vuelo.pasajeros.map((pasajero, index) => {
+              const tipoDocumento = pasajero.tipo_documento || 'PASAPORTE'
+              const esPassaporte = tipoDocumento === 'PASAPORTE'
+
+              return (
+                <div
+                  key={pasajero.id}
+                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                        <span className="text-purple-700 font-semibold">{index + 1}</span>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900">
+                          {pasajero.nombres} {pasajero.apellidos}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded">
+                            {pasajero.tipo}
+                          </span>
+                          {pasajero.sexo && (
+                            <span className="text-xs text-gray-500">
+                              {pasajero.sexo === 'M' ? 'Masculino' : 'Femenino'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Badge de Tipo de Documento */}
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${esPassaporte
+                      ? 'bg-blue-50 border border-blue-200'
+                      : 'bg-green-50 border border-green-200'
+                      }`}>
+                      <span className="text-lg">{esPassaporte ? '🛂' : '🪪'}</span>
+                      <span className={`text-sm font-medium ${esPassaporte ? 'text-blue-700' : 'text-green-700'
+                        }`}>
+                        {esPassaporte ? 'Pasaporte' : 'Cédula'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Documento */}
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">
+                        {esPassaporte ? 'N° Pasaporte' : 'N° Cédula'}
+                      </label>
+                      <p className={`font-mono font-semibold ${esPassaporte ? 'text-blue-700' : 'text-green-700'
+                        }`}>
+                        {esPassaporte
+                          ? (pasajero.numero_pasaporte || 'N/A')
+                          : (pasajero.numero_cedula || 'N/A')
+                        }
+                      </p>
+                    </div>
+
+                    {/* País de emisión (solo para cédula) */}
+                    {!esPassaporte && pasajero.pais_emision_cedula && (
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">País de Emisión</label>
+                        <p className="text-gray-900 font-medium">{pasajero.pais_emision_cedula}</p>
+                      </div>
+                    )}
+
+                    {/* Nacionalidad */}
+                    {pasajero.nacionalidad && (
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Nacionalidad</label>
+                        <p className="text-gray-900 font-medium">{pasajero.nacionalidad}</p>
+                      </div>
+                    )}
+
+                    {/* Fecha de Nacimiento */}
+                    {pasajero.fecha_nacimiento && (
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Fecha de Nacimiento</label>
+                        <p className="text-gray-900 font-medium">{formatDate(pasajero.fecha_nacimiento)}</p>
+                      </div>
+                    )}
+
+                    {/* Precios */}
+                    <div className="md:col-span-3 pt-3 border-t border-gray-100">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Precio Pantalla</label>
+                          <p className="text-sm font-semibold text-gray-900">
+                            ${pasajero.precio_pantalla?.toFixed(2) || '0.00'}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Fee Emisión</label>
+                          <p className="text-sm font-semibold text-gray-900">
+                            ${pasajero.fee_emision?.toFixed(2) || '0.00'}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Fee Agencia</label>
+                          <p className="text-sm font-semibold text-gray-900">
+                            ${pasajero.fee_agencia?.toFixed(2) || '0.00'}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Subtotal</label>
+                          <p className="text-sm font-bold text-purple-600">
+                            ${(
+                              (parseFloat(pasajero.precio_pantalla) || 0) +
+                              (parseFloat(pasajero.fee_emision) || 0) +
+                              (parseFloat(pasajero.fee_agencia) || 0)
+                            ).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Equipaje */}
+                    {(pasajero.equipaje_completo || pasajero.equipaje_mediano || pasajero.equipaje_ligero) && (
+                      <div className="md:col-span-3">
+                        <label className="text-xs text-gray-500 mb-2 block">Equipaje</label>
+                        <div className="flex gap-2">
+                          {pasajero.equipaje_completo && (
+                            <span className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded">
+                              Completo
+                            </span>
+                          )}
+                          {pasajero.equipaje_mediano && (
+                            <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                              Mediano
+                            </span>
+                          )}
+                          {pasajero.equipaje_ligero && (
+                            <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded">
+                              Ligero
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Formato WhatsApp */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
@@ -237,23 +414,33 @@ export default function VueloDetail({ vuelo }) {
           </h3>
 
           <div className="space-y-4">
-            {['COMPROBANTE_PAGO', 'PASAPORTE'].map(tipo => {
+            {['COMPROBANTE_PAGO', 'PASAPORTE', 'CEDULA'].map(tipo => {
               const adjuntosTipo = vuelo.adjuntos.filter(a => a.tipo_adjunto === tipo)
               if (adjuntosTipo.length === 0) return null
+
+              const getTipoLabel = (tipo) => {
+                const labels = {
+                  'COMPROBANTE_PAGO': 'Comprobantes de Pago',
+                  'PASAPORTE': 'Pasaportes',
+                  'CEDULA': 'Cédulas de Identidad'
+                }
+                return labels[tipo] || tipo
+              }
 
               return (
                 <div key={tipo}>
                   <h4 className="text-sm font-medium text-gray-700 mb-2">
-                    {tipo === 'COMPROBANTE_PAGO' ? 'Comprobantes de Pago' : 'Pasaportes'}
+                    {getTipoLabel(tipo)}
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {adjuntosTipo.map(adjunto => (
-                      <a
+                      <button
                         key={adjunto.id}
-                        href={adjunto.url_storage}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                        onClick={() => {
+                          setSelectedImage({ url: adjunto.url_storage, name: adjunto.nombre_archivo })
+                          setImageModalOpen(true)
+                        }}
+                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left w-full"
                       >
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
@@ -268,8 +455,8 @@ export default function VueloDetail({ vuelo }) {
                             )}
                           </div>
                         </div>
-                        <ExternalLink className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      </a>
+                        <ExternalLink className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -288,7 +475,7 @@ export default function VueloDetail({ vuelo }) {
               Caso de Anulación Asociado
             </h3>
             <a
-              href={`/anulables/${vuelo.anulable.id}`}
+              href={`/ventas/anulables/${vuelo.anulable.id}`}
               className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
             >
               Ver Anulable
@@ -332,6 +519,14 @@ export default function VueloDetail({ vuelo }) {
         </div>
       )}
 
+      {/* Historial de Ediciones */}
+      <HistorialEdiciones vueloId={vuelo.id} />
+
+      {/* Historial de Cambios de Estado */}
+      <div className="mt-6">
+        <HistorialCambiosEstado vueloId={vuelo.id} />
+      </div>
+
       {/* Observaciones */}
       {vuelo.observaciones && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -339,6 +534,14 @@ export default function VueloDetail({ vuelo }) {
           <p className="text-gray-700">{vuelo.observaciones}</p>
         </div>
       )}
+
+      {/* Modal de Imagen */}
+      <ImageModal
+        isOpen={imageModalOpen}
+        onClose={() => setImageModalOpen(false)}
+        imageUrl={selectedImage.url}
+        imageName={selectedImage.name}
+      />
     </div>
   )
 }

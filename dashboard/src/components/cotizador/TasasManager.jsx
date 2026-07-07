@@ -1,10 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { obtenerMonedas, obtenerTasasConversion, crearConversion, actualizarTasa, eliminarConversion } from '@/lib/tasasHelpers'
+import { obtenerMonedas, obtenerTasasConversion, crearConversion, actualizarTasa, eliminarConversion } from '@/lib/cotizador/tasasHelpers'
 import { Plus, Trash2, RefreshCw, History } from 'lucide-react'
 import HistorialTasas from './HistorialTasas'
-import { useUserProfile } from '@/hooks/useUserProfile'
+import { useUserProfile } from '@/contexts/UserProfileContext'
 import { useLoadingAlert } from '@/hooks/useDebounce'
 import Swal from 'sweetalert2'
 import toast from 'react-hot-toast'
@@ -13,7 +13,10 @@ import TutorialSection from '@/components/ui/TutorialSection'
 
 export default function TasasManager() {
   const { user } = useAuth()
-  const { profile, isAdmin } = useUserProfile()
+  const { profile, loading: profileLoading, isSuperAdmin, isAdmin, hasPermission } = useUserProfile()
+
+  // Solo super_admin y admin pueden ver el historial (o usuarios con permiso tasas.history)
+  const canViewHistory = isSuperAdmin || isAdmin || hasPermission('tasas.history')
   const { showLoadingAlert, closeLoadingAlert } = useLoadingAlert()
   const [tasas, setTasas] = useState([])
   const [monedas, setMonedas] = useState([])
@@ -149,7 +152,7 @@ export default function TasasManager() {
     }
   }
 
-  if (showHistorial && isAdmin) {
+  if (showHistorial && canViewHistory) {
     return <HistorialTasas onBack={() => setShowHistorial(false)} />
   }
 
@@ -204,7 +207,7 @@ export default function TasasManager() {
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-gray-800">Gestionar Tasas de Cambio</h2>
           <div className="flex gap-2">
-            {isAdmin && (
+            {canViewHistory && (
               <button
                 onClick={() => setShowHistorial(true)}
                 className="flex items-center gap-2 px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"

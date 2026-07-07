@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "api-design-principles": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "b242f962d5f78bf8bc147e92f2aa0341459b9f5f2f955e9867a8c41b85f22648"
+    },
+    "interface-design": {
+      "source": "dammyjay93/interface-design",
+      "sourceType": "github",
+      "computedHash": "4d5fe1dacfebc0c1b3837b061405150ed2e4971c096543afc46c23161c5a4f7a"
+    },
+    "rule-creator": {
+      "source": "oimiragieo/agent-studio",
+      "sourceType": "github",
+      "computedHash": "8331eb279526b18243f19697936ef1f29f4a6e34e5f6793ac09c732c4d42a6e3"
+    },
+    "supabase": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "cb675a889c60172febe84740e7c22b600c8241c390deaff3d368c408f10dffdf"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "f4cd7570115d97af6bcb2946eb891a958c8d04a43b479871c9ccadbc670ad058"
+    },
+    "writing-rules": {
+      "source": "athola/claude-night-market",
+      "sourceType": "github",
+      "computedHash": "ada22262df9e69ba7afbb925112d79421c0ebba3adb1c0e76bbdc23819a5e468"
+    }
+  }
+}

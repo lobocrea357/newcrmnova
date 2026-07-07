@@ -11,13 +11,32 @@ import {
   Globe,
   Lock,
   ChevronRight,
+  UserPlus,
 } from "lucide-react";
 import Breadcrumb from "@/components/ui/Breadcrumb";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserProfile } from "@/contexts/UserProfileContext";
 
 export default function ConfiguracionPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const { profile, loading: loadingProfile, isSuperAdmin, isAdmin, isManager } = useUserProfile();
+  // Usar helpers del contexto en lugar de comparaciones manuales
+  const canManageTeam = isSuperAdmin || isAdmin || isManager;
 
   const configSections = [
+    {
+      id: "mi-equipo",
+      title: "Mi Equipo",
+      description: "Gestiona los asesores asignados a tu equipo",
+      icon: UserPlus,
+      iconColor: "text-indigo-600",
+      bgColor: "bg-indigo-50",
+      borderColor: "border-indigo-200",
+      available: canManageTeam,
+      path: "/configuracion/mi-equipo",
+      hidden: !canManageTeam,
+    },
     {
       id: "usuarios",
       title: "Gestión de Usuarios",
@@ -26,19 +45,9 @@ export default function ConfiguracionPage() {
       iconColor: "text-blue-600",
       bgColor: "bg-blue-50",
       borderColor: "border-blue-200",
-      available: true,
+      available: isSuperAdmin || isAdmin,
       path: "/configuracion/usuarios",
-    },
-        {
-      id: "roles",
-      title: "Roles y Permisos",
-      description: "Configure roles y asigne permisos específicos",
-      icon: Shield,
-      iconColor: "text-purple-600",
-      bgColor: "bg-purple-50",
-      borderColor: "border-purple-200",
-      available: true,
-      path: "/configuracion/roles",
+      hidden: !isSuperAdmin && !isAdmin,
     },
     {
       id: "notificaciones",
@@ -140,43 +149,58 @@ export default function ConfiguracionPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {configSections.map((section) => {
-              const Icon = section.icon;
-              return (
-                <button
-                  key={section.id}
-                  onClick={() => handleNavigate(section)}
-                  disabled={!section.available}
-                  className={`relative bg-white rounded-xl shadow-sm border ${
-                    section.available
-                      ? "hover:shadow-lg hover:scale-[1.02] cursor-pointer"
-                      : "opacity-60 cursor-not-allowed"
-                  } transition-all duration-200 p-6 text-left group`}
-                >
-                  {!section.available && (
-                    <div className="absolute top-4 right-4 px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
-                      Próximamente
-                    </div>
-                  )}
+            {loadingProfile ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-xl p-6 border border-gray-100 animate-pulse h-40">
+                  <div className="w-12 h-12 bg-gray-100 rounded-lg mb-4" />
+                  <div className="h-6 bg-gray-100 rounded w-2/3 mb-2" />
+                  <div className="h-4 bg-gray-100 rounded w-full" />
+                </div>
+              ))
+            ) : (
+              configSections
+                .filter((s) => !s.hidden)
+                .map((section) => {
+                  const Icon = section.icon;
+                  return (
+                    <button
+                      key={section.id}
+                      onClick={() => handleNavigate(section)}
+                      disabled={!section.available}
+                      className={`relative bg-white rounded-xl shadow-sm border ${
+                        section.available
+                          ? "hover:shadow-lg hover:scale-[1.02] cursor-pointer"
+                          : "opacity-60 cursor-not-allowed"
+                      } transition-all duration-200 p-6 text-left group`}
+                    >
+                      {!section.available && (
+                        <div className="absolute top-4 right-4 px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
+                          Próximamente
+                        </div>
+                      )}
 
-                  <div
-                    className={`w-12 h-12 ${section.bgColor} ${section.borderColor} border rounded-lg flex items-center justify-center mb-4`}
-                  >
-                    <Icon className={`h-6 w-6 ${section.iconColor}`} />
-                  </div>
+                      <div
+                        className={`w-12 h-12 ${section.bgColor} ${section.borderColor} border rounded-lg flex items-center justify-center mb-4`}
+                      >
+                        <Icon className={`h-6 w-6 ${section.iconColor}`} />
+                      </div>
 
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center justify-between">
-                    {section.title}
-                    {section.available && (
-                      <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-gray-600 group-hover:translate-x-1 transition-all" />
-                    )}
-                  </h3>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center justify-between">
+                        {section.title}
+                        {section.available && (
+                          <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-gray-600 group-hover:translate-x-1 transition-all" />
+                        )}
+                      </h3>
 
-                  <p className="text-sm text-gray-600">{section.description}</p>
-                </button>
-              );
-            })}
+                      <p className="text-sm text-gray-600">{section.description}</p>
+                    </button>
+                  );
+                })
+            )}
           </div>
+
+
+
 
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
             <div className="flex items-start gap-4">

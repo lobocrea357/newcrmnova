@@ -57,7 +57,7 @@ export async function POST(request, { params }) {
     const { data: existingReport } = await supabase
       .from('performance_reports')
       .select('id')
-      .eq('analysis_id', analysisId)
+      .eq('performance_analysis_id', analysisId)
       .single();
 
     let savedReport;
@@ -67,7 +67,7 @@ export async function POST(request, { params }) {
       const { data: updatedReport, error: updateError } = await supabase
         .from('performance_reports')
         .update({
-          file_url: JSON.stringify(reportData),
+          report_data: reportData.report,
           updated_at: new Date().toISOString(),
         })
         .eq('id', existingReport.id)
@@ -82,10 +82,11 @@ export async function POST(request, { params }) {
       const { data: newReport, error: insertError } = await supabase
         .from('performance_reports')
         .insert({
-          analysis_id: analysisId,
-          file_url: JSON.stringify(reportData),
-          file_format: 'json',
-          generated_at: new Date().toISOString(),
+          performance_analysis_id: analysisId,
+          report_data: reportData.report,
+          report_type: 'manual',
+          report_name: `Reporte de ${analysis.bot?.session_name || analysis.worker?.name || 'Asesor'}`,
+          created_at: new Date().toISOString(),
         })
         .select()
         .single();

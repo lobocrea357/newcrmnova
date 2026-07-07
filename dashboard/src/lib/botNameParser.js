@@ -2,7 +2,7 @@ const KNOWN_SEDES = ['nova', 'apolo', 'flash']
 const KNOWN_LEADS = ['colombia', 'venezuela']
 const KNOWN_LEADERS = ['moises', 'jesus', 'endry']
 
-const capitalizeWord = (str) => {
+export const capitalizeWord = (str) => {
   if (!str) return ''
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
 }

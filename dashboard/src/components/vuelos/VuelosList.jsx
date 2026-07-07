@@ -1,25 +1,127 @@
 'use client'
-import { useState } from 'react'
-import { Search, Filter, X } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { Search, Filter, X, User } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 import VueloCard from './VueloCard'
+import FilterSelect from './FilterSelect'
 
 const TIPOS_VUELO = [
   { value: '', label: 'Todos' },
-  { value: 'MIGRACION', label: 'Migración' },
-  { value: 'TURISMO', label: 'Turismo' },
-  { value: 'NEGOCIOS', label: 'Negocios' },
-  { value: 'OTRO', label: 'Otro' }
+  { value: 'solo_ida', label: 'Solo Ida' },
+  { value: 'ida_vuelta', label: 'Ida y Vuelta' },
+  { value: 'migratorio', label: 'Fines Migratorios' }
 ]
 
-export default function VuelosList({ vuelos, pagination, onFilterChange, isLoading }) {
+const ESTADOS_VUELO = [
+  { value: 'PENDIENTE_CONFIRMACION_PAGO', label: 'Pendientes Pago' },
+  { value: 'PENDIENTE_EMISION', label: 'Pendientes Emisión' },
+  { value: 'EMITIDO', label: 'Emitidos' },
+  { value: 'CANCELADO', label: 'Cancelados' }
+]
+
+const METODOS_PAGO = [
+  { value: 'Efectivo (USD)', label: 'Efectivo (USD)' },
+  { value: 'Efectivo (COP)', label: 'Efectivo (COP)' },
+  { value: 'Efectivo (EUR)', label: 'Efectivo (EUR)' },
+  { value: 'Tarjeta de Crédito', label: 'Tarjeta de Crédito' },
+  { value: 'Tarjeta de Crédito (USD)', label: 'Tarjeta de Crédito (USD)' },
+  { value: 'TDC Viramundo', label: 'TDC Viramundo' },
+  { value: 'Scalapay', label: 'Scalapay' },
+  { value: 'Klarna', label: 'Klarna' },
+  { value: 'Chase Bank Nova', label: 'Chase Bank Nova' },
+  { value: 'Chase Bank Apolo', label: 'Chase Bank Apolo' },
+  { value: 'Zelle', label: 'Zelle' },
+  { value: 'BBVA', label: 'BBVA' },
+  { value: 'Revolut', label: 'Revolut' },
+  { value: 'Revolut Gaddiel', label: 'Revolut Gaddiel' },
+  { value: 'Revolut Grupo Travel', label: 'Revolut Grupo Travel' },
+  { value: 'Link de pago Revolut', label: 'Link de pago Revolut' },
+  { value: 'Transferencia (BNC)', label: 'Transferencia (BNC)' },
+  { value: 'Binance', label: 'Binance' },
+  { value: 'Bancacolombia', label: 'Bancacolombia' },
+  { value: 'Davivienda', label: 'Davivienda' },
+  { value: 'Bizum (España)', label: 'Bizum (España)' },
+  { value: 'Banesco Panamá (ViajesNova)', label: 'Banesco Panamá (ViajesNova)' },
+  { value: 'Pago móvil', label: 'Pago móvil' }
+]
+
+const PROVEEDORES = [
+  { value: 'Sabre', label: 'Sabre' },
+  { value: 'Kiu', label: 'Kiu' },
+  { value: 'Servivuelo', label: 'Servivuelo' },
+  { value: 'Expedia', label: 'Expedia' },
+  { value: 'Otro', label: 'Otro' }
+]
+
+export default function VuelosList({ vuelos, pagination, onFilterChange, isLoading, role, currentUserId }) {
   const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState({
     search: '',
     tipo_vuelo: '',
     fecha_desde: '',
     fecha_hasta: '',
-    requiere_anulable: ''
+    requiere_anulable: '',
+    asesor_id: '',
+    estado: '',
+    metodo_pago: '',
+    proveedor: ''
   })
+
+  const asesoresUnicos = useMemo(() => {
+    if (!vuelos || vuelos.length === 0) return []
+    const asesoresMap = new Map()
+    vuelos.forEach(v => {
+      if (v.creator && !asesoresMap.has(v.created_by)) {
+        asesoresMap.set(v.created_by, {
+          id: v.created_by,
+          nombre: v.creator.full_name || 'Desconocido',
+          email: v.creator.email || 'N/A'
+        })
+      }
+    })
+    return Array.from(asesoresMap.values()).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  }, [vuelos])
+
+  const vuelosFiltrados = useMemo(() => {
+    let filtered = vuelos
+
+    if (filters.asesor_id) {
+      filtered = filtered.filter(v => v.created_by === filters.asesor_id)
+    }
+    if (filters.tipo_vuelo) {
+      filtered = filtered.filter(v => v.tipo_vuelo === filters.tipo_vuelo)
+    }
+    if (filters.fecha_desde) {
+      filtered = filtered.filter(v => v.fecha_vuelo >= filters.fecha_desde)
+    }
+    if (filters.fecha_hasta) {
+      filtered = filtered.filter(v => v.fecha_vuelo <= filters.fecha_hasta)
+    }
+    if (filters.requiere_anulable !== '') {
+      filtered = filtered.filter(v => v.requiere_anulable === (filters.requiere_anulable === 'true'))
+    }
+    if (filters.estado) {
+      filtered = filtered.filter(v => v.estado === filters.estado)
+    }
+    if (filters.metodo_pago) {
+      filtered = filtered.filter(v => v.metodo_pago === filters.metodo_pago)
+    }
+    if (filters.proveedor) {
+      filtered = filtered.filter(v => v.proveedor === filters.proveedor)
+    }
+
+    if (filters.search) {
+      const query = filters.search.toLowerCase()
+      filtered = filtered.filter(v =>
+        v.pax_nombre?.toLowerCase().includes(query) ||
+        v.localizador?.toLowerCase().includes(query) ||
+        v.ruta?.toLowerCase().includes(query) ||
+        v.contacto_telefono?.toLowerCase().includes(query)
+      )
+    }
+
+    return filtered
+  }, [vuelos, filters])
 
   const handleFilterChange = (name, value) => {
     const newFilters = { ...filters, [name]: value }
@@ -33,13 +135,45 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
       tipo_vuelo: '',
       fecha_desde: '',
       fecha_hasta: '',
-      requiere_anulable: ''
+      requiere_anulable: '',
+      asesor_id: '',
+      estado: '',
+      metodo_pago: '',
+      proveedor: ''
     }
     setFilters(emptyFilters)
     onFilterChange(emptyFilters)
   }
 
   const hasActiveFilters = Object.values(filters).some(v => v !== '')
+
+  // Suscripción a Supabase Realtime para actualizaciones de autorización de emisiones
+  useEffect(() => {
+    // Solo suscribirse si hay vuelos cargados
+    if (!vuelos || vuelos.length === 0) return
+
+    const channel = supabase
+      .channel('vuelos-autorizacion-emision')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'vuelos',
+          filter: 'autorizado_emision=eq.true'
+        },
+        (payload) => {
+          console.log('Autorización de emisión detectada:', payload)
+          // Recargar vuelos para reflejar el cambio
+          onFilterChange(filters)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [vuelos, filters, onFilterChange])
 
   return (
     <div className="space-y-6">
@@ -87,20 +221,34 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
 
         {showFilters && (
           <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de Vuelo
-              </label>
-              <select
-                value={filters.tipo_vuelo}
-                onChange={(e) => handleFilterChange('tipo_vuelo', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              >
-                {TIPOS_VUELO.map(tipo => (
-                  <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
-                ))}
-              </select>
-            </div>
+            <FilterSelect
+              label="Estado"
+              value={filters.estado}
+              onChange={(value) => handleFilterChange('estado', value)}
+              options={ESTADOS_VUELO}
+              placeholder="Todos los Estados"
+            />
+
+            {(role === 'super_admin' || role === 'gerente' || role === 'admin') && asesoresUnicos.length > 1 && (
+              <FilterSelect
+                label="Filtrar por Asesor"
+                value={filters.asesor_id}
+                onChange={(value) => handleFilterChange('asesor_id', value)}
+                options={asesoresUnicos.map(asesor => ({
+                  value: asesor.id,
+                  label: asesor.nombre
+                }))}
+                placeholder="Todos los asesores"
+              />
+            )}
+
+            <FilterSelect
+              label="Tipo de Vuelo"
+              value={filters.tipo_vuelo}
+              onChange={(value) => handleFilterChange('tipo_vuelo', value)}
+              options={TIPOS_VUELO}
+              placeholder="Todos los tipos"
+            />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -126,20 +274,32 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Anulables
-              </label>
-              <select
-                value={filters.requiere_anulable}
-                onChange={(e) => handleFilterChange('requiere_anulable', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              >
-                <option value="">Todos</option>
-                <option value="true">Solo anulables</option>
-                <option value="false">Sin anulables</option>
-              </select>
-            </div>
+            <FilterSelect
+              label="Método de Pago"
+              value={filters.metodo_pago}
+              onChange={(value) => handleFilterChange('metodo_pago', value)}
+              options={METODOS_PAGO}
+              placeholder="Todos los métodos"
+            />
+
+            <FilterSelect
+              label="Anulables"
+              value={filters.requiere_anulable}
+              onChange={(value) => handleFilterChange('requiere_anulable', value)}
+              options={[
+                { value: 'true', label: 'Solo anulables' },
+                { value: 'false', label: 'Sin anulables' }
+              ]}
+              placeholder="Todos"
+            />
+
+            <FilterSelect
+              label="Proveedor"
+              value={filters.proveedor}
+              onChange={(value) => handleFilterChange('proveedor', value)}
+              options={PROVEEDORES}
+              placeholder="Todos los proveedores"
+            />
           </div>
         )}
       </div>
@@ -149,7 +309,7 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
         <div className="flex items-center justify-center py-12">
           <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : vuelos.length === 0 ? (
+      ) : vuelosFiltrados.length === 0 ? (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
           <p className="text-gray-500">No se encontraron vuelos</p>
           {hasActiveFilters && (
@@ -164,7 +324,7 @@ export default function VuelosList({ vuelos, pagination, onFilterChange, isLoadi
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4">
-            {vuelos.map(vuelo => (
+                {vuelosFiltrados.map(vuelo => (
               <VueloCard key={vuelo.id} vuelo={vuelo} />
             ))}
           </div>

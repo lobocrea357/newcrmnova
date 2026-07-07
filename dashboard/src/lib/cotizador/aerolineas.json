@@ -1,0 +1,254 @@
+{
+  "latinoamerica": [
+    {
+      "nombre": "Avianca",
+      "pais": "Colombia",
+      "iata": "AV",
+      "icao": "AVA"
+    },
+    {
+      "nombre": "LATAM Airlines",
+      "pais": "Chile",
+      "iata": "LA",
+      "icao": "LAN"
+    },
+    {
+      "nombre": "Aeroméxico",
+      "pais": "México",
+      "iata": "AM",
+      "icao": "AMX"
+    },
+    {
+      "nombre": "Volaris",
+      "pais": "México",
+      "iata": "Y4",
+      "icao": "VOI"
+    },
+    {
+      "nombre": "Aerolíneas Argentinas",
+      "pais": "Argentina",
+      "iata": "AR",
+      "icao": "ARG"
+    },
+    {
+      "nombre": "Gol Linhas Aéreas",
+      "pais": "Brasil",
+      "iata": "G3",
+      "icao": "GLO"
+    },
+    {
+      "nombre": "Azul Linhas Aéreas",
+      "pais": "Brasil",
+      "iata": "AD",
+      "icao": "AZU"
+    },
+    {
+      "nombre": "Copa Airlines",
+      "pais": "Panamá",
+      "iata": "CM",
+      "icao": "CMP"
+    },
+    {
+      "nombre": "Viva Aerobus",
+      "pais": "México",
+      "iata": "VB",
+      "icao": "VIV"
+    },
+    {
+      "nombre": "Sky Airline",
+      "pais": "Chile",
+      "iata": "H2",
+      "icao": "SKU"
+    },
+    {
+      "nombre": "Jetsmart",
+      "pais": "Chile/Argentina",
+      "iata": "JA",
+      "icao": "JAT"
+    },
+    {
+      "nombre": "Boliviana de Aviación",
+      "pais": "Bolivia",
+      "iata": "OB",
+      "icao": "BOV"
+    },
+    {
+      "nombre": "Avianca Costa Rica",
+      "pais": "Costa Rica",
+      "iata": "LR",
+      "icao": "LRC"
+    },
+    {
+      "nombre": "Estelar",
+      "pais": "Venezuela",
+      "iata": "ES",
+      "icao": "ETR"
+    },
+    {
+      "nombre": "Laser Airlines",
+      "pais": "Venezuela",
+      "iata": "QL",
+      "icao": "LER"
+    },
+    {
+      "nombre": "Plus Ultra",
+      "pais": "España",
+      "iata": "PU",
+      "icao": "PUE"
+    }
+  ],
+  "globales": [
+    {
+      "nombre": "American Airlines",
+      "pais": "Estados Unidos",
+      "iata": "AA",
+      "icao": "AAL"
+    },
+    {
+      "nombre": "Delta Air Lines",
+      "pais": "Estados Unidos",
+      "iata": "DL",
+      "icao": "DAL"
+    },
+    {
+      "nombre": "United Airlines",
+      "pais": "Estados Unidos",
+      "iata": "UA",
+      "icao": "UAL"
+    },
+    {
+      "nombre": "Lufthansa",
+      "pais": "Alemania",
+      "iata": "LH",
+      "icao": "DLH"
+    },
+    {
+      "nombre": "Air France",
+      "pais": "Francia",
+      "iata": "AF",
+      "icao": "AFR"
+    },
+    {
+      "nombre": "British Airways",
+      "pais": "Reino Unido",
+      "iata": "BA",
+      "icao": "BAW"
+    },
+    {
+      "nombre": "KLM",
+      "pais": "Países Bajos",
+      "iata": "KL",
+      "icao": "KLM"
+    },
+    {
+      "nombre": "Emirates",
+      "pais": "UAE",
+      "iata": "EK",
+      "icao": "UAE"
+    },
+    {
+      "nombre": "Qatar Airways",
+      "pais": "Catar",
+      "iata": "QR",
+      "icao": "QTR"
+    },
+    {
+      "nombre": "Singapore Airlines",
+      "pais": "Singapur",
+      "iata": "SQ",
+      "icao": "SIA"
+    },
+    {
+      "nombre": "Cathay Pacific",
+      "pais": "Hong Kong",
+      "iata": "CX",
+      "icao": "CPA"
+    },
+    {
+      "nombre": "Qantas",
+      "pais": "Australia",
+      "iata": "QF",
+      "icao": "QFA"
+    },
+    {
+      "nombre": "Air China",
+      "pais": "China",
+      "iata": "CA",
+      "icao": "CCA"
+    },
+    {
+      "nombre": "China Southern",
+      "pais": "China",
+      "iata": "CZ",
+      "icao": "CSN"
+    },
+    {
+      "nombre": "Japan Airlines",
+      "pais": "Japón",
+      "iata": "JL",
+      "icao": "JAL"
+    },
+    {
+      "nombre": "Korean Air",
+      "pais": "Corea del Sur",
+      "iata": "KE",
+      "icao": "KAL"
+    },
+    {
+      "nombre": "Turkish Airlines",
+      "pais": "Turquía",
+      "iata": "TK",
+      "icao": "THY"
+    },
+    {
+      "nombre": "World2Fly",
+      "pais": "España",
+      "iata": "2W",
+      "icao": "WFL"
+    },
+    {
+      "nombre": "Hahn Air Technologies",
+      "pais": "Alemania",
+      "iata": "HR",
+      "icao": "HHN"
+    },
+    {
+      "nombre": "TAP Air Portugal",
+      "pais": "Portugal",
+      "iata": "TP",
+      "icao": "TAP"
+    }
+  ],
+  "espana": [
+    {
+      "nombre": "Iberia",
+      "pais": "España",
+      "iata": "IB",
+      "icao": "IBE"
+    },
+    {
+      "nombre": "Air Europa",
+      "pais": "España",
+      "iata": "UX",
+      "icao": "AEA"
+    },
+    {
+      "nombre": "Vueling",
+      "pais": "España",
+      "iata": "VY",
+      "icao": "VLG"
+    },
+    {
+      "nombre": "Binter Canarias",
+      "pais": "España",
+      "iata": "NT",
+      "icao": "IBB"
+    },
+    {
+      "nombre": "Air Nostrum",
+      "pais": "España",
+      "iata": "YW",
+      "icao": "ANE"
+    }
+  ]
+}

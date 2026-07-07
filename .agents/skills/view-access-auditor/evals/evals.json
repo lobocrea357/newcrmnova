@@ -1,0 +1,53 @@
+{
+  "skill_name": "view-access-auditor",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Audita esta vista de cotizaciones que muestra una lista de todas las cotizaciones del sistema. No tiene ninguna validación de acceso.",
+      "expected_output": "Should ask about role-based access, agency filtering, and permission requirements for viewing/editing cotizaciones",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Revisa si este dashboard de reportes necesita validaciones. Muestra datos de ventas de todas las agencias y sedes.",
+      "expected_output": "Should ask about who can see reports, agency/sede filtering, and administrative access requirements",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Analiza este formulario de creación de usuarios. No tiene protección y cualquiera puede crear usuarios.",
+      "expected_output": "Should ask about role requirements, permission checks, and user creation restrictions",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "¿Debería proteger esta página de configuración del sistema? Actualmente la puede ver cualquiera.",
+      "expected_output": "Should ask about admin-only access, permission requirements, and system configuration restrictions",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "Voy a mostrar una lista de usuarios en esta vista. ¿Qué validaciones necesito agregar?",
+      "expected_output": "Should ask about role-based viewing, agency filtering, hierarchical restrictions, and user privacy concerns",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "Este componente muestra el perfil completo de un usuario con datos sensibles. ¿Está bien que lo vea cualquiera?",
+      "expected_output": "Should ask about privacy, access control, sensitive data protection, and role-based visibility",
+      "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "Tengo una tabla de vuelos que muestra todos los vuelos del sistema. ¿Necesita alguna validación?",
+      "expected_output": "Should ask about agency filtering, user access levels, and data visibility restrictions",
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "Audita este componente de gestión de roles. Permite cambiar roles de cualquier usuario.",
+      "expected_output": "Should ask about hierarchical restrictions, admin-only access, and role management permissions",
+      "files": []
+    }
+  ]
+}

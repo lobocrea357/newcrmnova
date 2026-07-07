@@ -1,0 +1,65 @@
+{
+  "skill_name": "auth-permissions-validation",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Necesito crear una página de administración que solo puedan acceder los administradores y super administradores. Si no tienen esos roles, debe mostrar acceso denegado.",
+      "expected_output": "Component using isAdmin or isSuperAdmin with access denied fallback",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Voy a hacer un botón para crear cotizaciones que solo debe aparecer para usuarios que tienen el permiso 'cotizaciones:crear'.",
+      "expected_output": "Button with conditional rendering using hasPermission('cotizaciones:crear')",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Quiero proteger una ruta para que solo usuarios con rol 'gerente' o superior puedan acceder. Use el hook useRouteGuard.",
+      "expected_output": "Route protection using useRouteGuard with allowedRoles",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Necesito crear un panel de gestión de usuarios donde se muestren diferentes acciones según el rol: admin puede editar/borrar, gerente solo puede asignar roles, asesor solo puede ver.",
+      "expected_output": "Component with role-based conditional rendering for different user actions",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "Voy a hacer un componente que valide si el usuario puede aprobar cotizaciones. Necesita tener el permiso 'cotizaciones:aprobar' O ser super admin.",
+      "expected_output": "Validation using hasAnyPermission or combining with isSuperAdmin",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "Quiero crear un menú de navegación dinámico que muestre diferentes opciones según los permisos del usuario: usuarios, cotizaciones, reportes, configuración.",
+      "expected_output": "Dynamic navigation using hasPermission for menu item visibility",
+      "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "Necesito implementar una regla de negocio: solo los administradores pueden editar usuarios de roles inferiores, pero no pueden editar otros administradores (solo super admins pueden).",
+      "expected_output": "Hierarchical role validation using canManageRole and role comparisons",
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "Voy a crear un wrapper component que proteja hijos basado en permisos específicos. Debe poder requerir uno o todos los permisos pasados.",
+      "expected_output": "Reusable PermissionProtectedComponent with requireAll option",
+      "files": []
+    },
+    {
+      "id": 9,
+      "prompt": "Quiero mostrar un banner especial en el dashboard solo para super administradores con opciones de configuración del sistema.",
+      "expected_output": "Super admin specific content using isSuperAdmin check",
+      "files": []
+    },
+    {
+      "id": 10,
+      "prompt": "Necesito validar que un usuario pueda eliminar una cotización. Debe tener el permiso 'cotizaciones:eliminar' Y no puede ser su propia cotización (a menos que sea super admin).",
+      "expected_output": "Complex validation combining hasPermission with ownership check and super admin exception",
+      "files": []
+    }
+  ]
+}

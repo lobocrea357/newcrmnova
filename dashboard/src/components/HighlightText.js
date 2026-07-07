@@ -35,7 +35,7 @@ function HighlightText({ text, searchQuery, className = '' }) {
   const after = textStr.slice(index + query.length)
   
   return (
-    <span className={className}>
+    <span className={className} translate="no">
       {before}
       <span className="text-blue-600 font-semibold">{match}</span>
       {after}

@@ -5,6 +5,7 @@
 
 import { supabase } from "./supabase";
 import { applyStructuralFilters, isValidChat } from "./chatFilters";
+import { NEXT_CONVERSACIONES_API } from "@/config/apiConfig";
 
 /**
  * Carga conversaciones con filtrado inteligente integrado
@@ -90,12 +91,24 @@ export async function loadConversationsForAnalysis(botId, options = {}) {
       globalStats.total_loaded += chats.length;
       totalProcessed += chats.length;
 
-      // Aplicar filtros estructurales
-      const { filtered, stats } = applyStructuralFilters(chats, {
-        excludeGroups,
-        excludeInternal,
-        useCache,
-      });
+      // Aplicar filtros estructurales con manejo de errores
+      let filtered = [];
+      let stats = { excluded_groups: 0, excluded_internal: 0, excluded_cache: 0, passed: 0 };
+      
+      try {
+        const result = applyStructuralFilters(chats, {
+          excludeGroups,
+          excludeInternal,
+          useCache,
+        });
+        filtered = result.filtered || [];
+        stats = result.stats || stats;
+      } catch (error) {
+        console.error("Error aplicando filtros estructurales:", error);
+        // Si falla el filtrado, validar formato antes de usar chats sin filtrar
+        filtered = chats.filter(isValidChat);
+        console.warn("⚠️ Usando chats sin filtrar estructural (validación básica aplicada)");
+      }
 
       // Acumular estadísticas
       globalStats.excluded_groups += stats.excluded_groups;
@@ -214,8 +227,7 @@ export async function getMessagesForAnalysis(
       `   📝 getMessagesForAnalysis: UUID=${chatUuid?.slice(0, 8)}, WhatsAppID=${chatWhatsAppId}`,
     );
 
-    // Llamar a Express backend en puerto 4000
-    const response = await fetch("/api/rendimiento/get-messages", {
+    const response = await fetch(NEXT_CONVERSACIONES_API.getMessages, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

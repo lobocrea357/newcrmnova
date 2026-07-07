@@ -101,21 +101,53 @@ Dashboard → Supabase Storage (subida directa)
 ### **Backend (Express)**
 ```
 src/
-├── config/           # Configuración de servicios
-├── routes/           # Rutas API (16 archivos)
-├── services/         # Lógica de negocio (18 servicios)
-└── scripts/          # Scripts de mantenimiento
+├── config/           # Configuración de servicios (supabase.js, waha.js)
+├── routes/           # Rutas API (22 archivos)
+├── services/         # Lógica de negocio (24 servicios)
+├── scripts/          # Scripts de mantenimiento
+└── utils/            # Utilidades compartidas
 ```
+
+**Rutas API disponibles:**
+- `agencias.js` - Gestión de agencias
+- `autoSync.js` - Sincronización automática
+- `bots.js` - Gestión de bots
+- `chats.js` - Gestión de chats
+- `contacts.js` - Gestión de contactos
+- `cotizaciones.js` - Sistema de cotizaciones
+- `dashboard.js` - Datos del dashboard
+- `diagnostics.js` - Diagnósticos del sistema
+- `equipos.js` - Gestión de equipos
+- `fullSync.js` - Sincronización completa
+- `media.js` - Gestión de archivos multimedia
+- `messages.js` - Gestión de mensajes
+- `rankings.js` - Rankings de asesores
+- `rendimiento.js` - Análisis de rendimiento
+- `roles.js` - Gestión de roles y permisos
+- `sedes.js` - Gestión de sedes
+- `sync.js` - Sincronización de datos
+- `tasas.js` - Tasas de cambio
+- `users.js` - Gestión de usuarios
+- `vuelos.js` - Gestión de vuelos
+- `webhooks.js` - Webhooks de WAHA
+- `workers.js` - Gestión de workers
 
 ### **Frontend (Dashboard Next.js)**
 ```
 dashboard/src/
-├── app/              # App Router (60 items)
-├── components/       # Componentes UI (52 items)
-├── hooks/           # Hooks personalizados (5 hooks)
-├── lib/             # Utilidades y helpers (20 archivos)
-├── contexts/        # Context API (1 archivo)
-└── config/          # Configuración centralizada
+├── app/              # App Router (40+ rutas)
+├── components/       # Componentes UI (60+ componentes)
+│   ├── cotizador/    # Sistema de cotizaciones (12 items)
+│   ├── rendimiento/  # Análisis de rendimiento (16 items)
+│   ├── vuelos/       # Gestión de vuelos (8 items)
+│   ├── permissions/  # Sistema de permisos (4 items)
+│   └── ...           # Otros componentes especializados
+├── hooks/           # Hooks personalizados (9 hooks)
+│   └── cotizador/    # Hooks especializados del cotizador (4 items)
+├── lib/             # Utilidades y helpers (25+ archivos)
+│   └── cotizador/    # Configuraciones del cotizador (6 archivos)
+├── contexts/        # Context API (3 contextos)
+└── config/          # Configuración centralizada (apiConfig.js)
 ```
 
 ---
@@ -149,13 +181,18 @@ dashboard/src/
 ## 🔐 **Autenticación y Roles**
 
 ### **Roles del Sistema**
-- **admin**: Acceso completo a todo
-- **gerente**: Acceso limitado a sus bots asignados
-- **administracion**: Acceso a funciones administrativas
+- **super_admin**: Acceso total sin restricciones
+- **admin**: Acceso completo a todas las funcionalidades
+- **gerente**: Acceso de gestión de equipos y bots asignados
+- **administracion**: Acceso a funciones administrativas (vuelos, cotizaciones)
 - **asesor**: Acceso básico de consulta
+- **emisor**: Acceso especializado para emisión de boletos
 
-### **Validación Actual**
-- ✅ **Frontend**: Validación de roles en vistas
+### **Sistema de Permisos Granular**
+- ✅ **Permisos por rol**: Definidos en tabla `role_permissions`
+- ✅ **Permisos por usuario**: Overrides en tabla `user_permissions`
+- ✅ **Ranking jerárquico**: Cada rol tiene un ranking para validación de jerarquía
+- ✅ **Frontend**: Validación completa mediante `UserProfileContext`
 - ❌ **Backend**: SIN validación (pendiente implementar)
 - ❌ **RLS**: SIN Row Level Security (pendiente implementar)
 
@@ -170,18 +207,41 @@ dashboard/src/
 
 ### **Tablas Principales**
 ```
-users              → Usuarios del sistema
-profiles           → Perfiles con roles
-workers            → Workers/Bots de WAHA
-contacts           → Contactos de WhatsApp
-chats              → Conversaciones
-messages           → Mensajes (texto, multimedia)
-media_files        → Metadatos de archivos
-vuelos             → Gestión de vuelos
-anulables          → Anulables de vuelos
-conversation_evaluations → Evaluaciones de IA
-performance_analyses     → Análisis de rendimiento
-performance_reports      → Reportes generados
+# Usuarios y Permisos
+users                     → Usuarios del sistema
+profiles                  → Perfiles con roles
+roles                     → Definición de roles del sistema
+permissions               → Permisos granulares
+role_permissions          → Permisos asignados a cada rol
+user_permissions          → Permisos específicos de usuario (overrides)
+
+# WhatsApp y Mensajería
+workers                   → Workers/Bots de WAHA
+bots                      → Bots de WhatsApp
+contacts                  → Contactos de WhatsApp
+chats                     → Conversaciones
+messages                  → Mensajes (texto, multimedia)
+media_files               → Metadatos de archivos
+
+# Vuelos y Cotizaciones
+vuelos                    → Gestión de vuelos
+vuelos_pasajeros          → Pasajeros de vuelos
+anulables                 → Anulables de vuelos
+cotizaciones              → Cotizaciones de vuelos
+cotizaciones_pasajeros    → Pasajeros de cotizaciones
+cotizaciones_historial    → Historial de cambios
+
+# Organización
+agencias                  → Gestión de agencias
+agencias_usuarios         → Relación usuarios-agencias
+sedes                     → Gestión de sedes
+sedes_usuarios            → Relación usuarios-sedes
+equipos                   → Equipos de trabajo
+
+# Análisis y Reportes
+conversation_evaluations  → Evaluaciones de IA
+performance_analyses      → Análisis de rendimiento
+performance_reports       → Reportes generados
 ```
 
 ### **Storage Buckets**
@@ -263,10 +323,10 @@ waha_media:        # Archivos temporales
 ### **❌ Pendiente Implementar**
 - **Validación de inputs en Express**
 - **Row Level Security (RLS) en Supabase**
-- **Validación de roles en backend**
+- **Validación de roles y permisos en backend**
 - **Helper centralizado para WAHA API**
 - **Sistema de logging profesional**
-- **Centralización completa de endpoints**
+- **Tests unitarios y de integración**
 
 ---
 

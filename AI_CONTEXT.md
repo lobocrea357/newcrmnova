@@ -43,10 +43,13 @@ Dashboard → Supabase Storage (subida directa de archivos)
 
 ### **Backend (Express)**
 - **Runtime**: Node.js con ES Modules
+- **Framework**: Express.js
 - **Base de Datos**: Supabase (Service Role Key)
-- **HTTP Client**: Axios
+- **HTTP Client**: Axios para llamadas a WAHA
 - **Logging**: Morgan + console.error
-- **WAHA Integration**: Requests directos (sin helper centralizado aún)
+- **WAHA Integration**: Requests directos (sin helper centralizado)
+- **Servicios**: 24 servicios especializados
+- **Rutas**: 22 rutas API centralizadas
 
 ### **Base de Datos (Supabase)**
 - **Motor**: PostgreSQL
@@ -212,12 +215,33 @@ toast.error('Error en la operación')
 
 ### **Roles y Permisos**
 ```javascript
-// ✅ Roles reales: admin, gerente, administracion, asesor
-const { profile, role, isAdmin, isManager } = useUserProfile()
+// ✅ Roles reales: super_admin, admin, gerente, administracion, asesor, emisor
+const { 
+  profile, 
+  role, 
+  isSuperAdmin, 
+  isAdmin, 
+  isManager,
+  isAdministracion,
+  isAsesor,
+  isEmisor,
+  hasPermission,
+  hasAnyPermission 
+} = useUserProfile()
 
-// ✅ Validación en vistas
+// ✅ Validación por rol
 if (!isAdmin && !isManager) {
   return <div>No tienes permisos para acceder</div>
+}
+
+// ✅ Validación por permisos granulares (nuevo sistema)
+if (!hasPermission('view_reports')) {
+  return <div>No tienes permisos para ver reportes</div>
+}
+
+// ✅ Validación múltiple
+if (!hasAnyPermission(['manage_users', 'view_users'])) {
+  return <div>No tienes permisos para gestionar usuarios</div>
 }
 ```
 
@@ -290,12 +314,21 @@ Estas cosas están planeadas pero no implementadas:
 
 ### **Tablas Principales**
 - `users` - Usuarios del sistema
-- `profiles` - Perfiles con roles (admin, gerente, administracion, asesor)
-- `workers` - Workers/Bots de WAHA (todos en un solo worker actualmente)
+- `profiles` - Perfiles con roles
+- `roles` - Definición de roles (super_admin, admin, gerente, administracion, asesor, emisor)
+- `permissions` - Permisos granulares del sistema
+- `role_permissions` - Permisos asignados a cada rol
+- `user_permissions` - Permisos específicos de usuario (overrides)
+- `workers` - Workers/Bots de WAHA
 - `contacts` - Contactos de WhatsApp
 - `chats` - Conversaciones
 - `messages` - Mensajes
 - `vuelos` - Sistema de vuelos
+- `cotizaciones` - Cotizaciones de vuelos
+- `cotizaciones_pasajeros` - Pasajeros de cotizaciones
+- `agencias` - Gestión de agencias
+- `sedes` - Gestión de sedes
+- `equipos` - Equipos de trabajo
 - `conversation_evaluations` - Evaluaciones de IA
 - `performance_analyses` - Análisis de rendimiento
 
@@ -352,6 +385,256 @@ import { NUEVO_API } from '@/config/apiConfig'
 fetch(NUEVO_API.listar, options)
 ```
 
+### **Escenario 3: Validar permisos granulares**
+```javascript
+// ❌ MALO: Solo validar por rol
+if (role === 'admin') {
+  // mostrar funcionalidad
+}
+
+// ✅ BUENO: Validar por permisos específicos
+import { useUserProfile } from '@/contexts/UserProfileContext'
+
+const { hasPermission, hasAnyPermission } = useUserProfile()
+
+// Permiso único
+if (hasPermission('manage_users')) {
+  // mostrar funcionalidad de gestión de usuarios
+}
+
+// Múltiples permisos (OR)
+if (hasAnyPermission(['edit_flights', 'view_flights'])) {
+  // mostrar funcionalidad de vuelos
+}
+```
+
+---
+
+## 🎯 **MÓDULO DE COTIZADOR - PATRONES ESPECÍFICOS**
+
+### **Cálculo Automático en Vista Múltiple** (detectado 2026-03-03)
+El sistema de cotización tiene dos vistas: individual y múltiple pasajeros.
+
+**Patrón de cálculo automático:**
+```javascript
+// ✅ useEffect que detecta cuándo debe calcular automáticamente
+useEffect(() => {
+  // Vista individual: requiere precioBase, feeEmision o feeAgencia
+  const debeCalcularIndividual = vistaCotizacion === 'individual' && 
+    (precioBase || feeEmision || feeAgencia) && monedaPrecio && monedaCotizacion
+
+  // Vista múltiple: requiere al menos 1 pasajero configurado
+  const debeCalcularMultiple = vistaCotizacion === 'multiple' && 
+    tienePasajerosConfigurados() && monedaPrecio && monedaCotizacion
+
+  if (debeCalcularIndividual || debeCalcularMultiple) {
+    const timeoutId = setTimeout(() => {
+      calcularCotizacion()
+    }, 300) // Debounce de 300ms
+    return () => clearTimeout(timeoutId)
+  }
+}, [vistaCotizacion, precioBase, feeEmision, feeAgencia, pasajeros, monedaPrecio, monedaCotizacion, metodoPago])
+```
+
+**Archivos:** `/components/cotizador/CotizadorForm.jsx`
+
+### **Desglose de Pasajeros para Vista Múltiple** (detectado 2026-03-03)
+Panel específico que muestra el desglose detallado de cada pasajero.
+
+**Estructura del desglose:**
+- Agrupa por categoría (Adultos, Niños, Infantes)
+- Muestra cada pasajero individual con:
+  - Precio Pantalla
+  - Fee Emisión
+  - Fee Agencia
+  - Total por pasajero
+  - Equipaje seleccionado
+- Subtotal por categoría
+- Total general con tasa de cambio y recargos
+
+**Patrón de renderizado condicional:**
+```javascript
+// ✅ Renderizado diferenciado por vista
+{vistaCotizacion === 'multiple' && tienePasajerosConfigurados() ? (
+  <DesgloseMultiple pasajeros={pasajeros} />
+) : desglose ? (
+  <DesgloseIndividual desglose={desglose} />
+) : vistaCotizacion === 'individual' ? (
+  <MensajeVacio mensaje="Completa los campos para ver el desglose" />
+) : (
+  <MensajeVacio mensaje="Agrega pasajeros para ver el desglose" />
+)}
+```
+
+**Archivos:** `/components/cotizador/CotizadorForm.jsx`
+
+### **Gestión de PDF Multipágina** (actualizado 2026-03-03)
+Generación de PDFs con múltiples páginas respetando márgenes.
+
+**Configuración de márgenes:**
+```javascript
+// ✅ Márgenes aumentados para evitar cortes
+const PDF_WIDTH = 210  // A4: 210mm
+const PDF_HEIGHT = 297 // A4: 297mm
+const MARGIN = 15      // 15mm de margen (aumentado desde 10mm)
+
+const contentWidth = PDF_WIDTH - (MARGIN * 2)
+const contentHeight = PDF_HEIGHT - (MARGIN * 2)
+```
+
+**Limitación conocida:** `html2canvas` convierte el DOM en una imagen única, por lo que `page-break-inside: avoid` solo funciona en impresión real del navegador, no en la generación del PDF.
+
+**Archivos:** `/services/cotizador/pdfService.js`, `/components/cotizador/resultados/PdfContent.jsx`
+
+### **Validación de Botón PDF por Vista** (detectado 2026-03-03)
+Condiciones diferentes para habilitar el botón "Exportar PDF" según la vista.
+
+**Patrón de validación:**
+```javascript
+// ✅ Validación condicional por tipo de vista
+disabled={
+  (vistaCotizacion === 'individual' && !desglose) || 
+  (vistaCotizacion === 'multiple' && !tienePasajerosConfigurados()) || 
+  exportingPdf
+}
+```
+
+**Archivos:** `/components/cotizador/CotizadorForm.jsx`
+
+### **Sistema de Permisos Granular** (detectado 2026-03-30)
+Sistema completo de permisos basado en roles con override de permisos por usuario.
+
+**Patrón de uso:**
+```javascript
+// ✅ Importar desde UserProfileContext
+import { useUserProfile } from '@/contexts/UserProfileContext'
+
+const { 
+  hasPermission,      // Verificar un permiso específico
+  hasAnyPermission,   // Verificar si tiene al menos uno
+  hasAllPermissions,  // Verificar si tiene todos
+  allPermissions,     // Array con todos los permisos del usuario
+  getRoleRanking,     // Obtener ranking jerárquico del rol
+  canManageRole       // Verificar si puede gestionar otro rol
+} = useUserProfile()
+
+// Verificación simple
+if (hasPermission('manage_users')) {
+  // mostrar gestión de usuarios
+}
+
+// Verificación múltiple (OR)
+if (hasAnyPermission(['edit_flights', 'view_flights'])) {
+  // mostrar sección de vuelos
+}
+
+// Verificación múltiple (AND)
+if (hasAllPermissions(['manage_users', 'manage_roles'])) {
+  // mostrar gestión completa
+}
+```
+
+**Jerarquía de permisos:**
+1. **Permisos del rol** (base)
+2. **Permisos específicos del usuario** (agregados)
+3. **Permisos revocados del usuario** (removidos)
+
+**Archivos:** `/contexts/UserProfileContext.js`
+
+### **APIs Centralizadas Completas** (actualizado 2026-03-30)
+Todas las APIs del backend están centralizadas en `apiConfig.js` usando helper `buildApiUrl`.
+
+**APIs disponibles:**
+- `TASAS_API` - Gestión de tasas de cambio y monedas
+- `COTIZACIONES_API` - Sistema de cotizaciones
+- `VUELOS_API` - Gestión completa de vuelos
+- `EQUIPOS_API` - Gestión de equipos de trabajo
+- `RANKINGS_API` - Rankings globales
+- `ANULABLES_API` - Gestión de anulables
+- `AGENCIAS_API` - Gestión de agencias
+- `SEDES_API` - Gestión de sedes
+- `USERS_API` - Gestión de usuarios
+
+**Patrón de uso:**
+```javascript
+import { VUELOS_API, AGENCIAS_API } from '@/config/apiConfig'
+
+// Endpoints simples
+const response = await fetch(VUELOS_API.listar)
+
+// Endpoints con parámetros
+const vueloResponse = await fetch(VUELOS_API.obtener(vueloId))
+
+// Endpoints complejos
+const agenciasUsuario = await fetch(AGENCIAS_API.agenciasUsuario(userId))
+```
+
+**Archivos:** `/config/apiConfig.js`
+
+### **Helpers de Supabase** (detectado 2026-03-30)
+Funciones helper avanzadas para interacción con Supabase.
+
+**Funciones principales:**
+```javascript
+import { 
+  handleAuthError,     // Manejo de errores de autenticación
+  getValidSession,     // Obtener sesión válida o lanzar error
+  getValidUser,        // Obtener usuario válido o lanzar error
+  getAllWorkers,       // Workers con estadísticas
+  getAllBots,          // Bots con estadísticas y filtros
+  isBotExcluded        // Verificar si bot es de prueba
+} from '@/lib/supabase'
+
+// Validar sesión antes de operaciones críticas
+try {
+  const session = await getValidSession()
+  // continuar operación
+} catch (error) {
+  // maneja error de sesión
+}
+
+// Obtener bots con estadísticas (excluye bots de prueba)
+const bots = await getAllBots() // Incluye conversation_count, last_activity
+
+// Verificar si un bot debe ser excluido
+if (isBotExcluded(botName)) {
+  // es bot de prueba (abraham, abrahama, paul, hernandez)
+}
+```
+
+**Archivos:** `/lib/supabase.js`
+
+### **Hooks del Cotizador** (detectado 2026-03-30)
+Hooks especializados para el sistema de cotización.
+
+**Hooks disponibles:**
+- `useMonedas` - Gestión de monedas y tasas
+- `usePasajeros` - Gestión de pasajeros en cotizaciones
+- `useVistaCotizacion` - Cambio entre vista individual/múltiple
+- `useCalculoCotizacion` - Lógica de cálculo de cotizaciones
+
+**Ubicación:** `/hooks/cotizador/`
+
+### **Configuraciones del Cotizador** (detectado 2026-03-30)
+Archivos de configuración centralizados para el cotizador.
+
+**Archivos principales:**
+- `aerolineas.json` - Lista completa de aerolíneas
+- `conversorInteligente.js` - Conversión inteligente de monedas
+- `monedasConfig.js` - Configuración de monedas soportadas
+- `passengerConfig.js` - Configuración de categorías de pasajeros
+- `paymentConfig.js` - Métodos de pago por agencia y moneda
+- `tasasHelpers.js` - Helpers para cálculo de tasas
+
+**Patrón de uso:**
+```javascript
+import { PASSENGER_CATEGORIES } from '@/lib/cotizador/passengerConfig'
+import { PAYMENT_METHODS } from '@/lib/cotizador/paymentConfig'
+import { obtenerTasaActual } from '@/lib/cotizador/tasasHelpers'
+```
+
+**Ubicación:** `/lib/cotizador/`
+
 ---
 
 ## 🔄 **SISTEMA DE MANTENIMIENTO INTELIGENTE**
@@ -361,11 +644,11 @@ fetch(NUEVO_API.listar, options)
 meta:
   creado: "2026-02-24"
   ultima_revision_humana: "2026-02-24"
-  ultima_actualizacion_ia: "2026-02-24"
-  version_proyecto: "v1.0.0"
-  patrones_documentados: "56"
+  ultima_actualizacion_ia: "2026-03-30"
+  version_proyecto: "v1.1.0"
+  patrones_documentados: "72"
   patrones_obsoletos: "0"
-  ultima_validacion: "2026-02-24"
+  ultima_validacion: "2026-03-30"
 ```
 
 ### **🤖 Tareas Automáticas (IA) - Cada Uso**

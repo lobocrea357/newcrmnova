@@ -1,0 +1,35 @@
+{
+  "skill_name": "notification-implementation",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Necesito implementar una notificación cuando se crea una nueva cotización. Cuando un asesor crea una cotización, quiero que se notifique a todos los admins del sistema. La cotización tiene un campo cliente_nombre y monto_total. ¿Cómo implemento esto?",
+      "expected_output": "El agente debería crear una función notificarNuevaCotizacion() en src/services/notificacionesService.js siguiendo el patrón establecido: validar que existe user_id, construir objeto de notificación con tipo apropiado (ej: cotizacion_creada), incluir metadatos en datos (cotizacion_id, creador_nombre, cliente_nombre, monto_total), usar insertarNotificaciones(), manejar errores con try/catch sin bloquear flujo, y actualizar el catálogo de tipos con el nuevo tipo.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Quiero emitir una notificación cuando un vuelo es anulado. Ya tengo el endpoint en routes/vuelos.js que maneja la anulación. ¿Cómo integro la notificación ahí?",
+      "expected_output": "El agente debería mostrar cómo integrar la notificación en el endpoint existente: importar la función de notificación (ej: notificarVueloAnulado), obtener el nombre del actor desde profiles, llamar a la función con los datos del vuelo y el actor, y manejar errores sin bloquear la respuesta del endpoint. También debería mencionar que debe actualizar el catálogo de tipos si es un tipo nuevo.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Necesito notificar a múltiples usuarios cuando se actualiza el ranking. El ranking se actualiza cada hora vía cron job. ¿Cómo emito notificaciones a todos los asesores activos cuando esto sucede?",
+      "expected_output": "El agente debería implementar una notificación múltiple usando getActiveUsersExcept() para obtener todos los usuarios activos, mapearlos a objetos de notificación, usar insertarNotificaciones() con el array, y manejar errores. Debería seguir el patrón de notificarEventoGlobal() mostrado en la skill.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Estoy creando un nuevo tipo de notificación para cuando una cotización es aprobada por un admin. El tipo se llamará cotizacion_aprobada. ¿Qué metadatos debo incluir en el campo datos?",
+      "expected_output": "El agente debería recomendar metadatos siguiendo los patrones del proyecto: cotizacion_id, admin_nombre, cliente_nombre, monto_total, estado_cotizacion, y opcionalmente accion_requerida. También debería indicar que debe actualizar el catálogo notification-types-catalog con este nuevo tipo, incluyendo descripción, metadatos, icono sugerido y ejemplo de payload.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "Quiero agregar un icono específico para el tipo pago_observado en el frontend. ¿Dónde y cómo lo hago?",
+      "expected_output": "El agente debería indicar que debe modificar dashboard/src/components/ui/NotificacionesCampana.jsx, agregar el import del icono (AlertTriangle de lucide-react), y agregar la condición en la función iconoTipo() para retornar el icono con el color apropiado (ámbar para advertencias).",
+      "files": []
+    }
+  ]
+}

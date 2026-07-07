@@ -196,6 +196,41 @@ router.delete('/eliminar-moneda/:id', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/tasas/activas
+ * Obtener todas las tasas de cambio activas
+ */
+router.get('/activas', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('tasas_conversion')
+      .select(`
+        *,
+        moneda_origen:monedas!tasas_conversion_moneda_origen_id_fkey(id, codigo, nombre, simbolo),
+        moneda_destino:monedas!tasas_conversion_moneda_destino_id_fkey(id, codigo, nombre, simbolo)
+      `)
+      .eq('activa', true)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const tasasFormateadas = {}
+    data.forEach(tasa => {
+      const key = `${tasa.moneda_origen.codigo}_${tasa.moneda_destino.codigo}`
+      tasasFormateadas[key] = tasa.tasa
+    })
+
+    res.json(tasasFormateadas);
+
+  } catch (error) {
+    console.error('[Tasas API] Error obteniendo tasas activas:', error);
+    res.status(500).json({ 
+      error: error.message || 'Error al obtener tasas activas',
+      details: error.toString()
+    });
+  }
+});
+
 // Endpoint temporal para obtener monedas (debug)
 router.get('/monedas-debug', async (req, res) => {
   try {
