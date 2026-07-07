@@ -1,3 +1,4 @@
+
 # 🤖 Guía Rápida para Agentes IA - CRM WhatsApp
 
 ## 🎯 **PROPÓSITO**
