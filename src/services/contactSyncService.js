@@ -1,5 +1,5 @@
 import { CONTACT_SYNC_CONFIG } from '../config/contactSyncConfig.js';
-import WahaContactService from './wahaContactService.js';
+import { WahaContactService } from './wahaContactService.js';
 import { ContactService } from './contactService.js';
 import { ChatService } from './chatService.js';
 import supabase from '../config/supabase.js';
