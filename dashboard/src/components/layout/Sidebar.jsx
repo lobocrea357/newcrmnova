@@ -50,7 +50,7 @@ const BASE_MENU_ITEMS = [
     { href: '/inteligencia-artificial', label: 'IA', icon: Brain },
     { href: '/configuracion', label: 'Configuración', icon: Settings },
     // Dashboard especial para bots con sufijo _other - solo supervisor
-    { href: '/other', label: 'Other', icon: UserPlus, supervisorOnly: true },
+    { href: '/other/conversaciones', label: 'Conversaciones', icon: MessageSquare, supervisorOnly: true },
     // Rutas POC - Visible solo para super_admin y admin
     { href: '/conversaciones-poc', label: 'Conversaciones POC', icon: Clock, adminOnly: true },
     { href: '/dashboard-poc', label: 'Dashboard Leads POC', icon: UsersIcon, superAdminOnly: true },
