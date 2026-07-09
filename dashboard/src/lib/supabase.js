@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { isOtherBot } from "./botNameParser";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -146,32 +147,9 @@ export async function getAllWorkers() {
 }
 
 /**
- * Obtiene todos los bots con el conteo de conversaciones
+ * Enriquece una lista de bots con conteo de conversaciones y última actividad
  */
-export async function getAllBots() {
-  try {
-    const session = await getValidSession();
-  } catch (error) {
-    console.error("❌ Error de autenticación:", error);
-    throw error;
-  }
-
-  // OPTIMIZADO: Obtener bots con workers en una sola query usando JOIN
-  const { data: bots, error } = await supabase
-    .from("bots")
-    .select(
-      `
-      *,
-      worker:workers(id, name, email)
-    `,
-    )
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("❌ Error al obtener bots:", error);
-    return [];
-  }
-
+async function enrichBotsWithStats(bots = []) {
   // OPTIMIZADO: Obtener estadísticas de todos los bots en paralelo
   const botsWithDetails = await Promise.all(
     (bots || []).map(async (bot) => {
@@ -233,6 +211,52 @@ export async function getAllBots() {
   });
 
   return sortedBots;
+}
+
+/**
+ * Obtiene todos los bots con el conteo de conversaciones
+ */
+export async function getAllBots() {
+  try {
+    await getValidSession();
+  } catch (error) {
+    console.error("❌ Error de autenticación:", error);
+    throw error;
+  }
+
+  // OPTIMIZADO: Obtener bots con workers en una sola query usando JOIN
+  const { data: bots, error } = await supabase
+    .from("bots")
+    .select(
+      `
+      *,
+      worker:workers(id, name, email)
+    `,
+    )
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("❌ Error al obtener bots:", error);
+    return [];
+  }
+
+  return enrichBotsWithStats(bots);
+}
+
+/**
+ * Obtiene bots del dashboard principal (excluye sesiones _other)
+ */
+export async function getMainBots() {
+  const allBots = await getAllBots();
+  return allBots.filter((bot) => !isOtherBot(bot.session_name));
+}
+
+/**
+ * Obtiene bots del dashboard "other" (solo sesiones _other)
+ */
+export async function getOtherBots() {
+  const allBots = await getAllBots();
+  return allBots.filter((bot) => isOtherBot(bot.session_name));
 }
 
 /**

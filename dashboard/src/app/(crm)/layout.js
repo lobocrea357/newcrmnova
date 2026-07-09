@@ -1,17 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Sidebar from "@/components/layout/Sidebar";
 import { useAuthRequired } from "@/hooks/useRouteGuard";
 import { RankingProvider } from "@/contexts/RankingContext";
 import ToastContainer from "@/components/ui/ToastContainer";
 import { useMetaNotifications } from "@/hooks/useMetaNotifications";
+import { useUserProfile } from "@/contexts/UserProfileContext";
 
 export default function CRMLayout({ children }) {
   const { loading, isAuthenticated } = useAuthRequired();
+  const { role, isSupervisor, profileLoading } = useUserProfile();
+  const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Redirigir al supervisor si intenta acceder a rutas fuera de /other
+  useEffect(() => {
+    if (profileLoading || !isAuthenticated || !isSupervisor) return;
+    const isOtherRoute = pathname === '/other' || pathname.startsWith('/other/');
+    if (!isOtherRoute) {
+      router.push('/other/conversaciones');
+    }
+  }, [profileLoading, isAuthenticated, isSupervisor, pathname, router]);
 
   // NUEVO: Activar sistema de notificaciones de metas
   useMetaNotifications();

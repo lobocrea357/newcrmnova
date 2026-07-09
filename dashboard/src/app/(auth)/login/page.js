@@ -28,7 +28,19 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/");
+      // Determinar a dónde redirigir según el rol del usuario
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('role:roles(name)')
+        .eq('id', data.user.id)
+        .single();
+
+      const roleName = profileData?.role?.name;
+      if (roleName === 'supervisor') {
+        router.push('/other/conversaciones');
+      } else {
+        router.push('/');
+      }
     } catch (error) {
       setError("Error al iniciar sesión. Por favor, intenta de nuevo.");
     } finally {

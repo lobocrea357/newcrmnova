@@ -7,6 +7,14 @@ export const capitalizeWord = (str) => {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
 }
 
+/**
+ * Detecta si un bot pertenece al grupo "other" (sesiones con sufijo _other)
+ */
+export const isOtherBot = (sessionName) => {
+  if (!sessionName) return false
+  return String(sessionName).toLowerCase().endsWith('_other')
+}
+
 export const parseBotSessionName = (sessionName) => {
   if (!sessionName) {
     return {

@@ -290,6 +290,7 @@ export const UserProfileProvider = ({ children }) => {
     const isAsesor = isRole('asesor')
     const isEmisor = isRole('emisor')
     const isAdministracion = isRole('administracion')
+    const isSupervisor = isRole('supervisor')
 
     // Helper: obtener ranking del rol (para comparación jerárquica)
     const getRoleRanking = () => roleObject?.ranking || 0
@@ -375,6 +376,7 @@ export const UserProfileProvider = ({ children }) => {
       isAsesor,
       isEmisor,
       isAdministracion,
+      isSupervisor,
       getRoleRanking,
       canManageRole,
       hasAgencia,

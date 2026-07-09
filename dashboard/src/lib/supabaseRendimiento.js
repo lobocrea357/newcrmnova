@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { parseBotSessionName } from "./botNameParser";
+import { parseBotSessionName, isOtherBot } from "./botNameParser";
 
 // ============================================
 // FUNCIONES PARA CONVERSATION_EVALUATIONS
@@ -516,6 +516,14 @@ export async function getDashboardStats() {
   });
 
   return Object.values(statsById);
+}
+
+/**
+ * Obtiene estadísticas de rendimiento solo para bots con sufijo _other
+ */
+export async function getOtherDashboardStats() {
+  const allStats = await getDashboardStats();
+  return allStats.filter((stat) => isOtherBot(stat.botSessionName));
 }
 
 export async function getRecentAnalyses(limit = 10) {
