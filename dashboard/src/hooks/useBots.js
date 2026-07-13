@@ -5,12 +5,14 @@ import { useUserProfile } from "@/contexts/UserProfileContext";
 
 /**
  * Hook para obtener la lista de bots del dashboard principal.
- * Si el usuario tiene bot_session_suffix, muestra solo bots con ese sufijo.
- * Si no tiene sufijo, muestra todos los bots excepto los _other.
+ * - Supervisor: solo bots _other.
+ * - Lider: bots según su bot_session_suffix.
+ * - Admin/Super Admin: todos los bots excepto _other.
+ * - Otros: bots excepto _other.
  */
 export function useBots() {
   const { user, isAuthenticated } = useAuth();
-  const { profile } = useUserProfile();
+  const { profile, isSuperAdmin, isAdmin, isSupervisor, isLider } = useUserProfile();
   const [bots, setBots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,8 +30,19 @@ export function useBots() {
         setLoading(true);
         setError(null);
         const suffix = profile?.bot_session_suffix || null;
-        console.log('DEBUG useBots:', { suffix, profileId: profile?.id, email: profile?.email });
-        const data = await getBotsForUser(suffix);
+        console.log('DEBUG useBots:', { isSuperAdmin, isAdmin, isSupervisor, isLider, suffix, profileId: profile?.id, email: profile?.email });
+
+        let data;
+        if (isSupervisor) {
+          data = await getOtherBots();
+        } else if (isSuperAdmin || isAdmin) {
+          data = await getBotsForUser(null);
+        } else if (isLider) {
+          data = await getBotsForUser(suffix);
+        } else {
+          data = await getBotsForUser(null);
+        }
+
         console.log('DEBUG useBots result:', { total: data.length, sessions: data.map(b => b.session_name) });
         setBots(data);
       } catch (err) {
@@ -42,7 +55,7 @@ export function useBots() {
     };
 
     loadBots();
-  }, [user, isAuthenticated, profile]);
+  }, [user, isAuthenticated, profile, isSuperAdmin, isAdmin, isSupervisor, isLider]);
 
   return { bots, loading, error };
 }
