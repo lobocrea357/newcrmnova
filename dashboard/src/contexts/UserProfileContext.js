@@ -75,6 +75,7 @@ export const UserProfileProvider = ({ children }) => {
             updated_at,
             equipo_id,
             sede_id,
+            bot_session_suffix,
             role:roles(
               id,
               name,
