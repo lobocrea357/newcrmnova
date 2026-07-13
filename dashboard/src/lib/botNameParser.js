@@ -15,6 +15,17 @@ export const isOtherBot = (sessionName) => {
   return String(sessionName).toLowerCase().endsWith('_other')
 }
 
+/**
+ * Determina si un bot es visible para un usuario según su sufijo asignado.
+ * Si el usuario no tiene sufijo, ve todos los bots excepto los _other.
+ */
+export const isBotVisibleForUser = (sessionName, userSuffix) => {
+  if (!sessionName) return false
+  const normalizedSession = String(sessionName).toLowerCase()
+  if (!userSuffix) return !isOtherBot(normalizedSession)
+  return normalizedSession.endsWith(String(userSuffix).toLowerCase())
+}
+
 export const parseBotSessionName = (sessionName) => {
   if (!sessionName) {
     return {

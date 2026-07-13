@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { isOtherBot } from "./botNameParser";
+import { isOtherBot, isBotVisibleForUser } from "./botNameParser";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -249,6 +249,15 @@ export async function getAllBots() {
 export async function getMainBots() {
   const allBots = await getAllBots();
   return allBots.filter((bot) => !isOtherBot(bot.session_name));
+}
+
+/**
+ * Obtiene bots visibles para un usuario según su sufijo asignado.
+ * Si userSuffix es null, devuelve todos los bots principales (sin _other).
+ */
+export async function getBotsForUser(userSuffix = null) {
+  const allBots = await getAllBots();
+  return allBots.filter((bot) => isBotVisibleForUser(bot.session_name, userSuffix));
 }
 
 /**

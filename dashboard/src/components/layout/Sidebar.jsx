@@ -60,7 +60,7 @@ const BASE_MENU_ITEMS = [
 
 const Sidebar = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse }) => {
     const pathname = usePathname()
-    const { profile, role, loading: profileLoading, isSuperAdmin, isAdmin, isManager, isSupervisor } = useUserProfile()
+    const { profile, role, loading: profileLoading, isSuperAdmin, isAdmin, isManager, isSupervisor, isLider } = useUserProfile()
 
     // Solo hay un loading: el del perfil
     const loading = profileLoading
@@ -90,6 +90,7 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse 
         ],
         emisor: ['/', '/emisiones'],
         supervisor: ['/other'],
+        lider: ['/conversaciones'],
     }
 
     // Determinar las rutas permitidas para el rol actual

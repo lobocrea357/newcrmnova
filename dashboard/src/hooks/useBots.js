@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
-import { getMainBots, getOtherBots } from "@/lib/supabase";
+import { getBotsForUser, getOtherBots } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserProfile } from "@/contexts/UserProfileContext";
 
 /**
- * Hook para obtener la lista de bots del dashboard principal
- * Excluye automáticamente las sesiones con sufijo _other
+ * Hook para obtener la lista de bots del dashboard principal.
+ * Filtra por sufijo de sesión asignado al usuario (bot_session_suffix).
+ * Si el usuario no tiene sufijo, excluye solo las sesiones _other.
  */
 export function useBots() {
   const { user, isAuthenticated } = useAuth();
+  const { profile, isSuperAdmin, isAdmin, isLider } = useUserProfile();
   const [bots, setBots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -24,7 +27,8 @@ export function useBots() {
       try {
         setLoading(true);
         setError(null);
-        const data = await getMainBots();
+        const suffix = isSuperAdmin || isAdmin || !isLider ? null : profile?.bot_session_suffix || null;
+        const data = await getBotsForUser(suffix);
         setBots(data);
       } catch (err) {
         console.error('Error loading bots:', err);
@@ -36,7 +40,7 @@ export function useBots() {
     };
 
     loadBots();
-  }, [user, isAuthenticated]);
+  }, [user, isAuthenticated, profile, isSuperAdmin, isAdmin, isLider]);
 
   return { bots, loading, error };
 }
