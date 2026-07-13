@@ -75,6 +75,7 @@ export const UserProfileProvider = ({ children }) => {
             updated_at,
             equipo_id,
             sede_id,
+            role_id,
             bot_session_suffix,
             role:roles(
               id,
@@ -97,6 +98,20 @@ export const UserProfileProvider = ({ children }) => {
           .single()
 
         if (profileError) throw profileError
+
+        // Fallback: si RLS del join no trae el rol, cargarlo directamente por role_id
+        let roleObject = profileData.role
+        if (!roleObject && profileData.role_id) {
+          const { data: roleData, error: roleError } = await supabase
+            .from('roles')
+            .select('id, name, description, ranking')
+            .eq('id', profileData.role_id)
+            .single()
+          if (!roleError && roleData) {
+            roleObject = roleData
+          }
+        }
+        profileData.role = roleObject
 
         // 2. Obtener permisos del ROL
         let rolePermissions = []

@@ -35,9 +35,7 @@ export function useBots() {
         let data;
         if (isSupervisor) {
           data = await getOtherBots();
-        } else if (isSuperAdmin || isAdmin) {
-          data = await getBotsForUser(null);
-        } else if (isLider) {
+        } else if (suffix) {
           data = await getBotsForUser(suffix);
         } else {
           data = await getBotsForUser(null);
