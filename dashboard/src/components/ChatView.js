@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { getPaginatedMessages, supabase } from '@/lib/supabase'
+import { getPaginatedMessages, markChatAsRead, supabase } from '@/lib/supabase'
 import VirtualizedMessageList from './VirtualizedMessageList'
 import ContactAvatar from './ContactAvatar'
 import messageService from '@/services/messageService'
@@ -34,6 +34,9 @@ export default function ChatView({ chatId, onClose, onMessagesLoaded, readOnly =
 
       if (chatData) {
         setConversation(chatData)
+        if (chatData.unread_count > 0) {
+          markChatAsRead(chatId)
+        }
       }
 
       // Cargar últimos 20 mensajes
@@ -130,6 +133,11 @@ export default function ChatView({ chatId, onClose, onMessagesLoaded, readOnly =
     const { eventType, new: newMessage, old: oldMessage } = payload
 
     if (eventType === 'INSERT' && newMessage) {
+      // Si el mensaje viene del cliente y estamos en el chat abierto, marcar como leído
+      if (!newMessage.from_me) {
+        markChatAsRead(chatId)
+      }
+
       // Verificar que el mensaje no exista ya (evitar duplicados)
       setMessages(prev => {
         const exists = prev.some(msg => msg.id === newMessage.id)

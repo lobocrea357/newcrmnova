@@ -153,15 +153,26 @@ async function enrichBotsWithStats(bots = []) {
   // OPTIMIZADO: Obtener estadísticas de todos los bots en paralelo
   const botsWithDetails = await Promise.all(
     (bots || []).map(async (bot) => {
-      // Ejecutar count y recentChat en paralelo en lugar de secuencial
+      // Ejecutar count, unread count y recentChat en paralelo en lugar de secuencial
       // Usamos filtro AND combinado para evitar error 406
-      const [countResult, recentChatResult] = await Promise.all([
+      const [countResult, unreadCountResult, recentChatResult] = await Promise.all([
         // Contar chats válidos (filtro combinado - MISMO que getConversationsByBot)
         supabase
           .from("chats")
           .select("*", { count: "exact", head: true })
           .eq("bot_id", bot.id)
           .eq("is_group", false)
+          .not("chat_id", "ilike", "%status%")
+          .not("chat_id", "ilike", "%@broadcast%")
+          .not("chat_id", "ilike", "%@g.us"),
+
+        // Contar conversaciones no leídas (sin revisar)
+        supabase
+          .from("chats")
+          .select("*", { count: "exact", head: true })
+          .eq("bot_id", bot.id)
+          .eq("is_group", false)
+          .gt("unread_count", 0)
           .not("chat_id", "ilike", "%status%")
           .not("chat_id", "ilike", "%@broadcast%")
           .not("chat_id", "ilike", "%@g.us"),
@@ -181,6 +192,7 @@ async function enrichBotsWithStats(bots = []) {
       ]);
 
       const validChatsCount = countResult.count || 0;
+      const unreadConversationsCount = unreadCountResult.count || 0;
       const recentChat = recentChatResult.data;
       const lastActivity =
         recentChat?.last_message_time ||
@@ -192,6 +204,7 @@ async function enrichBotsWithStats(bots = []) {
         ...bot,
         worker: bot.worker || null,
         conversation_count: validChatsCount || 0,
+        unread_conversations_count: unreadConversationsCount || 0,
         last_activity: lastActivity,
         last_activity_date: lastActivity
           ? new Date(lastActivity)
@@ -653,6 +666,29 @@ export async function getConversationsByBot(botId, page = 1, pageSize = 10) {
     totalPages: totalPages,
     currentPage: page
   };
+}
+
+/**
+ * Marca una conversación como leída (unread_count = 0)
+ * @param {string} chatId - ID del chat en la tabla 'chats'
+ */
+export async function markChatAsRead(chatId) {
+  if (!chatId) return false;
+  try {
+    const { error } = await supabase
+      .from("chats")
+      .update({ unread_count: 0 })
+      .eq("id", chatId);
+
+    if (error) {
+      console.error("❌ Error al marcar chat como leído:", error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("❌ Error en markChatAsRead:", error);
+    return false;
+  }
 }
 
 /**

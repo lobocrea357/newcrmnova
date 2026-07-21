@@ -142,6 +142,14 @@ export default function AdvisorsList({
                     </div>
                   </div>
                 </div>
+                {bot.unread_conversations_count > 0 && (
+                  <span
+                    className="flex-shrink-0 inline-flex items-center justify-center h-5 px-1.5 rounded-full bg-emerald-500 text-white font-bold text-xs shadow-sm animate-pulse"
+                    title={`${bot.unread_conversations_count} conversaciones sin revisar`}
+                  >
+                    {bot.unread_conversations_count}
+                  </span>
+                )}
               </button>
             );
           })}

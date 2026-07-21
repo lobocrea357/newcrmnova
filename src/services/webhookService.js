@@ -197,7 +197,7 @@ export class WebhookService {
       const timestamp = payload.timestamp ? new Date(payload.timestamp * 1000).toISOString() : new Date().toISOString();
       const messageText = payload.body?.substring(0, 100) || (payload.hasMedia ? '[Media]' : '[Mensaje]');
       
-      await chatService.updateLastMessage(bot.id, chat.chat_id, timestamp, messageText);
+      await chatService.updateLastMessage(bot.id, chat.chat_id, timestamp, messageText, payload.fromMe);
       console.log(`✅ Chat actualizado con último mensaje (chat_id: ${chat.chat_id})`);
 
       // PASO 5: Procesar MULTIMEDIA (si existe)

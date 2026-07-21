@@ -151,6 +151,8 @@ export default function ConversationsList({
                   className={`px-6 py-4 cursor-pointer transition-colors flex items-center justify-between gap-4 ${
                     lastChatId === String(conv.id)
                       ? "bg-indigo-50 hover:bg-indigo-100"
+                      : conv.unread_count > 0
+                      ? "bg-emerald-50/40 hover:bg-emerald-50"
                       : "hover:bg-gray-50"
                   }`}
                 >
@@ -161,14 +163,34 @@ export default function ConversationsList({
                       size="md"
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                      <p
+                        className={`text-sm truncate ${
+                          conv.unread_count > 0
+                            ? "font-bold text-gray-900"
+                            : "font-medium text-gray-900"
+                        }`}
+                      >
                         {conv.contact_name || "Sin nombre"}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
-                        <Phone className="h-3 w-3" />
-                        <span className="truncate max-w-[160px]">
+                        <Phone className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate max-w-[140px]">
                           {conv.contact_phone || conv.remote_jid}
                         </span>
+                        {conv.last_message_preview && (
+                          <>
+                            <span className="text-gray-300">•</span>
+                            <span
+                              className={`truncate max-w-[180px] sm:max-w-[260px] ${
+                                conv.unread_count > 0
+                                  ? "text-gray-900 font-medium"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              {conv.last_message_preview}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -202,7 +224,13 @@ export default function ConversationsList({
                       )}
 
                     {conv.last_message_time && (
-                      <span className="mt-0.5">
+                      <span
+                        className={`mt-0.5 ${
+                          conv.unread_count > 0
+                            ? "font-semibold text-emerald-600"
+                            : ""
+                        }`}
+                      >
                         {new Date(
                           conv.last_message_time,
                         ).toLocaleDateString("es-ES", {
@@ -210,6 +238,12 @@ export default function ConversationsList({
                           month: "short",
                           year: "numeric",
                         })}
+                      </span>
+                    )}
+
+                    {conv.unread_count > 0 && (
+                      <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-emerald-500 text-white font-bold text-[11px] shadow-sm">
+                        {conv.unread_count}
                       </span>
                     )}
                   </div>

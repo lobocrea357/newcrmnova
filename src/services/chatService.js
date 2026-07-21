@@ -103,10 +103,11 @@ export class ChatService {
   }
 
   /**
-   * Actualiza el último mensaje de un chat
+   * Actualiza el último mensaje de un chat y su contador de no leídos
    */
-  async updateLastMessage(botId, chatId, timestamp, messageText = null) {
+  async updateLastMessage(botId, chatId, timestamp, messageText = null, fromMe = false) {
     try {
+      const contactNumber = chatId.split('@')[0];
       const updateData = {
         updated_at: new Date().toISOString()
       };
@@ -121,11 +122,27 @@ export class ChatService {
         updateData.last_message = messageText;
       }
 
+      if (fromMe) {
+        // Si la respuesta fue del asesor o bot, reiniciar contador de no leídos a 0
+        updateData.unread_count = 0;
+      } else {
+        // Si es mensaje entrante del cliente, obtener el unread_count actual e incrementarlo
+        const { data: currentChat } = await supabase
+          .from('chats')
+          .select('unread_count')
+          .eq('bot_id', botId)
+          .eq('contact_number', contactNumber)
+          .maybeSingle();
+
+        const currentUnread = currentChat ? (currentChat.unread_count || 0) : 0;
+        updateData.unread_count = currentUnread + 1;
+      }
+
       const { data, error } = await supabase
         .from('chats')
         .update(updateData)
         .eq('bot_id', botId)
-        .eq('contact_number', chatId.split('@')[0])
+        .eq('contact_number', contactNumber)
         .select()
         .maybeSingle();
 
