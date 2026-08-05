@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '../lib/supabase';
 
 export function useAIAuditor() {
   const [evaluations, setEvaluations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createClientComponentClient();
 
   useEffect(() => {
     let mounted = true;
