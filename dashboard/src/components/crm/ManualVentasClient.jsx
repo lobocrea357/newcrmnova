@@ -340,7 +340,7 @@ export default function ManualVentasClient() {
                                 <h3 className="font-bold text-gray-800 mb-3 pr-16">{item.objecion}</h3>
                                 <div className="bg-white p-4 rounded-xl text-sm text-gray-700 border border-red-50 shadow-sm relative z-10">
                                     <strong className="block mb-2 text-xs uppercase tracking-wider text-red-600">La Mejor Respuesta (IA):</strong>
-                                    <p className="italic">"{item.mejor_respuesta}"</p>
+                                    <p className="italic">&quot;{item.mejor_respuesta}&quot;</p>
                                 </div>
                             </div>
                         ))}
