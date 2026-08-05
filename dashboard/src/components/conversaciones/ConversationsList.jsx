@@ -1,7 +1,7 @@
 // dashboard/src/components/conversaciones/ConversationsList.jsx
 'use client'
 
-import { MessageSquare, Phone, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
+import { MessageSquare, Phone, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, RefreshCw, Sparkles, X } from 'lucide-react'
 import ContactAvatar from '@/components/ContactAvatar'
 import { parseBotSessionName } from '@/lib/botNameParser'
 import GlobalSearchBar from '@/components/conversaciones/GlobalSearchBar'
@@ -201,22 +201,22 @@ export default function ConversationsList({
                           className="mb-1"
                           title={
                             conv.ai_analysis.sale_completed
-                              ? "Venta Probable"
-                              : "Venta Improbable"
+                              ? "Venta Concretada"
+                              : "Venta No Concretada"
                           }
                         >
                           {conv.ai_analysis.sale_completed ? (
-                            <div className="flex items-center gap-1 text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">
-                              <ArrowUp className="h-3 w-3" />
-                              <span className="font-bold text-xs">
-                                Venta
+                            <div className="flex items-center gap-1 text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full shadow-sm border border-emerald-200/50 transition-transform hover:scale-105">
+                              <Sparkles className="h-3 w-3 text-emerald-500" />
+                              <span className="font-bold text-[10px] uppercase tracking-wider">
+                                Venta Exitosa
                               </span>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1 text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
-                              <ArrowDown className="h-3 w-3" />
-                              <span className="font-bold text-xs">
-                                No Venta
+                            <div className="flex items-center gap-1 text-rose-700 bg-rose-100/80 px-2 py-0.5 rounded-full shadow-sm border border-rose-200/50 transition-transform hover:scale-105">
+                              <X className="h-3 w-3 text-rose-500" />
+                              <span className="font-bold text-[10px] uppercase tracking-wider">
+                                Sin Venta
                               </span>
                             </div>
                           )}

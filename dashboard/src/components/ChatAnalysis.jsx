@@ -293,6 +293,38 @@ Una venta NO está concretada (sale_completed: false) si:
                                     <p className="text-sm text-gray-600 whitespace-pre-line">{analysis.advisor_performance}</p>
                                 </div>
 
+                                {/* KPIs & Score (Nuevo) */}
+                                {analysis.kpis && (
+                                    <div className="bg-purple-50 border border-purple-100 p-4 rounded-2xl">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <h4 className="font-semibold text-purple-900">Métricas de Calidad</h4>
+                                            {analysis.score !== undefined && (
+                                                <div className="bg-white px-3 py-1 rounded-full shadow-sm text-sm font-bold text-purple-700 border border-purple-200">
+                                                    Nota: {analysis.score}/10
+                                                </div>
+                                            )}
+                                        </div>
+                                        <ul className="space-y-2 text-sm text-purple-800">
+                                            <li className="flex items-center gap-2">
+                                                <span className="text-lg">{analysis.kpis.offered_scalapay ? '✅' : '❌'}</span>
+                                                <span>Ofreció Scalapay (financiamiento)</span>
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                                <span className="text-lg">{analysis.kpis.offered_options ? '✅' : '❌'}</span>
+                                                <span>Ofreció 2 o más opciones</span>
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                                <span className="text-lg">{analysis.kpis.closing_attempt ? '✅' : '❌'}</span>
+                                                <span>Intento claro de cierre</span>
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                                <span className="text-lg">{analysis.kpis.follow_up_agreed ? '✅' : '❌'}</span>
+                                                <span>Acordó seguimiento</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                )}
+
                                 {/* Momentos Clave */}
                                 {analysis.key_moments && analysis.key_moments.length > 0 && (
                                     <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">

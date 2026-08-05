@@ -232,44 +232,9 @@ export default function RankingGlobal() {
     setAnimating(true)
     setTimeout(() => {
       setFiltroVista(nuevaVista)
-      setLastInteraction(Date.now())
       setAnimating(false)
     }, 300) // Duración de la transición de salida
   }
-
-  // Intervalo para el carrusel de vistas
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const ahora = Date.now()
-      const tiempoInactivo = ahora - lastInteraction
-
-      // Condiciones para cambiar automáticamente:
-      // 1. No estar en hover
-      // 2. Haber pasado más de 4 segundos desde la última interacción manual u hover
-      if (!isHovered && tiempoInactivo >= 4000) {
-        const currentIndex = VISTAS.findIndex(v => v.id === filtroVista)
-        const nextIndex = (currentIndex + 1) % VISTAS.length
-        cambiarVistaConAnimacion(VISTAS[nextIndex].id)
-      }
-    }, 4000) // Intento de cambio cada 4 segundos
-
-    return () => clearInterval(interval)
-  }, [filtroVista, isHovered, lastInteraction])
-
-  // Intervalo para alternar moneda USD/EUR cada 8 segundos
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const ahora = Date.now()
-      const tiempoInactivo = ahora - lastInteraction
-
-      // Cambiar moneda automáticamente si no hay interacción
-      if (!isHovered && tiempoInactivo >= 8000) {
-        setMonedaVista(prev => prev === 'USD' ? 'EUR' : 'USD')
-      }
-    }, 8000) // Cambio cada 8 segundos
-
-    return () => clearInterval(interval)
-  }, [isHovered, lastInteraction, setMonedaVista])
 
   const datosVista = useMemo(() => {
     if (!rankingData) return []
@@ -310,11 +275,6 @@ export default function RankingGlobal() {
                 <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
                 {monedaVista}
               </span>
-              {!isHovered && (Date.now() - lastInteraction >= 10000) && (
-                <span className="text-[10px] uppercase font-black text-purple-400 animate-pulse">
-                  • Auto-cycle
-                </span>
-              )}
             </div>
           </div>
         </div>

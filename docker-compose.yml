@@ -139,6 +139,24 @@ services:
       retries: 3
       start_period: 40s
 
+  # ============================================
+  # AI-AUDITOR - Microservicio de Auditoría (Gemini 3.5 Flash)
+  # Corre en segundo plano evaluando chats
+  # ============================================
+  ai-auditor:
+    build:
+      context: ./ai-auditor
+      dockerfile: Dockerfile
+    container_name: crm-ai-auditor
+    restart: unless-stopped
+    environment:
+      - SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-$SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - TZ=America/Caracas
+    networks:
+      - crm_network
+
 networks:
   crm_network:
     driver: bridge

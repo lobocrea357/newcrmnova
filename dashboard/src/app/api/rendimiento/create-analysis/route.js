@@ -100,6 +100,57 @@ export async function POST(request) {
       console.warn('⚠️ No evaluations provided - analysis created without evaluations')
     }
 
+    // [NUEVO FASE 2]: Alerta de bajo rendimiento
+    if (analysisData.average_score < 4.0) {
+      console.log('⚠️ Rendimiento bajo detectado. Creando notificaciones para admins/gerentes...')
+      
+      try {
+        // Obtener roles de admin y gerente
+        const { data: rolesData } = await supabase
+          .from('roles')
+          .select('id')
+          .in('name', ['super_admin', 'admin', 'gerente'])
+        
+        if (rolesData && rolesData.length > 0) {
+          const roleIds = rolesData.map(r => r.id)
+          
+          // Obtener usuarios con esos roles
+          const { data: adminUsers } = await supabase
+            .from('profiles')
+            .select('id')
+            .in('role_id', roleIds)
+            
+          if (adminUsers && adminUsers.length > 0) {
+            // Preparar notificaciones
+            const notificaciones = adminUsers.map(user => ({
+              user_id: user.id,
+              tipo: 'alerta_rendimiento_bajo',
+              titulo: '⚠️ Alerta: Rendimiento Bajo',
+              descripcion: `El análisis reciente tiene un score crítico de ${analysisData.average_score}/7.`,
+              datos: {
+                analisis_id: analysis.id,
+                bot_id: analysisData.bot_id,
+                score: analysisData.average_score
+              }
+            }))
+            
+            // Insertar notificaciones
+            const { error: notifError } = await supabase
+              .from('notificaciones')
+              .insert(notificaciones)
+              
+            if (notifError) {
+              console.error('Error insertando notificaciones de alerta:', notifError)
+            } else {
+              console.log(`✅ ${notificaciones.length} notificaciones de alerta enviadas`)
+            }
+          }
+        }
+      } catch (alertError) {
+        console.error('Error procesando alertas de bajo rendimiento:', alertError)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       analysis: analysis  // Changed from 'data' to 'analysis'

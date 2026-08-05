@@ -21,16 +21,10 @@ import rendimientoRoutes from './routes/rendimiento.js';
 import usersRoutes from './routes/users.js';
 import rolesRoutes from './routes/roles.js';
 import tasasRoutes from './routes/tasas.js';
-import cotizacionesRoutes from './routes/cotizaciones.js';
-import vuelosRoutes from './routes/vuelos.js';
-import equiposRoutes from './routes/equipos.js';
 import rankingsRoutes from './routes/rankings.js';
 import agenciasRoutes from './routes/agencias.js';
 import sedesRoutes from './routes/sedes.js';
-import deudasRoutes from './routes/deudas.js';
 import metricasRoutes from './routes/metricas.js';
-import vuelosEmisionesRoutes from './routes/vuelos-emisiones.js';
-import pocRoutes from './routes/poc.js';
 import teamMembersRoutes from './routes/teamMembers.js';
 
 // Importar servicio de auto-sincronización
@@ -65,16 +59,10 @@ app.use('/api/rendimiento', rendimientoRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/tasas', tasasRoutes);
-app.use('/api/vuelos', vuelosRoutes);
-app.use('/api/cotizaciones', cotizacionesRoutes);
-app.use('/api/vuelos-emisiones', vuelosEmisionesRoutes);
-app.use('/api/equipos', equiposRoutes);
 app.use('/api/rankings', rankingsRoutes);
 app.use('/api/agencias', agenciasRoutes);
 app.use('/api/sedes', sedesRoutes);
-app.use('/api/deudas-proveedores', deudasRoutes);
 app.use('/api/metricas', metricasRoutes);
-app.use('/api/poc', pocRoutes);
 app.use('/api/team-members', teamMembersRoutes);
 
 // Ruta de health check

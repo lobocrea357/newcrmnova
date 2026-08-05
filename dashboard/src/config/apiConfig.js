@@ -183,6 +183,11 @@ export const NEXT_CONVERSACIONES_API = {
   getMessages: '/api/rendimiento/get-messages',
 }
 
+// URLs específicas para Diagnósticos
+export const DIAGNOSTICS_API = {
+  status: buildApiUrl('/api/diagnostics/status'),
+}
+
 // Exportar URL base para otros servicios
 export { BACKEND_URL }
 

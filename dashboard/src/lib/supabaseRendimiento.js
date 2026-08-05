@@ -433,9 +433,8 @@ export async function getReportsByAnalysis(analysisId) {
 // FUNCIONES PARA DASHBOARD - ESTADÍSTICAS GENERALES
 // ============================================
 
-export async function getDashboardStats() {
-  // Obtener todos los análisis finalizados con bot info
-  const { data: analyses, error: analysesError } = await supabase
+export async function getDashboardStats(dateFilter = 'today') {
+  let query = supabase
     .from("performance_analyses")
     .select(
       `
@@ -446,6 +445,28 @@ export async function getDashboardStats() {
     )
     .eq("status", "finalized")
     .order("created_at", { ascending: false });
+
+  // Aplicar filtro de fechas si aplica
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  if (dateFilter === 'today') {
+    query = query.gte('created_at', hoy.toISOString());
+  } else if (dateFilter === 'yesterday') {
+    const ayer = new Date(hoy);
+    ayer.setDate(ayer.getDate() - 1);
+    query = query.gte('created_at', ayer.toISOString()).lt('created_at', hoy.toISOString());
+  } else if (dateFilter === 'week') {
+    const inicioSemana = new Date(hoy);
+    inicioSemana.setDate(hoy.getDate() - hoy.getDay()); // Domingo
+    query = query.gte('created_at', inicioSemana.toISOString());
+  } else if (dateFilter === 'month') {
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    query = query.gte('created_at', inicioMes.toISOString());
+  }
+
+  // Obtener todos los análisis finalizados con bot info
+  const { data: analyses, error: analysesError } = await query;
 
   if (analysesError) {
     console.error("Error obteniendo estadísticas:", analysesError);

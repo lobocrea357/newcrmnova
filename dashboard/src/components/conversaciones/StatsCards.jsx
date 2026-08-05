@@ -12,12 +12,14 @@ export default function StatsCards({
   totalConversations,
   activeBotsCount,
   compactMode,
-  onSalesClick
+  onSalesClick,
+  wahaStatus,
+  loadingWahaStatus
 }) {
   if (compactMode) return null
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
       {/* Ventas Concretadas */}
       <button
         type="button"
@@ -104,6 +106,28 @@ export default function StatsCards({
               </dt>
               <dd className="text-3xl font-semibold text-gray-900" translate="no">
                 {activeBotsCount}
+              </dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+
+      {/* WAHA Server Status */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center">
+          <div className={`flex-shrink-0 rounded-md p-3 ${wahaStatus?.status === 'ok' ? 'bg-emerald-500' : 'bg-red-500'}`}>
+            <RefreshCw className={`h-6 w-6 text-white ${loadingWahaStatus ? 'animate-spin' : ''}`} />
+          </div>
+          <div className="ml-5 w-0 flex-1">
+            <dl>
+              <dt className="text-sm font-medium text-gray-500 truncate">
+                Servidor WAHA
+              </dt>
+              <dd className="text-sm font-semibold text-gray-900 mt-1 truncate" title={wahaStatus?.version || 'Desconocida'}>
+                {loadingWahaStatus ? 'Cargando...' : (wahaStatus?.version || 'Desconectado')}
+              </dd>
+              <dd className="text-xs text-gray-500 mt-1 truncate">
+                {wahaStatus?.engine ? `Engine: ${wahaStatus.engine}` : 'Sin conexión'}
               </dd>
             </dl>
           </div>

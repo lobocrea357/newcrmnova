@@ -56,12 +56,39 @@ router.get('/status', async (req, res) => {
     });
     
     const response = await wahaTestClient.get('/api/sessions');
+    
+    // Obtener versión de WAHA
+    let wahaVersion = 'Desconocida';
+    let wahaEngine = 'Desconocido';
+    let wahaTier = 'Desconocido';
+    try {
+      const envResponse = await wahaTestClient.get('/api/server/environment');
+      if (envResponse.data && envResponse.data.WAHA_VERSION) {
+        wahaVersion = envResponse.data.WAHA_VERSION;
+      }
+      if (envResponse.data && envResponse.data.WHATSAPP_DEFAULT_ENGINE) {
+        wahaEngine = envResponse.data.WHATSAPP_DEFAULT_ENGINE;
+      }
+      // Algunos endpoints devuelven la info en un formato u otro
+      // Intentamos con /api/server/version si environment no tiene lo que buscamos
+      const versionResponse = await wahaTestClient.get('/api/server/version').catch(() => null);
+      if (versionResponse && versionResponse.data) {
+        wahaVersion = versionResponse.data.version || wahaVersion;
+        wahaTier = versionResponse.data.tier || wahaTier;
+      }
+    } catch (e) {
+      console.warn('No se pudo obtener la versión de WAHA', e.message);
+    }
+    
     const duration = Date.now() - start;
     
     diagnostics.services.waha = {
       status: 'ok',
       duration: duration,
       sessions: response.data?.length || 0,
+      version: wahaVersion,
+      engine: wahaEngine,
+      tier: wahaTier,
       message: 'Conexión exitosa'
     };
   } catch (error) {

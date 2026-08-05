@@ -1,0 +1,19 @@
+{
+  "name": "ai-auditor",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.112.0",
+    "dotenv": "^17.4.2",
+    "node-cron": "^4.6.0"
+  }
+}

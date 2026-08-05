@@ -20,7 +20,7 @@ import {
   SYNC_TIMEOUT_MS
 } from '@/lib/constants/conversacionesConstants'
 import { DEFAULT_AUDIT_PROMPT } from '@/lib/config/reportPrompts'
-import { CONVERSACIONES_API, NEXT_CONVERSACIONES_API } from '@/config/apiConfig'
+import { CONVERSACIONES_API, NEXT_CONVERSACIONES_API, DIAGNOSTICS_API } from '@/config/apiConfig'
 import SalesModal from '@/components/conversaciones/SalesModal'
 import SyncModal from '@/components/conversaciones/SyncModal'
 import ReportModal from '@/components/conversaciones/ReportModal'
@@ -72,6 +72,8 @@ function DashboardContent() {
   const [reportLoading, setReportLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [reportError, setReportError] = useState(null);
+  const [wahaStatus, setWahaStatus] = useState(null);
+  const [loadingWahaStatus, setLoadingWahaStatus] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [lastChatId, setLastChatId] = useLocalStorage('conversaciones:lastChatId', null);
@@ -227,11 +229,18 @@ function DashboardContent() {
     try {
       setLoading(true);
       setLoadingSales(true);
+      setLoadingWahaStatus(true);
 
-      const completedSales = await getCompletedSalesCount();
+      const [completedSales, wahaResponse] = await Promise.all([
+        getCompletedSalesCount(),
+        fetch(DIAGNOSTICS_API.status).then(res => res.json()).catch(() => null)
+      ]);
 
       if (!isMountedRef.current) return;
       setSalesCount(completedSales || 0);
+      if (wahaResponse && wahaResponse.services && wahaResponse.services.waha) {
+        setWahaStatus(wahaResponse.services.waha);
+      }
     } catch (error) {
       if (!isMountedRef.current) return;
       console.error("Error fetching data:", error);
@@ -239,6 +248,7 @@ function DashboardContent() {
       if (isMountedRef.current) {
         setLoading(false);
         setLoadingSales(false);
+        setLoadingWahaStatus(false);
       }
     }
   };
@@ -574,6 +584,8 @@ function DashboardContent() {
           activeBotsCount={bots.filter(isBotActive).length}
           compactMode={compactMode}
           onSalesClick={handleSalesClick}
+          wahaStatus={wahaStatus}
+          loadingWahaStatus={loadingWahaStatus}
         />
 
         {/* Filtros */}
