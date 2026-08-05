@@ -316,6 +316,14 @@ if (process.argv.includes('--test')) {
         timezone: "America/Caracas"
     });
 
+    // Iniciar también el generador de Manual de Ventas
+    const { generateSalesManual } = require('./generate-manual');
+    console.log('⏳ AI Sales Manual inicializado. Generando todos los días a la 1:00 AM...');
+    cron.schedule('0 1 * * *', generateSalesManual, {
+        scheduled: true,
+        timezone: "America/Caracas"
+    });
+
     // Mantener el proceso vivo y manejar cierres graciosos
     process.on('SIGINT', () => {
         console.log('Apagando AI-Auditor...');
