@@ -65,12 +65,24 @@ Debe ser un objeto JSON con la siguiente estructura exacta:
 - Basa tu análisis EXCLUSIVAMENTE en los datos de las evaluaciones proporcionadas. Si no hay datos suficientes para una categoría, inventa buenas prácticas aplicables a una agencia de viajes.
 `;
 
+const { isInternalChat, normalizePhone } = require('./chatFilters');
+
 async function generateSalesManual() {
     console.log(`\n======================================================`);
     console.log(`🧠 [${new Date().toLocaleString()}] GENERANDO MANUAL DE VENTAS IA (GEMINI)`);
     console.log(`======================================================\n`);
 
     try {
+        // Cargar teléfonos de bots y staff
+        const [{ data: allBots }, { data: allTeam }] = await Promise.all([
+            supabase.from('bots').select('phone_number'),
+            supabase.from('team_members').select('phone_number')
+        ]);
+        const botPhonesSet = new Set([
+            ...(allBots || []).map(b => normalizePhone(b.phone_number)).filter(Boolean),
+            ...(allTeam || []).map(t => normalizePhone(t.phone_number)).filter(Boolean)
+        ]);
+
         // 1. Obtener el último manual para saber si es "primera vuelta" o incremental
         const { data: lastManual } = await supabase
             .from('ai_sales_manual')
@@ -79,7 +91,9 @@ async function generateSalesManual() {
             .limit(1)
             .maybeSingle();
 
-        let query = supabase.from('conversation_evaluations').select('ai_feedback');
+        let query = supabase
+            .from('conversation_evaluations')
+            .select('ai_feedback, chats(contact_name, contact_number, is_group)');
 
         if (lastManual && !process.argv.includes('--force-all')) {
             console.log(`📅 Actualización incremental. Buscando evaluaciones desde: ${lastManual.created_at}`);
@@ -88,16 +102,24 @@ async function generateSalesManual() {
             console.log(`📚 Primera vuelta (o forzada). Analizando TODO el historial de evaluaciones.`);
         }
 
-        const { data: evaluations, error: evalError } = await query;
+        const { data: rawEvaluations, error: evalError } = await query;
 
         if (evalError) throw evalError;
 
+        // Filtrar evaluaciones que pertenezcan a chats internos
+        const evaluations = (rawEvaluations || []).filter(ev => {
+            if (ev.chats && isInternalChat(ev.chats, botPhonesSet)) {
+                return false;
+            }
+            return true;
+        });
+
         if (!evaluations || evaluations.length === 0) {
-            console.log(`✅ No hay nuevas evaluaciones para procesar. El manual está actualizado.`);
+            console.log(`✅ No hay nuevas evaluaciones válidas de clientes para procesar.`);
             return;
         }
 
-        console.log(`🔍 Consolidando ${evaluations.length} evaluaciones para la IA...`);
+        console.log(`🔍 Consolidando ${evaluations.length} evaluaciones de clientes para la IA...`);
         
         // Extraer los feedbacks JSON
         const rawFeedbacks = evaluations.map(ev => {

@@ -1,10 +1,8 @@
 /**
- * Utilidades para filtrado inteligente de chats
- * Detecta chats internos, compañeros de equipo, staff administrativo, grupos, etc.
+ * Utilidades para filtrado de chats internos en AI-Auditor (CommonJS)
  */
 
-// Palabras clave de departamentos, roles y términos internos
-export const INTERNAL_KEYWORDS = [
+const INTERNAL_KEYWORDS = [
   // Departamentos y operaciones
   'pago',
   'pagos',
@@ -73,8 +71,7 @@ export const INTERNAL_KEYWORDS = [
   'broadcast'
 ];
 
-// Nombres y apodos de asesores y personal interno conocido
-export const INTERNAL_STAFF_NAMES = [
+const INTERNAL_STAFF_NAMES = [
   'johan',
   'fernanda',
   'eduardo blanco',
@@ -124,8 +121,7 @@ export const INTERNAL_STAFF_NAMES = [
   'abraham'
 ];
 
-// Bots de prueba conocidos
-export const TEST_BOTS = [
+const TEST_BOTS = [
   'abraham',
   'abrahama',
   'paul',
@@ -134,10 +130,7 @@ export const TEST_BOTS = [
   'prueba'
 ];
 
-/**
- * Normaliza texto eliminando acentos y convirtiendo a minúsculas
- */
-export function normalizeText(text = '') {
+function normalizeText(text = '') {
   if (!text || typeof text !== 'string') return '';
   return text
     .toLowerCase()
@@ -146,22 +139,12 @@ export function normalizeText(text = '') {
     .trim();
 }
 
-/**
- * Extrae solo los dígitos de un número de teléfono
- */
-export function normalizePhone(phone = '') {
+function normalizePhone(phone = '') {
   if (!phone) return '';
   return String(phone).replace(/\D/g, '');
 }
 
-/**
- * Detecta si un chat es interno (asesor, compañero, pagos, emisiones, gerencia, soporte o grupo)
- * @param {Object|string} chatInput - Objeto chat ({ contact_name, contact_number, is_group }) o nombre de contacto
- * @param {string|Set} contactNumberOrSet - Número de contacto o Set de teléfonos de bots
- * @param {Set} botPhoneSet - Set opcional de números de teléfono registrados de bots
- * @returns {boolean} - true si es un chat interno que DEBE excluirse
- */
-export function isInternalChat(chatInput, contactNumberOrSet = null, botPhoneSet = null) {
+function isInternalChat(chatInput, contactNumberOrSet = null, botPhoneSet = null) {
   if (!chatInput) return false;
 
   let contactName = '';
@@ -189,7 +172,7 @@ export function isInternalChat(chatInput, contactNumberOrSet = null, botPhoneSet
   if (isGroup) return true;
   if (phone.includes('@g.us') || phone.includes('-')) return true;
   const cleanPhone = normalizePhone(phone);
-  if (cleanPhone.length > 16) return true; // IDs de grupo largos
+  if (cleanPhone.length > 16) return true;
 
   // 2. Contactos especiales del sistema
   const normName = normalizeText(contactName);
@@ -201,7 +184,6 @@ export function isInternalChat(chatInput, contactNumberOrSet = null, botPhoneSet
   // 3. Coincidencia directa con teléfono de Bot o Asesor registrado
   if (phoneSet && phoneSet.size > 0 && cleanPhone) {
     if (phoneSet.has(cleanPhone)) return true;
-    // Comprobar coincidencia con últimos 8-10 dígitos
     for (const botPhone of phoneSet) {
       if (cleanPhone.length >= 8 && botPhone.length >= 8) {
         if (cleanPhone.endsWith(botPhone.slice(-8)) || botPhone.endsWith(cleanPhone.slice(-8))) {
@@ -227,7 +209,7 @@ export function isInternalChat(chatInput, contactNumberOrSet = null, botPhoneSet
     }
   }
 
-  // 6. Patrones regex específicos: ej. "Nombre | Viajes Nova", "Nombre - Nova", etc.
+  // 6. Patrones regex específicos
   if (/(?:\||\/|-)\s*(?:viajes\s*nova|nova|flash|apolo|infot|tekio)/i.test(contactName)) {
     return true;
   }
@@ -235,92 +217,17 @@ export function isInternalChat(chatInput, contactNumberOrSet = null, botPhoneSet
   return false;
 }
 
-/**
- * Detecta si un bot es de prueba
- */
-export function isTestBot(botName) {
+function isTestBot(botName) {
   if (!botName || typeof botName !== 'string') return false;
   const nameLower = normalizeText(botName);
   return TEST_BOTS.some(testBot => nameLower.includes(normalizeText(testBot)));
 }
 
-/**
- * Filtra chats aplicando reglas estructurales y de contactos internos
- */
-export function applyStructuralFilters(chats, options = {}) {
-  const {
-    excludeGroups = true,
-    excludeInternal = true,
-    botPhoneSet = new Set(),
-    useCache = true,
-  } = options;
-
-  const stats = {
-    total: chats.length,
-    excluded_groups: 0,
-    excluded_internal: 0,
-    excluded_cache: 0,
-    passed: 0,
-  };
-
-  const filtered = chats.filter(chat => {
-    // FILTRO 1: Excluir grupos explícitos
-    if (excludeGroups && (chat.is_group === true || String(chat.contact_number || '').includes('@g.us') || String(chat.contact_number || '').includes('-'))) {
-      stats.excluded_groups++;
-      return false;
-    }
-
-    // FILTRO 2: Excluir chats internos (personal, departamentos, otros asesores)
-    if (excludeInternal && isInternalChat(chat, botPhoneSet)) {
-      stats.excluded_internal++;
-      return false;
-    }
-
-    // FILTRO 3: Usar cache de análisis previo si existe
-    if (useCache && chat.ai_analysis?.is_customer_chat === false) {
-      stats.excluded_cache++;
-      return false;
-    }
-
-    stats.passed++;
-    return true;
-  });
-
-  return { filtered, stats };
-}
-
-/**
- * Genera un reporte legible de estadísticas de filtrado
- */
-export function generateFilterReport(stats) {
-  return `
-🔍 Filtrado de conversaciones:
-  • Total: ${stats.total}
-  • ❌ Grupos excluidos: ${stats.excluded_groups}
-  • ❌ Chats internos excluidos: ${stats.excluded_internal}
-  • 💾 Excluidos por cache: ${stats.excluded_cache}
-  • ✅ Conversaciones válidas de clientes: ${stats.passed}
-  `.trim();
-}
-
-/**
- * Divide un array en chunks
- */
-export function chunkArray(array, size = 15) {
-  const chunks = [];
-  for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size));
-  }
-  return chunks;
-}
-
-/**
- * Valida que un chat tenga el formato esperado
- */
-export function isValidChat(chat) {
-  return !!(
-    chat &&
-    chat.id &&
-    (chat.contact_name || chat.name || chat.contact_number || chat.contact_phone)
-  );
-}
+module.exports = {
+  isInternalChat,
+  isTestBot,
+  normalizeText,
+  normalizePhone,
+  INTERNAL_KEYWORDS,
+  INTERNAL_STAFF_NAMES
+};

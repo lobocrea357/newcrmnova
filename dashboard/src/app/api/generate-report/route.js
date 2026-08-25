@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { isInternalChat, normalizePhone } from '@/lib/chatFilters'
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY)
 
@@ -120,21 +121,37 @@ export async function POST(request) {
     // Regla de Negocio Gerencial: Analizar estrictamente las últimas 24 horas
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
-    const { data: chats, error: chatsError } = await supabase
+    // 1. Cargar números de todos los bots y staff para excluir chats entre asesores
+    const [{ data: allBots }, { data: allTeam }] = await Promise.all([
+      supabase.from('bots').select('phone_number'),
+      supabase.from('team_members').select('phone_number')
+    ])
+
+    const botPhonesSet = new Set([
+      ...(allBots || []).map(b => normalizePhone(b.phone_number)).filter(Boolean),
+      ...(allTeam || []).map(t => normalizePhone(t.phone_number)).filter(Boolean)
+    ])
+
+    // 2. Obtener chats NO grupales de las últimas 24h
+    const { data: rawChats, error: chatsError } = await supabase
       .from('chats')
-      .select('id, contact_name, contact_number, last_message_time, ai_analysis, last_message')
+      .select('id, contact_name, contact_number, last_message_time, ai_analysis, last_message, is_group')
       .eq('bot_id', botId)
+      .eq('is_group', false)
       .gte('last_message_time', twentyFourHoursAgo)
       .order('last_message_time', { ascending: false, nullsLast: true })
-      .limit(100)
+      .limit(150)
 
     if (chatsError) {
       console.error('Error fetching chats for report:', chatsError)
       return NextResponse.json({ error: 'No se pudo obtener la información de las conversaciones' }, { status: 500 })
     }
 
+    // 3. Filtrar exhaustivamente chats internos (staff, pagos, emisiones, otros asesores, gerencia)
+    const chats = (rawChats || []).filter(chat => !isInternalChat(chat, botPhonesSet))
+
     if (!chats || chats.length === 0) {
-      return NextResponse.json({ error: 'No se encontraron conversaciones para este asesor.' }, { status: 404 })
+      return NextResponse.json({ error: 'No se encontraron conversaciones válidas con clientes para este asesor en las últimas 24 horas.' }, { status: 404 })
     }
 
     const chatIds = chats.map((chat) => chat.id)

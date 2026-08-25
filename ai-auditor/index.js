@@ -117,6 +117,8 @@ Analiza y devuelve SOLO el JSON válido.
     }
 }
 
+const { isInternalChat, normalizePhone } = require('./chatFilters');
+
 async function runDailyAudit() {
     console.log(`\n======================================================`);
     console.log(`🤖 [${new Date().toLocaleString()}] INICIANDO ESCÁNER CONTINUO (GEMINI 3.5 FLASH)`);
@@ -130,15 +132,21 @@ async function runDailyAudit() {
         const targetDateStr = startOfToday.toISOString().split('T')[0];
         console.log(`📅 Evaluando chats inactivos del día: ${targetDateStr}`);
 
-        // 1. Obtener Bots (Asesores)
-        const { data: bots, error: botsError } = await supabase
-            .from('bots')
-            .select('id, session_name');
+        // 1. Obtener Bots (Asesores) y números registrados de todo el equipo
+        const [{ data: allBots, error: botsError }, { data: allTeam }] = await Promise.all([
+            supabase.from('bots').select('id, session_name, phone_number'),
+            supabase.from('team_members').select('phone_number')
+        ]);
         
         if (botsError) throw botsError;
         
+        const botPhonesSet = new Set([
+            ...(allBots || []).map(b => normalizePhone(b.phone_number)).filter(Boolean),
+            ...(allTeam || []).map(t => normalizePhone(t.phone_number)).filter(Boolean)
+        ]);
+
         const excludedPatterns = [/abraham/i, /paul.*hernandez/i, /test/i, /prueba/i];
-        const validBots = bots.filter(bot => !excludedPatterns.some(p => p.test(bot.session_name || '')));
+        const validBots = (allBots || []).filter(bot => !excludedPatterns.some(p => p.test(bot.session_name || '')));
 
         for (const bot of validBots) {
             console.log(`\n👨‍💼 Asesor: ${bot.session_name}`);
@@ -146,7 +154,7 @@ async function runDailyAudit() {
             // 2. Obtener TODOS los chats del asesor actualizados en el día objetivo
             let query = supabase
                 .from('chats')
-                .select('id, contact_name, updated_at')
+                .select('id, contact_name, contact_number, is_group, updated_at')
                 .eq('bot_id', bot.id)
                 .eq('is_group', false);
                 
@@ -155,9 +163,8 @@ async function runDailyAudit() {
                     .gte('updated_at', startOfToday.toISOString())
                     .lte('updated_at', fortyFiveMinsAgo.toISOString());
             } else {
-                // En modo prueba, tomamos el chat más reciente sin importar la fecha
-                // Limitamos a 1 para no saturar el API con análisis masivos viejos
-                query = query.order('updated_at', { ascending: false }).limit(1);
+                // En modo prueba, tomamos los chats más recientes
+                query = query.order('updated_at', { ascending: false }).limit(5);
             }
 
             const { data: chats, error: chatsError } = await query;
@@ -167,14 +174,10 @@ async function runDailyAudit() {
                 continue;
             }
 
-            // Excluir grupos internos por nombre
-            const validChats = chats.filter(chat => {
-                const name = (chat.contact_name || '').toLowerCase();
-                const internalPatterns = [/^\\d+$/, /grupo/i, /equipo/i, /staff/i, /gerencia/i];
-                return !internalPatterns.some(pattern => pattern.test(name));
-            });
+            // Excluir chats internos (staff, pagos, emisiones, otros asesores, grupos)
+            const validChats = (chats || []).filter(chat => !isInternalChat(chat, botPhonesSet));
 
-            console.log(`   📝 Encontrados ${validChats.length} chats para evaluar.`);
+            console.log(`   📝 Encontrados ${validChats.length} chats de clientes para evaluar (${(chats || []).length - validChats.length} internos/grupos descartados).`);
             if (validChats.length === 0) continue;
 
             const evaluations = [];

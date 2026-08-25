@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { isInternalChat } from '@/lib/chatFilters';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -30,11 +31,18 @@ export async function POST(request) {
       );
     }
 
-    console.log(`🤖 Analizando ${conversations.length} conversaciones en batch`);
+    // Filtrar conversaciones internas (personal, pagos, emisiones, otros asesores)
+    const clientConversations = conversations.filter(c => !isInternalChat({
+      contact_name: c.contact_name,
+      contact_number: c.contact_number || c.chat_id,
+      is_group: c.is_group
+    }));
+
+    console.log(`🤖 Analizando ${clientConversations.length} conversaciones de clientes en batch (excluidas ${conversations.length - clientConversations.length} internas)`);
     
     // VALIDACIÓN CRÍTICA: Verificar que las conversaciones tengan mensajes
-    const chatsWithMessages = conversations.filter(c => c.messages && c.messages.length > 0);
-    const chatsWithoutMessages = conversations.length - chatsWithMessages.length;
+    const chatsWithMessages = clientConversations.filter(c => c.messages && c.messages.length > 0);
+    const chatsWithoutMessages = clientConversations.length - chatsWithMessages.length;
     
     if (chatsWithoutMessages > 0) {
       console.error(`❌ ERROR CRÍTICO: ${chatsWithoutMessages}/${conversations.length} conversaciones SIN MENSAJES`);
