@@ -1,10 +1,17 @@
-// dashboard/src/components/conversaciones/ConversationsList.jsx
 'use client'
 
-import { MessageSquare, Phone, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, RefreshCw, Sparkles, X } from 'lucide-react'
+import { useState } from 'react'
+import { MessageSquare, Phone, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, RefreshCw, Sparkles, X, Download, FileText, Loader2 } from 'lucide-react'
 import ContactAvatar from '@/components/ContactAvatar'
 import { parseBotSessionName } from '@/lib/botNameParser'
 import GlobalSearchBar from '@/components/conversaciones/GlobalSearchBar'
+import { getAllMessagesForChat, getAllChatsAndMessagesForBot } from '@/lib/supabase'
+import {
+  exportSingleChatPdf,
+  exportSingleChatTxt,
+  exportAdvisorChatsPdf,
+  exportAdvisorChatsTxt
+} from '@/lib/conversaciones/exportChatPdf'
 
 export default function ConversationsList({
   selectedBot,
@@ -25,6 +32,51 @@ export default function ConversationsList({
   onResultClick,
   formatBotStatus
 }) {
+  const [downloadingAdvisor, setDownloadingAdvisor] = useState(false)
+  const [downloadingChatId, setDownloadingChatId] = useState(null)
+
+  const handleDownloadAdvisorChats = async (format = 'pdf') => {
+    if (!selectedBot?.id || downloadingAdvisor) return
+    try {
+      setDownloadingAdvisor(true)
+      const chatsWithMsgs = await getAllChatsAndMessagesForBot(selectedBot.id, 50)
+      if (!chatsWithMsgs || chatsWithMsgs.length === 0) {
+        alert('No se encontraron conversaciones con mensajes para este asesor.')
+        return
+      }
+      if (format === 'txt') {
+        exportAdvisorChatsTxt(selectedBot, chatsWithMsgs)
+      } else {
+        exportAdvisorChatsPdf(selectedBot, chatsWithMsgs)
+      }
+    } catch (err) {
+      console.error('Error al descargar chats del asesor:', err)
+      alert('Ocurrió un error al descargar las conversaciones.')
+    } finally {
+      setDownloadingAdvisor(false)
+    }
+  }
+
+  const handleDownloadSingleChat = async (conv, format = 'pdf', e) => {
+    if (e) e.stopPropagation()
+    if (!conv?.id || downloadingChatId) return
+
+    try {
+      setDownloadingChatId(conv.id)
+      const messages = await getAllMessagesForChat(conv.id)
+      if (format === 'txt') {
+        exportSingleChatTxt(conv, messages, selectedBot?.session_name)
+      } else {
+        exportSingleChatPdf(conv, messages, selectedBot?.session_name)
+      }
+    } catch (err) {
+      console.error('Error descargando conversación:', err)
+      alert('Ocurrió un error al descargar la conversación.')
+    } finally {
+      setDownloadingChatId(null)
+    }
+  }
+
   if (!selectedBot) {
     return (
       <div className="h-full flex items-center justify-center text-center px-6 py-12">
@@ -46,7 +98,7 @@ export default function ConversationsList({
 
   return (
     <section className="bg-white shadow rounded-lg flex flex-col lg:col-span-2">
-      <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+      <div className="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">
             <span>Conversaciones de </span>
@@ -90,23 +142,39 @@ export default function ConversationsList({
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-3">
-          <div className="flex flex-col items-end text-xs text-gray-500">
+        <div className="flex flex-col sm:items-end gap-2.5">
+          <div className="flex items-center gap-2 text-xs text-gray-500">
             <span>Estado: </span>
             <span translate="no">{formatBotStatus(selectedBot)}</span>
             {selectedBot.phone_number && (
-              <span className="flex items-center gap-1 mt-1">
+              <span className="flex items-center gap-1 ml-2">
                 <Phone className="h-3 w-3" />
                 <span translate="no">{selectedBot.phone_number}</span>
               </span>
             )}
           </div>
-          <button
-            onClick={onGenerateReport}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow"
-          >
-            Generar reporte
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleDownloadAdvisorChats('pdf')}
+              disabled={downloadingAdvisor}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 transition-colors disabled:opacity-50"
+              title="Descargar compilado de todos los chats de este asesor en PDF"
+            >
+              {downloadingAdvisor ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              <span>Descargar chats</span>
+            </button>
+            <button
+              onClick={onGenerateReport}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow transition-all"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Generar reporte
+            </button>
+          </div>
         </div>
       </div>
 
@@ -241,11 +309,27 @@ export default function ConversationsList({
                       </span>
                     )}
 
-                    {conv.unread_count > 0 && (
-                      <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-emerald-500 text-white font-bold text-[11px] shadow-sm">
-                        {conv.unread_count}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2 mt-1">
+                      <button
+                        type="button"
+                        onClick={(e) => handleDownloadSingleChat(conv, 'pdf', e)}
+                        disabled={downloadingChatId === conv.id}
+                        className="p-1 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-gray-200/80 transition-colors"
+                        title="Descargar esta conversación en PDF"
+                      >
+                        {downloadingChatId === conv.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                        ) : (
+                          <Download className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+
+                      {conv.unread_count > 0 && (
+                        <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-emerald-500 text-white font-bold text-[11px] shadow-sm">
+                          {conv.unread_count}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

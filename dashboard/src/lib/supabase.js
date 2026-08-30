@@ -1360,3 +1360,92 @@ export async function getCompletedSalesConversations(limit = 100) {
     return [];
   }
 }
+
+/**
+ * Obtiene todos los mensajes de un chat para descarga/exportación
+ * @param {string} chatId - ID del chat
+ */
+export async function getAllMessagesForChat(chatId) {
+  if (!chatId) return [];
+  try {
+    const { data, error } = await supabase
+      .from("messages")
+      .select("id, body, content, type, from_me, timestamp, has_media, media_url, media_mimetype, metadata")
+      .eq("chat_id", chatId)
+      .order("timestamp", { ascending: true });
+
+    if (error) {
+      console.error("❌ Error al obtener mensajes completos:", error);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error("❌ Error en getAllMessagesForChat:", err);
+    return [];
+  }
+}
+
+/**
+ * Obtiene todas las conversaciones y sus mensajes de un bot para descarga/exportación
+ * @param {string} botId - ID del bot
+ * @param {number} limitChats - Límite de chats a compilar (default: 50)
+ */
+export async function getAllChatsAndMessagesForBot(botId, limitChats = 50) {
+  if (!botId) return [];
+  try {
+    const { data: chats, error: chatsError } = await supabase
+      .from("chats")
+      .select(`
+        id,
+        chat_id,
+        contact_name,
+        contact_number,
+        last_message_time,
+        contact:contacts(id, name, phone_number)
+      `)
+      .eq("bot_id", botId)
+      .eq("is_group", false)
+      .not("chat_id", "ilike", "%status%")
+      .not("chat_id", "ilike", "%@broadcast%")
+      .not("chat_id", "ilike", "%@g.us")
+      .order("last_message_time", { ascending: false, nullsFirst: false })
+      .limit(limitChats);
+
+    if (chatsError || !chats || chats.length === 0) {
+      return [];
+    }
+
+    const chatIds = chats.map((c) => c.id);
+
+    const { data: messages, error: msgsError } = await supabase
+      .from("messages")
+      .select("id, chat_id, body, content, type, from_me, timestamp, has_media")
+      .in("chat_id", chatIds)
+      .order("timestamp", { ascending: true });
+
+    if (msgsError) {
+      console.error("❌ Error al obtener mensajes de los chats:", msgsError);
+    }
+
+    const messagesByChat = new Map();
+    (messages || []).forEach((m) => {
+      if (!messagesByChat.has(m.chat_id)) {
+        messagesByChat.set(m.chat_id, []);
+      }
+      messagesByChat.get(m.chat_id).push(m);
+    });
+
+    return chats.map((chat) => ({
+      chat: {
+        ...chat,
+        contact_name: chat.contact?.name || chat.contact_name || chat.contact_number || "Cliente",
+        contact_phone: chat.contact?.phone_number || chat.contact_number || chat.chat_id || "",
+      },
+      messages: messagesByChat.get(chat.id) || [],
+    }));
+  } catch (err) {
+    console.error("❌ Error en getAllChatsAndMessagesForBot:", err);
+    return [];
+  }
+}
+

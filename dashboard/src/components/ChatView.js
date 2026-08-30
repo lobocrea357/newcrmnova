@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { getPaginatedMessages, markChatAsRead, supabase } from '@/lib/supabase'
+import { getPaginatedMessages, markChatAsRead, getAllMessagesForChat, supabase } from '@/lib/supabase'
 import VirtualizedMessageList from './VirtualizedMessageList'
 import ContactAvatar from './ContactAvatar'
 import messageService from '@/services/messageService'
+import { Download, Loader2 } from 'lucide-react'
+import { exportSingleChatPdf, exportSingleChatTxt } from '@/lib/conversaciones/exportChatPdf'
 
 export default function ChatView({ chatId, onClose, onMessagesLoaded, readOnly = false }) {
   const [conversation, setConversation] = useState(null)
@@ -17,6 +19,7 @@ export default function ChatView({ chatId, onClose, onMessagesLoaded, readOnly =
   const [unreadCount, setUnreadCount] = useState(0)
   const [messageText, setMessageText] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [totalMessages, setTotalMessages] = useState(0) // Total de mensajes en el chat (desde main)
   const inputRef = useRef(null)
   const scrollToBottomRef = useRef(null)
@@ -260,6 +263,25 @@ export default function ChatView({ chatId, onClose, onMessagesLoaded, readOnly =
     }
   }
 
+  const handleDownloadChat = async (format = 'pdf') => {
+    if (isExporting || !chatId) return
+    try {
+      setIsExporting(true)
+      const allMsgs = await getAllMessagesForChat(chatId)
+      const msgsToExport = allMsgs.length > 0 ? allMsgs : messages
+      if (format === 'txt') {
+        exportSingleChatTxt(conversation, msgsToExport, conversation?.bot?.session_name)
+      } else {
+        exportSingleChatPdf(conversation, msgsToExport, conversation?.bot?.session_name)
+      }
+    } catch (err) {
+      console.error('Error al exportar chat:', err)
+      alert('Ocurrió un error al descargar la conversación.')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   useEffect(() => {
     loadConversation()
 
@@ -379,8 +401,24 @@ export default function ChatView({ chatId, onClose, onMessagesLoaded, readOnly =
             </div>
           </div>
           
-          {/* Badge de mensajes + estado de carga */}
+          {/* Badge de mensajes + estado de carga + Botón Descargar */}
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            {/* Botón Descargar Chat */}
+            <button
+              type="button"
+              onClick={() => handleDownloadChat('pdf')}
+              disabled={isExporting}
+              className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full border border-white/30 backdrop-blur-sm transition-all disabled:opacity-50 active:scale-95"
+              title="Descargar la transcripción de esta conversación en PDF"
+            >
+              {isExporting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              <span className="hidden sm:inline">Descargar</span>
+            </button>
+
             {/* Badge de mensajes */}
             <div className="flex items-center gap-1.5 sm:gap-2 bg-white/20 backdrop-blur-sm px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full border border-white/30">
               <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

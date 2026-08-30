@@ -26,6 +26,7 @@ import {
     CreditCard,
     BarChart3,
     Clock,
+    FileSpreadsheet,
     Users as UsersIcon
 } from 'lucide-react'
 
@@ -38,6 +39,7 @@ const BASE_MENU_ITEMS = [
     // Dashboard especial para bots con sufijo _other - solo supervisor
     { href: '/other/conversaciones', label: 'Conversaciones', icon: MessageSquare, supervisorOnly: true },
     // Rutas Admin - Visible para admin, super_admin y manager
+    { href: '/admin/reportes-personalizados', label: 'Reportes Personalizados', icon: FileSpreadsheet, adminOnly: true },
     { href: '/admin/team-members', label: 'Team Members', icon: Users, adminOnly: true },
 ]
 
@@ -60,7 +62,7 @@ const Sidebar = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse 
         admin: null,
         gerente: [
             '/', '/conversaciones', '/analisis/rendimiento',
-            '/gestion-equipos', '/configuracion', '/auditoria-ia'
+            '/gestion-equipos', '/configuracion', '/auditoria-ia', '/admin/reportes-personalizados'
         ],
         asesor: [
             '/'
