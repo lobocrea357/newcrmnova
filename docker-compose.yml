@@ -157,11 +157,65 @@ services:
     networks:
       - crm_network
 
+  # ============================================
+  # CAPACITACIÓN NOVA - Plataforma de cursos
+  # Proyecto independiente con su propia base de datos (Postgres)
+  # Se sirve bajo crm.novapolointranet.xyz/capacitacion (via Caddy)
+  # ============================================
+  capacitacion-db:
+    image: postgres:16-alpine
+    container_name: capacitacion-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${CAP_DB_USER:-capacitacion}
+      - POSTGRES_PASSWORD=${CAP_DB_PASSWORD}
+      - POSTGRES_DB=${CAP_DB_NAME:-capacitacion}
+    volumes:
+      - capacitacion_db:/var/lib/postgresql/data
+    networks:
+      - crm_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CAP_DB_USER:-capacitacion} -d ${CAP_DB_NAME:-capacitacion}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  capacitacion:
+    build:
+      context: ./capacitacion
+      dockerfile: Dockerfile
+    container_name: capacitacion-nova
+    restart: unless-stopped
+    ports:
+      - "4100:4100"
+    environment:
+      - NODE_ENV=production
+      - PORT=4100
+      - BASE_PATH=/capacitacion
+      - DATABASE_URL=postgres://${CAP_DB_USER:-capacitacion}:${CAP_DB_PASSWORD}@capacitacion-db:5432/${CAP_DB_NAME:-capacitacion}
+      - SESSION_SECRET=${CAP_SESSION_SECRET}
+      - ADMIN_USERNAME=${CAP_ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${CAP_ADMIN_PASSWORD}
+    depends_on:
+      capacitacion-db:
+        condition: service_healthy
+    networks:
+      - crm_network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4100/capacitacion/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
 networks:
   crm_network:
     driver: bridge
 
 volumes:
+  capacitacion_db:
+    driver: local
   waha_data:
     driver: local
   waha_sessions:

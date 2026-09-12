@@ -36,18 +36,24 @@ api.lobocrea.pro {
     }
 }
 
-# Dashboard CRM
+# Dashboard CRM (+ Capacitación Nova en /capacitacion)
 crm.lobocrea.pro {
-    reverse_proxy localhost:3001
-    
-    # Headers para Next.js
-    header {
-        X-Frame-Options "SAMEORIGIN"
-        X-Content-Type-Options "nosniff"
-        X-XSS-Protection "1; mode=block"
-        Referrer-Policy "strict-origin-when-cross-origin"
+    # Plataforma de Capacitación Nova (proyecto independiente en :4100)
+    handle /capacitacion* {
+        reverse_proxy localhost:4100
     }
-    
+
+    # Dashboard Next.js (todo lo demás)
+    handle {
+        reverse_proxy localhost:3001
+        header {
+            X-Frame-Options "SAMEORIGIN"
+            X-Content-Type-Options "nosniff"
+            X-XSS-Protection "1; mode=block"
+            Referrer-Policy "strict-origin-when-cross-origin"
+        }
+    }
+
     # Logs
     log {
         output file /var/log/caddy/crm.log

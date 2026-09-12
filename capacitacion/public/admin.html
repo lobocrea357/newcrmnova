@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Capacitación Nova — Administración</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="config.js"></script>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">N</div>
+      <div>Capacitación <span style="color:var(--brand)">Nova</span> · <span style="color:var(--muted);font-weight:600">Admin</span></div>
+    </div>
+    <div class="right">
+      <a class="btn ghost sm" href=".">← Ver plataforma</a>
+      <button class="btn ghost sm" onclick="logout()">Salir</button>
+    </div>
+  </div>
+
+  <div class="admin-wrap">
+    <div class="section-tabs">
+      <button class="section-tab active" data-tab="content">📚 Contenido</button>
+      <button class="section-tab" data-tab="users">👥 Usuarios</button>
+    </div>
+
+    <div id="tab-content"></div>
+    <div id="tab-users" style="display:none"></div>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

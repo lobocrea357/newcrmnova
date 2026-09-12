@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Capacitación Nova</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="config.js"></script>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">N</div>
+      <div>Capacitación <span style="color:var(--brand)">Nova</span></div>
+    </div>
+    <div class="right">
+      <span class="user-chip" id="userChip"></span>
+      <a class="btn ghost sm" id="adminLink" href="admin" style="display:none">⚙ Administrar</a>
+      <button class="btn ghost sm" onclick="logout()">Salir</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="content" id="content">
+      <div class="empty-state"><h3>Cargando…</h3></div>
+    </main>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script src="js/viewer.js"></script>
+</body>
+</html>
