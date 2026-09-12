@@ -1,11 +1,105 @@
 let TREE = [];
+let sel = null;               // { type:'module'|'lesson', id }
+const openMods = new Set();   // expanded module ids in the nav
 
+/* ---------- icons ---------- */
+const ICON = {
+  caret: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+  up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>',
+  down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
+};
+function icon(name) { return el('span', { html: ICON[name], style: 'display:inline-grid;place-items:center;width:15px;height:15px' }); }
+
+function videoKind(url) {
+  const u = String(url || '');
+  if (/(?:youtube\.com|youtu\.be)/i.test(u)) return { label: 'YouTube', cls: 'yt' };
+  if (/vimeo\.com/i.test(u)) return { label: 'Vimeo', cls: 'vm' };
+  if (/drive\.google\.com/i.test(u)) return { label: 'Drive', cls: 'dr' };
+  if (/\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(u)) return { label: 'Archivo', cls: 'mp' };
+  return { label: 'Enlace', cls: '' };
+}
+
+/* ---------- modal ---------- */
+function openModal({ title, subtitle, fields, okText = 'Guardar' }) {
+  return new Promise(resolve => {
+    const inputs = {};
+    const body = el('div', {});
+    for (const f of fields) {
+      body.appendChild(el('label', {}, f.label));
+      const inp = f.type === 'textarea' ? el('textarea', { placeholder: f.placeholder || '' }) : el('input', { type: f.type || 'text', placeholder: f.placeholder || '' });
+      if (f.value != null) inp.value = f.value;
+      inputs[f.name] = inp;
+      body.appendChild(inp);
+    }
+    const overlay = el('div', { class: 'modal-overlay' });
+    const close = (val) => { overlay.remove(); document.removeEventListener('keydown', onKey); resolve(val); };
+    const submit = () => { const out = {}; for (const [k, inp] of Object.entries(inputs)) out[k] = inp.value.trim(); close(out); };
+    const onKey = (e) => { if (e.key === 'Escape') close(null); };
+    const modal = el('div', { class: 'modal' },
+      el('h3', {}, title),
+      subtitle ? el('p', { class: 'msub' }, subtitle) : null,
+      body,
+      el('div', { class: 'mbtns' },
+        el('button', { class: 'btn ghost', onclick: () => close(null) }, 'Cancelar'),
+        el('button', { class: 'btn', onclick: submit }, okText))
+    );
+    overlay.appendChild(modal);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(null); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
+    const first = Object.values(inputs)[0]; if (first) first.focus();
+  });
+}
+
+/* ---------- reveal add-form ---------- */
+function addSlot(label, fields, onSubmit) {
+  const slot = el('div', { class: 'add-slot' });
+  const inputs = {};
+  const form = el('div', { class: 'add-form', hidden: true });
+  const fieldWrap = el('div', { class: 'fields' });
+  for (const f of fields) { const inp = el('input', { placeholder: f.placeholder }); inputs[f.name] = inp; fieldWrap.appendChild(inp); }
+  const toggle = el('button', { class: 'add-toggle', onclick: () => { form.hidden = false; toggle.hidden = true; const fi = Object.values(inputs)[0]; if (fi) fi.focus(); } }, '+ ' + label);
+  const reset = () => { for (const inp of Object.values(inputs)) inp.value = ''; form.hidden = true; toggle.hidden = false; };
+  const save = async () => { const vals = {}; for (const [k, inp] of Object.entries(inputs)) vals[k] = inp.value.trim(); try { await onSubmit(vals, reset); } catch (e) { toast(e.message, true); } };
+  form.appendChild(fieldWrap);
+  form.appendChild(el('div', { class: 'btns' },
+    el('button', { class: 'btn sm', onclick: save }, 'Guardar'),
+    el('button', { class: 'btn ghost sm', onclick: reset }, 'Cancelar')));
+  Object.values(inputs).forEach(inp => inp.addEventListener('keydown', e => { if (e.key === 'Enter') save(); }));
+  slot.appendChild(toggle); slot.appendChild(form);
+  return slot;
+}
+
+/* ---------- reorder ---------- */
+async function reorder(siblings, id, dir, endpoint) {
+  const idx = siblings.findIndex(x => x.id === id);
+  const j = idx + dir;
+  if (j < 0 || j >= siblings.length) return;
+  const arr = siblings.slice();
+  [arr[idx], arr[j]] = [arr[j], arr[idx]];
+  await Promise.all(arr.map((x, i) => api(`${endpoint}/${x.id}`, { method: 'PATCH', body: { position: i } })));
+  await loadContent();
+}
+function orderBtns(siblings, id, endpoint) {
+  const idx = siblings.findIndex(x => x.id === id);
+  const up = el('button', { class: 'iconbtn', title: 'Subir', onclick: (e) => { e.stopPropagation(); reorder(siblings, id, -1, endpoint); } }, icon('up'));
+  const down = el('button', { class: 'iconbtn', title: 'Bajar', onclick: (e) => { e.stopPropagation(); reorder(siblings, id, 1, endpoint); } }, icon('down'));
+  if (idx <= 0) up.disabled = true;
+  if (idx === siblings.length - 1) down.disabled = true;
+  return [up, down];
+}
+
+/* ---------- lookups ---------- */
+function findModule(id) { return TREE.find(m => m.id === id) || null; }
+function findLesson(id) { for (const m of TREE) { const l = m.lessons.find(x => x.id === id); if (l) return { module: m, lesson: l }; } return null; }
+
+/* ================= BOOT ================= */
 async function boot() {
   let me;
-  try { me = (await api('/auth/me')).user; }
-  catch { location.href = BASE + '/login'; return; }
+  try { me = (await api('/auth/me')).user; } catch { location.href = BASE + '/login'; return; }
   if (me.role !== 'admin') { location.href = BASE + '/'; return; }
-
   document.querySelectorAll('.section-tab').forEach(t => {
     t.addEventListener('click', () => {
       document.querySelectorAll('.section-tab').forEach(x => x.classList.remove('active'));
@@ -14,154 +108,224 @@ async function boot() {
       document.getElementById('tab-users').style.display = t.dataset.tab === 'users' ? '' : 'none';
     });
   });
-
   await loadContent();
   await loadUsers();
 }
 
-/* ================= CONTENIDO ================= */
+/* ================= CONTENIDO (dos paneles) ================= */
 async function loadContent() {
   TREE = (await api('/content')).modules;
-  renderContent();
+  // Validate current selection still exists
+  if (sel) {
+    if (sel.type === 'module' && !findModule(sel.id)) sel = null;
+    if (sel.type === 'lesson' && !findLesson(sel.id)) sel = null;
+  }
+  // Auto-select something sensible on first load
+  if (!sel && TREE.length) { sel = { type: 'module', id: TREE[0].id }; openMods.add(TREE[0].id); }
+  render();
 }
 
-function renderContent() {
+function render() {
   const root = document.getElementById('tab-content');
   root.innerHTML = '';
+  const editor = el('div', { class: 'editor' });
+  editor.appendChild(renderNav());
+  editor.appendChild(renderDetail());
+  root.appendChild(editor);
+}
 
-  // New module card
-  const addCard = el('div', { class: 'card' });
-  addCard.appendChild(el('h2', {}, 'Nuevo módulo'));
-  addCard.appendChild(el('p', { class: 'hint' }, 'Los módulos agrupan lecciones (ej. "Ventas", "Inducción").'));
-  const mTitle = el('input', { placeholder: 'Título del módulo' });
-  const mDesc = el('input', { placeholder: 'Descripción (opcional)' });
-  const addBtn = el('button', { class: 'btn', onclick: async () => {
-    if (!mTitle.value.trim()) return toast('Escribe un título', true);
-    await api('/modules', { method: 'POST', body: { title: mTitle.value.trim(), description: mDesc.value.trim() } });
-    mTitle.value = ''; mDesc.value = '';
-    toast('Módulo creado'); await loadContent();
-  }}, 'Agregar módulo');
-  addCard.appendChild(el('div', { class: 'row' },
-    el('div', { class: 'grow' }, mTitle),
-    el('div', { class: 'grow' }, mDesc),
-    addBtn));
-  root.appendChild(addCard);
+function renderNav() {
+  const nav = el('div', { class: 'ed-nav' });
+  const head = el('div', { class: 'ed-nav-head' });
+  head.appendChild(el('button', { class: 'btn block sm', onclick: newModule }, '+ Nuevo módulo'));
+  nav.appendChild(head);
 
   if (!TREE.length) {
-    root.appendChild(el('div', { class: 'card' }, el('p', { class: 'hint', style: 'margin:0' }, 'Todavía no hay módulos. Crea el primero arriba.')));
-    return;
+    nav.appendChild(el('div', { class: 'empty-hint', style: 'padding:16px' }, 'Crea tu primer módulo arriba.'));
+    return nav;
   }
 
-  for (const m of TREE) root.appendChild(renderModule(m));
+  for (const m of TREE) {
+    const isOpen = openMods.has(m.id);
+    const modWrap = el('div', { class: 'nav-mod' + (isOpen ? ' open' : '') });
+    const mhead = el('div', {
+      class: 'nav-mod-head' + (sel && sel.type === 'module' && sel.id === m.id ? ' active' : ''),
+      onclick: () => { sel = { type: 'module', id: m.id }; openMods.add(m.id); render(); },
+    });
+    const caret = el('span', { class: 'caret', html: ICON.caret, onclick: (e) => { e.stopPropagation(); isOpen ? openMods.delete(m.id) : openMods.add(m.id); render(); } });
+    mhead.appendChild(caret);
+    mhead.appendChild(el('span', { class: 't' }, m.title));
+    mhead.appendChild(el('span', { class: 'n' }, String(m.lessons.length)));
+    modWrap.appendChild(mhead);
+
+    if (isOpen) {
+      const lessons = el('div', { class: 'nav-lessons' });
+      for (const l of m.lessons) {
+        lessons.appendChild(el('div', {
+          class: 'nav-lesson' + (sel && sel.type === 'lesson' && sel.id === l.id ? ' active' : ''),
+          onclick: () => { sel = { type: 'lesson', id: l.id }; render(); },
+        }, el('span', { class: 'ldot' }), l.title));
+      }
+      const addWrap = el('div', { class: 'nav-add-lesson' });
+      addWrap.appendChild(addSlot('Lección', [{ name: 'title', placeholder: 'Título de la lección' }], async (v, reset) => {
+        if (!v.title) return toast('Escribe un título', true);
+        const l = await api('/lessons', { method: 'POST', body: { module_id: m.id, title: v.title, position: m.lessons.length } });
+        reset(); sel = { type: 'lesson', id: l.id }; toast('Lección creada'); await loadContent();
+      }));
+      lessons.appendChild(addWrap);
+      modWrap.appendChild(lessons);
+    }
+    nav.appendChild(modWrap);
+  }
+  return nav;
 }
 
-function renderModule(m) {
-  const box = el('div', { class: 'tree-module' });
-  const head = el('div', { class: 'head' });
-  head.appendChild(el('div', {},
-    el('strong', { style: 'font-size:16px' }, m.title),
-    m.description ? el('div', { style: 'color:var(--muted);font-size:13px' }, m.description) : null
-  ));
-  head.appendChild(el('div', { class: 'actions' },
-    el('button', { class: 'btn ghost sm', onclick: () => editModule(m) }, 'Editar'),
-    el('button', { class: 'btn danger sm', onclick: () => delItem('módulo', `/modules/${m.id}`) }, 'Eliminar')
-  ));
-  box.appendChild(head);
-
-  const lessonsWrap = el('div', { class: 'tree-lessons' });
-  for (const l of m.lessons) lessonsWrap.appendChild(renderLesson(l));
-
-  // Add lesson inline
-  const lTitle = el('input', { placeholder: 'Título de la lección' });
-  const lAdd = el('button', { class: 'btn sm', onclick: async () => {
-    if (!lTitle.value.trim()) return toast('Escribe un título', true);
-    await api('/lessons', { method: 'POST', body: { module_id: m.id, title: lTitle.value.trim() } });
-    toast('Lección creada'); await loadContent();
-  }}, '+ Lección');
-  lessonsWrap.appendChild(el('div', { class: 'row', style: 'margin-top:10px' },
-    el('div', { class: 'grow' }, lTitle), lAdd));
-
-  box.appendChild(lessonsWrap);
-  return box;
+function renderDetail() {
+  const main = el('div', { class: 'ed-main' });
+  if (!sel) {
+    main.appendChild(el('div', { class: 'ed-empty' }, el('div', {},
+      el('div', { class: 'big' }, '📚'),
+      el('div', {}, 'Selecciona un módulo o lección a la izquierda,'),
+      el('div', {}, 'o crea uno nuevo para empezar.'))));
+    return main;
+  }
+  if (sel.type === 'module') return renderModuleDetail(main, findModule(sel.id));
+  const found = findLesson(sel.id);
+  return renderLessonDetail(main, found.module, found.lesson);
 }
 
-function renderLesson(l) {
-  const wrap = el('div', { style: 'margin-top:10px' });
-  const item = el('div', { class: 'list-item' });
-  item.appendChild(el('div', { class: 'meta' },
-    el('strong', {}, l.title),
-    el('small', {}, `${l.videos.length} video(s)`)
-  ));
-  item.appendChild(el('div', { class: 'actions' },
-    el('button', { class: 'btn ghost sm', onclick: () => editLesson(l) }, 'Editar'),
-    el('button', { class: 'btn danger sm', onclick: () => delItem('lección', `/lessons/${l.id}`) }, 'Eliminar')
-  ));
-  wrap.appendChild(item);
+/* editable title+description block with save */
+function fieldBlock(entity, endpoint, extra = {}) {
+  const title = el('input', { value: entity.title });
+  const desc = el('textarea', { placeholder: 'Descripción (opcional)' }); desc.value = entity.description || '';
+  const tick = el('span', { class: 'saved-tick' }, '✓ Guardado');
+  const save = async () => {
+    if (!title.value.trim()) return toast('El título no puede quedar vacío', true);
+    await api(`${endpoint}/${entity.id}`, { method: 'PATCH', body: { title: title.value.trim(), description: desc.value.trim() } });
+    tick.classList.add('show'); setTimeout(() => tick.classList.remove('show'), 1600);
+    await loadContent();
+  };
+  title.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+  return el('div', {},
+    el('div', { class: 'field-grid' },
+      el('div', {}, el('label', {}, extra.titleLabel || 'Título'), title),
+      el('div', {}, el('label', {}, 'Descripción'), desc)),
+    el('div', { class: 'saverow' }, el('button', { class: 'btn', onclick: save }, 'Guardar cambios'), tick));
+}
 
-  // Videos
-  const vids = el('div', { style: 'margin-left:14px' });
+function renderModuleDetail(main, m) {
+  main.appendChild(el('div', { class: 'detail-crumb' }, 'Módulo'));
+  const actions = el('div', { class: 'acc-actions' });
+  orderBtns(TREE, m.id, '/modules').forEach(b => actions.appendChild(b));
+  actions.appendChild(el('button', { class: 'iconbtn danger', title: 'Eliminar módulo', onclick: () => delItem('módulo', `/modules/${m.id}`, () => { sel = null; }) }, icon('trash')));
+  main.appendChild(el('div', { class: 'detail-title-row' }, el('h1', {}, m.title), actions));
+
+  const s1 = el('div', { class: 'detail-section' });
+  s1.appendChild(el('h3', {}, 'Datos del módulo'));
+  s1.appendChild(fieldBlock(m, '/modules'));
+  main.appendChild(s1);
+
+  const s2 = el('div', { class: 'detail-section' });
+  s2.appendChild(el('h3', {}, `Lecciones (${m.lessons.length})`));
+  if (!m.lessons.length) s2.appendChild(el('div', { class: 'empty-hint' }, 'Aún no hay lecciones en este módulo.'));
+  for (const l of m.lessons) {
+    const row = el('div', { class: 'vrow', style: 'cursor:pointer', onclick: () => { sel = { type: 'lesson', id: l.id }; openMods.add(m.id); render(); } });
+    row.appendChild(el('div', { class: 'vmeta' }, el('strong', {}, l.title), el('small', {}, `${l.videos.length} video(s)`)));
+    const acts = el('div', { class: 'acc-actions' });
+    orderBtns(m.lessons, l.id, '/lessons').forEach(b => acts.appendChild(b));
+    acts.appendChild(el('button', { class: 'iconbtn', title: 'Abrir', onclick: (e) => { e.stopPropagation(); sel = { type: 'lesson', id: l.id }; openMods.add(m.id); render(); } }, icon('caret')));
+    row.appendChild(acts);
+    s2.appendChild(row);
+  }
+  s2.appendChild(addSlot('Agregar lección', [{ name: 'title', placeholder: 'Título de la lección' }], async (v, reset) => {
+    if (!v.title) return toast('Escribe un título', true);
+    const l = await api('/lessons', { method: 'POST', body: { module_id: m.id, title: v.title, position: m.lessons.length } });
+    reset(); sel = { type: 'lesson', id: l.id }; toast('Lección creada'); await loadContent();
+  }));
+  main.appendChild(s2);
+  return main;
+}
+
+function renderLessonDetail(main, m, l) {
+  main.appendChild(el('div', { class: 'detail-crumb' }, el('b', {}, m.title), ' › Lección'));
+  const actions = el('div', { class: 'acc-actions' });
+  orderBtns(m.lessons, l.id, '/lessons').forEach(b => actions.appendChild(b));
+  actions.appendChild(el('button', { class: 'iconbtn danger', title: 'Eliminar lección', onclick: () => delItem('lección', `/lessons/${l.id}`, () => { sel = { type: 'module', id: m.id }; }) }, icon('trash')));
+  main.appendChild(el('div', { class: 'detail-title-row' }, el('h1', {}, l.title), actions));
+
+  const s1 = el('div', { class: 'detail-section' });
+  s1.appendChild(el('h3', {}, 'Datos de la lección'));
+  s1.appendChild(fieldBlock(l, '/lessons'));
+  main.appendChild(s1);
+
+  const s2 = el('div', { class: 'detail-section' });
+  s2.appendChild(el('h3', {}, `Videos (${l.videos.length})`));
+  if (!l.videos.length) s2.appendChild(el('div', { class: 'empty-hint' }, 'Aún no hay videos. Agrega el primero abajo.'));
   for (const v of l.videos) {
-    const vi = el('div', { class: 'list-item' });
-    vi.appendChild(el('div', { class: 'meta' },
-      el('strong', {}, v.title),
-      el('small', {}, v.url)
-    ));
-    vi.appendChild(el('div', { class: 'actions' },
-      el('button', { class: 'btn ghost sm', onclick: () => editVideo(v) }, 'Editar'),
-      el('button', { class: 'btn danger sm', onclick: () => delItem('video', `/videos/${v.id}`) }, 'Eliminar')
-    ));
-    vids.appendChild(vi);
+    const k = videoKind(v.url);
+    const row = el('div', { class: 'vrow' });
+    row.appendChild(el('span', { class: 'badge ' + k.cls }, k.label));
+    row.appendChild(el('div', { class: 'vmeta' }, el('strong', {}, v.title), el('small', { title: v.url }, v.url)));
+    const acts = el('div', { class: 'acc-actions' });
+    orderBtns(l.videos, v.id, '/videos').forEach(b => acts.appendChild(b));
+    acts.appendChild(el('button', { class: 'iconbtn', title: 'Editar', onclick: () => editVideo(v) }, icon('edit')));
+    acts.appendChild(el('button', { class: 'iconbtn danger', title: 'Eliminar', onclick: () => delItem('video', `/videos/${v.id}`) }, icon('trash')));
+    row.appendChild(acts);
+    s2.appendChild(row);
   }
-  // Add video inline
-  const vTitle = el('input', { placeholder: 'Título del video' });
-  const vUrl = el('input', { placeholder: 'Link (YouTube, Vimeo, Drive o .mp4)' });
-  const vAdd = el('button', { class: 'btn sm', onclick: async () => {
-    if (!vTitle.value.trim() || !vUrl.value.trim()) return toast('Título y link requeridos', true);
-    await api('/videos', { method: 'POST', body: { lesson_id: l.id, title: vTitle.value.trim(), url: vUrl.value.trim(), kind: 'link' } });
+  // persistent add-video form
+  const vt = el('input', { placeholder: 'Título del video' });
+  const vu = el('input', { placeholder: 'Link (YouTube, Vimeo, Drive o .mp4)' });
+  const addv = async () => {
+    if (!vt.value.trim() || !vu.value.trim()) return toast('Título y link requeridos', true);
+    await api('/videos', { method: 'POST', body: { lesson_id: l.id, title: vt.value.trim(), url: vu.value.trim(), kind: 'link', position: l.videos.length } });
     toast('Video agregado'); await loadContent();
-  }}, '+ Video');
-  vids.appendChild(el('div', { class: 'row', style: 'margin-top:8px' },
-    el('div', { class: 'grow' }, vTitle),
-    el('div', { class: 'grow' }, vUrl),
-    vAdd));
-  wrap.appendChild(vids);
-  return wrap;
+  };
+  vu.addEventListener('keydown', e => { if (e.key === 'Enter') addv(); });
+  const addForm = el('div', { class: 'add-form', style: 'margin-top:14px' },
+    el('div', { class: 'fields' }, vt, vu),
+    el('div', { class: 'btns' }, el('button', { class: 'btn sm', onclick: addv }, '+ Agregar video')));
+  s2.appendChild(addForm);
+  main.appendChild(s2);
+  return main;
 }
 
-async function editModule(m) {
-  const title = prompt('Título del módulo:', m.title); if (title === null) return;
-  const description = prompt('Descripción:', m.description || ''); if (description === null) return;
-  await api(`/modules/${m.id}`, { method: 'PATCH', body: { title, description } });
+async function newModule() {
+  const v = await openModal({ title: 'Nuevo módulo', subtitle: 'Agrupa lecciones (ej. "Ventas", "Inducción").', fields: [
+    { name: 'title', label: 'Título', placeholder: 'Título del módulo' },
+    { name: 'description', label: 'Descripción', placeholder: 'Opcional', type: 'textarea' },
+  ], okText: 'Crear módulo' });
+  if (!v) return;
+  if (!v.title) return toast('Escribe un título', true);
+  const m = await api('/modules', { method: 'POST', body: { title: v.title, description: v.description, position: TREE.length } });
+  openMods.add(m.id); sel = { type: 'module', id: m.id };
+  toast('Módulo creado'); await loadContent();
+}
+
+async function editVideo(v0) {
+  const v = await openModal({ title: 'Editar video', fields: [
+    { name: 'title', label: 'Título', value: v0.title },
+    { name: 'url', label: 'Link del video', value: v0.url },
+  ]});
+  if (!v) return;
+  if (!v.title || !v.url) return toast('Título y link requeridos', true);
+  await api(`/videos/${v0.id}`, { method: 'PATCH', body: v });
   toast('Actualizado'); await loadContent();
 }
-async function editLesson(l) {
-  const title = prompt('Título de la lección:', l.title); if (title === null) return;
-  const description = prompt('Descripción:', l.description || ''); if (description === null) return;
-  await api(`/lessons/${l.id}`, { method: 'PATCH', body: { title, description } });
-  toast('Actualizado'); await loadContent();
-}
-async function editVideo(v) {
-  const title = prompt('Título del video:', v.title); if (title === null) return;
-  const url = prompt('Link del video:', v.url); if (url === null) return;
-  await api(`/videos/${v.id}`, { method: 'PATCH', body: { title, url } });
-  toast('Actualizado'); await loadContent();
-}
-async function delItem(label, path) {
+
+async function delItem(label, path, after) {
   if (!confirm(`¿Eliminar este ${label}? Esta acción no se puede deshacer.`)) return;
   await api(path, { method: 'DELETE' });
+  if (after) after();
   toast('Eliminado'); await loadContent();
 }
 
 /* ================= USUARIOS ================= */
-async function loadUsers() {
-  const { users } = await api('/users');
-  renderUsers(users);
-}
+async function loadUsers() { renderUsers((await api('/users')).users); }
 
 function renderUsers(users) {
   const root = document.getElementById('tab-users');
   root.innerHTML = '';
-
   const addCard = el('div', { class: 'card' });
   addCard.appendChild(el('h2', {}, 'Nuevo usuario'));
   addCard.appendChild(el('p', { class: 'hint' }, 'Los usuarios pueden ver el contenido. Los administradores además pueden gestionarlo.'));
@@ -177,11 +341,7 @@ function renderUsers(users) {
       toast('Usuario creado'); await loadUsers();
     } catch (e) { toast(e.message, true); }
   }}, 'Crear usuario');
-  addCard.appendChild(el('div', { class: 'row' },
-    el('div', { class: 'grow' }, u),
-    el('div', { class: 'grow' }, n),
-    el('div', { class: 'grow' }, p),
-    r, b));
+  addCard.appendChild(el('div', { class: 'row' }, el('div', { class: 'grow' }, u), el('div', { class: 'grow' }, n), el('div', { class: 'grow' }, p), r, b));
   root.appendChild(addCard);
 
   const listCard = el('div', { class: 'card' });
@@ -190,27 +350,25 @@ function renderUsers(users) {
     const item = el('div', { class: 'list-item' });
     item.appendChild(el('div', { class: 'meta' },
       el('strong', {}, usr.username, usr.role === 'admin' ? el('span', { class: 'pill', style: 'margin-left:8px' }, 'admin') : null),
-      el('small', {}, usr.full_name || '—')
-    ));
+      el('small', {}, usr.full_name || '—')));
     item.appendChild(el('div', { class: 'actions' },
       el('button', { class: 'btn ghost sm', onclick: () => resetPass(usr) }, 'Cambiar contraseña'),
-      el('button', { class: 'btn danger sm', onclick: () => delUser(usr) }, 'Eliminar')
-    ));
+      el('button', { class: 'btn danger sm', onclick: () => delUser(usr) }, 'Eliminar')));
     listCard.appendChild(item);
   }
   root.appendChild(listCard);
 }
 
 async function resetPass(usr) {
-  const password = prompt(`Nueva contraseña para "${usr.username}":`);
-  if (!password) return;
-  await api(`/users/${usr.id}/password`, { method: 'PATCH', body: { password } });
+  const v = await openModal({ title: 'Cambiar contraseña', subtitle: `Usuario: ${usr.username}`, okText: 'Actualizar', fields: [{ name: 'password', label: 'Nueva contraseña', placeholder: 'Escribe la nueva contraseña' }] });
+  if (!v) return;
+  if (!v.password) return toast('Escribe una contraseña', true);
+  await api(`/users/${usr.id}/password`, { method: 'PATCH', body: { password: v.password } });
   toast('Contraseña actualizada');
 }
 async function delUser(usr) {
   if (!confirm(`¿Eliminar al usuario "${usr.username}"?`)) return;
-  try { await api(`/users/${usr.id}`, { method: 'DELETE' }); toast('Usuario eliminado'); await loadUsers(); }
-  catch (e) { toast(e.message, true); }
+  try { await api(`/users/${usr.id}`, { method: 'DELETE' }); toast('Usuario eliminado'); await loadUsers(); } catch (e) { toast(e.message, true); }
 }
 
 boot();
