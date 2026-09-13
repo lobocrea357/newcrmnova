@@ -7,6 +7,23 @@ let curVideoIdx = 0;
 const MOD_ICONS = ['✈️','🧳','📈','👥','📚','🎯','💼','🌍','⭐','🧭','📝','🎓'];
 const modIcon = (i) => MOD_ICONS[i % MOD_ICONS.length];
 
+const LOGO_SVG = `<svg viewBox="0 0 44 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs><linearGradient id="vg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#6d28d9"/></linearGradient></defs>
+  <path d="M1 2h10l8.5 17L28 2h10L23 32h-6L1 2Z" fill="url(#vg)"/>
+  <path d="M21 12.5 27 2h10L26.5 22 21 12.5Z" fill="#a855f7" opacity=".55"/>
+</svg>`;
+
+const HERO_ART = `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMaxYMid meet">
+  <circle cx="150" cy="60" r="70" fill="#ffffff" opacity="0.08"/>
+  <circle cx="150" cy="60" r="46" fill="#ffffff" opacity="0.08"/>
+  <path d="M12 128 Q 90 30 186 66" stroke="#ffffff" stroke-width="2" stroke-dasharray="2 7" stroke-linecap="round" fill="none" opacity="0.85"/>
+  <circle cx="12" cy="128" r="4" fill="#ffffff"/>
+  <g transform="translate(182 52) rotate(28)">
+    <path d="M0 8 L22 0 L13 22 L10 13 Z" fill="#ffffff"/>
+  </g>
+</svg>`;
+
 const TAB_ICONS = {
   home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
   mods: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg>',
@@ -78,7 +95,7 @@ function paint(nodes, activeTab) {
 function appbar() {
   return el('div', { class: 'appbar' },
     el('div', { class: 'wordmark' },
-      el('div', { class: 'v' }, 'V'),
+      el('div', { class: 'v', html: LOGO_SVG }),
       el('div', { class: 'txt', html: '<b>VIAJES NOVA</b><small>Academia</small>' })),
     el('div', { class: 'tools' },
       el('div', { class: 'iconbadge', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>' },
@@ -88,13 +105,40 @@ function appbar() {
 function pbar(pct) { return el('div', { class: 'pbar' }, el('i', { style: `width:${pct}%` })); }
 
 /* ---------- HOME ---------- */
+function continueItems() {
+  const items = [];
+  TREE.forEach((m) => {
+    if (!m.lessons.length) return;
+    const done = m.lessons.filter(l => DONE.has(l.id)).length;
+    if (done < m.lessons.length) {
+      const l = m.lessons.find(x => !DONE.has(x.id)) || m.lessons[0];
+      items.push({ m, l, idx: m.lessons.indexOf(l) });
+    }
+  });
+  // Put the most recently viewed module first
+  if (LAST) {
+    const k = items.findIndex(x => x.m.lessons.some(l => l.id === LAST));
+    if (k > 0) items.unshift(items.splice(k, 1)[0]);
+  }
+  // Fallback: everything done or nothing started
+  if (!items.length) {
+    const r = resumeInfo();
+    if (r) items.push({ m: r.m, l: r.l, idx: findLessonCtx(r.l.id).idx });
+  }
+  return items;
+}
+
 function renderHome() {
   const ov = overall();
   const hero = el('div', { class: 'hero' },
-    el('h1', {}, `¡Hola, ${firstName()}!`),
-    el('p', {}, 'Continúa fortaleciendo tus habilidades'),
-    el('div', { class: 'bar' }, el('i', { style: `width:${ov.pct}%` })),
-    el('div', { class: 'pct' }, `${ov.pct}% completado`));
+    el('div', { class: 'hero-art', html: HERO_ART }),
+    el('div', { class: 'hero-tagline', html: 'Más destinos,<br>más historias.' }),
+    el('div', { class: 'htext' },
+      el('h1', {}, `¡Hola, ${firstName()}!`),
+      el('p', {}, 'Continúa fortaleciendo tus habilidades'),
+      el('div', { class: 'progress-pill' },
+        el('div', { class: 'row' }, el('b', {}, `${ov.pct}%`), el('span', {}, 'completado')),
+        el('div', { class: 'track' }, el('i', { style: `width:${ov.pct}%` })))));
 
   const grid = el('div', { class: 'courses' });
   TREE.forEach((m, i) => grid.appendChild(courseCard(m, i)));
@@ -107,23 +151,36 @@ function renderHome() {
 
   const nodes = [appbar(), hero, section];
 
-  const r = resumeInfo();
-  if (r) {
-    const v = r.l.videos[0];
-    const th = thumbUrl(v);
-    const ctx = findLessonCtx(r.l.id);
-    const resume = el('div', { class: 'screen', style: 'padding-top:0' },
+  const items = continueItems();
+  if (items.length) {
+    const carousel = el('div', { class: 'carousel' });
+    items.forEach(({ m, l, idx }) => {
+      const th = thumbUrl(l.videos[0]);
+      carousel.appendChild(el('div', { class: 'cont-card' },
+        el('div', { class: 'cc-top' },
+          el('div', { class: 'thumb' },
+            th ? el('img', { src: th, alt: '' }) : null,
+            el('div', { class: 'play', html: '▶' })),
+          el('div', { class: 'cc-info' },
+            el('h4', {}, l.title),
+            el('small', {}, `${m.title} · Lección ${idx + 1}`))),
+        el('div', { class: 'cc-btn' },
+          el('button', { class: 'btn block', onclick: () => location.hash = `#/lesson/${l.id}` }, 'Continuar lección ›'))));
+    });
+    const dots = el('div', { class: 'dots' });
+    items.forEach((_, i) => dots.appendChild(el('span', { class: 'd' + (i === 0 ? ' active' : '') })));
+    if (items.length > 1) {
+      carousel.addEventListener('scroll', () => {
+        const i = Math.round(carousel.scrollLeft / carousel.clientWidth);
+        dots.querySelectorAll('.d').forEach((d, k) => d.classList.toggle('active', k === i));
+      });
+    }
+    const cont = el('div', { class: 'screen', style: 'padding-top:0' },
       el('div', { class: 'sec-head' }, el('h2', {}, 'Continúa donde quedaste')),
-      el('div', { class: 'resume' },
-        el('div', { class: 'thumb' },
-          th ? el('img', { src: th, alt: '' }) : null,
-          el('div', { class: 'play', html: '▶' })),
-        el('div', { class: 'info' },
-          el('h4', {}, r.l.title),
-          el('small', {}, `${r.m.title} · Lección ${ctx.idx + 1}`),
-          el('div', { class: 'go' },
-            el('button', { class: 'btn sm', onclick: () => location.hash = `#/lesson/${r.l.id}` }, 'Continuar ›')))));
-    nodes.push(resume);
+      el('div', { class: 'sec-sub' }, 'Retoma tu formación y sigue avanzando'),
+      carousel);
+    if (items.length > 1) cont.appendChild(dots);
+    nodes.push(cont);
   }
   paint(nodes, 'home');
 }
