@@ -132,7 +132,6 @@ function continueItems() {
 function renderHome() {
   const ov = overall();
   const hero = el('div', { class: 'hero' },
-    el('div', { class: 'hero-art', html: HERO_ART }),
     el('div', { class: 'htext' },
       el('h1', {}, `¡Hola, ${firstName()}!`),
       el('p', {}, 'Continúa fortaleciendo tus habilidades'),
