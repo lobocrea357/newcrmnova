@@ -321,6 +321,12 @@ async function delItem(label, path, after) {
 }
 
 /* ================= USUARIOS ================= */
+function uInitials(u) {
+  const s = (u.full_name || u.username || '?').trim();
+  const p = s.split(/\s+/);
+  return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || s[0].toUpperCase();
+}
+
 async function loadUsers() {
   const [usersRes, summary] = await Promise.all([api('/users'), api('/admin/progress')]);
   const map = {};
@@ -379,22 +385,40 @@ function renderUsers(users, prog = {}, totalLessons = 0) {
   addCard.appendChild(el('div', { class: 'row' }, el('div', { class: 'grow' }, u), el('div', { class: 'grow' }, n), el('div', { class: 'grow' }, p), r, b));
   root.appendChild(addCard);
 
+  // Resumen
+  const count = users.length;
+  const avg = count && totalLessons
+    ? Math.round(users.reduce((a, u) => a + (prog[u.id]?.completed || 0) / totalLessons * 100, 0) / count)
+    : 0;
+  const summary = el('div', { class: 'users-summary' },
+    el('div', { class: 'usum' }, el('div', { class: 'k' }, 'Usuarios'), el('div', { class: 'v' }, String(count))),
+    el('div', { class: 'usum' }, el('div', { class: 'k' }, 'Lecciones'), el('div', { class: 'v' }, String(totalLessons))),
+    el('div', { class: 'usum' }, el('div', { class: 'k' }, 'Avance prom.'), el('div', { class: 'v' }, `${avg}%`)));
+
   const listCard = el('div', { class: 'card' });
   listCard.appendChild(el('h2', {}, 'Usuarios'));
+  listCard.appendChild(summary);
+
   for (const usr of users) {
     const p = prog[usr.id] || { completed: 0 };
     const pct = totalLessons ? Math.round((p.completed || 0) / totalLessons * 100) : 0;
     const pctCls = pct >= 100 ? 'done' : (pct === 0 ? 'zero' : '');
-    const item = el('div', { class: 'list-item' });
-    item.appendChild(el('div', { class: 'meta' },
-      el('strong', {}, usr.username, usr.role === 'admin' ? el('span', { class: 'pill', style: 'margin-left:8px' }, 'admin') : null),
-      el('small', {}, `${usr.full_name || '—'} · ${p.completed || 0}/${totalLessons} lecciones`)));
-    item.appendChild(el('div', { class: 'actions' },
-      el('span', { class: 'user-pct ' + pctCls }, `${pct}%`),
-      el('button', { class: 'btn sm', onclick: () => showUserProgress(usr) }, 'Progreso'),
-      el('button', { class: 'btn ghost sm', onclick: () => resetPass(usr) }, 'Contraseña'),
-      el('button', { class: 'btn danger sm', onclick: () => delUser(usr) }, 'Eliminar')));
-    listCard.appendChild(item);
+    const card = el('div', { class: 'user-card' });
+    card.appendChild(el('div', { class: 'uav' }, uInitials(usr)));
+    card.appendChild(el('div', { class: 'uinfo' },
+      el('div', { class: 'un' }, usr.full_name || usr.username,
+        usr.role === 'admin' ? el('span', { class: 'pill', style: 'margin-left:8px' }, 'admin') : null),
+      el('div', { class: 'us' }, `@${usr.username} · ${p.completed || 0}/${totalLessons} lecciones`)));
+    card.appendChild(el('div', { class: 'uprog' },
+      el('div', { class: 'pt' },
+        el('span', { class: 'user-pct ' + pctCls }, `${pct}%`),
+        el('span', { style: 'color:var(--muted);font-size:12px;font-weight:700' }, pct >= 100 ? 'Completo' : (pct === 0 ? 'Sin iniciar' : 'En curso'))),
+      el('div', { class: 'pg-bar' }, el('i', { style: `width:${pct}%` }))));
+    card.appendChild(el('div', { class: 'uactions' },
+      el('button', { class: 'btn sm', onclick: () => showUserProgress(usr) }, 'Ver progreso'),
+      el('button', { class: 'iconbtn', title: 'Cambiar contraseña', onclick: () => resetPass(usr) }, icon('edit')),
+      el('button', { class: 'iconbtn danger', title: 'Eliminar usuario', onclick: () => delUser(usr) }, icon('trash'))));
+    listCard.appendChild(card);
   }
   root.appendChild(listCard);
 }
