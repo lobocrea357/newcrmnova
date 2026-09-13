@@ -15,13 +15,13 @@ const LOGO_SVG = `<svg viewBox="0 0 44 34" fill="none" xmlns="http://www.w3.org/
   <path d="M21 12.5 27 2h10L26.5 22 21 12.5Z" fill="#a855f7" opacity=".55"/>
 </svg>`;
 
-const HERO_ART = `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMaxYMid meet">
-  <circle cx="150" cy="60" r="70" fill="#ffffff" opacity="0.08"/>
-  <circle cx="150" cy="60" r="46" fill="#ffffff" opacity="0.08"/>
-  <path d="M12 128 Q 90 30 186 66" stroke="#ffffff" stroke-width="2" stroke-dasharray="2 7" stroke-linecap="round" fill="none" opacity="0.85"/>
-  <circle cx="12" cy="128" r="4" fill="#ffffff"/>
-  <g transform="translate(182 52) rotate(28)">
-    <path d="M0 8 L22 0 L13 22 L10 13 Z" fill="#ffffff"/>
+const HERO_ART = `<svg viewBox="0 0 200 110" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMaxYMin meet">
+  <circle cx="150" cy="40" r="66" fill="#ffffff" opacity="0.09"/>
+  <circle cx="150" cy="40" r="42" fill="#ffffff" opacity="0.09"/>
+  <path d="M36 40 Q 108 6 182 30" stroke="#ffffff" stroke-width="2" stroke-dasharray="2 7" stroke-linecap="round" fill="none" opacity="0.9"/>
+  <circle cx="36" cy="40" r="3.5" fill="#ffffff"/>
+  <g transform="translate(178 18) rotate(26)">
+    <path d="M0 7 L20 0 L12 20 L9 12 Z" fill="#ffffff"/>
   </g>
 </svg>`;
 

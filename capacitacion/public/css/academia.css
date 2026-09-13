@@ -52,12 +52,13 @@ img { max-width: 100%; display: block; }
   padding: 20px; position: relative; overflow: hidden; box-shadow: var(--shadow);
 }
 .hero .htext { position: relative; z-index: 2; }
-.hero h1 { margin: 0 0 4px; font-size: 25px; font-weight: 800; }
-.hero p { margin: 0 0 16px; font-size: 14px; opacity: .95; max-width: 62%; line-height: 1.3; }
-.hero-art { position: absolute; right: -6px; top: 0; bottom: 0; width: 48%; z-index: 1; pointer-events: none; }
+.hero h1 { margin: 0 0 4px; font-size: 25px; font-weight: 800; max-width: 64%; }
+.hero p { margin: 0 0 16px; font-size: 14px; opacity: .95; max-width: 60%; line-height: 1.3; }
+.hero-art { position: absolute; right: -6px; top: 0; height: 60%; width: 46%; z-index: 1; pointer-events: none; }
 .hero-art svg { width: 100%; height: 100%; }
-.hero-tagline { position: absolute; right: 16px; bottom: 74px; z-index: 2; text-align: right;
-  font-style: italic; font-size: 11.5px; line-height: 1.35; opacity: .95; font-weight: 600; }
+.hero-tagline { position: absolute; right: 16px; top: 50%; transform: translateY(-28%); z-index: 2;
+  max-width: 122px; text-align: right; font-style: italic; font-size: 12px; line-height: 1.35;
+  opacity: .96; font-weight: 600; text-shadow: 0 1px 3px rgba(60, 20, 120, .4); }
 .progress-pill { position: relative; z-index: 2; background: #fff; border-radius: 14px; padding: 10px 14px;
   box-shadow: 0 8px 18px rgba(60,20,120,.22); max-width: 74%; }
 .progress-pill .row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
