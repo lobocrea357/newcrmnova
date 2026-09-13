@@ -3,6 +3,7 @@ let TREE = [];
 let DONE = new Set();     // completed lesson ids
 let LAST = null;          // last viewed lesson id
 let curVideoIdx = 0;
+let lastMain = '#/';      // última pantalla principal (para "atrás")
 
 const MOD_ICONS = ['✈️','🧳','📈','👥','📚','🎯','💼','🌍','⭐','🧭','📝','🎓'];
 const modIcon = (i) => MOD_ICONS[i % MOD_ICONS.length];
@@ -219,7 +220,7 @@ function renderCourse(id) {
   const s = modStats(m);
 
   const back = el('div', { class: 'subhead' },
-    el('button', { class: 'backbtn', onclick: () => history.length > 1 ? history.back() : (location.hash = '#/') }, '‹'),
+    el('button', { class: 'backbtn', onclick: () => location.hash = lastMain }, '‹'),
     el('div', {}, el('div', { class: 'sub' }, `Módulo ${String(idx + 1).padStart(2, '0')}`)));
 
   const hero = el('div', { class: 'course-hero' },
@@ -355,6 +356,7 @@ function renderProfile() {
 /* ---------- router ---------- */
 function route() {
   const h = location.hash.replace(/^#/, '');
+  if (['', '/', '/modules', '/progress', '/profile'].includes(h)) lastMain = h && h !== '/' ? '#' + h : '#/';
   if (h.startsWith('/module/')) return renderCourse(Number(h.split('/')[2]));
   if (h.startsWith('/lesson/')) return renderLesson(Number(h.split('/')[2]));
   if (h === '/modules') return renderModules();
