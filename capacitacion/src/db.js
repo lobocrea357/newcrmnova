@@ -45,8 +45,17 @@ CREATE TABLE IF NOT EXISTS videos (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS lesson_progress (
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  lesson_id  INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+  completed  BOOLEAN NOT NULL DEFAULT false,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, lesson_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_lessons_module ON lessons(module_id);
 CREATE INDEX IF NOT EXISTS idx_videos_lesson ON videos(lesson_id);
+CREATE INDEX IF NOT EXISTS idx_progress_user ON lesson_progress(user_id);
 `;
 
 export async function initDb() {

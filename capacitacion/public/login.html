@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Capacitación Nova — Ingreso</title>
-  <link rel="stylesheet" href="css/styles.css" />
+  <title>Viajes Nova Academia — Ingreso</title>
+  <link rel="stylesheet" href="css/academia.css" />
   <script src="config.js"></script>
 </head>
 <body>
   <div class="login-wrap">
     <form class="login-card" id="loginForm">
-      <div class="brand">
-        <div class="logo">N</div>
-        <div>Capacitación <span style="color:var(--brand)">Nova</span><br><small>Área de capacitación</small></div>
+      <div class="wordmark">
+        <div class="v">V</div>
+        <div class="txt"><b>VIAJES NOVA</b><small>Academia</small></div>
       </div>
       <h1>Bienvenido</h1>
-      <p class="sub">Ingresa con tu usuario y contraseña.</p>
+      <p class="sub">Ingresa para continuar tu formación.</p>
 
       <label for="username">Usuario</label>
       <input id="username" name="username" autocomplete="username" autofocus required />
@@ -23,9 +23,9 @@
       <label for="password">Contraseña</label>
       <input id="password" name="password" type="password" autocomplete="current-password" required />
 
-      <div class="error-msg" id="err"></div>
+      <div class="err" id="err"></div>
 
-      <div style="margin-top:20px">
+      <div style="margin-top:22px">
         <button class="btn block" type="submit" id="submitBtn">Ingresar</button>
       </div>
     </form>
@@ -37,27 +37,20 @@
     const err = document.getElementById('err');
     const btn = document.getElementById('submitBtn');
 
-    // If already logged in, go straight in
-    api('/auth/me').then(({ user }) => {
-      location.href = BASE + (user.role === 'admin' ? '/' : '/');
-    }).catch(() => {});
+    api('/auth/me').then(() => { location.href = BASE + '/'; }).catch(() => {});
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       err.classList.remove('show');
       btn.disabled = true; btn.textContent = 'Ingresando…';
       try {
-        await api('/auth/login', {
-          method: 'POST',
-          body: {
-            username: document.getElementById('username').value,
-            password: document.getElementById('password').value,
-          },
-        });
+        await api('/auth/login', { method: 'POST', body: {
+          username: document.getElementById('username').value,
+          password: document.getElementById('password').value,
+        }});
         location.href = BASE + '/';
       } catch (e2) {
-        err.textContent = e2.message;
-        err.classList.add('show');
+        err.textContent = e2.message; err.classList.add('show');
         btn.disabled = false; btn.textContent = 'Ingresar';
       }
     });

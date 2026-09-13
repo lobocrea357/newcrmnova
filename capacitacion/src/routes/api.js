@@ -43,6 +43,47 @@ router.get('/content', requireAuth, async (req, res) => {
   res.json({ modules: tree });
 });
 
+/* ============ PROGRESS (usuario actual) ============ */
+// Estado de progreso del usuario: lecciones completadas + última vista
+router.get('/me/progress', requireAuth, async (req, res) => {
+  const uid = req.session.user.id;
+  const r = await pool.query('SELECT lesson_id, completed, updated_at FROM lesson_progress WHERE user_id = $1', [uid]);
+  const completed = r.rows.filter(x => x.completed).map(x => x.lesson_id);
+  let lastLessonId = null, lastT = 0;
+  for (const row of r.rows) {
+    const t = new Date(row.updated_at).getTime();
+    if (t > lastT) { lastT = t; lastLessonId = row.lesson_id; }
+  }
+  res.json({ completed, lastLessonId });
+});
+
+// Marcar lección como completada / no completada
+router.put('/me/progress/:lessonId', requireAuth, async (req, res) => {
+  const uid = req.session.user.id;
+  const lid = Number(req.params.lessonId);
+  const completed = !!(req.body && req.body.completed);
+  await pool.query(
+    `INSERT INTO lesson_progress (user_id, lesson_id, completed, updated_at)
+     VALUES ($1, $2, $3, now())
+     ON CONFLICT (user_id, lesson_id) DO UPDATE SET completed = $3, updated_at = now()`,
+    [uid, lid, completed]
+  );
+  res.json({ ok: true, completed });
+});
+
+// Registrar "última vista" (al abrir una lección) sin cambiar el completado
+router.post('/me/progress/:lessonId/touch', requireAuth, async (req, res) => {
+  const uid = req.session.user.id;
+  const lid = Number(req.params.lessonId);
+  await pool.query(
+    `INSERT INTO lesson_progress (user_id, lesson_id, completed, updated_at)
+     VALUES ($1, $2, false, now())
+     ON CONFLICT (user_id, lesson_id) DO UPDATE SET updated_at = now()`,
+    [uid, lid]
+  );
+  res.json({ ok: true });
+});
+
 /* ============ MODULES (admin) ============ */
 router.post('/modules', requireAdmin, async (req, res) => {
   const { title, description = '', position = 0 } = req.body || {};

@@ -1,108 +1,314 @@
+let ME = null;
 let TREE = [];
-let currentLesson = null;
+let DONE = new Set();     // completed lesson ids
+let LAST = null;          // last viewed lesson id
+let curVideoIdx = 0;
+
+const MOD_ICONS = ['✈️','🧳','📈','👥','📚','🎯','💼','🌍','⭐','🧭','📝','🎓'];
+const modIcon = (i) => MOD_ICONS[i % MOD_ICONS.length];
+
+const TAB_ICONS = {
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
+  mods: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg>',
+  prog: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
+};
+
+/* ---------- data ---------- */
+async function loadAll() {
+  try { ME = (await api('/auth/me')).user; }
+  catch { location.href = BASE + '/login'; return false; }
+  const [content, prog] = await Promise.all([api('/content'), api('/me/progress')]);
+  TREE = content.modules;
+  DONE = new Set(prog.completed);
+  LAST = prog.lastLessonId;
+  return true;
+}
+
+/* ---------- helpers ---------- */
+function firstName() { return (ME.full_name || ME.username || '').trim().split(/\s+/)[0] || ME.username; }
+function initials() { const s = (ME.full_name || ME.username || '?').trim(); const p = s.split(/\s+/); return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || s[0].toUpperCase(); }
+function modStats(m) {
+  const total = m.lessons.length;
+  const done = m.lessons.filter(l => DONE.has(l.id)).length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  const status = total && done === total ? 'done' : (done > 0 ? 'curso' : 'zero');
+  return { total, done, pct, status };
+}
+function overall() {
+  let total = 0, done = 0;
+  for (const m of TREE) for (const l of m.lessons) { total++; if (DONE.has(l.id)) done++; }
+  return { total, done, pct: total ? Math.round(done / total * 100) : 0 };
+}
+function allLessons() { return TREE.flatMap(m => m.lessons.map(l => ({ m, l }))); }
+function resumeInfo() {
+  const list = allLessons(); if (!list.length) return null;
+  let pick = LAST ? list.find(x => x.l.id === LAST) : null;
+  if (pick && DONE.has(pick.l.id)) {
+    const idx = list.indexOf(pick);
+    pick = list.slice(idx + 1).find(x => !DONE.has(x.l.id)) || list.find(x => !DONE.has(x.l.id)) || pick;
+  }
+  if (!pick) pick = list.find(x => !DONE.has(x.l.id)) || list[0];
+  return pick;
+}
+function ytId(url) { const m = String(url).match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/); return m ? m[1] : null; }
+function thumbUrl(v) { if (!v) return null; const id = ytId(v.url); return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null; }
+function findModule(id) { return TREE.find(m => m.id === id); }
+function findLessonCtx(id) { for (const m of TREE) { const i = m.lessons.findIndex(l => l.id === id); if (i >= 0) return { m, l: m.lessons[i], idx: i }; } return null; }
+
+/* ---------- shell ---------- */
+const app = () => document.getElementById('app');
+function tabbar(active) {
+  const mk = (key, label, hash) => el('button', {
+    class: 'tab' + (active === key ? ' active' : ''),
+    onclick: () => { location.hash = hash; },
+  }, el('span', { html: TAB_ICONS[key] }), label);
+  return el('div', { class: 'tabbar' },
+    mk('home', 'Inicio', '#/'),
+    mk('mods', 'Módulos', '#/modules'),
+    mk('prog', 'Progreso', '#/progress'),
+    mk('user', 'Perfil', '#/profile'));
+}
+function paint(nodes, activeTab) {
+  const a = app(); a.innerHTML = '';
+  (Array.isArray(nodes) ? nodes : [nodes]).forEach(n => n && a.appendChild(n));
+  a.appendChild(tabbar(activeTab));
+  a.scrollTop = 0; window.scrollTo(0, 0);
+}
+function appbar() {
+  return el('div', { class: 'appbar' },
+    el('div', { class: 'wordmark' },
+      el('div', { class: 'v' }, 'V'),
+      el('div', { class: 'txt', html: '<b>VIAJES NOVA</b><small>Academia</small>' })),
+    el('div', { class: 'tools' },
+      el('div', { class: 'iconbadge', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>' },
+        el('span', { class: 'dot' })),
+      el('div', { class: 'avatar', onclick: () => location.hash = '#/profile' }, initials())));
+}
+function pbar(pct) { return el('div', { class: 'pbar' }, el('i', { style: `width:${pct}%` })); }
+
+/* ---------- HOME ---------- */
+function renderHome() {
+  const ov = overall();
+  const hero = el('div', { class: 'hero' },
+    el('h1', {}, `¡Hola, ${firstName()}!`),
+    el('p', {}, 'Continúa fortaleciendo tus habilidades'),
+    el('div', { class: 'bar' }, el('i', { style: `width:${ov.pct}%` })),
+    el('div', { class: 'pct' }, `${ov.pct}% completado`));
+
+  const grid = el('div', { class: 'courses' });
+  TREE.forEach((m, i) => grid.appendChild(courseCard(m, i)));
+
+  const section = el('div', { class: 'screen' },
+    el('div', { class: 'sec-head' },
+      el('h2', {}, 'Tu ruta de aprendizaje'),
+      el('a', { href: '#/modules' }, 'Ver todo ›')),
+    TREE.length ? grid : el('div', { class: 'empty' }, el('div', { class: 'big' }, '🗂️'), 'Aún no hay cursos publicados.'));
+
+  const nodes = [appbar(), hero, section];
+
+  const r = resumeInfo();
+  if (r) {
+    const v = r.l.videos[0];
+    const th = thumbUrl(v);
+    const ctx = findLessonCtx(r.l.id);
+    const resume = el('div', { class: 'screen', style: 'padding-top:0' },
+      el('div', { class: 'sec-head' }, el('h2', {}, 'Continúa donde quedaste')),
+      el('div', { class: 'resume' },
+        el('div', { class: 'thumb' },
+          th ? el('img', { src: th, alt: '' }) : null,
+          el('div', { class: 'play', html: '▶' })),
+        el('div', { class: 'info' },
+          el('h4', {}, r.l.title),
+          el('small', {}, `${r.m.title} · Lección ${ctx.idx + 1}`),
+          el('div', { class: 'go' },
+            el('button', { class: 'btn sm', onclick: () => location.hash = `#/lesson/${r.l.id}` }, 'Continuar ›')))));
+    nodes.push(resume);
+  }
+  paint(nodes, 'home');
+}
+
+function courseCard(m, i) {
+  const s = modStats(m);
+  const badge = s.status === 'done'
+    ? el('span', { class: 'badge-status done' }, 'Completado')
+    : (s.status === 'curso' ? el('span', { class: 'badge-status' }, 'En curso') : null);
+  return el('div', { class: 'course' + (s.status === 'curso' ? ' active' : ''), onclick: () => location.hash = `#/module/${m.id}` },
+    badge,
+    el('div', { class: 'top' }, el('span', { class: 'num' }, String(i + 1).padStart(2, '0')), el('span', { class: 'chev' }, '›')),
+    el('div', { class: 'cicon' }, modIcon(i)),
+    el('h3', {}, m.title),
+    el('div', { class: 'lc' }, `${s.total} lección${s.total === 1 ? '' : 'es'}`),
+    pbar(s.pct),
+    el('div', { class: 'pct ' + (s.status === 'done' ? 'done' : s.status === 'zero' ? 'zero' : '') }, `${s.pct}% completado`));
+}
+
+/* ---------- MÓDULOS (lista) ---------- */
+function renderModules() {
+  const list = el('div', { class: 'courses', style: 'grid-template-columns:1fr' });
+  TREE.forEach((m, i) => list.appendChild(courseCard(m, i)));
+  paint([
+    el('div', { class: 'screen' },
+      el('div', { class: 'sec-head' }, el('h2', {}, 'Módulos')),
+      TREE.length ? list : el('div', { class: 'empty' }, el('div', { class: 'big' }, '🗂️'), 'Aún no hay cursos.')),
+  ], 'mods');
+}
+
+/* ---------- CURSO ---------- */
+function renderCourse(id) {
+  const m = findModule(id);
+  if (!m) { location.hash = '#/'; return; }
+  const idx = TREE.indexOf(m);
+  const s = modStats(m);
+
+  const back = el('div', { class: 'subhead' },
+    el('button', { class: 'backbtn', onclick: () => history.length > 1 ? history.back() : (location.hash = '#/') }, '‹'),
+    el('div', {}, el('div', { class: 'sub' }, `Módulo ${String(idx + 1).padStart(2, '0')}`)));
+
+  const hero = el('div', { class: 'course-hero' },
+    el('div', { class: 'cicon' }, modIcon(idx)),
+    el('h2', {}, m.title),
+    m.description ? el('p', {}, m.description) : null,
+    el('div', { class: 'bar' }, el('i', { style: `width:${s.pct}%` })),
+    el('div', { class: 'pct' }, `${s.done}/${s.total} lecciones · ${s.pct}% completado`));
+
+  const lessons = el('div', { class: 'lessons' });
+  if (!m.lessons.length) lessons.appendChild(el('div', { class: 'empty' }, 'Este módulo aún no tiene lecciones.'));
+  m.lessons.forEach((l, i) => {
+    const done = DONE.has(l.id);
+    lessons.appendChild(el('div', { class: 'lrow' + (done ? ' done' : ''), onclick: () => location.hash = `#/lesson/${l.id}` },
+      el('div', { class: 'check' }, '✓'),
+      el('div', { class: 'lmeta' }, el('strong', {}, `${i + 1}. ${l.title}`), el('small', {}, `${l.videos.length} video${l.videos.length === 1 ? '' : 's'}`)),
+      el('div', { class: 'lchev' }, '›')));
+  });
+
+  paint([back, hero, lessons], 'mods');
+}
+
+/* ---------- LECCIÓN ---------- */
+function renderLesson(id) {
+  const ctx = findLessonCtx(id);
+  if (!ctx) { location.hash = '#/'; return; }
+  const { m, l, idx } = ctx;
+  curVideoIdx = 0;
+  LAST = id;
+  api(`/me/progress/${id}/touch`, { method: 'POST' }).catch(() => {});
+  drawLesson(m, l, idx);
+}
+
+function drawLesson(m, l, idx) {
+  const done = DONE.has(l.id);
+  const back = el('div', { class: 'subhead' },
+    el('button', { class: 'backbtn', onclick: () => location.hash = `#/module/${m.id}` }, '‹'),
+    el('div', {}, el('h1', {}, l.title), el('div', { class: 'sub' }, `${m.title} · Lección ${idx + 1}`)));
+
+  const player = el('div', { class: 'player' });
+  if (l.videos.length) {
+    const v = l.videos[curVideoIdx] || l.videos[0];
+    const frame = el('div', { class: 'frame' });
+    frame.appendChild(buildVideoEmbed(v.url));
+    player.appendChild(frame);
+    player.appendChild(el('h2', {}, v.title));
+    if (l.description) player.appendChild(el('p', { class: 'pdesc' }, l.description));
+    if (l.videos.length > 1) {
+      const tabs = el('div', { class: 'vtabs' });
+      l.videos.forEach((vv, i) => tabs.appendChild(el('button', {
+        class: 'vtab' + (i === curVideoIdx ? ' active' : ''),
+        onclick: () => { curVideoIdx = i; drawLesson(m, l, idx); },
+      }, `${i + 1}. ${vv.title}`)));
+      player.appendChild(tabs);
+    }
+  } else {
+    player.appendChild(el('div', { class: 'empty' }, el('div', { class: 'big' }, '🎬'), 'Esta lección aún no tiene videos.'));
+  }
+
+  // Mark complete
+  const completeBtn = el('button', {
+    class: 'btn block ' + (done ? 'ok' : ''),
+    onclick: async () => {
+      const nowDone = !DONE.has(l.id);
+      try {
+        await api(`/me/progress/${l.id}`, { method: 'PUT', body: { completed: nowDone } });
+        if (nowDone) DONE.add(l.id); else DONE.delete(l.id);
+        toast(nowDone ? '¡Lección completada!' : 'Marcada como pendiente');
+        drawLesson(m, l, idx);
+      } catch (e) { toast(e.message, true); }
+    },
+  }, done ? '✓ Completada' : 'Marcar como completada');
+
+  // Prev / next
+  const nav = el('div', { class: 'lesson-nav' });
+  if (idx > 0) nav.appendChild(el('button', { class: 'btn ghost', onclick: () => location.hash = `#/lesson/${m.lessons[idx - 1].id}` }, '‹ Anterior'));
+  if (idx < m.lessons.length - 1) nav.appendChild(el('button', { class: 'btn soft', onclick: () => location.hash = `#/lesson/${m.lessons[idx + 1].id}` }, 'Siguiente ›'));
+
+  paint([back, player, el('div', { class: 'screen', style: 'padding-top:6px' }, completeBtn, nav)], 'mods');
+}
+
+/* ---------- PROGRESO ---------- */
+function renderProgress() {
+  const ov = overall();
+  const R = 40, C = 2 * Math.PI * R, off = C * (1 - ov.pct / 100);
+  const ring = el('div', { class: 'ring-wrap' },
+    el('div', { html: `
+      <svg class="ring" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="${R}" fill="none" stroke="#ece9f4" stroke-width="10"/>
+        <circle cx="50" cy="50" r="${R}" fill="none" stroke="#7c3aed" stroke-width="10" stroke-linecap="round"
+          stroke-dasharray="${C}" stroke-dashoffset="${off}" transform="rotate(-90 50 50)"/>
+        <text class="num" x="50" y="57" text-anchor="middle">${ov.pct}%</text>
+      </svg>` }),
+    el('div', {},
+      el('div', { style: 'font-size:16px;font-weight:800' }, 'Progreso general'),
+      el('div', { style: 'color:var(--muted);font-size:13px;margin-top:2px' }, `${ov.done} de ${ov.total} lecciones completadas`)));
+
+  const stats = el('div', { class: 'stat-list' });
+  TREE.forEach((m, i) => {
+    const s = modStats(m);
+    stats.appendChild(el('div', { class: 'stat', onclick: () => location.hash = `#/module/${m.id}`, style: 'cursor:pointer' },
+      el('div', { class: 'st-top' },
+        el('strong', {}, `${modIcon(i)}  ${m.title}`),
+        el('span', {}, `${s.pct}%`)),
+      pbar(s.pct)));
+  });
+
+  paint([
+    el('div', { class: 'screen' }, el('div', { class: 'sec-head' }, el('h2', {}, 'Tu progreso'))),
+    ring,
+    TREE.length ? stats : el('div', { class: 'empty' }, 'Sin cursos todavía.'),
+  ], 'prog');
+}
+
+/* ---------- PERFIL ---------- */
+function renderProfile() {
+  const ov = overall();
+  const block = el('div', { class: 'profile' },
+    el('div', { class: 'big-av' }, initials()),
+    el('h2', {}, ME.full_name || ME.username),
+    el('div', { class: 'role' }, ME.role === 'admin' ? 'Administrador' : 'Estudiante'),
+    el('div', { class: 'prow' }, el('span', {}, 'Usuario'), el('small', {}, ME.username)),
+    el('div', { class: 'prow' }, el('span', {}, 'Progreso general'), el('small', {}, `${ov.pct}%`)),
+    el('div', { class: 'prow' }, el('span', {}, 'Lecciones completadas'), el('small', {}, `${ov.done} / ${ov.total}`)));
+  if (ME.role === 'admin') {
+    block.appendChild(el('a', { href: 'admin', style: 'text-decoration:none' },
+      el('button', { class: 'btn soft block', style: 'margin-top:14px' }, '⚙ Panel de administración')));
+  }
+  block.appendChild(el('button', { class: 'btn ghost block', style: 'margin-top:10px', onclick: logout }, 'Cerrar sesión'));
+  paint([el('div', { class: 'screen' }, el('div', { class: 'sec-head' }, el('h2', {}, 'Perfil'))), block], 'user');
+}
+
+/* ---------- router ---------- */
+function route() {
+  const h = location.hash.replace(/^#/, '');
+  if (h.startsWith('/module/')) return renderCourse(Number(h.split('/')[2]));
+  if (h.startsWith('/lesson/')) return renderLesson(Number(h.split('/')[2]));
+  if (h === '/modules') return renderModules();
+  if (h === '/progress') return renderProgress();
+  if (h === '/profile') return renderProfile();
+  return renderHome();
+}
 
 async function boot() {
-  let me;
-  try { me = (await api('/auth/me')).user; }
-  catch { location.href = BASE + '/login'; return; }
-
-  document.getElementById('userChip').textContent = me.full_name || me.username;
-  if (me.role === 'admin') document.getElementById('adminLink').style.display = '';
-
-  await loadContent();
+  if (!(await loadAll())) return;
+  window.addEventListener('hashchange', route);
+  route();
 }
-
-async function loadContent() {
-  const { modules } = await api('/content');
-  TREE = modules;
-  renderSidebar();
-  // Auto-select first lesson that has videos
-  const first = TREE.flatMap(m => m.lessons).find(l => l.videos.length) || TREE.flatMap(m => m.lessons)[0];
-  if (first) selectLesson(first.id);
-  else renderEmpty();
-}
-
-function renderSidebar() {
-  const sb = document.getElementById('sidebar');
-  sb.innerHTML = '';
-  if (!TREE.length) {
-    sb.appendChild(el('div', { class: 'empty-state', style: 'padding:30px 10px' },
-      el('p', {}, 'Aún no hay módulos.')));
-    return;
-  }
-  for (const m of TREE) {
-    const block = el('div', { class: 'module-block' });
-    block.appendChild(el('div', { class: 'module-title' }, m.title));
-    if (!m.lessons.length) {
-      block.appendChild(el('div', { class: 'lesson-item', style: 'color:var(--muted);cursor:default' }, 'Sin lecciones'));
-    }
-    for (const l of m.lessons) {
-      const item = el('div', {
-        class: 'lesson-item' + (currentLesson === l.id ? ' active' : ''),
-        'data-lesson': l.id,
-        onclick: () => selectLesson(l.id),
-      }, el('span', { class: 'dot' }), l.title);
-      block.appendChild(item);
-    }
-    sb.appendChild(block);
-  }
-}
-
-function findLesson(id) {
-  for (const m of TREE) for (const l of m.lessons) if (l.id === id) return l;
-  return null;
-}
-
-function selectLesson(id) {
-  currentLesson = id;
-  document.querySelectorAll('.lesson-item').forEach(n =>
-    n.classList.toggle('active', Number(n.dataset.lesson) === id));
-  const lesson = findLesson(id);
-  if (!lesson) return;
-  renderLesson(lesson, 0);
-}
-
-function renderLesson(lesson, videoIdx) {
-  const c = document.getElementById('content');
-  c.innerHTML = '';
-
-  if (!lesson.videos.length) {
-    c.appendChild(el('div', {},
-      el('h1', { style: 'margin:0 0 6px' }, lesson.title),
-      lesson.description ? el('p', { style: 'color:var(--muted)' }, lesson.description) : null,
-      el('div', { class: 'empty-state' }, el('h3', {}, 'Esta lección todavía no tiene videos.'))
-    ));
-    return;
-  }
-
-  const video = lesson.videos[videoIdx] || lesson.videos[0];
-  const card = el('div', { class: 'player-card' });
-  const frame = el('div', { class: 'video-frame' });
-  frame.appendChild(buildVideoEmbed(video.url));
-  card.appendChild(frame);
-  card.appendChild(el('div', { class: 'player-meta' },
-    el('h2', {}, video.title),
-    lesson.description ? el('p', {}, lesson.description) : null
-  ));
-
-  if (lesson.videos.length > 1) {
-    const tabs = el('div', { class: 'video-tabs' });
-    lesson.videos.forEach((v, i) => {
-      tabs.appendChild(el('button', {
-        class: 'video-tab' + (i === videoIdx ? ' active' : ''),
-        onclick: () => renderLesson(lesson, i),
-      }, `${i + 1}. ${v.title}`));
-    });
-    card.appendChild(tabs);
-  }
-
-  c.appendChild(el('h1', { style: 'margin:0 0 16px; font-size:22px' }, lesson.title));
-  c.appendChild(card);
-}
-
-function renderEmpty() {
-  document.getElementById('content').innerHTML =
-    '<div class="empty-state"><h3>Bienvenido a Capacitación Nova</h3><p>El administrador aún no ha publicado contenido.</p></div>';
-}
-
 boot();
