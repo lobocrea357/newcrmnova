@@ -54,7 +54,7 @@ img { max-width: 100%; display: block; }
     linear-gradient(100deg, #7c3aed 0%, rgba(124,58,237,.97) 38%, rgba(124,58,237,.62) 64%, rgba(109,40,217,.28) 100%),
     url('../img/hero.jpg');
   background-size: cover, cover;
-  background-position: center, right center;
+  background-position: center, 70% 32%;
   background-repeat: no-repeat, no-repeat;
 }
 .hero .htext { position: relative; z-index: 2; }
