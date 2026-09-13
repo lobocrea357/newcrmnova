@@ -48,8 +48,14 @@ img { max-width: 100%; display: block; }
 
 /* Greeting / hero card */
 .hero {
-  margin: 8px 18px 6px; border-radius: 22px; background: var(--grad); color: #fff;
+  margin: 8px 18px 6px; border-radius: 22px; color: #fff;
   padding: 20px; position: relative; overflow: hidden; box-shadow: var(--shadow);
+  background:
+    linear-gradient(100deg, #7c3aed 0%, rgba(124,58,237,.97) 38%, rgba(124,58,237,.62) 64%, rgba(109,40,217,.28) 100%),
+    url('../img/hero.jpg');
+  background-size: cover, cover;
+  background-position: center, right center;
+  background-repeat: no-repeat, no-repeat;
 }
 .hero .htext { position: relative; z-index: 2; }
 .hero h1 { margin: 0 0 4px; font-size: 25px; font-weight: 800; max-width: 64%; }
