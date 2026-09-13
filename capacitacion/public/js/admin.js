@@ -321,9 +321,44 @@ async function delItem(label, path, after) {
 }
 
 /* ================= USUARIOS ================= */
-async function loadUsers() { renderUsers((await api('/users')).users); }
+async function loadUsers() {
+  const [usersRes, summary] = await Promise.all([api('/users'), api('/admin/progress')]);
+  const map = {};
+  summary.users.forEach(u => { map[u.id] = u; });
+  renderUsers(usersRes.users, map, summary.total);
+}
 
-function renderUsers(users) {
+async function showUserProgress(usr) {
+  let completed = [];
+  try { completed = (await api(`/users/${usr.id}/progress`)).completed; }
+  catch (e) { return toast(e.message, true); }
+  const done = new Set(completed);
+  let total = 0, doneCount = 0;
+  const rows = TREE.map(m => {
+    const t = m.lessons.length;
+    const d = m.lessons.filter(l => done.has(l.id)).length;
+    total += t; doneCount += d;
+    return { title: m.title, t, d, pct: t ? Math.round(d / t * 100) : 0 };
+  });
+  const overall = total ? Math.round(doneCount / total * 100) : 0;
+
+  const overlay = el('div', { class: 'modal-overlay' });
+  const close = () => overlay.remove();
+  overlay.appendChild(el('div', { class: 'modal wide' },
+    el('h3', {}, `Progreso de ${usr.full_name || usr.username}`),
+    el('p', { class: 'msub' }, `@${usr.username}`),
+    el('div', { class: 'pg-overall' }, el('span', { class: 'big' }, `${overall}%`), el('small', {}, `${doneCount} de ${total} lecciones completadas`)),
+    el('div', { class: 'pg-bar' }, el('i', { style: `width:${overall}%` })),
+    rows.length ? rows.map(r => el('div', { class: 'pg-row' },
+      el('div', { class: 'pg-top' }, el('strong', {}, r.title), el('span', {}, `${r.d}/${r.t} · ${r.pct}%`)),
+      el('div', { class: 'pg-bar' }, el('i', { style: `width:${r.pct}%` })))) : el('div', { class: 'pg-empty', style: 'margin-top:12px' }, 'Aún no hay módulos.'),
+    el('div', { class: 'mbtns' }, el('button', { class: 'btn', onclick: close }, 'Cerrar'))));
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); } });
+  document.body.appendChild(overlay);
+}
+
+function renderUsers(users, prog = {}, totalLessons = 0) {
   const root = document.getElementById('tab-users');
   root.innerHTML = '';
   const addCard = el('div', { class: 'card' });
@@ -347,12 +382,17 @@ function renderUsers(users) {
   const listCard = el('div', { class: 'card' });
   listCard.appendChild(el('h2', {}, 'Usuarios'));
   for (const usr of users) {
+    const p = prog[usr.id] || { completed: 0 };
+    const pct = totalLessons ? Math.round((p.completed || 0) / totalLessons * 100) : 0;
+    const pctCls = pct >= 100 ? 'done' : (pct === 0 ? 'zero' : '');
     const item = el('div', { class: 'list-item' });
     item.appendChild(el('div', { class: 'meta' },
       el('strong', {}, usr.username, usr.role === 'admin' ? el('span', { class: 'pill', style: 'margin-left:8px' }, 'admin') : null),
-      el('small', {}, usr.full_name || '—')));
+      el('small', {}, `${usr.full_name || '—'} · ${p.completed || 0}/${totalLessons} lecciones`)));
     item.appendChild(el('div', { class: 'actions' },
-      el('button', { class: 'btn ghost sm', onclick: () => resetPass(usr) }, 'Cambiar contraseña'),
+      el('span', { class: 'user-pct ' + pctCls }, `${pct}%`),
+      el('button', { class: 'btn sm', onclick: () => showUserProgress(usr) }, 'Progreso'),
+      el('button', { class: 'btn ghost sm', onclick: () => resetPass(usr) }, 'Contraseña'),
       el('button', { class: 'btn danger sm', onclick: () => delUser(usr) }, 'Eliminar')));
     listCard.appendChild(item);
   }

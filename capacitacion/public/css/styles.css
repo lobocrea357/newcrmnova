@@ -269,3 +269,28 @@ textarea { resize: vertical; min-height: 60px; }
   .editor { grid-template-columns: 1fr; }
   .ed-nav { border-right: 0; border-bottom: 1px solid var(--border); max-height: 42vh; }
 }
+
+/* ============ Progreso de usuarios (admin) ============ */
+.user-pct { font-size: 12px; font-weight: 800; color: var(--brand); background: rgba(59,130,246,.14);
+  border: 1px solid rgba(59,130,246,.35); padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.user-pct.done { color: #86efac; background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.35); }
+.user-pct.zero { color: var(--muted); background: var(--card-2); border-color: var(--border); }
+
+.pg-overall { display: flex; align-items: baseline; gap: 10px; margin: 2px 0 6px; }
+.pg-overall .big { font-size: 30px; font-weight: 800; color: var(--text); }
+.pg-overall small { color: var(--muted); font-size: 13px; }
+.pg-bar { height: 8px; border-radius: 999px; background: var(--bg-2); overflow: hidden; border: 1px solid var(--border); }
+.pg-bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--brand), #22d3ee); }
+.pg-row { margin-top: 14px; }
+.pg-row .pg-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.pg-row .pg-top strong { font-size: 14px; }
+.pg-row .pg-top span { font-size: 12.5px; color: var(--muted); font-weight: 700; }
+.pg-empty { color: var(--muted); font-size: 13px; }
+.modal.wide { max-width: 520px; }
+
+/* list-item responsive (admin en pantallas angostas) */
+@media (max-width: 620px) {
+  .list-item { flex-wrap: wrap; }
+  .list-item .meta { flex: 1 1 100%; }
+  .list-item .actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+}

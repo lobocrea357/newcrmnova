@@ -205,6 +205,28 @@ router.patch('/users/:id/password', requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Resumen de progreso de todos los usuarios (admin)
+router.get('/admin/progress', requireAdmin, async (req, res) => {
+  const totalRow = await pool.query('SELECT count(*)::int AS n FROM lessons');
+  const total = totalRow.rows[0].n;
+  const r = await pool.query(`
+    SELECT u.id, u.username, u.full_name, u.role,
+           count(lp.lesson_id) FILTER (WHERE lp.completed)::int AS completed,
+           max(lp.updated_at) AS last_activity
+    FROM users u
+    LEFT JOIN lesson_progress lp ON lp.user_id = u.id
+    GROUP BY u.id
+    ORDER BY u.id`);
+  res.json({ total, users: r.rows });
+});
+
+// Progreso detallado (lecciones completadas) de un usuario (admin)
+router.get('/users/:id/progress', requireAdmin, async (req, res) => {
+  const uid = Number(req.params.id);
+  const r = await pool.query('SELECT lesson_id, completed FROM lesson_progress WHERE user_id = $1', [uid]);
+  res.json({ completed: r.rows.filter(x => x.completed).map(x => x.lesson_id) });
+});
+
 router.delete('/users/:id', requireAdmin, async (req, res) => {
   // Prevent deleting yourself
   if (Number(req.params.id) === req.session.user.id) {
