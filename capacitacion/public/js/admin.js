@@ -480,7 +480,7 @@ function renderUsers(users, prog = {}, totalLessons = 0) {
       el('div', { class: 'pg-bar' }, el('i', { style: `width:${pct}%` }))));
     card.appendChild(el('div', { class: 'uactions' },
       el('button', { class: 'btn sm', onclick: () => showUserProgress(usr) }, 'Ver progreso'),
-      el('button', { class: 'iconbtn', title: 'Cambiar contraseña', onclick: () => resetPass(usr) }, icon('edit')),
+      el('button', { class: 'btn ghost sm', onclick: () => resetPass(usr) }, '🔑 Contraseña'),
       el('button', { class: 'iconbtn danger', title: 'Eliminar usuario', onclick: () => delUser(usr) }, icon('trash'))));
     listCard.appendChild(card);
   }
