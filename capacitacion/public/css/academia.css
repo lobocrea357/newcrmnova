@@ -297,3 +297,15 @@ img { max-width: 100%; display: block; }
   .app { max-width: 1240px; }
   .courses { grid-template-columns: repeat(4, 1fr); }
 }
+
+/* Acceso de administrador */
+.admin-chip { display: inline-flex; align-items: center; gap: 6px; border: 0; cursor: pointer;
+  background: var(--grad); color: #fff; font-weight: 800; font-size: 12.5px; padding: 8px 12px;
+  border-radius: 10px; box-shadow: var(--shadow-sm); }
+.admin-chip svg { width: 15px; height: 15px; }
+.admin-chip:active { transform: translateY(1px); }
+.tabbar.has-admin { grid-template-columns: repeat(5, 1fr); }
+.tab-admin.active, .tab-admin { color: var(--brand); }
+@media (min-width: 1024px) {
+  .tabbar.has-admin { max-width: 560px; }
+}
