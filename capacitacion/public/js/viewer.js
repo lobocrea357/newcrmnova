@@ -58,6 +58,20 @@ function overall() {
   for (const m of TREE) for (const l of m.lessons) { total++; if (DONE.has(l.id)) done++; }
   return { total, done, pct: total ? Math.round(done / total * 100) : 0 };
 }
+function moduleComplete(m) { const s = modStats(m); return s.total === 0 || s.done === s.total; }
+// Módulos desbloqueados: el primero siempre; los demás si el anterior está 100% completo.
+// Los administradores ven todo desbloqueado.
+function unlockedSet() {
+  const set = new Set();
+  if (ME && ME.role === 'admin') { TREE.forEach(m => set.add(m.id)); return set; }
+  let prevOK = true;
+  for (const m of TREE) {
+    if (prevOK) set.add(m.id);
+    prevOK = set.has(m.id) && moduleComplete(m);
+  }
+  return set;
+}
+function isLocked(moduleId) { return !unlockedSet().has(moduleId); }
 function allLessons() { return TREE.flatMap(m => m.lessons.map(l => ({ m, l }))); }
 function resumeInfo() {
   const list = allLessons(); if (!list.length) return null;
@@ -108,8 +122,9 @@ function pbar(pct) { return el('div', { class: 'pbar' }, el('i', { style: `width
 /* ---------- HOME ---------- */
 function continueItems() {
   const items = [];
+  const unlocked = unlockedSet();
   TREE.forEach((m) => {
-    if (!m.lessons.length) return;
+    if (!m.lessons.length || !unlocked.has(m.id)) return;
     const done = m.lessons.filter(l => DONE.has(l.id)).length;
     if (done < m.lessons.length) {
       const l = m.lessons.find(x => !DONE.has(x.id)) || m.lessons[0];
@@ -139,8 +154,9 @@ function renderHome() {
         el('div', { class: 'row' }, el('b', {}, `${ov.pct}%`), el('span', {}, 'completado')),
         el('div', { class: 'track' }, el('i', { style: `width:${ov.pct}%` })))));
 
+  const unlocked = unlockedSet();
   const grid = el('div', { class: 'courses' });
-  TREE.forEach((m, i) => grid.appendChild(courseCard(m, i)));
+  TREE.forEach((m, i) => grid.appendChild(courseCard(m, i, !unlocked.has(m.id))));
 
   const section = el('div', { class: 'screen' },
     el('div', { class: 'sec-head' },
@@ -184,25 +200,35 @@ function renderHome() {
   paint(nodes, 'home');
 }
 
-function courseCard(m, i) {
+function courseCard(m, i, locked) {
   const s = modStats(m);
-  const badge = s.status === 'done'
-    ? el('span', { class: 'badge-status done' }, 'Completado')
-    : (s.status === 'curso' ? el('span', { class: 'badge-status' }, 'En curso') : null);
-  return el('div', { class: 'course' + (s.status === 'curso' ? ' active' : ''), onclick: () => location.hash = `#/module/${m.id}` },
+  let badge = null;
+  if (locked) badge = el('span', { class: 'badge-status lock' }, '🔒 Bloqueado');
+  else if (s.status === 'done') badge = el('span', { class: 'badge-status done' }, 'Completado');
+  else if (s.status === 'curso') badge = el('span', { class: 'badge-status' }, 'En curso');
+  return el('div', {
+      class: 'course' + (locked ? ' locked' : (s.status === 'curso' ? ' active' : '')),
+      onclick: () => {
+        if (locked) { toast('🔒 Completa el módulo anterior para desbloquear'); return; }
+        location.hash = `#/module/${m.id}`;
+      },
+    },
     badge,
-    el('div', { class: 'top' }, el('span', { class: 'num' }, String(i + 1).padStart(2, '0')), el('span', { class: 'chev' }, '›')),
+    el('div', { class: 'top' }, el('span', { class: 'num' }, String(i + 1).padStart(2, '0')), el('span', { class: 'chev' }, locked ? '🔒' : '›')),
     el('div', { class: 'cicon' }, modIcon(i)),
     el('h3', {}, m.title),
     el('div', { class: 'lc' }, `${s.total} lección${s.total === 1 ? '' : 'es'}`),
-    pbar(s.pct),
-    el('div', { class: 'pct ' + (s.status === 'done' ? 'done' : s.status === 'zero' ? 'zero' : '') }, `${s.pct}% completado`));
+    pbar(locked ? 0 : s.pct),
+    locked
+      ? el('div', { class: 'pct zero' }, 'Bloqueado')
+      : el('div', { class: 'pct ' + (s.status === 'done' ? 'done' : s.status === 'zero' ? 'zero' : '') }, `${s.pct}% completado`));
 }
 
 /* ---------- MÓDULOS (lista) ---------- */
 function renderModules() {
+  const unlocked = unlockedSet();
   const list = el('div', { class: 'courses', style: 'grid-template-columns:1fr' });
-  TREE.forEach((m, i) => list.appendChild(courseCard(m, i)));
+  TREE.forEach((m, i) => list.appendChild(courseCard(m, i, !unlocked.has(m.id))));
   paint([
     el('div', { class: 'screen' },
       el('div', { class: 'sec-head' }, el('h2', {}, 'Módulos')),
@@ -214,6 +240,7 @@ function renderModules() {
 function renderCourse(id) {
   const m = findModule(id);
   if (!m) { location.hash = '#/'; return; }
+  if (isLocked(id)) { toast('🔒 Completa el módulo anterior para desbloquear'); location.hash = '#/'; return; }
   const idx = TREE.indexOf(m);
   const s = modStats(m);
 
@@ -246,6 +273,7 @@ function renderLesson(id) {
   const ctx = findLessonCtx(id);
   if (!ctx) { location.hash = '#/'; return; }
   const { m, l, idx } = ctx;
+  if (isLocked(m.id)) { toast('🔒 Completa el módulo anterior para desbloquear'); location.hash = '#/'; return; }
   curVideoIdx = 0;
   LAST = id;
   api(`/me/progress/${id}/touch`, { method: 'POST' }).catch(() => {});

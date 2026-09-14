@@ -221,3 +221,10 @@ img { max-width: 100%; display: block; }
 .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 12px; font-size: 13.5px; z-index: 60; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; box-shadow: var(--shadow); }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
 .toast.err { background: #b91c1c; }
+
+/* Curso bloqueado */
+.course.locked { opacity: .72; background: #f6f5fa; cursor: not-allowed; }
+.course.locked:hover { transform: none; box-shadow: var(--shadow-sm); }
+.course.locked .cicon { filter: grayscale(.55); opacity: .7; }
+.course.locked h3 { color: #6b6880; }
+.badge-status.lock { background: #ece9f4; color: #8b8798; }
