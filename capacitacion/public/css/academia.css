@@ -37,7 +37,7 @@ img { max-width: 100%; display: block; }
 .wordmark .v {
   width: 38px; height: 32px; display: grid; place-items: center;
 }
-.wordmark .v svg { width: 100%; height: 100%; }
+.wordmark .v svg, .wordmark .v img { width: 100%; height: 100%; object-fit: contain; }
 .wordmark .txt { line-height: 1; }
 .wordmark .txt b { font-size: 16px; font-weight: 800; letter-spacing: .3px; }
 .wordmark .txt small { display: block; font-size: 9.5px; letter-spacing: 3px; color: var(--muted); margin-top: 2px; text-transform: uppercase; }
@@ -309,3 +309,18 @@ img { max-width: 100%; display: block; }
 @media (min-width: 1024px) {
   .tabbar.has-admin { max-width: 560px; }
 }
+
+/* Login: registro */
+.login-card .switch { text-align: center; margin-top: 16px; font-size: 13.5px; color: var(--muted); }
+.login-card .switch a { color: var(--brand); font-weight: 700; text-decoration: none; }
+.login-card .two { display: flex; gap: 10px; }
+.login-card .two > div { flex: 1; min-width: 0; }
+.ok-msg { color: #166534; background: #e7f6ec; border: 1px solid #bbf7d0; padding: 10px 12px;
+  border-radius: 10px; font-size: 13px; margin-top: 14px; display: none; }
+.ok-msg.show { display: block; }
+
+/* Asegura que el atributo hidden funcione incluso en .btn (display flex) */
+[hidden] { display: none !important; }
+
+/* Página de espera (cuenta pendiente) */
+.wait-icon { font-size: 54px; margin: 8px 0 2px; line-height: 1; }

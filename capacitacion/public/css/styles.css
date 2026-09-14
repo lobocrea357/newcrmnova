@@ -319,3 +319,7 @@ textarea { resize: vertical; min-height: 60px; }
   .user-card .uprog { flex: 1 1 100%; order: 3; }
   .user-card .uactions { order: 2; margin-left: auto; }
 }
+
+/* Botón aprobar (verde) en admin */
+.btn.ok { background: #16a34a; }
+.btn.ok:hover { filter: brightness(1.08); }

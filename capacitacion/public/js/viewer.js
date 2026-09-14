@@ -134,7 +134,7 @@ function paint(nodes, activeTab) {
 function appbar() {
   return el('div', { class: 'appbar' },
     el('div', { class: 'wordmark' },
-      el('div', { class: 'v', html: LOGO_SVG }),
+      el('div', { class: 'v', html: '<img src="img/logo.png" alt="Viajes Nova">' }),
       el('div', { class: 'txt', html: '<b>VIAJES NOVA</b><small>Academia</small>' })),
     el('div', { class: 'tools' },
       (ME && ME.role === 'admin')

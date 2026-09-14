@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cuenta en revisión — Viajes Nova Academia</title>
+  <link rel="stylesheet" href="css/academia.css" />
+  <script src="config.js"></script>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card" style="text-align:center">
+      <div class="wordmark" style="justify-content:center">
+        <div class="v"><img src="img/logo.png" alt="Viajes Nova" /></div>
+        <div class="txt"><b>VIAJES NOVA</b><small>Academia</small></div>
+      </div>
+
+      <div class="wait-icon">⏳</div>
+      <h1>Tu cuenta está en revisión</h1>
+      <p class="sub">Un administrador debe aprobar tu acceso antes de que puedas ingresar. En cuanto te aprueben, podrás entrar con tu usuario y contraseña.</p>
+
+      <div style="margin-top:22px">
+        <button class="btn block" type="button" id="retry">↻ Recargar página</button>
+        <a href="login" class="switch" style="display:block;margin-top:16px">Volver al inicio de sesión</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script>
+    // Si ya está aprobado e inició sesión, entrar directo
+    api('/auth/me').then(() => { location.href = BASE + '/'; }).catch(() => {});
+    // "Recargar" reintenta el acceso llevando al login (donde vuelve a intentar entrar)
+    document.getElementById('retry').addEventListener('click', () => { location.href = BASE + '/login'; });
+  </script>
+</body>
+</html>

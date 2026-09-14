@@ -14,8 +14,44 @@ router.post('/auth/login', async (req, res) => {
   const user = r.rows[0];
   const ok = await bcrypt.compare(password, user.password);
   if (!ok) return res.status(401).json({ error: 'Credenciales inválidas' });
+  if (user.status === 'pending') return res.status(403).json({ error: 'Tu cuenta está pendiente de aprobación por un administrador.' });
+  if (user.status === 'rejected') return res.status(403).json({ error: 'Tu solicitud de acceso fue rechazada.' });
   req.session.user = { id: user.id, username: user.username, role: user.role, full_name: user.full_name };
   res.json({ user: req.session.user });
+});
+
+// Registro público: crea un usuario PENDIENTE de aprobación
+router.post('/auth/register', async (req, res) => {
+  let { username, first_name, last_name, email, password } = req.body || {};
+  username = String(username || '').trim();
+  first_name = String(first_name || '').trim();
+  last_name = String(last_name || '').trim();
+  email = String(email || '').trim().toLowerCase();
+  if (!username || !first_name || !last_name || !email || !password) {
+    return res.status(400).json({ error: 'Todos los campos son obligatorios' });
+  }
+  if (/\s/.test(username)) return res.status(400).json({ error: 'El usuario no puede tener espacios' });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Correo inválido' });
+  if (String(password).length < 4) return res.status(400).json({ error: 'La contraseña es muy corta' });
+  const hash = await bcrypt.hash(password, 10);
+  const fullName = `${first_name} ${last_name}`.trim();
+  try {
+    await pool.query(
+      `INSERT INTO users (username, password, full_name, email, role, status)
+       VALUES ($1, $2, $3, $4, 'user', 'pending')`,
+      [username, hash, fullName, email]);
+    // Aviso a los admins (notificación tipo announcement para admins; la verán en su campana)
+    const admins = await pool.query("SELECT id FROM users WHERE role = 'admin'");
+    for (const a of admins.rows) {
+      await pool.query(
+        `INSERT INTO notifications (user_id, type, title, body, link) VALUES ($1, 'announcement', $2, $3, $4)`,
+        [a.id, 'Nueva solicitud de registro', `${fullName} (@${username}) espera aprobación`, 'admin']);
+    }
+    res.status(201).json({ ok: true });
+  } catch (e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Ese usuario o correo ya existe' });
+    throw e;
+  }
 });
 
 router.post('/auth/logout', (req, res) => {
@@ -254,8 +290,15 @@ router.delete('/videos/:id', requireAdmin, async (req, res) => {
 
 /* ============ USERS (admin) ============ */
 router.get('/users', requireAdmin, async (req, res) => {
-  const r = await pool.query('SELECT id, username, role, full_name, created_at FROM users ORDER BY id');
+  const r = await pool.query('SELECT id, username, role, full_name, email, status, created_at FROM users ORDER BY id');
   res.json({ users: r.rows });
+});
+
+// Aprobar una solicitud de registro
+router.post('/users/:id/approve', requireAdmin, async (req, res) => {
+  const r = await pool.query("UPDATE users SET status = 'active' WHERE id = $1 RETURNING id, username", [req.params.id]);
+  if (r.rowCount === 0) return res.status(404).json({ error: 'No encontrado' });
+  res.json({ ok: true });
 });
 
 router.post('/users', requireAdmin, async (req, res) => {
@@ -265,7 +308,7 @@ router.post('/users', requireAdmin, async (req, res) => {
   const hash = await bcrypt.hash(password, 10);
   try {
     const r = await pool.query(
-      'INSERT INTO users (username, password, full_name, role) VALUES ($1,$2,$3,$4) RETURNING id, username, role, full_name, created_at',
+      "INSERT INTO users (username, password, full_name, role, status) VALUES ($1,$2,$3,$4,'active') RETURNING id, username, role, full_name, created_at",
       [String(username).trim(), hash, full_name, safeRole]
     );
     res.status(201).json(r.rows[0]);

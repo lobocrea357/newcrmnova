@@ -428,7 +428,28 @@ function renderUsers(users, prog = {}, totalLessons = 0) {
   addCard.appendChild(el('div', { class: 'row' }, el('div', { class: 'grow' }, u), el('div', { class: 'grow' }, n), el('div', { class: 'grow' }, p), r, b));
   root.appendChild(addCard);
 
-  // Resumen
+  // Solicitudes pendientes de aprobación
+  const pending = users.filter(u => u.status === 'pending');
+  if (pending.length) {
+    const pc = el('div', { class: 'card', style: 'border-color:#f59e0b' });
+    pc.appendChild(el('h2', {}, `Solicitudes pendientes (${pending.length})`));
+    pc.appendChild(el('p', { class: 'hint' }, 'Estos usuarios se registraron y esperan tu aprobación para poder ingresar.'));
+    for (const u of pending) {
+      const item = el('div', { class: 'user-card', style: 'border-color:#f6d38a; background:#2a2410' });
+      item.appendChild(el('div', { class: 'uav', style: 'background:linear-gradient(135deg,#d97706,#f59e0b)' }, uInitials(u)));
+      item.appendChild(el('div', { class: 'uinfo' },
+        el('div', { class: 'un' }, u.full_name || u.username),
+        el('div', { class: 'us' }, `@${u.username}${u.email ? ' · ' + u.email : ''}`)));
+      item.appendChild(el('div', { class: 'uactions' },
+        el('button', { class: 'btn ok sm', onclick: () => approveUser(u) }, '✓ Aprobar'),
+        el('button', { class: 'btn danger sm', onclick: () => rejectUser(u) }, 'Rechazar')));
+      pc.appendChild(item);
+    }
+    root.appendChild(pc);
+  }
+
+  // Resumen (solo usuarios activos)
+  users = users.filter(u => u.status !== 'pending');
   const count = users.length;
   const avg = count && totalLessons
     ? Math.round(users.reduce((a, u) => a + (prog[u.id]?.completed || 0) / totalLessons * 100, 0) / count)
@@ -476,6 +497,16 @@ async function resetPass(usr) {
 async function delUser(usr) {
   if (!confirm(`¿Eliminar al usuario "${usr.username}"?`)) return;
   try { await api(`/users/${usr.id}`, { method: 'DELETE' }); toast('Usuario eliminado'); await loadUsers(); } catch (e) { toast(e.message, true); }
+}
+
+async function approveUser(u) {
+  try { await api(`/users/${u.id}/approve`, { method: 'POST' }); toast('Usuario aprobado'); await loadUsers(); }
+  catch (e) { toast(e.message, true); }
+}
+async function rejectUser(u) {
+  if (!confirm(`¿Rechazar la solicitud de "${u.username}"? Se eliminará su registro.`)) return;
+  try { await api(`/users/${u.id}`, { method: 'DELETE' }); toast('Solicitud rechazada'); await loadUsers(); }
+  catch (e) { toast(e.message, true); }
 }
 
 boot();

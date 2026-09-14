@@ -74,6 +74,9 @@ CREATE INDEX IF NOT EXISTS idx_lessons_module ON lessons(module_id);
 CREATE INDEX IF NOT EXISTS idx_videos_lesson ON videos(lesson_id);
 CREATE INDEX IF NOT EXISTS idx_progress_user ON lesson_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id);
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
 `;
 
 export async function initDb() {

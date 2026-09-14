@@ -53,6 +53,7 @@ function sendPage(file) {
   return (req, res) => res.sendFile(path.join(PUBLIC_DIR, file));
 }
 router.get('/login', sendPage('login.html'));
+router.get('/pending', sendPage('pending.html'));
 router.get('/admin', (req, res, next) => {
   if (req.session?.user?.role === 'admin') return sendPage('admin.html')(req, res, next);
   return res.redirect(BASE_PATH + '/login');

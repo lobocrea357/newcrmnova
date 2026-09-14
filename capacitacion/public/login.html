@@ -9,49 +9,106 @@
 </head>
 <body>
   <div class="login-wrap">
-    <form class="login-card" id="loginForm">
+    <div class="login-card">
       <div class="wordmark">
-        <div class="v"><svg viewBox="0 0 44 34" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="vg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#6d28d9"/></linearGradient></defs><path d="M1 2h10l8.5 17L28 2h10L23 32h-6L1 2Z" fill="url(#vg)"/><path d="M21 12.5 27 2h10L26.5 22 21 12.5Z" fill="#a855f7" opacity=".55"/></svg></div>
+        <div class="v"><img src="img/logo.png" alt="Viajes Nova" /></div>
         <div class="txt"><b>VIAJES NOVA</b><small>Academia</small></div>
       </div>
-      <h1>Bienvenido</h1>
-      <p class="sub">Ingresa para continuar tu formación.</p>
 
-      <label for="username">Usuario</label>
-      <input id="username" name="username" autocomplete="username" autofocus required />
+      <!-- LOGIN -->
+      <form id="loginForm">
+        <h1>Bienvenido</h1>
+        <p class="sub">Ingresa para continuar tu formación.</p>
+        <label for="lu">Usuario</label>
+        <input id="lu" autocomplete="username" required />
+        <label for="lp">Contraseña</label>
+        <input id="lp" type="password" autocomplete="current-password" required />
+        <div class="err" id="lerr"></div>
+        <div style="margin-top:20px">
+          <button class="btn block" type="submit" id="lbtn">Ingresar</button>
+        </div>
+        <p class="switch">¿No tienes cuenta? <a href="#" id="toReg">Crear cuenta</a></p>
+      </form>
 
-      <label for="password">Contraseña</label>
-      <input id="password" name="password" type="password" autocomplete="current-password" required />
-
-      <div class="err" id="err"></div>
-
-      <div style="margin-top:22px">
-        <button class="btn block" type="submit" id="submitBtn">Ingresar</button>
-      </div>
-    </form>
+      <!-- REGISTRO -->
+      <form id="regForm" hidden>
+        <h1>Crear cuenta</h1>
+        <p class="sub">Tu cuenta quedará pendiente de aprobación por un administrador.</p>
+        <label for="ru">Nombre de usuario</label>
+        <input id="ru" autocomplete="username" required />
+        <div class="two">
+          <div>
+            <label for="rn">Nombre</label>
+            <input id="rn" autocomplete="given-name" required />
+          </div>
+          <div>
+            <label for="ra">Apellido</label>
+            <input id="ra" autocomplete="family-name" required />
+          </div>
+        </div>
+        <label for="re">Correo electrónico</label>
+        <input id="re" type="email" autocomplete="email" required />
+        <label for="rp">Contraseña</label>
+        <input id="rp" type="password" autocomplete="new-password" required />
+        <div class="err" id="rerr"></div>
+        <div class="ok-msg" id="rok"></div>
+        <div style="margin-top:20px">
+          <button class="btn block" type="submit" id="rbtn">Crear cuenta</button>
+        </div>
+        <p class="switch">¿Ya tienes cuenta? <a href="#" id="toLogin">Ingresar</a></p>
+      </form>
+    </div>
   </div>
 
   <script src="js/common.js"></script>
   <script>
-    const form = document.getElementById('loginForm');
-    const err = document.getElementById('err');
-    const btn = document.getElementById('submitBtn');
+    const loginForm = document.getElementById('loginForm');
+    const regForm = document.getElementById('regForm');
+    const toReg = document.getElementById('toReg');
+    const toLogin = document.getElementById('toLogin');
 
+    // Si ya está autenticado, entrar
     api('/auth/me').then(() => { location.href = BASE + '/'; }).catch(() => {});
 
-    form.addEventListener('submit', async (e) => {
+    toReg.addEventListener('click', e => { e.preventDefault(); loginForm.hidden = true; regForm.hidden = false; });
+    toLogin.addEventListener('click', e => { e.preventDefault(); regForm.hidden = true; loginForm.hidden = false; });
+
+    // LOGIN
+    const lerr = document.getElementById('lerr'), lbtn = document.getElementById('lbtn');
+    loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      err.classList.remove('show');
-      btn.disabled = true; btn.textContent = 'Ingresando…';
+      lerr.classList.remove('show');
+      lbtn.disabled = true; lbtn.textContent = 'Ingresando…';
       try {
         await api('/auth/login', { method: 'POST', body: {
-          username: document.getElementById('username').value,
-          password: document.getElementById('password').value,
-        }});
+          username: document.getElementById('lu').value,
+          password: document.getElementById('lp').value } });
         location.href = BASE + '/';
       } catch (e2) {
-        err.textContent = e2.message; err.classList.add('show');
-        btn.disabled = false; btn.textContent = 'Ingresar';
+        if (/pendiente/i.test(e2.message)) { location.href = BASE + '/pending'; return; }
+        lerr.textContent = e2.message; lerr.classList.add('show');
+        lbtn.disabled = false; lbtn.textContent = 'Ingresar';
+      }
+    });
+
+    // REGISTRO
+    const rerr = document.getElementById('rerr'), rok = document.getElementById('rok'), rbtn = document.getElementById('rbtn');
+    regForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      rerr.classList.remove('show'); rok.classList.remove('show');
+      rbtn.disabled = true; rbtn.textContent = 'Creando…';
+      try {
+        await api('/auth/register', { method: 'POST', body: {
+          username: document.getElementById('ru').value,
+          first_name: document.getElementById('rn').value,
+          last_name: document.getElementById('ra').value,
+          email: document.getElementById('re').value,
+          password: document.getElementById('rp').value } });
+        location.href = BASE + '/pending';
+        return;
+      } catch (e2) {
+        rerr.textContent = e2.message; rerr.classList.add('show');
+        rbtn.disabled = false; rbtn.textContent = 'Crear cuenta';
       }
     });
   </script>
