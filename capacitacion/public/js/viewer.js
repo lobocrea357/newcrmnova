@@ -246,7 +246,7 @@ function courseCard(m, i, locked) {
 /* ---------- MÓDULOS (lista) ---------- */
 function renderModules() {
   const unlocked = unlockedSet();
-  const list = el('div', { class: 'courses', style: 'grid-template-columns:1fr' });
+  const list = el('div', { class: 'courses' });
   TREE.forEach((m, i) => list.appendChild(courseCard(m, i, !unlocked.has(m.id))));
   paint([
     el('div', { class: 'screen' },
