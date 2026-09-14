@@ -53,9 +53,27 @@ CREATE TABLE IF NOT EXISTS lesson_progress (
   PRIMARY KEY (user_id, lesson_id)
 );
 
+CREATE TABLE IF NOT EXISTS notifications (
+  id          SERIAL PRIMARY KEY,
+  user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE,  -- NULL = para todos
+  type        TEXT NOT NULL DEFAULT 'info',   -- info | course_new | unlock | announcement
+  title       TEXT NOT NULL,
+  body        TEXT DEFAULT '',
+  link        TEXT DEFAULT '',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS notification_reads (
+  user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  notification_id INTEGER NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+  read_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, notification_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_lessons_module ON lessons(module_id);
 CREATE INDEX IF NOT EXISTS idx_videos_lesson ON videos(lesson_id);
 CREATE INDEX IF NOT EXISTS idx_progress_user ON lesson_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id);
 `;
 
 export async function initDb() {

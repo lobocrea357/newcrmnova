@@ -228,3 +228,19 @@ img { max-width: 100%; display: block; }
 .course.locked .cicon { filter: grayscale(.55); opacity: .7; }
 .course.locked h3 { color: #6b6880; }
 .badge-status.lock { background: #ece9f4; color: #8b8798; }
+
+/* Notificaciones */
+.iconbadge { cursor: pointer; }
+.notif-count { position: absolute; top: -6px; right: -7px; min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 99px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 800;
+  display: grid; place-items: center; border: 2px solid #fff; box-sizing: content-box; }
+.notif { display: flex; align-items: flex-start; gap: 12px; padding: 13px 14px; border: 1px solid var(--line);
+  border-radius: 14px; background: #fff; box-shadow: var(--shadow-sm); margin-bottom: 10px; cursor: pointer; }
+.notif.unread { background: #faf7ff; border-color: #e4d9fb; }
+.notif .nicon { width: 38px; height: 38px; border-radius: 10px; background: var(--brand-soft); flex: none;
+  display: grid; place-items: center; font-size: 18px; }
+.notif .nbody { flex: 1; min-width: 0; }
+.notif .nbody strong { font-size: 14.5px; display: block; }
+.notif .nbody p { margin: 2px 0 4px; font-size: 13px; color: var(--ink); }
+.notif .nbody small { color: var(--muted); font-size: 11.5px; }
+.notif .nchev { color: var(--muted); align-self: center; font-size: 18px; }

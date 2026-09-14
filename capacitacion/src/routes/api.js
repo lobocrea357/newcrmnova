@@ -68,7 +68,80 @@ router.put('/me/progress/:lessonId', requireAuth, async (req, res) => {
      ON CONFLICT (user_id, lesson_id) DO UPDATE SET completed = $3, updated_at = now()`,
     [uid, lid, completed]
   );
+
+  // Si al completar esta lección el módulo quedó 100% completo, notificar el desbloqueo del siguiente
+  if (completed) {
+    try {
+      const mod = await pool.query('SELECT module_id FROM lessons WHERE id = $1', [lid]);
+      if (mod.rowCount) {
+        const moduleId = mod.rows[0].module_id;
+        const tot = await pool.query('SELECT count(*)::int n FROM lessons WHERE module_id = $1', [moduleId]);
+        const don = await pool.query(
+          `SELECT count(*)::int n FROM lesson_progress lp
+           JOIN lessons l ON l.id = lp.lesson_id
+           WHERE l.module_id = $1 AND lp.user_id = $2 AND lp.completed`, [moduleId, uid]);
+        if (tot.rows[0].n > 0 && don.rows[0].n === tot.rows[0].n) {
+          const pos = await pool.query('SELECT position FROM modules WHERE id = $1', [moduleId]);
+          const nxt = await pool.query('SELECT id, title FROM modules WHERE position > $1 ORDER BY position ASC LIMIT 1', [pos.rows[0].position]);
+          if (nxt.rowCount) {
+            const link = `#/module/${nxt.rows[0].id}`;
+            const dup = await pool.query("SELECT 1 FROM notifications WHERE user_id = $1 AND type = 'unlock' AND link = $2 LIMIT 1", [uid, link]);
+            if (dup.rowCount === 0) {
+              await pool.query(
+                `INSERT INTO notifications (user_id, type, title, body, link) VALUES ($1, 'unlock', $2, $3, $4)`,
+                [uid, '¡Nuevo módulo desbloqueado!', nxt.rows[0].title, link]);
+            }
+          }
+        }
+      }
+    } catch (e) { console.error('[notif unlock]', e.message); }
+  }
+
   res.json({ ok: true, completed });
+});
+
+/* ============ NOTIFICACIONES ============ */
+// Lista de notificaciones del usuario (propias + broadcast) con estado leído
+router.get('/me/notifications', requireAuth, async (req, res) => {
+  const uid = req.session.user.id;
+  const r = await pool.query(
+    `SELECT n.id, n.type, n.title, n.body, n.link, n.created_at,
+            (nr.notification_id IS NOT NULL) AS read
+     FROM notifications n
+     LEFT JOIN notification_reads nr ON nr.notification_id = n.id AND nr.user_id = $1
+     WHERE n.user_id IS NULL OR n.user_id = $1
+     ORDER BY n.created_at DESC
+     LIMIT 50`, [uid]);
+  res.json({ notifications: r.rows, unread: r.rows.filter(x => !x.read).length });
+});
+
+// Marcar todas como leídas
+router.post('/me/notifications/read', requireAuth, async (req, res) => {
+  const uid = req.session.user.id;
+  await pool.query(
+    `INSERT INTO notification_reads (user_id, notification_id)
+     SELECT $1, n.id FROM notifications n
+     WHERE (n.user_id IS NULL OR n.user_id = $1)
+     ON CONFLICT DO NOTHING`, [uid]);
+  res.json({ ok: true });
+});
+
+// Admin: enviar aviso a todos
+router.post('/admin/notifications', requireAdmin, async (req, res) => {
+  const { title, body = '', link = '' } = req.body || {};
+  if (!title) return res.status(400).json({ error: 'Título requerido' });
+  const r = await pool.query(
+    `INSERT INTO notifications (type, title, body, link) VALUES ('announcement', $1, $2, $3) RETURNING *`,
+    [title, body, link]);
+  res.status(201).json(r.rows[0]);
+});
+
+// Admin: listar avisos enviados (broadcast)
+router.get('/admin/notifications', requireAdmin, async (req, res) => {
+  const r = await pool.query(
+    `SELECT id, type, title, body, link, created_at FROM notifications
+     WHERE user_id IS NULL ORDER BY created_at DESC LIMIT 50`);
+  res.json({ notifications: r.rows });
 });
 
 // Registrar "última vista" (al abrir una lección) sin cambiar el completado
@@ -91,6 +164,11 @@ router.post('/modules', requireAdmin, async (req, res) => {
   const r = await pool.query(
     'INSERT INTO modules (title, description, position) VALUES ($1,$2,$3) RETURNING *',
     [title, description, position]
+  );
+  // Notificación (para todos): nuevo curso disponible
+  await pool.query(
+    `INSERT INTO notifications (type, title, body, link) VALUES ('course_new', $1, $2, $3)`,
+    ['Nuevo curso disponible', r.rows[0].title, `#/module/${r.rows[0].id}`]
   );
   res.status(201).json(r.rows[0]);
 });

@@ -4,6 +4,19 @@ let DONE = new Set();     // completed lesson ids
 let LAST = null;          // last viewed lesson id
 let curVideoIdx = 0;
 let lastMain = '#/';      // última pantalla principal (para "atrás")
+let NOTIF = [];
+let NOTIF_UNREAD = 0;
+
+const BELL_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>';
+
+function relTime(iso) {
+  const d = new Date(iso), s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 60) return 'hace un momento';
+  if (s < 3600) return `hace ${Math.floor(s / 60)} min`;
+  if (s < 86400) return `hace ${Math.floor(s / 3600)} h`;
+  if (s < 604800) return `hace ${Math.floor(s / 86400)} d`;
+  return d.toLocaleDateString('es');
+}
 
 const MOD_ICONS = ['✈️','🧳','📈','👥','📚','🎯','💼','🌍','⭐','🧭','📝','🎓'];
 const modIcon = (i) => MOD_ICONS[i % MOD_ICONS.length];
@@ -36,10 +49,12 @@ const TAB_ICONS = {
 async function loadAll() {
   try { ME = (await api('/auth/me')).user; }
   catch { location.href = BASE + '/login'; return false; }
-  const [content, prog] = await Promise.all([api('/content'), api('/me/progress')]);
+  const [content, prog, notif] = await Promise.all([api('/content'), api('/me/progress'), api('/me/notifications')]);
   TREE = content.modules;
   DONE = new Set(prog.completed);
   LAST = prog.lastLessonId;
+  NOTIF = notif.notifications;
+  NOTIF_UNREAD = notif.unread;
   return true;
 }
 
@@ -113,9 +128,13 @@ function appbar() {
       el('div', { class: 'v', html: LOGO_SVG }),
       el('div', { class: 'txt', html: '<b>VIAJES NOVA</b><small>Academia</small>' })),
     el('div', { class: 'tools' },
-      el('div', { class: 'iconbadge', html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>' },
-        el('span', { class: 'dot' })),
+      bellButton(),
       el('div', { class: 'avatar', onclick: () => location.hash = '#/profile' }, initials())));
+}
+function bellButton() {
+  const bell = el('div', { class: 'iconbadge', title: 'Notificaciones', onclick: () => location.hash = '#/notifications', html: BELL_SVG });
+  if (NOTIF_UNREAD > 0) bell.appendChild(el('span', { class: 'notif-count' }, NOTIF_UNREAD > 9 ? '9+' : String(NOTIF_UNREAD)));
+  return bell;
 }
 function pbar(pct) { return el('div', { class: 'pbar' }, el('i', { style: `width:${pct}%` })); }
 
@@ -379,10 +398,44 @@ function renderProfile() {
   paint([el('div', { class: 'screen' }, el('div', { class: 'sec-head' }, el('h2', {}, 'Perfil'))), block], 'user');
 }
 
+/* ---------- NOTIFICACIONES ---------- */
+async function renderNotifications() {
+  let data;
+  try { data = await api('/me/notifications'); }
+  catch { location.href = BASE + '/login'; return; }
+  NOTIF = data.notifications;
+  if (NOTIF_UNREAD > 0) { api('/me/notifications/read', { method: 'POST' }).catch(() => {}); NOTIF_UNREAD = 0; }
+
+  const back = el('div', { class: 'subhead' },
+    el('button', { class: 'backbtn', onclick: () => location.hash = lastMain }, '‹'),
+    el('div', {}, el('h1', {}, 'Notificaciones')));
+
+  const list = el('div', { class: 'screen' });
+  if (!NOTIF.length) {
+    list.appendChild(el('div', { class: 'empty' }, el('div', { class: 'big' }, '🔔'), 'No tienes notificaciones por ahora.'));
+  } else {
+    NOTIF.forEach(n => {
+      const ic = n.type === 'unlock' ? '🔓' : n.type === 'course_new' ? '🎓' : n.type === 'announcement' ? '📣' : '🔔';
+      list.appendChild(el('div', {
+        class: 'notif' + (n.read ? '' : ' unread'),
+        onclick: () => { if (n.link) location.hash = n.link; },
+      },
+        el('div', { class: 'nicon' }, ic),
+        el('div', { class: 'nbody' },
+          el('strong', {}, n.title),
+          n.body ? el('p', {}, n.body) : null,
+          el('small', {}, relTime(n.created_at))),
+        n.link ? el('span', { class: 'nchev' }, '›') : null));
+    });
+  }
+  paint([back, list], null);
+}
+
 /* ---------- router ---------- */
 function route() {
   const h = location.hash.replace(/^#/, '');
   if (['', '/', '/modules', '/progress', '/profile'].includes(h)) lastMain = h && h !== '/' ? '#' + h : '#/';
+  if (h === '/notifications') return renderNotifications();
   if (h.startsWith('/module/')) return renderCourse(Number(h.split('/')[2]));
   if (h.startsWith('/lesson/')) return renderLesson(Number(h.split('/')[2]));
   if (h === '/modules') return renderModules();

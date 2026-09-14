@@ -104,12 +104,55 @@ async function boot() {
     t.addEventListener('click', () => {
       document.querySelectorAll('.section-tab').forEach(x => x.classList.remove('active'));
       t.classList.add('active');
-      document.getElementById('tab-content').style.display = t.dataset.tab === 'content' ? '' : 'none';
-      document.getElementById('tab-users').style.display = t.dataset.tab === 'users' ? '' : 'none';
+      for (const name of ['content', 'users', 'avisos']) {
+        document.getElementById('tab-' + name).style.display = t.dataset.tab === name ? '' : 'none';
+      }
     });
   });
   await loadContent();
   await loadUsers();
+  await loadAvisos();
+}
+
+/* ================= AVISOS ================= */
+async function loadAvisos() {
+  let sent = [];
+  try { sent = (await api('/admin/notifications')).notifications; } catch (e) {}
+  const root = document.getElementById('tab-avisos');
+  root.innerHTML = '';
+
+  const card = el('div', { class: 'card' });
+  card.appendChild(el('h2', {}, 'Enviar aviso a todos'));
+  card.appendChild(el('p', { class: 'hint' }, 'Aparecerá como notificación (📣) para todos los usuarios.'));
+  const title = el('input', { placeholder: 'Título (ej. Nueva práctica por Zoom)' });
+  const body = el('textarea', { placeholder: 'Mensaje (opcional)' });
+  const link = el('input', { placeholder: 'Enlace opcional (ej. #/module/3)' });
+  const send = el('button', { class: 'btn', onclick: async () => {
+    if (!title.value.trim()) return toast('Escribe un título', true);
+    try {
+      await api('/admin/notifications', { method: 'POST', body: { title: title.value.trim(), body: body.value.trim(), link: link.value.trim() } });
+      title.value = ''; body.value = ''; link.value = '';
+      toast('Aviso enviado a todos'); await loadAvisos();
+    } catch (e) { toast(e.message, true); }
+  }}, 'Enviar aviso');
+  card.appendChild(el('div', { class: 'field-grid' },
+    el('div', {}, el('label', {}, 'Título'), title),
+    el('div', {}, el('label', {}, 'Mensaje'), body),
+    el('div', {}, el('label', {}, 'Enlace (opcional)'), link)));
+  card.appendChild(el('div', { class: 'saverow' }, send));
+  root.appendChild(card);
+
+  const listCard = el('div', { class: 'card' });
+  listCard.appendChild(el('h2', {}, 'Avisos enviados'));
+  if (!sent.length) listCard.appendChild(el('p', { class: 'hint', style: 'margin:0' }, 'Aún no hay avisos. Los avisos automáticos de "nuevo curso" también aparecen aquí.'));
+  for (const n of sent) {
+    const tag = n.type === 'course_new' ? 'automático' : 'aviso';
+    listCard.appendChild(el('div', { class: 'list-item' },
+      el('div', { class: 'meta' },
+        el('strong', {}, n.title, el('span', { class: 'pill', style: 'margin-left:8px' }, tag)),
+        el('small', {}, (n.body || '') + (n.link ? `  ·  ${n.link}` : '')))));
+  }
+  root.appendChild(listCard);
 }
 
 /* ================= CONTENIDO (dos paneles) ================= */
