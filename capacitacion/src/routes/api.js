@@ -16,8 +16,25 @@ router.post('/auth/login', async (req, res) => {
   if (!ok) return res.status(401).json({ error: 'Credenciales inválidas' });
   if (user.status === 'pending') return res.status(403).json({ error: 'Tu cuenta está pendiente de aprobación por un administrador.' });
   if (user.status === 'rejected') return res.status(403).json({ error: 'Tu solicitud de acceso fue rechazada.' });
-  req.session.user = { id: user.id, username: user.username, role: user.role, full_name: user.full_name };
+  req.session.user = { id: user.id, username: user.username, role: user.role, full_name: user.full_name, avatar: user.avatar || null };
   res.json({ user: req.session.user });
+});
+
+// Foto de perfil del usuario actual (data URL de imagen; "" o null para quitar)
+router.put('/me/avatar', requireAuth, async (req, res) => {
+  let { avatar } = req.body || {};
+  if (avatar === '' || avatar === null || avatar === undefined) {
+    await pool.query('UPDATE users SET avatar = NULL WHERE id = $1', [req.session.user.id]);
+    req.session.user.avatar = null;
+    return res.json({ ok: true, avatar: null });
+  }
+  if (typeof avatar !== 'string' || !/^data:image\/(png|jpeg|jpg|webp);base64,/.test(avatar)) {
+    return res.status(400).json({ error: 'Imagen inválida' });
+  }
+  if (avatar.length > 700000) return res.status(413).json({ error: 'La imagen es muy grande' });
+  await pool.query('UPDATE users SET avatar = $1 WHERE id = $2', [avatar, req.session.user.id]);
+  req.session.user.avatar = avatar;
+  res.json({ ok: true });
 });
 
 // Registro público: crea un usuario PENDIENTE de aprobación

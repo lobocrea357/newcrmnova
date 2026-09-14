@@ -62,6 +62,43 @@ async function loadAll() {
 /* ---------- helpers ---------- */
 function firstName() { return (ME.full_name || ME.username || '').trim().split(/\s+/)[0] || ME.username; }
 function initials() { const s = (ME.full_name || ME.username || '?').trim(); const p = s.split(/\s+/); return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || s[0].toUpperCase(); }
+function avatarInner(node) {
+  node.innerHTML = '';
+  if (ME.avatar) node.appendChild(el('img', { src: ME.avatar, alt: '' }));
+  else node.textContent = initials();
+  return node;
+}
+// Selector de foto: redimensiona a 256x256 (recorte centrado) y la sube
+function pickAvatar() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = () => {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      const img = new Image();
+      img.onload = async () => {
+        const S = 256, c = document.createElement('canvas'); c.width = S; c.height = S;
+        const ctx = c.getContext('2d');
+        const scale = Math.max(S / img.width, S / img.height);
+        const w = img.width * scale, h = img.height * scale;
+        ctx.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+        const data = c.toDataURL('image/jpeg', 0.85);
+        try { await api('/me/avatar', { method: 'PUT', body: { avatar: data } }); ME.avatar = data; toast('Foto actualizada'); renderProfile(); }
+        catch (e) { toast(e.message, true); }
+      };
+      img.onerror = () => toast('No se pudo leer la imagen', true);
+      img.src = rd.result;
+    };
+    rd.readAsDataURL(f);
+  };
+  inp.click();
+}
+async function removeAvatar() {
+  try { await api('/me/avatar', { method: 'PUT', body: { avatar: '' } }); ME.avatar = null; toast('Foto quitada'); renderProfile(); }
+  catch (e) { toast(e.message, true); }
+}
 function modStats(m) {
   const total = m.lessons.length;
   const done = m.lessons.filter(l => DONE.has(l.id)).length;
@@ -142,7 +179,7 @@ function appbar() {
             el('span', { html: TAB_ICONS.admin }), 'Admin')
         : null,
       bellButton(),
-      el('div', { class: 'avatar', onclick: () => location.hash = '#/profile' }, initials())));
+      avatarInner(el('div', { class: 'avatar', onclick: () => location.hash = '#/profile' }))));
 }
 function bellButton() {
   const bell = el('div', { class: 'iconbadge', title: 'Notificaciones', onclick: () => location.hash = '#/notifications', html: BELL_SVG });
@@ -397,7 +434,10 @@ function renderProgress() {
 function renderProfile() {
   const ov = overall();
   const block = el('div', { class: 'profile' },
-    el('div', { class: 'big-av' }, initials()),
+    avatarInner(el('div', { class: 'big-av' })),
+    el('div', { class: 'av-actions' },
+      el('button', { class: 'btn soft sm', onclick: pickAvatar }, ME.avatar ? 'Cambiar foto' : '＋ Agregar foto'),
+      ME.avatar ? el('button', { class: 'btn ghost sm', onclick: removeAvatar }, 'Quitar') : null),
     el('h2', {}, ME.full_name || ME.username),
     el('div', { class: 'role' }, ME.role === 'admin' ? 'Administrador' : 'Estudiante'),
     el('div', { class: 'prow' }, el('span', {}, 'Usuario'), el('small', {}, ME.username)),
