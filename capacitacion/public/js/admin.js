@@ -369,6 +369,13 @@ function uInitials(u) {
   const p = s.split(/\s+/);
   return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || s[0].toUpperCase();
 }
+// Avatar del usuario: foto si tiene, si no iniciales
+function uAvatar(u, cls = 'uav', extraStyle = '') {
+  const node = el('div', { class: cls, style: extraStyle });
+  if (u.avatar) node.appendChild(el('img', { src: u.avatar, alt: '', style: 'width:100%;height:100%;object-fit:cover' }));
+  else node.textContent = uInitials(u);
+  return node;
+}
 
 async function loadUsers() {
   const [usersRes, summary] = await Promise.all([api('/users'), api('/admin/progress')]);
@@ -436,7 +443,7 @@ function renderUsers(users, prog = {}, totalLessons = 0) {
     pc.appendChild(el('p', { class: 'hint' }, 'Estos usuarios se registraron y esperan tu aprobación para poder ingresar.'));
     for (const u of pending) {
       const item = el('div', { class: 'user-card', style: 'border-color:#f6d38a; background:#2a2410' });
-      item.appendChild(el('div', { class: 'uav', style: 'background:linear-gradient(135deg,#d97706,#f59e0b)' }, uInitials(u)));
+      item.appendChild(uAvatar(u, 'uav', 'background:linear-gradient(135deg,#d97706,#f59e0b)'));
       item.appendChild(el('div', { class: 'uinfo' },
         el('div', { class: 'un' }, u.full_name || u.username),
         el('div', { class: 'us' }, `@${u.username}${u.email ? ' · ' + u.email : ''}`)));
@@ -468,7 +475,7 @@ function renderUsers(users, prog = {}, totalLessons = 0) {
     const pct = totalLessons ? Math.round((p.completed || 0) / totalLessons * 100) : 0;
     const pctCls = pct >= 100 ? 'done' : (pct === 0 ? 'zero' : '');
     const card = el('div', { class: 'user-card' });
-    card.appendChild(el('div', { class: 'uav' }, uInitials(usr)));
+    card.appendChild(uAvatar(usr));
     card.appendChild(el('div', { class: 'uinfo' },
       el('div', { class: 'un' }, usr.full_name || usr.username,
         usr.role === 'admin' ? el('span', { class: 'pill', style: 'margin-left:8px' }, 'admin') : null),

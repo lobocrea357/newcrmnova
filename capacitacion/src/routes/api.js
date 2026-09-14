@@ -307,7 +307,7 @@ router.delete('/videos/:id', requireAdmin, async (req, res) => {
 
 /* ============ USERS (admin) ============ */
 router.get('/users', requireAdmin, async (req, res) => {
-  const r = await pool.query('SELECT id, username, role, full_name, email, status, created_at FROM users ORDER BY id');
+  const r = await pool.query('SELECT id, username, role, full_name, email, status, avatar, created_at FROM users ORDER BY id');
   res.json({ users: r.rows });
 });
 
