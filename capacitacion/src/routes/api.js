@@ -86,11 +86,14 @@ router.get('/content', requireAuth, async (req, res) => {
   const mods = (await pool.query('SELECT * FROM modules ORDER BY position, id')).rows;
   const lessons = (await pool.query('SELECT * FROM lessons ORDER BY position, id')).rows;
   const videos = (await pool.query('SELECT * FROM videos ORDER BY position, id')).rows;
+  const qc = (await pool.query('SELECT lesson_id, count(*)::int n FROM quiz_questions GROUP BY lesson_id')).rows;
+  const qcMap = {}; qc.forEach(r => { qcMap[r.lesson_id] = r.n; });
   const tree = mods.map(m => ({
     ...m,
     lessons: lessons.filter(l => l.module_id === m.id).map(l => ({
       ...l,
       videos: videos.filter(v => v.lesson_id === l.id),
+      quiz_count: qcMap[l.id] || 0,
     })),
   }));
   res.json({ modules: tree });
@@ -371,6 +374,87 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
     return res.status(400).json({ error: 'No puedes eliminar tu propio usuario' });
   }
   await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+/* ============ QUIZ / EVALUACIONES ============ */
+// Obtener el quiz de una lección. Admin ve respuestas correctas; usuario no.
+router.get('/quiz/:lessonId', requireAuth, async (req, res) => {
+  const lid = Number(req.params.lessonId);
+  const isAdmin = req.session.user.role === 'admin';
+  const r = await pool.query('SELECT * FROM quiz_questions WHERE lesson_id = $1 ORDER BY position, id', [lid]);
+  const questions = r.rows.map(q => {
+    const base = { id: q.id, question: q.question, options: q.options, position: q.position };
+    if (isAdmin) { base.correct_index = q.correct_index; base.explanation = q.explanation; }
+    return base;
+  });
+  let best = null;
+  if (!isAdmin) {
+    const br = await pool.query('SELECT score, total, updated_at FROM quiz_results WHERE user_id = $1 AND lesson_id = $2', [req.session.user.id, lid]);
+    if (br.rowCount) best = br.rows[0];
+  }
+  res.json({ questions, best });
+});
+
+// Enviar respuestas y calificar
+router.post('/me/quiz/:lessonId/submit', requireAuth, async (req, res) => {
+  const uid = req.session.user.id;
+  const lid = Number(req.params.lessonId);
+  const answers = (req.body && req.body.answers) || {};
+  const r = await pool.query('SELECT id, correct_index, explanation, question, options FROM quiz_questions WHERE lesson_id = $1 ORDER BY position, id', [lid]);
+  if (r.rowCount === 0) return res.status(404).json({ error: 'Esta lección no tiene evaluación' });
+  let score = 0;
+  const results = r.rows.map(q => {
+    const given = answers[q.id];
+    const correct = Number(given) === q.correct_index;
+    if (correct) score++;
+    return { id: q.id, correct, correct_index: q.correct_index, explanation: q.explanation };
+  });
+  const total = r.rowCount;
+  // Guardar el mejor resultado
+  await pool.query(
+    `INSERT INTO quiz_results (user_id, lesson_id, score, total, updated_at)
+     VALUES ($1,$2,$3,$4, now())
+     ON CONFLICT (user_id, lesson_id) DO UPDATE SET
+       score = GREATEST(quiz_results.score, EXCLUDED.score),
+       total = EXCLUDED.total, updated_at = now()`,
+    [uid, lid, score, total]);
+  res.json({ score, total, results });
+});
+
+// Admin: crear pregunta
+router.post('/quiz-questions', requireAdmin, async (req, res) => {
+  const { lesson_id, question, options = [], correct_index = 0, explanation = '', position = 0 } = req.body || {};
+  if (!lesson_id || !question || !Array.isArray(options) || options.length < 2) {
+    return res.status(400).json({ error: 'lesson_id, pregunta y al menos 2 opciones requeridos' });
+  }
+  const ci = Math.max(0, Math.min(Number(correct_index) || 0, options.length - 1));
+  const r = await pool.query(
+    `INSERT INTO quiz_questions (lesson_id, question, options, correct_index, explanation, position)
+     VALUES ($1,$2,$3::jsonb,$4,$5,$6) RETURNING *`,
+    [lesson_id, question, JSON.stringify(options), ci, explanation, position]);
+  res.status(201).json(r.rows[0]);
+});
+
+// Admin: editar pregunta
+router.patch('/quiz-questions/:id', requireAdmin, async (req, res) => {
+  const { question, options, correct_index, explanation, position } = req.body || {};
+  const r = await pool.query(
+    `UPDATE quiz_questions SET
+       question = COALESCE($1, question),
+       options = COALESCE($2::jsonb, options),
+       correct_index = COALESCE($3, correct_index),
+       explanation = COALESCE($4, explanation),
+       position = COALESCE($5, position)
+     WHERE id = $6 RETURNING *`,
+    [question ?? null, options ? JSON.stringify(options) : null, correct_index ?? null, explanation ?? null, position ?? null, req.params.id]);
+  if (r.rowCount === 0) return res.status(404).json({ error: 'No encontrada' });
+  res.json(r.rows[0]);
+});
+
+// Admin: eliminar pregunta
+router.delete('/quiz-questions/:id', requireAdmin, async (req, res) => {
+  await pool.query('DELETE FROM quiz_questions WHERE id = $1', [req.params.id]);
   res.json({ ok: true });
 });
 

@@ -394,7 +394,88 @@ function drawLesson(m, l, idx) {
   if (idx > 0) nav.appendChild(el('button', { class: 'btn ghost', onclick: () => location.hash = `#/lesson/${m.lessons[idx - 1].id}` }, '‹ Anterior'));
   if (idx < m.lessons.length - 1) nav.appendChild(el('button', { class: 'btn soft', onclick: () => location.hash = `#/lesson/${m.lessons[idx + 1].id}` }, 'Siguiente ›'));
 
-  paint([back, player, el('div', { class: 'screen', style: 'padding-top:6px' }, completeBtn, nav)], 'mods');
+  const quizBox = el('div', { class: 'screen', style: 'padding-top:4px' });
+  loadQuiz(l.id, quizBox);
+
+  paint([back, player, el('div', { class: 'screen', style: 'padding-top:6px' }, completeBtn, nav), quizBox], 'mods');
+}
+
+/* ---------- QUIZ (usuario) ---------- */
+async function loadQuiz(lessonId, box) {
+  let data;
+  try { data = await api(`/quiz/${lessonId}`); } catch { return; }
+  if (!data.questions.length) return;
+
+  box.innerHTML = '';
+  box.appendChild(el('div', { class: 'sec-head', style: 'margin-top:8px' }, el('h2', {}, '📝 Evaluación')));
+  const card = el('div', { class: 'quiz-card' });
+  card.appendChild(el('p', { class: 'quiz-intro' }, `Esta lección tiene una evaluación de ${data.questions.length} pregunta(s).`));
+  if (data.best) {
+    const pct = Math.round(data.best.score / data.best.total * 100);
+    card.appendChild(el('div', { class: 'quiz-best' }, `Tu mejor resultado: ${data.best.score}/${data.best.total} (${pct}%)`));
+  }
+  card.appendChild(el('button', { class: 'btn block', onclick: () => renderQuiz(lessonId, data.questions, box) }, data.best ? 'Volver a intentar' : 'Comenzar evaluación'));
+  box.appendChild(card);
+}
+
+function renderQuiz(lessonId, questions, box) {
+  box.innerHTML = '';
+  box.appendChild(el('div', { class: 'sec-head', style: 'margin-top:8px' }, el('h2', {}, '📝 Evaluación')));
+  const chosen = {}; // questionId -> index
+  const form = el('div', {});
+  questions.forEach((q, qi) => {
+    const qc = el('div', { class: 'quiz-q' });
+    qc.appendChild(el('div', { class: 'quiz-qt' }, `${qi + 1}. ${q.question}`));
+    q.options.forEach((opt, oi) => {
+      const optEl = el('label', { class: 'quiz-opt' },
+        el('input', { type: 'radio', name: `q${q.id}`, onchange: () => {
+          chosen[q.id] = oi;
+          qc.querySelectorAll('.quiz-opt').forEach(x => x.classList.remove('sel'));
+          optEl.classList.add('sel');
+        } }),
+        el('span', {}, opt));
+      qc.appendChild(optEl);
+    });
+    form.appendChild(qc);
+  });
+  box.appendChild(form);
+
+  const submit = el('button', { class: 'btn block', style: 'margin-top:6px', onclick: async () => {
+    if (Object.keys(chosen).length < questions.length) return toast('Responde todas las preguntas', true);
+    try {
+      const res = await api(`/me/quiz/${lessonId}/submit`, { method: 'POST', body: { answers: chosen } });
+      showQuizResults(lessonId, questions, chosen, res, box);
+    } catch (e) { toast(e.message, true); }
+  } }, 'Enviar respuestas');
+  box.appendChild(submit);
+}
+
+function showQuizResults(lessonId, questions, chosen, res, box) {
+  box.innerHTML = '';
+  const pct = Math.round(res.score / res.total * 100);
+  const passed = pct >= 70;
+  box.appendChild(el('div', { class: 'sec-head', style: 'margin-top:8px' }, el('h2', {}, '📝 Resultado')));
+  box.appendChild(el('div', { class: 'quiz-score ' + (passed ? 'ok' : 'bad') },
+    el('div', { class: 'big' }, `${res.score}/${res.total}`),
+    el('div', {}, `${pct}% · ${passed ? '¡Aprobado! 🎉' : 'Sigue practicando'}`)));
+
+  const byId = {}; res.results.forEach(r => { byId[r.id] = r; });
+  questions.forEach((q, qi) => {
+    const r = byId[q.id];
+    const qc = el('div', { class: 'quiz-q' });
+    qc.appendChild(el('div', { class: 'quiz-qt' }, `${qi + 1}. ${q.question}`));
+    q.options.forEach((opt, oi) => {
+      let cls = 'quiz-opt result';
+      if (oi === r.correct_index) cls += ' correct';
+      else if (oi === chosen[q.id]) cls += ' wrong';
+      qc.appendChild(el('div', { class: cls },
+        el('span', { class: 'mark' }, oi === r.correct_index ? '✓' : (oi === chosen[q.id] ? '✗' : '')),
+        el('span', {}, opt)));
+    });
+    if (r.explanation) qc.appendChild(el('div', { class: 'quiz-exp' }, '💡 ' + r.explanation));
+    box.appendChild(qc);
+  });
+  box.appendChild(el('button', { class: 'btn ghost block', style: 'margin-top:10px', onclick: () => loadQuiz(lessonId, box) }, 'Volver a intentar'));
 }
 
 /* ---------- PROGRESO ---------- */

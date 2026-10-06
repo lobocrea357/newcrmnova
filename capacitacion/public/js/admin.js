@@ -330,7 +330,63 @@ function renderLessonDetail(main, m, l) {
     el('div', { class: 'btns' }, el('button', { class: 'btn sm', onclick: addv }, '+ Agregar video')));
   s2.appendChild(addForm);
   main.appendChild(s2);
+
+  // Sección de evaluación (quiz)
+  const s3 = el('div', { class: 'detail-section' });
+  s3.appendChild(el('h3', {}, 'Evaluación (quiz)'));
+  const quizWrap = el('div', {});
+  s3.appendChild(quizWrap);
+  loadLessonQuiz(l, quizWrap);
+  main.appendChild(s3);
   return main;
+}
+
+async function loadLessonQuiz(l, wrap) {
+  let questions = [];
+  try { questions = (await api(`/quiz/${l.id}`)).questions; } catch (e) {}
+  wrap.innerHTML = '';
+  if (!questions.length) wrap.appendChild(el('div', { class: 'empty-hint' }, 'Esta lección aún no tiene preguntas.'));
+  questions.forEach((q, qi) => {
+    const box = el('div', { class: 'qadmin' });
+    const head = el('div', { class: 'qadmin-head' });
+    head.appendChild(el('strong', {}, `${qi + 1}. ${q.question}`));
+    head.appendChild(el('button', { class: 'iconbtn danger', title: 'Eliminar pregunta', onclick: () => delQuizQ(l, q.id, wrap) }, icon('trash')));
+    box.appendChild(head);
+    (q.options || []).forEach((opt, oi) => {
+      box.appendChild(el('div', { class: 'qadmin-opt' + (oi === q.correct_index ? ' correct' : '') },
+        el('span', { class: 'qmark' }, oi === q.correct_index ? '✓' : '·'), opt));
+    });
+    if (q.explanation) box.appendChild(el('div', { class: 'qadmin-exp' }, '💡 ' + q.explanation));
+    wrap.appendChild(box);
+  });
+  // Formulario para agregar pregunta
+  wrap.appendChild(quizAddForm(l, wrap, questions.length));
+}
+
+function quizAddForm(l, wrap, position) {
+  const q = el('input', { placeholder: 'Pregunta' });
+  const opts = [0, 1, 2, 3].map(i => el('input', { placeholder: `Opción ${i + 1}${i < 2 ? ' (requerida)' : ' (opcional)'}` }));
+  const correct = el('select', {}, ...[0, 1, 2, 3].map(i => el('option', { value: i }, `Correcta: Opción ${i + 1}`)));
+  const exp = el('input', { placeholder: 'Explicación (opcional)' });
+  const save = async () => {
+    const options = opts.map(o => o.value.trim()).filter(Boolean);
+    if (!q.value.trim() || options.length < 2) return toast('Pregunta y mínimo 2 opciones', true);
+    const ci = Math.min(Number(correct.value), options.length - 1);
+    try {
+      await api('/quiz-questions', { method: 'POST', body: { lesson_id: l.id, question: q.value.trim(), options, correct_index: ci, explanation: exp.value.trim(), position } });
+      toast('Pregunta agregada'); loadLessonQuiz(l, wrap);
+    } catch (e) { toast(e.message, true); }
+  };
+  return el('div', { class: 'add-form', style: 'margin-top:12px' },
+    el('div', { class: 'fields', style: 'flex-direction:column' }, q, opts[0], opts[1], opts[2], opts[3], correct, exp),
+    el('div', { class: 'btns' }, el('button', { class: 'btn sm', onclick: save }, '+ Agregar pregunta')));
+}
+
+async function delQuizQ(l, id, wrap) {
+  if (!confirm('¿Eliminar esta pregunta?')) return;
+  await api(`/quiz-questions/${id}`, { method: 'DELETE' });
+  toast('Pregunta eliminada');
+  loadLessonQuiz(l, wrap);
 }
 
 async function newModule() {

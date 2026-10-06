@@ -78,6 +78,28 @@ CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT;
+
+CREATE TABLE IF NOT EXISTS quiz_questions (
+  id            SERIAL PRIMARY KEY,
+  lesson_id     INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+  question      TEXT NOT NULL,
+  options       JSONB NOT NULL DEFAULT '[]',
+  correct_index INTEGER NOT NULL DEFAULT 0,
+  explanation   TEXT DEFAULT '',
+  position      INTEGER NOT NULL DEFAULT 0,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS quiz_results (
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  lesson_id   INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+  score       INTEGER NOT NULL,
+  total       INTEGER NOT NULL,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, lesson_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_quizq_lesson ON quiz_questions(lesson_id);
 `;
 
 export async function initDb() {
