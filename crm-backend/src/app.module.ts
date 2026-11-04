@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { DataModule } from './data/data.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Controller()
 class HealthController {
@@ -18,6 +19,7 @@ class HealthController {
     PrismaModule,
     AuthModule,
     DataModule,
+    RealtimeModule,
   ],
   controllers: [HealthController],
 })
