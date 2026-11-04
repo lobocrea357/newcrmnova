@@ -2,6 +2,7 @@ import { Module, Controller, Get } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { DataModule } from './data/data.module';
 
 @Controller()
 class HealthController {
@@ -16,6 +17,7 @@ class HealthController {
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule,
+    DataModule,
   ],
   controllers: [HealthController],
 })

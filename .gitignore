@@ -180,3 +180,6 @@ desktop.ini
 .project
 .classpath
 .settings/
+
+# Fuentes NestJS del gateway de datos (no es un directorio de datos)
+!crm-backend/src/data/
