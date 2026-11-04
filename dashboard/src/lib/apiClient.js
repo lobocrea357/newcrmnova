@@ -495,29 +495,54 @@ class RealtimeChannel {
 
 /* -------------------------------- Storage --------------------------------- */
 /**
- * Stub de Storage. El almacenamiento de archivos (avatares, adjuntos de vuelos)
- * se migrará a un endpoint /api/files del backend NestJS en un paso posterior.
- * Por ahora evita romper imports y falla con un mensaje claro en tiempo de uso.
+ * Cliente de Storage respaldado por el endpoint /api/files del backend NestJS.
+ * Compatible con supabase.storage.from(bucket).upload/getPublicUrl/remove.
  */
 function createStorage() {
-  const notImpl = () => ({
-    data: null,
-    error: { message: 'Storage aún no migrado al backend propio (pendiente /api/files)' },
-  });
   return {
-    from() {
+    from(bucket) {
       return {
-        async upload() {
-          return notImpl();
+        /** upload(path, file, opts) — file es un File/Blob del navegador */
+        async upload(path, file /*, opts */) {
+          try {
+            const form = new FormData();
+            form.append('path', path);
+            form.append('file', file);
+            const headers = {};
+            const token = getToken();
+            if (token) headers.Authorization = `Bearer ${token}`;
+            const res = await fetch(`${API_URL}/api/files/${bucket}`, {
+              method: 'POST',
+              headers, // sin Content-Type: el navegador pone el boundary
+              body: form,
+            });
+            const json = await res.json().catch(() => null);
+            if (!res.ok) {
+              return {
+                data: null,
+                error: { message: json?.message || 'Error al subir archivo', status: res.status },
+              };
+            }
+            return { data: { path, ...(json?.data || {}) }, error: null };
+          } catch (e) {
+            return { data: null, error: { message: e.message } };
+          }
         },
+
         getPublicUrl(path) {
-          return { data: { publicUrl: `${API_URL}/files/${path}` } };
+          return { data: { publicUrl: `${API_URL}/api/files/${bucket}/${path}` } };
         },
-        async remove() {
-          return notImpl();
-        },
-        async download() {
-          return notImpl();
+
+        async remove(paths) {
+          try {
+            const res = await apiFetch(`/files/${bucket}`, {
+              method: 'DELETE',
+              body: { paths: Array.isArray(paths) ? paths : [paths] },
+            });
+            return res.ok ? { data: null, error: null } : { data: null, error: res.error };
+          } catch (e) {
+            return { data: null, error: { message: e.message } };
+          }
         },
       };
     },

@@ -1,0 +1,42 @@
+services:
+  crm-db:
+    image: postgres:16-alpine
+    container_name: crm-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=crm
+      - POSTGRES_PASSWORD=${CRM_DB_PASSWORD}
+      - POSTGRES_DB=crm
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - crm_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm -d crm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  crm-api:
+    build: .
+    container_name: crm-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - PORT=4000
+      - DATABASE_URL=postgresql://crm:${CRM_DB_PASSWORD}@crm-db:5432/crm?schema=public
+      - STORAGE_ROOT=/data/storage
+      - STORAGE_RETENTION_DAYS=14
+      - STORAGE_EXEMPT_BUCKETS=avatars
+      - STORAGE_PUBLIC_BASE=https://api.viajesnovatour.com/api
+    ports:
+      - "127.0.0.1:4001:4000"
+    volumes:
+      - crm_storage:/data/storage
+    depends_on:
+      crm-db:
+        condition: service_healthy
+volumes:
+  crm_db_data:
+    driver: local
+  crm_storage:
+    driver: local

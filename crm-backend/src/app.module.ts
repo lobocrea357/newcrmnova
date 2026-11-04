@@ -4,6 +4,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { DataModule } from './data/data.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { FilesModule } from './files/files.module';
 
 @Controller()
 class HealthController {
@@ -20,6 +21,7 @@ class HealthController {
     AuthModule,
     DataModule,
     RealtimeModule,
+    FilesModule,
   ],
   controllers: [HealthController],
 })
