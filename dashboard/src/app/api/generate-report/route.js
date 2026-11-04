@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabaseServer'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { isInternalChat, normalizePhone } from '@/lib/chatFilters'
 

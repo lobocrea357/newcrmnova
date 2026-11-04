@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabaseServer';
 import { NextResponse } from 'next/server';
 
 // Usar Service Role Key para operaciones del servidor (bypasea RLS)

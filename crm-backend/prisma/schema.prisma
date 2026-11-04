@@ -695,6 +695,7 @@ model profiles {
   equipo_id                                                   String?                    @db.Uuid
   avatar_url                                                  String?
   sede_id                                                     String?                    @db.Uuid
+  bot_session_suffix                                          String?
   auditoria_cambios_estado                                    auditoria_cambios_estado[]
   conversation_evaluations                                    conversation_evaluations[]
   equipos_equipos_gerente_idToprofiles                        equipos[]                  @relation("equipos_gerente_idToprofiles")
