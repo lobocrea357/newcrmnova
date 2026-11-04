@@ -1,0 +1,1038 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model agencias {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre           String             @unique @db.VarChar
+  codigo           String             @unique @db.VarChar
+  descripcion      String?
+  logo_url         String?
+  color_primario   String?            @default("#6366f1") @db.VarChar
+  is_active        Boolean?           @default(true)
+  created_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  usuario_agencias usuario_agencias[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model anulables {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime? @default(now()) @db.Timestamptz(6)
+  vuelo_id          String?   @db.Uuid
+  pax_nombre        String
+  contacto_nombre   String?
+  contacto_telefono String?
+  fecha_vuelo       DateTime? @db.Date
+  ruta              String?
+  localizador       String?
+  estado_anulacion  String?   @default("PENDIENTE")
+  fecha_limite      DateTime? @db.Date
+  fecha_anulacion   DateTime? @db.Date
+  monto_recuperado  Decimal?  @db.Decimal
+  motivo_anulacion  String?
+  observaciones     String?
+  asignado_a        String?   @db.Uuid
+  vuelos            vuelos?   @relation(fields: [vuelo_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model auditoria_cambios_estado {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entidad_tipo   String    @db.VarChar
+  entidad_id     String    @db.Uuid
+  campo_cambiado String    @db.VarChar
+  valor_anterior String?   @db.VarChar
+  valor_nuevo    String    @db.VarChar
+  usuario_id     String?   @db.Uuid
+  usuario_nombre String?   @db.VarChar
+  razon_cambio   String?
+  ip_address     String?   @db.Inet
+  fecha_cambio   DateTime? @default(now()) @db.Timestamptz(6)
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  profiles       profiles? @relation(fields: [usuario_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model bookings {
+  loc                      String    @id
+  fecha_registro_venta     DateTime? @db.Timestamptz(6)
+  fecha_salida_vuelo       DateTime? @db.Date
+  origen_codigo            String?
+  destino_codigo           String?
+  ruta_completa            String?
+  numero_vuelo             String?
+  aerolinea                String?
+  paradas_o_escalas        String?
+  duracion_vuelo           String?
+  equipaje_incluido        String?
+  estado_reserva           String?
+  tipo_servicio            String?
+  proveedor                String?
+  agente_venta             String?
+  pax_total                Int?
+  pasajeros_nombres        String?
+  pasajeros_ticket_numbers String?
+  venta_total_usd          Decimal?  @db.Decimal
+  costo_base_usd           Decimal?  @db.Decimal
+  emision_fee_usd          Decimal?  @db.Decimal
+  hostal_usd               Decimal?  @db.Decimal
+  fee_agencia_usd          Decimal?  @db.Decimal
+  total_boleto_usd         Decimal?  @db.Decimal
+  vuelto_usd               Decimal?  @db.Decimal
+  pago_status              String?
+  metodo_pago              String?
+  cuenta_pago              String?
+  last_updated_source      String?
+  created_at               DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model bot_stats {
+  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  bot_id            String?   @db.Uuid
+  date              DateTime? @default(dbgenerated("CURRENT_DATE")) @db.Date
+  messages_sent     Int?      @default(0)
+  messages_received Int?      @default(0)
+  media_sent        Int?      @default(0)
+  media_received    Int?      @default(0)
+  errors_count      Int?      @default(0)
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime? @default(now()) @db.Timestamptz(6)
+  bots              bots?     @relation(fields: [bot_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model bots {
+  id                       String                     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                     String
+  phone_number             String
+  status                   String?                    @default("offline")
+  created_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  session_name             String?                    @unique
+  engine                   String?                    @default("NOWEB")
+  qr_code                  String?
+  last_seen                DateTime?                  @db.Timestamptz(6)
+  metadata                 Json?                      @default("{}")
+  worker_id                String?                    @db.Uuid
+  bot_stats                bot_stats[]
+  workers                  workers?                   @relation(fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  chats                    chats[]
+  contacts                 contacts[]
+  conversation_evaluations conversation_evaluations[]
+  media_files              media_files[]
+  messages                 messages[]
+  performance_analyses     performance_analyses[]
+  tags                     tags[]
+  webhook_events           webhook_events[]
+}
+
+model chats {
+  id                       String                     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  bot_id                   String?                    @db.Uuid
+  contact_number           String
+  contact_name             String?
+  unread_count             Int?                       @default(0)
+  last_message             String?
+  last_message_at          DateTime?                  @db.Timestamptz(6)
+  created_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  chat_id                  String?
+  contact_id               String?                    @db.Uuid
+  is_group                 Boolean?                   @default(false)
+  archived                 Boolean?                   @default(false)
+  pinned                   Boolean?                   @default(false)
+  muted                    Boolean?                   @default(false)
+  metadata                 Json?                      @default("{}")
+  last_message_time        DateTime?                  @db.Timestamptz(6)
+  name                     String?                    @db.VarChar
+  ai_analysis              Json?                      @default("{}")
+  bots                     bots?                      @relation(fields: [bot_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  contacts                 contacts?                  @relation(fields: [contact_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  conversation_evaluations conversation_evaluations[]
+  conversation_metrics     conversation_metrics?
+  messages                 messages[]
+}
+
+model contact_notes {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contact_id String?   @db.Uuid
+  note       String
+  created_by String?
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  contacts   contacts? @relation(fields: [contact_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model contact_tags {
+  contact_id String    @db.Uuid
+  tag_id     String    @db.Uuid
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  contacts   contacts  @relation(fields: [contact_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tags       tags      @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([contact_id, tag_id])
+}
+
+model contacts {
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bot_id              String?         @db.Uuid
+  phone_number        String
+  name                String?
+  push_name           String?
+  is_business         Boolean?        @default(false)
+  is_enterprise       Boolean?        @default(false)
+  profile_picture_url String?
+  created_at          DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?       @default(now()) @db.Timestamptz(6)
+  metadata            Json?           @default("{}")
+  chats               chats[]
+  contact_notes       contact_notes[]
+  contact_tags        contact_tags[]
+  bots                bots?           @relation(fields: [bot_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  messages            messages[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model conversation_evaluations {
+  id                      String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chat_id                 String                @db.Uuid
+  bot_id                  String                @db.Uuid
+  worker_id               String?               @db.Uuid
+  evaluation_date         DateTime?             @default(now()) @db.Timestamptz(6)
+  generated_by            String
+  manually_edited         Boolean?              @default(false)
+  evaluated_by_user_id    String?               @db.Uuid
+  tiempo_contacto         Boolean?              @default(false)
+  tiempo_respuesta        Boolean?              @default(false)
+  tiempo_cotizacion       Boolean?              @default(false)
+  cierre_intencion        Boolean?              @default(false)
+  ofrecio_scalapay        Boolean?              @default(false)
+  mas_dos_opciones        Boolean?              @default(false)
+  seguimiento_intencion   Boolean?              @default(false)
+  score                   Int                   @default(0)
+  max_score               Int                   @default(7)
+  percentage              Decimal               @default(0.00) @db.Decimal
+  ai_feedback             String?
+  manager_notes           String?
+  created_at              DateTime?             @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime?             @default(now()) @db.Timestamptz(6)
+  performance_analysis_id String?               @db.Uuid
+  venta_confirmada        Boolean?              @default(false)
+  lead_caliente           Boolean?              @default(false)
+  cotizacion_enviada      Boolean?              @default(false)
+  metodo_pago_enviado     Boolean?              @default(false)
+  objeciones_superadas    Boolean?              @default(false)
+  seguimiento_efectivo    Boolean?              @default(false)
+  urgencia_creada         Boolean?              @default(false)
+  valor_agregado          Boolean?              @default(false)
+  score_ventas            Int?                  @default(0)
+  percentage_ventas       Decimal?              @default(0.00) @db.Decimal
+  valor_venta             Decimal?              @db.Decimal
+  valor_estimado          Decimal?              @db.Decimal
+  interest_level          String?               @default("bajo") @db.VarChar
+  resultado_comercial     Json?                 @default("{}")
+  exitos_asesor           String[]
+  errores_criticos        String[]
+  siguiente_accion        String?
+  confidence_score        Decimal?              @default(0.00) @db.Decimal
+  analysis_method         String?               @default("hybrid") @db.VarChar
+  analysis_version        String?               @default("v2.0") @db.VarChar
+  lead_respondio          Boolean?              @default(false)
+  preguntas_negociacion   Boolean?              @default(false)
+  numero_telefono         String?
+  calidad_cotizacion      Boolean?              @default(false)
+  bots                    bots                  @relation(fields: [bot_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  chats                   chats                 @relation(fields: [chat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profiles                profiles?             @relation(fields: [evaluated_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "conversation_evaluations_evaluated_by_fkey")
+  performance_analyses    performance_analyses? @relation(fields: [performance_analysis_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workers                 workers?              @relation(fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model conversation_metrics {
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chat_id                   String    @unique @db.Uuid
+  total_messages            Int       @default(0)
+  incoming_messages         Int       @default(0)
+  outgoing_messages         Int       @default(0)
+  avg_response_time_minutes Decimal?  @db.Decimal
+  max_response_time_minutes Decimal?  @db.Decimal
+  response_samples          Int?      @default(0)
+  payment_mentions_count    Int?      @default(0)
+  payment_first_mention_at  DateTime? @db.Timestamptz(6)
+  payment_last_mention_at   DateTime? @db.Timestamptz(6)
+  payment_last_from_me      Boolean?
+  cotizacion_mentions_count Int?      @default(0)
+  cotizacion_files          Json?     @default("[]")
+  last_calculated_at        DateTime? @default(now()) @db.Timestamptz(6)
+  created_at                DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime? @default(now()) @db.Timestamptz(6)
+  chats                     chats     @relation(fields: [chat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model cotizaciones {
+  id                                   String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                           DateTime?                @default(now()) @db.Timestamptz(6)
+  updated_at                           DateTime?                @default(now()) @db.Timestamptz(6)
+  created_by                           String                   @db.Uuid
+  nombre_cliente                       String
+  estado                               String                   @default("PENDIENTE")
+  razon_rechazo                        String?
+  tipo_vuelo                           String
+  origen                               String
+  destino                              String
+  aerolinea                            String?
+  fecha_salida                         DateTime                 @db.Date
+  hora_salida                          DateTime?                @db.Time(6)
+  hora_llegada                         DateTime?                @db.Time(6)
+  tiene_escala                         Boolean?                 @default(false)
+  escala_1_ciudad                      String?
+  escala_1_duracion                    String?
+  tiene_segunda_escala                 Boolean?                 @default(false)
+  escala_2_ciudad                      String?
+  escala_2_duracion                    String?
+  precio_base                          Decimal?                 @db.Decimal
+  fee_emision                          Decimal?                 @db.Decimal
+  fee_agencia                          Decimal?                 @db.Decimal
+  total_cotizacion                     Decimal?                 @db.Decimal
+  moneda_precio                        String
+  moneda_cotizacion                    String
+  precio_final_cotizacion              Decimal                  @db.Decimal
+  tasa_cambio                          Decimal?                 @db.Decimal
+  metodo_pago                          String?
+  reserva_id                           String?                  @db.Uuid
+  aereolinea_codigo                    String?
+  deleted_at                           DateTime?                @db.Timestamptz(6)
+  deleted_by                           String?                  @db.Uuid
+  fecha_regreso                        DateTime?                @db.Date
+  hora_salida_regreso                  DateTime?                @db.Time(6)
+  hora_llegada_regreso                 DateTime?                @db.Time(6)
+  users_cotizaciones_created_byTousers users                    @relation("cotizaciones_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_cotizaciones_deleted_byTousers users?                   @relation("cotizaciones_deleted_byTousers", fields: [deleted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cotizaciones_historial               cotizaciones_historial[]
+  cotizaciones_pasajeros               cotizaciones_pasajeros[]
+  vuelos                               vuelos[]
+}
+
+model cotizaciones_historial {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cotizacion_id   String       @db.Uuid
+  estado_anterior String?
+  estado_nuevo    String
+  changed_by      String       @db.Uuid
+  created_at      DateTime?    @default(now()) @db.Timestamptz(6)
+  razon           String?
+  users           users        @relation(fields: [changed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cotizaciones    cotizaciones @relation(fields: [cotizacion_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model cotizaciones_pasajeros {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cotizacion_id     String             @db.Uuid
+  tipo              String
+  orden             Int
+  precio_pantalla   Decimal            @db.Decimal
+  fee_emision       Decimal?           @default(0) @db.Decimal
+  fee_agencia       Decimal?           @default(0) @db.Decimal
+  equipaje_completo Boolean?           @default(false)
+  equipaje_mediano  Boolean?           @default(false)
+  equipaje_ligero   Boolean?           @default(false)
+  created_at        DateTime?          @default(now()) @db.Timestamptz(6)
+  deleted_at        DateTime?          @db.Timestamptz(6)
+  deleted_by        String?            @db.Uuid
+  cotizaciones      cotizaciones       @relation(fields: [cotizacion_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users             users?             @relation(fields: [deleted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vuelos_pasajeros  vuelos_pasajeros[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model daily_sales_reports {
+  id                        String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  asesor_id                 String                @db.Uuid
+  worker_id                 String?               @db.Uuid
+  report_date               DateTime              @db.Date
+  ventas_confirmadas        Int?                  @default(0)
+  leads_calientes           Int?                  @default(0)
+  cotizaciones_enviadas     Int?                  @default(0)
+  conversaciones_analizadas Int?                  @default(0)
+  valor_total_ventas        Decimal?              @default(0.00) @db.Decimal
+  tasa_conversion           Decimal?              @default(0.00) @db.Decimal
+  valor_promedio_venta      Decimal?              @default(0.00) @db.Decimal
+  score_promedio_ventas     Decimal?              @default(0.00) @db.Decimal
+  nivel_rendimiento         String?               @default("REGULAR") @db.VarChar
+  requiere_seguimiento      Boolean?              @default(false)
+  ventas_exitosas           Json?                 @default("[]")
+  oportunidades_perdidas    Json?                 @default("[]")
+  recomendaciones           Json?                 @default("[]")
+  performance_analysis_id   String?               @db.Uuid
+  created_at                DateTime?             @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime?             @default(now()) @db.Timestamptz(6)
+  performance_analyses      performance_analyses? @relation(fields: [performance_analysis_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workers                   workers?              @relation(fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model deudas_proveedores {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vuelo_id          String         @db.Uuid
+  proveedor         String         @db.VarChar
+  cuenta_emision    String         @db.VarChar
+  monto_deuda       Decimal        @db.Decimal
+  moneda            String         @default("USD") @db.VarChar
+  estado            String         @default("PENDIENTE") @db.VarChar
+  saldo_pendiente   Decimal        @db.Decimal
+  fecha_generacion  DateTime?      @default(now()) @db.Timestamptz(6)
+  fecha_vencimiento DateTime?      @db.Date
+  created_at        DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?      @default(now()) @db.Timestamptz(6)
+  vuelos            vuelos         @relation(fields: [vuelo_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pagos_deudas      pagos_deudas[]
+}
+
+model equipos {
+  id                                    String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre                                String
+  descripcion                           String?
+  color                                 String?    @default("#6366f1")
+  gerente_id                            String     @db.Uuid
+  is_active                             Boolean?   @default(true)
+  created_at                            DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at                            DateTime?  @default(now()) @db.Timestamptz(6)
+  profiles_equipos_gerente_idToprofiles profiles   @relation("equipos_gerente_idToprofiles", fields: [gerente_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profiles_profiles_equipo_idToequipos  profiles[] @relation("profiles_equipo_idToequipos")
+}
+
+model media_files {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bot_id        String?   @db.Uuid
+  message_id    String?   @db.Uuid
+  file_url      String
+  file_name     String?
+  mimetype      String?
+  file_size     BigInt?
+  thumbnail_url String?
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  metadata      Json?     @default("{}")
+  bots          bots?     @relation(fields: [bot_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  messages      messages? @relation(fields: [message_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model messages {
+  id                String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  bot_id            String?       @db.Uuid
+  message_id        String
+  from_number       String
+  to_number         String
+  content           String?
+  media_url         String?
+  message_type      String
+  status            String?
+  timestamp         DateTime?     @default(now()) @db.Timestamptz(6)
+  created_at        DateTime?     @default(now()) @db.Timestamptz(6)
+  chat_id           String?       @db.Uuid
+  contact_id        String?       @db.Uuid
+  body              String?
+  type              String?       @default("text")
+  from_me           Boolean?      @default(false)
+  ack               Int?          @default(0)
+  has_media         Boolean?      @default(false)
+  media_mimetype    String?
+  caption           String?
+  quoted_message_id String?
+  is_forwarded      Boolean?      @default(false)
+  broadcast         Boolean?      @default(false)
+  metadata          Json?         @default("{}")
+  media_files       media_files[]
+  bots              bots?         @relation(fields: [bot_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  chats             chats?        @relation(fields: [chat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  contacts          contacts?     @relation(fields: [contact_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model migration_audit {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  migration_name String
+  executed_at    DateTime? @default(now()) @db.Timestamptz(6)
+  details        Json?
+  status         String?
+}
+
+model monedas {
+  id                                                           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  codigo                                                       String             @unique
+  nombre                                                       String
+  simbolo                                                      String
+  activa                                                       Boolean            @default(true)
+  created_at                                                   DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at                                                   DateTime?          @default(now()) @db.Timestamptz(6)
+  deleted_at                                                   DateTime?          @db.Timestamptz(6)
+  deleted_by                                                   String?            @db.Uuid
+  profiles                                                     profiles?          @relation(fields: [deleted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tasas_conversion_tasas_conversion_moneda_destino_idTomonedas tasas_conversion[] @relation("tasas_conversion_moneda_destino_idTomonedas")
+  tasas_conversion_tasas_conversion_moneda_origen_idTomonedas  tasas_conversion[] @relation("tasas_conversion_moneda_origen_idTomonedas")
+  tasas_historial_tasas_historial_moneda_destino_idTomonedas   tasas_historial[]  @relation("tasas_historial_moneda_destino_idTomonedas")
+  tasas_historial_tasas_historial_moneda_origen_idTomonedas    tasas_historial[]  @relation("tasas_historial_moneda_origen_idTomonedas")
+}
+
+model notificaciones {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String   @db.Uuid
+  tipo        String   @default("info") @db.VarChar
+  titulo      String   @db.VarChar
+  descripcion String?
+  leida       Boolean  @default(false)
+  datos       Json?    @default("{}")
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  users       users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model pagos_deudas {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deuda_id           String             @db.Uuid
+  monto_pagado       Decimal            @db.Decimal
+  moneda             String             @default("USD") @db.VarChar
+  metodo_pago        String?            @db.VarChar
+  referencia_pago    String?            @db.VarChar
+  comprobante_url    String?
+  fecha_pago         DateTime           @db.Date
+  registrado_por     String             @db.Uuid
+  observaciones      String?
+  created_at         DateTime?          @default(now()) @db.Timestamptz(6)
+  deudas_proveedores deudas_proveedores @relation(fields: [deuda_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profiles           profiles           @relation(fields: [registrado_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model performance_analyses {
+  id                           String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  analysis_name                String
+  bot_id                       String                     @db.Uuid
+  worker_id                    String?                    @db.Uuid
+  total_conversations_analyzed Int                        @default(0)
+  average_score                Decimal                    @default(0.00) @db.Decimal
+  average_percentage           Decimal                    @default(0.00) @db.Decimal
+  tiempo_contacto_count        Int?                       @default(0)
+  tiempo_respuesta_count       Int?                       @default(0)
+  tiempo_cotizacion_count      Int?                       @default(0)
+  cierre_intencion_count       Int?                       @default(0)
+  ofrecio_scalapay_count       Int?                       @default(0)
+  mas_dos_opciones_count       Int?                       @default(0)
+  seguimiento_intencion_count  Int?                       @default(0)
+  generated_by                 String
+  created_by_user_id           String?                    @db.Uuid
+  status                       String?                    @default("draft")
+  general_notes                String?
+  created_at                   DateTime?                  @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime?                  @default(now()) @db.Timestamptz(6)
+  finalized_at                 DateTime?                  @db.Timestamptz(6)
+  analysis_date                DateTime                   @default(dbgenerated("CURRENT_DATE")) @db.Date
+  ventas_confirmadas_count     Int?                       @default(0)
+  leads_calientes_count        Int?                       @default(0)
+  valor_total_ventas           Decimal?                   @default(0.00) @db.Decimal
+  tasa_conversion              Decimal?                   @default(0.00) @db.Decimal
+  average_score_ventas         Decimal?                   @default(0.00) @db.Decimal
+  nivel_comercial              String?                    @default("REGULAR") @db.VarChar
+  sales_summary                Json?                      @default("{}")
+  lead_respondio_count         Int?                       @default(0)
+  preguntas_negociacion_count  Int?                       @default(0)
+  calidad_cotizacion_count     Int?                       @default(0)
+  seguimiento_efectivo_count   Int?                       @default(0)
+  objeciones_superadas_count   Int?                       @default(0)
+  venta_confirmada_count       Int?                       @default(0)
+  conversation_evaluations     conversation_evaluations[]
+  daily_sales_reports          daily_sales_reports[]
+  bots                         bots                       @relation(fields: [bot_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profiles                     profiles?                  @relation(fields: [created_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "performance_analyses_created_by_fkey")
+  workers                      workers?                   @relation(fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  performance_improvements     performance_improvements[]
+  performance_reports          performance_reports[]
+}
+
+model performance_improvements {
+  id                      String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  worker_id               String                @db.Uuid
+  performance_analysis_id String?               @db.Uuid
+  parameter_name          String
+  improvement_suggestion  String
+  priority                String?               @default("medium")
+  status                  String?               @default("pending")
+  assigned_to_user_id     String?               @db.Uuid
+  completed_at            DateTime?             @db.Timestamptz(6)
+  created_at              DateTime?             @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime?             @default(now()) @db.Timestamptz(6)
+  performance_analyses    performance_analyses? @relation(fields: [performance_analysis_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "performance_improvements_analysis_id_fkey")
+  profiles                profiles?             @relation(fields: [assigned_to_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "performance_improvements_assigned_to_fkey")
+  workers                 workers               @relation(fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model performance_reports {
+  id                      String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  performance_analysis_id String               @db.Uuid
+  report_type             String
+  report_name             String
+  file_url                String?
+  file_size               BigInt?
+  include_details         Boolean?             @default(true)
+  include_conversations   Boolean?             @default(false)
+  include_charts          Boolean?             @default(true)
+  generated_by_user_id    String?              @db.Uuid
+  created_at              DateTime?            @default(now()) @db.Timestamptz(6)
+  downloaded_at           DateTime?            @db.Timestamptz(6)
+  report_data             Json?                @default("{}")
+  performance_analyses    performance_analyses @relation(fields: [performance_analysis_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "performance_reports_analysis_id_fkey")
+  profiles                profiles?            @relation(fields: [generated_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "performance_reports_generated_by_fkey")
+}
+
+model permissions {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String             @unique @db.VarChar
+  description      String?
+  category         String?            @db.VarChar
+  created_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  is_system        Boolean?           @default(false)
+  role_permissions role_permissions[]
+  user_permissions user_permissions[]
+}
+
+model poc_customer_threads {
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_phone          String                    @unique
+  customer_name           String?
+  first_message_at        DateTime?                 @db.Timestamp(6)
+  last_message_at         DateTime?                 @db.Timestamp(6)
+  created_at              DateTime?                 @default(now()) @db.Timestamp(6)
+  poc_thread_chat_history poc_thread_chat_history[]
+  poc_thread_chats        poc_thread_chats[]
+  poc_thread_events       poc_thread_events[]
+  poc_thread_metrics      poc_thread_metrics?
+  poc_thread_status       poc_thread_status?
+}
+
+model poc_thread_chat_history {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  thread_id            String               @db.Uuid
+  chat_id              String               @db.Uuid
+  bot_name             String
+  started_at           DateTime             @db.Timestamp(6)
+  ended_at             DateTime?            @db.Timestamp(6)
+  created_at           DateTime?            @default(now()) @db.Timestamp(6)
+  poc_customer_threads poc_customer_threads @relation(fields: [thread_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model poc_thread_chats {
+  thread_id            String               @db.Uuid
+  chat_id              String               @db.Uuid
+  bot_name             String?
+  started_at           DateTime?            @db.Timestamp(6)
+  ended_at             DateTime?            @db.Timestamp(6)
+  poc_customer_threads poc_customer_threads @relation(fields: [thread_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([thread_id, chat_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model poc_thread_events {
+  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  thread_id             String               @db.Uuid
+  event_type            String               @db.VarChar
+  event_subtype         String?              @db.VarChar
+  occurred_at           DateTime             @db.Timestamptz(6)
+  created_at            DateTime?            @default(now()) @db.Timestamptz(6)
+  created_by            String?              @db.Uuid
+  event_data            Json?                @default("{}")
+  notes                 String?
+  related_message_id    String?              @db.Uuid
+  related_vuelo_id      String?              @db.Uuid
+  related_cotizacion_id String?              @db.Uuid
+  is_milestone          Boolean?             @default(false)
+  is_system_generated   Boolean?             @default(false)
+  poc_customer_threads  poc_customer_threads @relation(fields: [thread_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model poc_thread_metrics {
+  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  thread_id            String?               @unique @db.Uuid
+  total_messages       Int?                  @default(0)
+  total_chats          Int?                  @default(0)
+  advisors             String[]
+  avg_response_minutes Decimal?              @db.Decimal
+  payment_mentions     Int?                  @default(0)
+  cotizacion_count     Int?                  @default(0)
+  updated_at           DateTime?             @default(now()) @db.Timestamp(6)
+  poc_customer_threads poc_customer_threads? @relation(fields: [thread_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model poc_thread_status {
+  thread_id            String               @id @db.Uuid
+  current_status       String               @default("NUEVO") @db.VarChar
+  status_since         DateTime?            @default(now()) @db.Timestamptz(6)
+  previous_status      String?              @db.VarChar
+  total_sales          Int?                 @default(0)
+  total_sales_amount   Decimal?             @default(0) @db.Decimal
+  first_sale_at        DateTime?            @db.Timestamptz(6)
+  last_sale_at         DateTime?            @db.Timestamptz(6)
+  first_contact_at     DateTime?            @db.Timestamptz(6)
+  last_activity_at     DateTime?            @db.Timestamptz(6)
+  updated_at           DateTime?            @default(now()) @db.Timestamptz(6)
+  poc_customer_threads poc_customer_threads @relation(fields: [thread_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model profiles {
+  id                                                          String                     @id @db.Uuid
+  email                                                       String                     @unique @db.VarChar
+  full_name                                                   String?                    @db.VarChar
+  role_id                                                     String?                    @db.Uuid
+  is_active                                                   Boolean?                   @default(true)
+  created_at                                                  DateTime?                  @default(now()) @db.Timestamptz(6)
+  updated_at                                                  DateTime?                  @default(now()) @db.Timestamptz(6)
+  equipo_id                                                   String?                    @db.Uuid
+  avatar_url                                                  String?
+  sede_id                                                     String?                    @db.Uuid
+  auditoria_cambios_estado                                    auditoria_cambios_estado[]
+  conversation_evaluations                                    conversation_evaluations[]
+  equipos_equipos_gerente_idToprofiles                        equipos[]                  @relation("equipos_gerente_idToprofiles")
+  monedas                                                     monedas[]
+  pagos_deudas                                                pagos_deudas[]
+  performance_analyses                                        performance_analyses[]
+  performance_improvements                                    performance_improvements[]
+  performance_reports                                         performance_reports[]
+  equipos_profiles_equipo_idToequipos                         equipos?                   @relation("profiles_equipo_idToequipos", fields: [equipo_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                                                       users                      @relation(fields: [id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  roles                                                       roles?                     @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sedes                                                       sedes?                     @relation(fields: [sede_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tasas_conversion_tasas_conversion_actualizado_porToprofiles tasas_conversion[]         @relation("tasas_conversion_actualizado_porToprofiles")
+  tasas_conversion_tasas_conversion_deleted_byToprofiles      tasas_conversion[]         @relation("tasas_conversion_deleted_byToprofiles")
+  tasas_historial                                             tasas_historial[]
+  user_permissions_user_permissions_granted_byToprofiles      user_permissions[]         @relation("user_permissions_granted_byToprofiles")
+  user_permissions_user_permissions_user_idToprofiles         user_permissions[]         @relation("user_permissions_user_idToprofiles")
+  usuario_agencias_usuario_agencias_created_byToprofiles      usuario_agencias[]         @relation("usuario_agencias_created_byToprofiles")
+  usuario_agencias_usuario_agencias_user_idToprofiles         usuario_agencias[]         @relation("usuario_agencias_user_idToprofiles")
+  vuelos_vuelos_autorizado_porToprofiles                      vuelos[]                   @relation("vuelos_autorizado_porToprofiles")
+  vuelos_vuelos_created_byToprofiles                          vuelos[]                   @relation("vuelos_created_byToprofiles")
+  vuelos_vuelos_emitido_porToprofiles                         vuelos[]                   @relation("vuelos_emitido_porToprofiles")
+  vuelos_vuelos_pago_confirmado_porToprofiles                 vuelos[]                   @relation("vuelos_pago_confirmado_porToprofiles")
+  vuelos_ediciones                                            vuelos_ediciones[]
+}
+
+model role_permissions {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role_id       String      @db.Uuid
+  permission_id String      @db.Uuid
+  created_at    DateTime?   @default(now()) @db.Timestamptz(6)
+  permissions   permissions @relation(fields: [permission_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  roles         roles       @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model roles {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String             @unique @db.VarChar
+  description      String?
+  permissions      Json?              @default("{}")
+  created_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  ranking          Int?               @default(0)
+  profiles         profiles[]
+  role_permissions role_permissions[]
+}
+
+model sales_analysis_config {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  config_key   String    @unique @db.VarChar
+  config_value Json
+  description  String?
+  is_active    Boolean?  @default(true)
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model sales_analysis_logs {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  event_type        String    @db.VarChar
+  asesor_id         String?   @db.Uuid
+  worker_id         String?   @db.Uuid
+  event_data        Json?     @default("{}")
+  success           Boolean?  @default(true)
+  error_message     String?
+  execution_time_ms Int?
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  workers           workers?  @relation(fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model sedes {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre     String     @unique @db.VarChar
+  codigo     String     @unique @db.VarChar
+  direccion  String?
+  ciudad     String?    @db.VarChar
+  pais       String?    @default("Venezuela") @db.VarChar
+  telefono   String?    @db.VarChar
+  is_active  Boolean?   @default(true)
+  created_at DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime?  @default(now()) @db.Timestamptz(6)
+  profiles   profiles[]
+}
+
+model tags {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bot_id       String?        @db.Uuid
+  name         String
+  color        String?        @default("#3B82F6")
+  created_at   DateTime?      @default(now()) @db.Timestamptz(6)
+  contact_tags contact_tags[]
+  bots         bots?          @relation(fields: [bot_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model tasas_conversion {
+  id                                                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  moneda_origen_id                                    String            @db.Uuid
+  moneda_destino_id                                   String            @db.Uuid
+  tasa                                                Decimal           @db.Decimal
+  descripcion                                         String?
+  activa                                              Boolean           @default(true)
+  created_at                                          DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at                                          DateTime?         @default(now()) @db.Timestamptz(6)
+  actualizado_por                                     String?           @db.Uuid
+  deleted_at                                          DateTime?         @db.Timestamptz(6)
+  deleted_by                                          String?           @db.Uuid
+  profiles_tasas_conversion_actualizado_porToprofiles profiles?         @relation("tasas_conversion_actualizado_porToprofiles", fields: [actualizado_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profiles_tasas_conversion_deleted_byToprofiles      profiles?         @relation("tasas_conversion_deleted_byToprofiles", fields: [deleted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  monedas_tasas_conversion_moneda_destino_idTomonedas monedas           @relation("tasas_conversion_moneda_destino_idTomonedas", fields: [moneda_destino_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  monedas_tasas_conversion_moneda_origen_idTomonedas  monedas           @relation("tasas_conversion_moneda_origen_idTomonedas", fields: [moneda_origen_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tasas_historial                                     tasas_historial[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model tasas_historial {
+  id                                                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tasa_conversion_id                                 String           @db.Uuid
+  moneda_origen_id                                   String           @db.Uuid
+  moneda_destino_id                                  String           @db.Uuid
+  tasa_anterior                                      Decimal?         @db.Decimal
+  tasa_nueva                                         Decimal?         @db.Decimal
+  motivo                                             String?
+  modificado_por                                     String           @db.Uuid
+  fecha_cambio                                       DateTime?        @default(now()) @db.Timestamptz(6)
+  tipo_operacion                                     String?          @default("update") @db.VarChar
+  profiles                                           profiles         @relation(fields: [modificado_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  monedas_tasas_historial_moneda_destino_idTomonedas monedas          @relation("tasas_historial_moneda_destino_idTomonedas", fields: [moneda_destino_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  monedas_tasas_historial_moneda_origen_idTomonedas  monedas          @relation("tasas_historial_moneda_origen_idTomonedas", fields: [moneda_origen_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tasas_conversion                                   tasas_conversion @relation(fields: [tasa_conversion_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model team_members {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phone_number String    @unique
+  full_name    String
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  updated_at   DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model user_permissions {
+  id                                             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                                        String      @db.Uuid
+  permission_id                                  String      @db.Uuid
+  granted                                        Boolean?    @default(true)
+  granted_by                                     String?     @db.Uuid
+  reason                                         String?
+  created_at                                     DateTime?   @default(now()) @db.Timestamptz(6)
+  updated_at                                     DateTime?   @default(now()) @db.Timestamptz(6)
+  profiles_user_permissions_granted_byToprofiles profiles?   @relation("user_permissions_granted_byToprofiles", fields: [granted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  permissions                                    permissions @relation(fields: [permission_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profiles_user_permissions_user_idToprofiles    profiles    @relation("user_permissions_user_idToprofiles", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model users {
+  id                                          String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                                       String                   @unique
+  password_hash                               String?
+  full_name                                   String?
+  email_confirmed_at                          DateTime?                @db.Timestamptz(6)
+  created_at                                  DateTime?                @default(now()) @db.Timestamptz(6)
+  updated_at                                  DateTime?                @default(now()) @db.Timestamptz(6)
+  cotizaciones_cotizaciones_created_byTousers cotizaciones[]           @relation("cotizaciones_created_byTousers")
+  cotizaciones_cotizaciones_deleted_byTousers cotizaciones[]           @relation("cotizaciones_deleted_byTousers")
+  cotizaciones_historial                      cotizaciones_historial[]
+  cotizaciones_pasajeros                      cotizaciones_pasajeros[]
+  notificaciones                              notificaciones[]
+  profiles                                    profiles?
+}
+
+model usuario_agencias {
+  id                                             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                                        String    @db.Uuid
+  agencia_id                                     String    @db.Uuid
+  is_primary                                     Boolean?  @default(false)
+  created_at                                     DateTime? @default(now()) @db.Timestamptz(6)
+  created_by                                     String?   @db.Uuid
+  agencias                                       agencias  @relation(fields: [agencia_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profiles_usuario_agencias_created_byToprofiles profiles? @relation("usuario_agencias_created_byToprofiles", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profiles_usuario_agencias_user_idToprofiles    profiles  @relation("usuario_agencias_user_idToprofiles", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model vuelos {
+  id                                            String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                                    DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at                                    DateTime?            @default(now()) @db.Timestamptz(6)
+  created_by                                    String               @db.Uuid
+  pax_nombre                                    String
+  num_adultos                                   Int?                 @default(0)
+  num_ninos                                     Int?                 @default(0)
+  num_infantes                                  Int?                 @default(0)
+  contacto_nombre                               String
+  contacto_telefono                             String
+  fecha_vuelo                                   DateTime             @db.Date
+  ruta                                          String
+  horario                                       DateTime?            @db.Time(6)
+  aerolinea_codigo                              String?
+  aerolinea_nombre                              String?
+  localizador                                   String?              @unique
+  proveedor                                     String
+  monto_venta                                   Decimal              @db.Decimal
+  metodo_pago                                   String?
+  tipo_vuelo                                    String
+  requiere_anulable                             Boolean?             @default(false)
+  anulable_id                                   String?              @db.Uuid
+  observaciones                                 String?
+  pnr_desglose                                  String?
+  estado                                        String               @default("PENDIENTE_CONFIRMACION_PAGO")
+  cotizacion_id                                 String?              @db.Uuid
+  pago_confirmado_por                           String?              @db.Uuid
+  pago_confirmado_at                            DateTime?            @db.Timestamptz(6)
+  emitido_por                                   String?              @db.Uuid
+  emitido_at                                    DateTime?            @db.Timestamptz(6)
+  hora_llegada                                  DateTime?            @db.Time(6)
+  tiene_escala                                  Boolean?             @default(false)
+  escala_1_ciudad                               String?
+  escala_1_duracion                             String?
+  tiene_segunda_escala                          Boolean?             @default(false)
+  escala_2_ciudad                               String?
+  escala_2_duracion                             String?
+  moneda_precio                                 String?
+  moneda_cotizacion                             String?
+  tasa_cambio                                   Decimal?             @db.Decimal
+  total_cotizacion                              Decimal?             @db.Decimal
+  ediciones_disponibles                         Int?                 @default(3)
+  fecha_regreso                                 DateTime?            @db.Date
+  hora_salida_regreso                           DateTime?            @db.Time(6)
+  hora_llegada_regreso                          DateTime?            @db.Time(6)
+  forma_emision                                 String?              @db.VarChar
+  cuenta_emision_original                       String?              @db.VarChar
+  cuenta_emision_asignada                       String?              @db.VarChar
+  autorizado_emision                            Boolean?             @default(false)
+  autorizado_por                                String?              @db.Uuid
+  fecha_autorizacion_emision                    DateTime?            @db.Timestamptz(6)
+  observaciones_emision                         String?
+  monto_total_venta                             Decimal?             @db.Decimal
+  pago_inicial_cliente                          Decimal?             @default(0) @db.Decimal
+  saldo_pendiente_cliente                       Decimal?             @db.Decimal
+  costo_base_proveedor                          Decimal?             @db.Decimal
+  anulables                                     anulables[]
+  deudas_proveedores                            deudas_proveedores[]
+  profiles_vuelos_autorizado_porToprofiles      profiles?            @relation("vuelos_autorizado_porToprofiles", fields: [autorizado_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cotizaciones                                  cotizaciones?        @relation(fields: [cotizacion_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profiles_vuelos_created_byToprofiles          profiles             @relation("vuelos_created_byToprofiles", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profiles_vuelos_emitido_porToprofiles         profiles?            @relation("vuelos_emitido_porToprofiles", fields: [emitido_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profiles_vuelos_pago_confirmado_porToprofiles profiles?            @relation("vuelos_pago_confirmado_porToprofiles", fields: [pago_confirmado_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vuelos_adjuntos                               vuelos_adjuntos[]
+  vuelos_ediciones                              vuelos_ediciones[]
+  vuelos_pasajeros                              vuelos_pasajeros[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model vuelos_adjuntos {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vuelo_id         String            @db.Uuid
+  tipo_adjunto     String
+  nombre_archivo   String
+  url_storage      String
+  mime_type        String?
+  tamano_bytes     Int?
+  uploaded_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  uploaded_by      String            @db.Uuid
+  pasajero_id      String?           @db.Uuid
+  vuelos_pasajeros vuelos_pasajeros? @relation(fields: [pasajero_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vuelos           vuelos            @relation(fields: [vuelo_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model vuelos_ediciones {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vuelo_id           String    @db.Uuid
+  editado_por        String    @db.Uuid
+  editado_at         DateTime? @default(now()) @db.Timestamptz(6)
+  campos_modificados Json      @default("{}")
+  valores_anteriores Json      @default("{}")
+  valores_nuevos     Json      @default("{}")
+  intento_numero     Int
+  razon_edicion      String
+  profiles           profiles  @relation(fields: [editado_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vuelos             vuelos    @relation(fields: [vuelo_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model vuelos_pasajeros {
+  id                     String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vuelo_id               String                  @db.Uuid
+  cotizacion_pasajero_id String?                 @db.Uuid
+  tipo                   String
+  orden                  Int
+  nombres                String?
+  apellidos              String?
+  nombre_completo        String?
+  sexo                   String?
+  fecha_nacimiento       DateTime?               @db.Date
+  nacionalidad           String?
+  numero_pasaporte       String?
+  precio_pantalla        Decimal                 @default(0) @db.Decimal
+  fee_emision            Decimal                 @default(0) @db.Decimal
+  fee_agencia            Decimal                 @default(0) @db.Decimal
+  equipaje_completo      Boolean?                @default(false)
+  equipaje_mediano       Boolean?                @default(false)
+  equipaje_ligero        Boolean?                @default(false)
+  created_at             DateTime?               @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime?               @default(now()) @db.Timestamptz(6)
+  tipo_documento         String?                 @db.VarChar
+  numero_cedula          String?
+  pais_emision_cedula    String?                 @db.VarChar
+  vuelos_adjuntos        vuelos_adjuntos[]
+  cotizaciones_pasajeros cotizaciones_pasajeros? @relation(fields: [cotizacion_pasajero_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vuelos                 vuelos                  @relation(fields: [vuelo_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model webhook_events {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bot_id       String?   @db.Uuid
+  event_type   String
+  event_data   Json
+  processed    Boolean?  @default(false)
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  processed_at DateTime? @db.Timestamptz(6)
+  bots         bots?     @relation(fields: [bot_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model workers {
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                     String                     @db.VarChar
+  email                    String                     @unique @db.VarChar
+  phone_number             String?                    @db.VarChar
+  role                     String?                    @default("agent") @db.VarChar
+  status                   String?                    @default("active") @db.VarChar
+  avatar_url               String?
+  created_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  last_active              DateTime?                  @db.Timestamptz(6)
+  metadata                 Json?                      @default("{}")
+  bots                     bots[]
+  conversation_evaluations conversation_evaluations[]
+  daily_sales_reports      daily_sales_reports[]
+  performance_analyses     performance_analyses[]
+  performance_improvements performance_improvements[]
+  sales_analysis_logs      sales_analysis_logs[]
+}
