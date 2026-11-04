@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -99,6 +100,7 @@ export interface UpsertBody {
 
 @Injectable()
 export class DataService {
+  private readonly logger = new Logger('Data');
   constructor(private readonly prisma: PrismaService) {}
 
   private model(table: string): any {
@@ -223,6 +225,32 @@ export class DataService {
     }
     const res = await model.deleteMany({ where });
     return { data: rows, count: res.count };
+  }
+
+  /**
+   * Ejecuta una función Postgres (equivalente a supabase.rpc). Si la función no
+   * existe en la BD, devuelve [] (degradación limpia) en vez de fallar — algunas
+   * funciones RPC del sistema anterior se perdieron con Supabase.
+   */
+  async rpc(fn: string, args: Record<string, any> = {}) {
+    if (!/^[a-zA-Z0-9_]+$/.test(fn)) {
+      throw new BadRequestException('Nombre de función inválido');
+    }
+    const exists: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT 1 FROM pg_proc WHERE proname = $1 LIMIT 1`,
+      fn,
+    );
+    if (!exists || exists.length === 0) {
+      this.logger.warn(`rpc('${fn}') no existe en la BD; devolviendo []`);
+      return { data: [], error: null };
+    }
+    const keys = Object.keys(args || {});
+    const params = keys.map((_, i) => `$${i + 1}`);
+    const named = keys.map((k, i) => `${k} => ${params[i]}`).join(', ');
+    const values = keys.map((k) => (args as any)[k]);
+    const sql = `SELECT to_jsonb(t) AS row FROM "${fn}"(${named}) t`;
+    const rows: any[] = await this.prisma.$queryRawUnsafe(sql, ...values);
+    return { data: rows.map((r) => r.row), error: null };
   }
 
   async upsert(table: string, body: UpsertBody) {

@@ -15,6 +15,31 @@ const API_URL =
   (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_API_URL) ||
   'http://localhost:4000';
 
+// En servidor (rutas Next app/api/*) se puede usar una base interna distinta.
+function serverBase() {
+  if (typeof process !== 'undefined' && process.env && process.env.GATEWAY_URL) {
+    return process.env.GATEWAY_URL;
+  }
+  return API_URL;
+}
+
+// Login de servicio para uso server-side (SERVICE_EMAIL / SERVICE_PASSWORD).
+let serviceToken = null;
+async function serviceLogin() {
+  const email = process.env.SERVICE_EMAIL;
+  const password = process.env.SERVICE_PASSWORD;
+  if (!email || !password) return null;
+  const res = await fetch(`${serverBase()}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) return null;
+  const json = await res.json();
+  serviceToken = json.access_token;
+  return serviceToken;
+}
+
 const TOKEN_KEY = 'nova_access_token';
 const USER_KEY = 'nova_user';
 
@@ -32,11 +57,21 @@ function getToken() {
       return null;
     }
   }
-  // en servidor (rutas Next API) permite un token de servicio
+  // en servidor: token de servicio cacheado (o uno explícito por env)
   if (typeof process !== 'undefined' && process.env) {
-    return process.env.CRM_SERVICE_TOKEN || null;
+    return serviceToken || process.env.CRM_SERVICE_TOKEN || null;
   }
   return null;
+}
+
+// Resuelve el token de forma asíncrona; en servidor hace login de servicio si falta.
+async function resolveToken() {
+  if (isBrowser()) return getToken();
+  if (serviceToken) return serviceToken;
+  if (typeof process !== 'undefined' && process.env && process.env.CRM_SERVICE_TOKEN) {
+    return process.env.CRM_SERVICE_TOKEN;
+  }
+  return serviceLogin();
 }
 
 function setSession(token, user) {
@@ -72,15 +107,25 @@ function getStoredUser() {
 /* ------------------------------- HTTP base -------------------------------- */
 
 async function apiFetch(path, { method = 'GET', body } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const base = isBrowser() ? API_URL : serverBase();
+  const doFetch = async (token) => {
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return fetch(`${base}/api${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  };
 
-  const res = await fetch(`${API_URL}/api${path}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  let token = await resolveToken();
+  let res = await doFetch(token);
+  // en servidor, reintenta una vez re-logueando si el token caducó
+  if (res.status === 401 && !isBrowser()) {
+    serviceToken = null;
+    token = await serviceLogin();
+    if (token) res = await doFetch(token);
+  }
 
   let json = null;
   const text = await res.text();

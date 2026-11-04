@@ -33,6 +33,12 @@ import { QueryBody } from './query.util';
 export class DataController {
   constructor(private readonly data: DataService) {}
 
+  @Post('rpc/:fn')
+  @HttpCode(200)
+  rpc(@Param('fn') fn: string, @Body() body: Record<string, any>) {
+    return this.data.rpc(fn, body || {});
+  }
+
   @Post(':table/query')
   @HttpCode(200)
   query(@Param('table') table: string, @Body() body: QueryBody) {
