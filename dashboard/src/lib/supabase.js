@@ -1,20 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
+import { createApiClient } from "./apiClient";
 import { isOtherBot, isBotVisibleForUser } from "./botNameParser";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("Missing Supabase environment variables");
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-});
+// Cliente propio (NestJS + Prisma + WebSocket), compatible con la API de
+// supabase-js. Reemplaza al cliente de Supabase sin tocar los call sites.
+export const supabase = createApiClient();
 
 /**
  * Helper function to handle authentication errors gracefully
