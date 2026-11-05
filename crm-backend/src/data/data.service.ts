@@ -122,7 +122,8 @@ export class DataService {
   }
 
   private shape(rows: any[], amap: Record<string, string>) {
-    if (Object.keys(amap).length === 0) return rows;
+    // applyAliases ya es no-op sin alias ni _count; siempre se aplica para
+    // convertir `_count` de Prisma a la forma PostgREST `rel: [{count}]`.
     return rows.map((r) => applyAliases(r, amap));
   }
 

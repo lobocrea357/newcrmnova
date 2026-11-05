@@ -213,6 +213,13 @@ export function parsedToPrisma(parsed: ParsedSelect | null):
   | undefined {
   if (!parsed) return undefined;
 
+  // PostgREST `rel(count)` → Prisma `_count: { select: { rel: true } }`
+  const counts = parsed.relations.filter(isCountRelation);
+  const embeds = parsed.relations.filter((r) => !isCountRelation(r));
+  const countSpec = counts.length
+    ? { select: Object.fromEntries(counts.map((r) => [r.name, true])) }
+    : undefined;
+
   const buildRelation = (rel: { inner: ParsedSelect }) => {
     const nested = parsedToPrisma(rel.inner);
     if (!nested || (nested.select === undefined && nested.include === undefined)) {
@@ -224,15 +231,24 @@ export function parsedToPrisma(parsed: ParsedSelect | null):
   if (parsed.hasStar) {
     if (parsed.relations.length === 0) return undefined; // solo escalares
     const include: Record<string, any> = {};
-    for (const rel of parsed.relations) include[rel.name] = buildRelation(rel);
+    for (const rel of embeds) include[rel.name] = buildRelation(rel);
+    if (countSpec) include._count = countSpec;
     return { include };
   }
 
   const select: Record<string, any> = {};
   for (const s of parsed.scalars) select[s.name] = true;
-  for (const rel of parsed.relations) select[rel.name] = buildRelation(rel);
+  for (const rel of embeds) select[rel.name] = buildRelation(rel);
+  if (countSpec) select._count = countSpec;
   if (Object.keys(select).length === 0) return undefined;
   return { select };
+}
+
+/** `rel(count)`: relación cuyo único contenido es la palabra `count`. */
+function isCountRelation(rel: { inner: ParsedSelect }): boolean {
+  const i = rel.inner;
+  return !!i && !i.hasStar && i.relations.length === 0 &&
+    i.scalars.length === 1 && i.scalars[0].name === 'count';
 }
 
 /** Mapa de alias → nombre real, para renombrar en la respuesta. */
@@ -246,10 +262,17 @@ export function aliasMap(parsed: ParsedSelect | null): Record<string, string> {
 
 /** Renombra claves de un registro según el alias map (nivel superior). */
 export function applyAliases(row: any, map: Record<string, string>): any {
-  if (!row || typeof row !== 'object' || Object.keys(map).length === 0) return row;
+  if (!row || typeof row !== 'object') return row;
+  const hasCount = row._count && typeof row._count === 'object';
+  if (Object.keys(map).length === 0 && !hasCount) return row;
   const out: any = {};
   for (const [k, v] of Object.entries(row)) {
+    if (k === '_count' && hasCount) continue;
     out[map[k] || k] = v;
+  }
+  // Prisma {_count:{rel:n}} → forma PostgREST {rel:[{count:n}]}
+  if (hasCount) {
+    for (const [rel, n] of Object.entries(row._count)) out[map[rel] || rel] = [{ count: n }];
   }
   return out;
 }
