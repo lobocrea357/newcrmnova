@@ -1,5 +1,6 @@
 import express from 'express';
 import syncSchedulerService from '../services/syncSchedulerService.js';
+import { runAsService } from '../lib/requestContext.js';
 
 const router = express.Router();
 
@@ -34,7 +35,8 @@ router.get('/status', (req, res) => {
  */
 router.post('/start', (req, res) => {
   try {
-    syncSchedulerService.start();
+    // Los intervalos no deben heredar el token del usuario que pulsó "iniciar".
+    runAsService(() => syncSchedulerService.start());
     const status = syncSchedulerService.getStatus();
     
     res.json({

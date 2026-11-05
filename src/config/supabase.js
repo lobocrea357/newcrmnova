@@ -3,9 +3,12 @@
  * propio (NestJS gateway). Reemplaza al cliente de Supabase sin tocar las ~333
  * llamadas .from()/.storage/.auth.admin/.rpc de las rutas y servicios.
  *
- * Autenticación server-to-server: hace login al gateway con credenciales de
- * servicio (SERVICE_EMAIL / SERVICE_PASSWORD) y cachea el JWT, re-logueando
- * automáticamente ante un 401.
+ * Autenticación:
+ *  - Dentro de una petición autenticada (middleware/auth.js) se usa el JWT del
+ *    USUARIO que llama → el gateway aplica su RBAC (qué ve cada rol).
+ *  - Fuera de petición (webhooks de WAHA, schedulers, arranque) se usa la cuenta
+ *    de servicio (SERVICE_EMAIL / SERVICE_PASSWORD), con JWT cacheado y re-login
+ *    ante un 401.
  *
  * Config (env):
  *   GATEWAY_URL        base del gateway (default https://api.viajesnovatour.com)
@@ -13,6 +16,7 @@
  *   SERVICE_PASSWORD   password de la cuenta de servicio
  */
 import dotenv from 'dotenv';
+import { currentUserToken } from '../lib/requestContext.js';
 dotenv.config();
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'https://api.viajesnovatour.com';
@@ -44,8 +48,11 @@ async function ensureToken() {
   return login();
 }
 
-/** fetch al gateway con token de servicio y re-login ante 401. */
-async function apiFetch(path, { method = 'GET', body, isForm = false } = {}) {
+/**
+ * fetch al gateway. Usa el token del usuario de la petición en curso si existe
+ * (salvo `asService`); si no, el de servicio con re-login ante 401.
+ */
+async function apiFetch(path, { method = 'GET', body, isForm = false, asService = false } = {}) {
   const doFetch = async (token) => {
     const headers = {};
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -57,12 +64,19 @@ async function apiFetch(path, { method = 'GET', body, isForm = false } = {}) {
     return fetch(`${GATEWAY_URL}/api${path}`, { method, headers, body: payload });
   };
 
-  let token = await ensureToken();
-  let res = await doFetch(token);
-  if (res.status === 401) {
-    cachedToken = null;
-    token = await login();
+  const userToken = asService ? null : currentUserToken();
+  let res;
+  if (userToken) {
+    // Nunca se "escala" a la cuenta de servicio si el token del usuario falla.
+    res = await doFetch(userToken);
+  } else {
+    let token = await ensureToken();
     res = await doFetch(token);
+    if (res.status === 401) {
+      cachedToken = null;
+      token = await login();
+      res = await doFetch(token);
+    }
   }
 
   let json = null;
@@ -259,7 +273,9 @@ export const supabase = {
   storage: { from: storageFrom },
   auth: { admin: authAdmin },
   async rpc(fn, args = {}) {
-    const r = await apiFetch(`/data/rpc/${fn}`, { method: 'POST', body: args || {} });
+    // Funciones SQL internas de express (agregados): el gateway las reserva a
+    // admin, así que se ejecutan como servicio. La ruta que las llama ya exige auth.
+    const r = await apiFetch(`/data/rpc/${fn}`, { method: 'POST', body: args || {}, asService: true });
     if (!r.ok) return { data: null, error: r.error };
     const payload = r.json || {};
     return { data: payload.data !== undefined ? payload.data : payload, error: null };

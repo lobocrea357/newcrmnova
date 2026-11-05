@@ -64,6 +64,46 @@ function getToken() {
   return null;
 }
 
+/**
+ * Interceptor global de fetch (solo navegador): añade `Authorization: Bearer`
+ * a las llamadas al API (express + gateway, mismo origen NEXT_PUBLIC_API_URL) y a
+ * las rutas propias del dashboard (/api/* del mismo origen). Así las ~30 llamadas
+ * directas con fetch(buildApiUrl(...)) quedan autenticadas sin tocarlas una a una.
+ * No pisa un Authorization explícito ni envía el token a otros orígenes.
+ */
+function installAuthFetch() {
+  if (!isBrowser() || window.__novaAuthFetch) return;
+  let apiOrigin = null;
+  try {
+    apiOrigin = new URL(API_URL).origin;
+  } catch {}
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = (input, init = {}) => {
+    try {
+      const raw = typeof input === 'string' ? input : input instanceof URL ? input.href : input?.url;
+      const url = new URL(raw, window.location.href);
+      const isApi =
+        (apiOrigin && url.origin === apiOrigin) ||
+        (url.origin === window.location.origin && url.pathname.startsWith('/api/'));
+      const token = isApi ? getToken() : null;
+      if (token) {
+        const headers = new Headers(
+          init.headers || (typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined),
+        );
+        if (!headers.has('Authorization')) {
+          headers.set('Authorization', `Bearer ${token}`);
+          init = { ...init, headers };
+        }
+      }
+    } catch {
+      // URL no parseable: se deja pasar tal cual
+    }
+    return originalFetch(input, init);
+  };
+  window.__novaAuthFetch = true;
+}
+installAuthFetch();
+
 // Resuelve el token de forma asíncrona; en servidor hace login de servicio si falta.
 async function resolveToken() {
   if (isBrowser()) return getToken();

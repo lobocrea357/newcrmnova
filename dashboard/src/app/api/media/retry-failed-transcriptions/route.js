@@ -11,9 +11,15 @@ export async function POST(request) {
     // En Docker: express:4000, en local: localhost:4000
     const EXPRESS_URL = process.env.EXPRESS_INTERNAL_URL || 'http://express:4000';
 
+    // express exige el JWT del usuario: se reenvía el que trae la petición.
+    const authorization = request.headers.get('authorization');
+    if (!authorization) {
+      return NextResponse.json({ success: false, error: 'No autenticado' }, { status: 401 });
+    }
+
     const response = await fetch(`${EXPRESS_URL}/api/media/retry-failed-transcriptions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: authorization },
       body: JSON.stringify(body),
     });
 

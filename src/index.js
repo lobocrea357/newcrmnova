@@ -26,6 +26,7 @@ import agenciasRoutes from './routes/agencias.js';
 import sedesRoutes from './routes/sedes.js';
 import metricasRoutes from './routes/metricas.js';
 import teamMembersRoutes from './routes/teamMembers.js';
+import { requireAuth, requireAdmin } from './middleware/auth.js';
 
 // Importar servicio de auto-sincronización
 import syncSchedulerService from './services/syncSchedulerService.js';
@@ -43,7 +44,17 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 app.use(morgan('dev'));
 
 // Rutas
+// /webhooks: llamadas de WAHA por la red interna de Docker (sin usuario → cuenta
+// de servicio). Caddy bloquea /webhooks desde internet.
 app.use('/webhooks', webhooksRoutes);
+
+// Todo /api/* exige JWT del gateway. Las consultas que express hace al gateway
+// viajan con el token del usuario → se aplica el RBAC (qué ve cada rol).
+app.use('/api', requireAuth);
+// Endpoints operativos (no usados por el dashboard): solo admin/super_admin.
+app.use('/api/workers', requireAdmin);
+app.use('/api/sync-scheduler', requireAdmin);
+
 app.use('/api/bots', botsRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/contacts', contactsRoutes);

@@ -586,8 +586,10 @@ export class WebhookService {
       console.log(`🔔 Actualizando mensaje para notificar multimedia disponible...`);
       const { error: updateError } = await supabase
         .from('messages')
+        // `messages` no tiene updated_at: se actualiza media_url con la URL final
+        // (dato útil y dispara el evento UPDATE de realtime).
         .update({ 
-          updated_at: new Date().toISOString()
+          media_url: mediaData.publicUrl
         })
         .eq('id', messageId);
 
