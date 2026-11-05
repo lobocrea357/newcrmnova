@@ -9,7 +9,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
 import {
+  AuthUser,
   DataService,
   InsertBody,
   UpdateBody,
@@ -35,37 +37,37 @@ export class DataController {
 
   @Post('rpc/:fn')
   @HttpCode(200)
-  rpc(@Param('fn') fn: string, @Body() body: Record<string, any>) {
-    return this.data.rpc(fn, body || {});
+  rpc(@Param('fn') fn: string, @Body() body: Record<string, any>, @CurrentUser() user: AuthUser) {
+    return this.data.rpc(fn, body || {}, user);
   }
 
   @Post(':table/query')
   @HttpCode(200)
-  query(@Param('table') table: string, @Body() body: QueryBody) {
-    return this.data.query(table, body || {});
+  query(@Param('table') table: string, @Body() body: QueryBody, @CurrentUser() user: AuthUser) {
+    return this.data.query(table, body || {}, user);
   }
 
   @Post(':table/insert')
   @HttpCode(201)
-  insert(@Param('table') table: string, @Body() body: InsertBody) {
-    return this.data.insert(table, body);
+  insert(@Param('table') table: string, @Body() body: InsertBody, @CurrentUser() user: AuthUser) {
+    return this.data.insert(table, body, user);
   }
 
   @Post(':table/upsert')
   @HttpCode(200)
-  upsert(@Param('table') table: string, @Body() body: UpsertBody) {
-    return this.data.upsert(table, body);
+  upsert(@Param('table') table: string, @Body() body: UpsertBody, @CurrentUser() user: AuthUser) {
+    return this.data.upsert(table, body, user);
   }
 
   @Patch(':table')
   @HttpCode(200)
-  update(@Param('table') table: string, @Body() body: UpdateBody) {
-    return this.data.update(table, body);
+  update(@Param('table') table: string, @Body() body: UpdateBody, @CurrentUser() user: AuthUser) {
+    return this.data.update(table, body, user);
   }
 
   @Delete(':table')
   @HttpCode(200)
-  remove(@Param('table') table: string, @Body() body: DeleteBody) {
-    return this.data.remove(table, body || {});
+  remove(@Param('table') table: string, @Body() body: DeleteBody, @CurrentUser() user: AuthUser) {
+    return this.data.remove(table, body || {}, user);
   }
 }

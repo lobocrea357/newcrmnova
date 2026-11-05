@@ -11,6 +11,7 @@ import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { RealtimeChange, filterMatches, eventMatches } from './filter.util';
+import { RbacService } from '../rbac/rbac.service';
 
 interface Subscription {
   subId: string;
@@ -37,8 +38,13 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   /** socketId → (subId → Subscription) */
   private subs = new Map<string, Map<string, Subscription>>();
+  /** socketId → userId (del JWT del handshake) */
+  private owners = new Map<string, string>();
 
-  constructor(private readonly jwt: JwtService) {}
+  constructor(
+    private readonly jwt: JwtService,
+    private readonly rbac: RbacService,
+  ) {}
 
   handleConnection(client: Socket) {
     const token =
@@ -47,6 +53,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     try {
       const payload = this.jwt.verify(token);
       (client.data as any).userId = payload.sub;
+      this.owners.set(client.id, payload.sub);
       this.subs.set(client.id, new Map());
     } catch {
       this.logger.warn(`Conexión rechazada (JWT inválido): ${client.id}`);
@@ -57,6 +64,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   handleDisconnect(client: Socket) {
     this.subs.delete(client.id);
+    this.owners.delete(client.id);
   }
 
   @SubscribeMessage('subscribe')
@@ -85,13 +93,32 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     return { ok: true };
   }
 
-  /** Llamado por PgListenerService con cada cambio recibido de Postgres. */
-  broadcastChange(change: RealtimeChange) {
+  /**
+   * Llamado por PgListenerService con cada cambio recibido de Postgres.
+   * Además del filtro pedido por el cliente, aplica el alcance RBAC del usuario
+   * del socket: un asesor solo recibe eventos de sus bots, sus notificaciones, etc.
+   */
+  async broadcastChange(change: RealtimeChange) {
+    const row = (change as any).new ?? (change as any).old;
     for (const [socketId, map] of this.subs) {
-      for (const sub of map.values()) {
-        if (sub.table !== change.table) continue;
-        if (!eventMatches(sub.event, change.eventType)) continue;
-        if (!filterMatches(sub.filter, change)) continue;
+      const matching = [...map.values()].filter(
+        (sub) =>
+          sub.table === change.table &&
+          eventMatches(sub.event, change.eventType) &&
+          filterMatches(sub.filter, change),
+      );
+      if (!matching.length) continue;
+
+      const userId = this.owners.get(socketId);
+      if (!userId) continue;
+      try {
+        const ctx = await this.rbac.getCtx(userId);
+        if (!(await this.rbac.rowVisible(ctx, change.table, row))) continue;
+      } catch (e) {
+        this.logger.warn(`RBAC realtime falló para ${socketId}: ${(e as Error).message}`);
+        continue;
+      }
+      for (const sub of matching) {
         this.server.to(socketId).emit('change', { subId: sub.subId, payload: change });
       }
     }

@@ -23,14 +23,20 @@ BEGIN
   );
 
   -- pg_notify tiene un límite de 8000 bytes. Si el payload es mayor, enviamos
-  -- una versión mínima con el id para que el cliente recargue la fila.
+  -- una versión mínima con el id para que el cliente recargue la fila. Se
+  -- conservan las columnas de alcance (bot_id/user_id/created_by) para que el
+  -- gateway pueda decidir a qué usuarios entregar el evento (RBAC).
   IF octet_length(payload::text) > 7900 THEN
     payload := json_build_object(
       'table',     TG_TABLE_NAME,
       'schema',    TG_TABLE_SCHEMA,
       'eventType', TG_OP,
-      'new',       CASE WHEN TG_OP = 'DELETE' THEN NULL ELSE json_build_object('id', NEW.id) END,
-      'old',       CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE json_build_object('id', OLD.id) END,
+      'new',       CASE WHEN TG_OP = 'DELETE' THEN NULL ELSE json_build_object(
+                     'id', rec->'id', 'bot_id', rec->'bot_id', 'chat_id', rec->'chat_id',
+                     'user_id', rec->'user_id', 'created_by', rec->'created_by') END,
+      'old',       CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE json_build_object(
+                     'id', oldrec->'id', 'bot_id', oldrec->'bot_id', 'chat_id', oldrec->'chat_id',
+                     'user_id', oldrec->'user_id', 'created_by', oldrec->'created_by') END,
       'truncated', true
     );
   END IF;

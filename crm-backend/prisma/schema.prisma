@@ -187,6 +187,8 @@ model contacts {
   is_business         Boolean?        @default(false)
   is_enterprise       Boolean?        @default(false)
   profile_picture_url String?
+  profile_picture_hash String?
+  last_waha_sync       DateTime? @db.Timestamptz(6)
   created_at          DateTime?       @default(now()) @db.Timestamptz(6)
   updated_at          DateTime?       @default(now()) @db.Timestamptz(6)
   metadata            Json?           @default("{}")
@@ -195,6 +197,8 @@ model contacts {
   contact_tags        contact_tags[]
   bots                bots?           @relation(fields: [bot_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   messages            messages[]
+
+  @@index([last_waha_sync], map: "idx_contacts_last_waha_sync")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -729,6 +733,8 @@ model role_permissions {
   created_at    DateTime?   @default(now()) @db.Timestamptz(6)
   permissions   permissions @relation(fields: [permission_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   roles         roles       @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([role_id, permission_id])
 }
 
 model roles {
@@ -847,6 +853,8 @@ model user_permissions {
   profiles_user_permissions_granted_byToprofiles profiles?   @relation("user_permissions_granted_byToprofiles", fields: [granted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   permissions                                    permissions @relation(fields: [permission_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   profiles_user_permissions_user_idToprofiles    profiles    @relation("user_permissions_user_idToprofiles", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([user_id, permission_id])
 }
 
 model users {

@@ -2,9 +2,11 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { RbacService, UserCtx } from '../rbac/rbac.service';
 import {
   QueryBody,
   buildWhere,
@@ -98,10 +100,27 @@ export interface UpsertBody {
   select?: string;
 }
 
+/** Usuario autenticado (req.user de JwtStrategy). */
+export interface AuthUser {
+  id: string;
+  email?: string;
+}
+
+/** AND de dos filtros Prisma, ignorando los vacíos. */
+function andWhere(a: any, b: any): any {
+  const ea = !a || Object.keys(a).length === 0;
+  if (!b) return ea ? undefined : a;
+  if (ea) return b;
+  return { AND: [a, b] };
+}
+
 @Injectable()
 export class DataService {
   private readonly logger = new Logger('Data');
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly rbac: RbacService,
+  ) {}
 
   private model(table: string): any {
     if (!ALLOWED_TABLES.has(table)) {
@@ -114,11 +133,22 @@ export class DataService {
     return delegate;
   }
 
-  private selectArgs(select?: string) {
+  /** select/include de Prisma con el alcance RBAC aplicado a cada relación embebida. */
+  private async selectArgs(ctx: UserCtx, table: string, select?: string) {
     const parsed = parseSelect(select);
     const prismaSel = parsedToPrisma(parsed);
     const amap = aliasMap(parsed);
+    if (prismaSel?.select) prismaSel.select = await this.rbac.scopeTree(ctx, table, prismaSel.select);
+    if (prismaSel?.include) prismaSel.include = await this.rbac.scopeTree(ctx, table, prismaSel.include);
     return { prismaSel, amap };
+  }
+
+  private returnArgs(prismaSel: any) {
+    return prismaSel?.select
+      ? { select: prismaSel.select }
+      : prismaSel?.include
+        ? { include: prismaSel.include }
+        : {};
   }
 
   private shape(rows: any[], amap: Record<string, string>) {
@@ -127,15 +157,16 @@ export class DataService {
     return rows.map((r) => applyAliases(r, amap));
   }
 
-  async query(table: string, body: QueryBody) {
+  async query(table: string, body: QueryBody, user: AuthUser) {
     const model = this.model(table);
-    const where = buildWhere(body);
+    const ctx = await this.rbac.getCtx(user.id);
+    const where = andWhere(buildWhere(body), await this.rbac.readWhere(ctx, table));
     const orderBy = buildOrderBy(body);
     const { take, skip } = buildTakeSkip(body);
-    const { prismaSel, amap } = this.selectArgs(body.select);
+    const { prismaSel, amap } = await this.selectArgs(ctx, table, body.select);
 
     const args: any = {};
-    if (Object.keys(where).length) args.where = where;
+    if (where) args.where = where;
     if (orderBy) args.orderBy = orderBy;
     if (take !== undefined) args.take = take;
     if (skip !== undefined) args.skip = skip;
@@ -147,7 +178,7 @@ export class DataService {
 
     let count: number | undefined;
     if (body.count === 'exact') {
-      count = await model.count(where && Object.keys(where).length ? { where } : {});
+      count = await model.count(where ? { where } : {});
     }
 
     if (body.single) {
@@ -164,19 +195,19 @@ export class DataService {
     return { data: rows, count: count ?? null };
   }
 
-  async insert(table: string, body: InsertBody) {
+  async insert(table: string, body: InsertBody, user: AuthUser) {
     const model = this.model(table);
-    const { prismaSel, amap } = this.selectArgs(body.select);
-    const selectForReturn = prismaSel?.select
-      ? { select: prismaSel.select }
-      : prismaSel?.include
-        ? { include: prismaSel.include }
-        : {};
+    const ctx = await this.rbac.getCtx(user.id);
+    await this.rbac.writeWhere(ctx, table, 'insert', body.values);
+    await this.rbac.assertRowsInScope(ctx, table, body.values);
+    const { prismaSel, amap } = await this.selectArgs(ctx, table, body.select);
+    const selectForReturn = this.returnArgs(prismaSel);
 
     const arr = Array.isArray(body.values) ? body.values : [body.values];
     const created = await this.prisma.$transaction(
       arr.map((v) => model.create({ data: v, ...selectForReturn })),
     );
+    this.rbac.touch(table);
     const shaped = this.shape(created, amap);
 
     if (body.single || !Array.isArray(body.values)) {
@@ -185,19 +216,22 @@ export class DataService {
     return { data: shaped };
   }
 
-  async update(table: string, body: UpdateBody) {
+  async update(table: string, body: UpdateBody, user: AuthUser) {
     const model = this.model(table);
-    const where = buildWhere({ filters: body.filters, or: body.or });
-    if (!Object.keys(where).length) {
+    const base = buildWhere({ filters: body.filters, or: body.or });
+    if (!Object.keys(base).length) {
       throw new BadRequestException(
         'update() requiere al menos un filtro para evitar updates masivos accidentales',
       );
     }
+    const ctx = await this.rbac.getCtx(user.id);
+    const where = andWhere(base, await this.rbac.writeWhere(ctx, table, 'update', body.values));
     await model.updateMany({ where, data: body.values });
+    this.rbac.touch(table);
 
     // devolver las filas afectadas (comportamiento de supabase .update().select())
-    const { prismaSel, amap } = this.selectArgs(body.select);
-    const args: any = { where };
+    const { prismaSel, amap } = await this.selectArgs(ctx, table, body.select);
+    const args: any = { where: andWhere(base, await this.rbac.readWhere(ctx, table)) ?? {} };
     if (prismaSel?.select) args.select = prismaSel.select;
     if (prismaSel?.include) args.include = prismaSel.include;
     let rows = await model.findMany(args);
@@ -207,24 +241,27 @@ export class DataService {
     return { data: rows };
   }
 
-  async remove(table: string, body: DeleteBody) {
+  async remove(table: string, body: DeleteBody, user: AuthUser) {
     const model = this.model(table);
-    const where = buildWhere({ filters: body.filters, or: body.or });
-    if (!Object.keys(where).length) {
+    const base = buildWhere({ filters: body.filters, or: body.or });
+    if (!Object.keys(base).length) {
       throw new BadRequestException(
         'delete() requiere al menos un filtro para evitar borrados masivos accidentales',
       );
     }
+    const ctx = await this.rbac.getCtx(user.id);
+    const where = andWhere(base, await this.rbac.writeWhere(ctx, table, 'delete'));
     // capturar filas antes de borrar si se pide select
     let rows: any[] = [];
     if (body.select) {
-      const { prismaSel, amap } = this.selectArgs(body.select);
+      const { prismaSel, amap } = await this.selectArgs(ctx, table, body.select);
       const args: any = { where };
       if (prismaSel?.select) args.select = prismaSel.select;
       if (prismaSel?.include) args.include = prismaSel.include;
       rows = this.shape(await model.findMany(args), amap);
     }
     const res = await model.deleteMany({ where });
+    this.rbac.touch(table);
     return { data: rows, count: res.count };
   }
 
@@ -233,7 +270,10 @@ export class DataService {
    * existe en la BD, devuelve [] (degradación limpia) en vez de fallar — algunas
    * funciones RPC del sistema anterior se perdieron con Supabase.
    */
-  async rpc(fn: string, args: Record<string, any> = {}) {
+  async rpc(fn: string, args: Record<string, any> = {}, user: AuthUser) {
+    // Las funciones Postgres ignoran el RBAC fila a fila → solo admin/servicio.
+    const ctx = await this.rbac.getCtx(user.id);
+    if (!ctx.isAdmin) throw new ForbiddenException('rpc solo disponible para administradores');
     if (!/^[a-zA-Z0-9_]+$/.test(fn)) {
       throw new BadRequestException('Nombre de función inválido');
     }
@@ -254,19 +294,28 @@ export class DataService {
     return { data: rows.map((r) => r.row), error: null };
   }
 
-  async upsert(table: string, body: UpsertBody) {
+  async upsert(table: string, body: UpsertBody, user: AuthUser) {
     const model = this.model(table);
     const conflictCols = body.onConflict.split(',').map((c) => c.trim());
     // construir el where único a partir de las columnas de conflicto
     const whereUnique: Record<string, any> = {};
     for (const c of conflictCols) whereUnique[c] = body.values[c];
 
-    const { prismaSel, amap } = this.selectArgs(body.select);
-    const selectForReturn = prismaSel?.select
-      ? { select: prismaSel.select }
-      : prismaSel?.include
-        ? { include: prismaSel.include }
-        : {};
+    // upsert = insert o update: exige ambos permisos, y si la fila ya existe
+    // debe estar dentro del alcance de escritura del usuario.
+    const ctx = await this.rbac.getCtx(user.id);
+    await this.rbac.writeWhere(ctx, table, 'insert', body.values);
+    await this.rbac.assertRowsInScope(ctx, table, body.values);
+    const updScope = await this.rbac.writeWhere(ctx, table, 'update', body.values);
+    if (updScope) {
+      const existing = await model.count({ where: whereUnique });
+      if (existing > 0 && (await model.count({ where: andWhere(whereUnique, updScope) })) === 0) {
+        throw new ForbiddenException('Fila fuera de tu alcance');
+      }
+    }
+
+    const { prismaSel, amap } = await this.selectArgs(ctx, table, body.select);
+    const selectForReturn = this.returnArgs(prismaSel);
 
     // Prisma exige que el where sea una clave única. Para conflicto compuesto,
     // usamos la clave compuesta nombrada por Prisma (col1_col2). Si es una sola
@@ -282,6 +331,7 @@ export class DataService {
       create: body.values,
       ...selectForReturn,
     });
+    this.rbac.touch(table);
     return { data: applyAliases(row, amap) };
   }
 }

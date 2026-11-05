@@ -71,7 +71,9 @@ export class PgListenerService implements OnModuleInit, OnModuleDestroy {
     if (!raw) return;
     try {
       const change = JSON.parse(raw) as RealtimeChange;
-      this.gateway.broadcastChange(change);
+      this.gateway
+        .broadcastChange(change)
+        .catch((e) => this.logger.error(`broadcast falló: ${e?.message}`));
     } catch (err: any) {
       this.logger.warn(`Payload NOTIFY inválido: ${err.message}`);
     }

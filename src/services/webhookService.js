@@ -656,16 +656,25 @@ export class WebhookService {
       
       console.log(`❤️ Reacción recibida: ${payload.reaction} en mensaje ${payload.messageId}`);
 
-      // Guardar reacción en metadata del mensaje
-      const { error } = await supabase
+      // Guardar reacción en metadata del mensaje (leer → fusionar → guardar)
+      const { data: rows, error: readError } = await supabase
         .from('messages')
-        .update({ 
-          metadata: supabase.raw(`
-            COALESCE(metadata, '{}'::jsonb) || 
-            jsonb_build_object('reaction', '${payload.reaction}', 'reaction_timestamp', '${new Date().toISOString()}')
-          `)
-        })
+        .select('id, metadata')
         .eq('message_id', payload.messageId);
+      if (readError) {
+        console.error('Error leyendo mensaje para reacción:', readError);
+        return;
+      }
+      let error = null;
+      for (const row of rows || []) {
+        const metadata = {
+          ...(row.metadata && typeof row.metadata === 'object' ? row.metadata : {}),
+          reaction: payload.reaction,
+          reaction_timestamp: new Date().toISOString(),
+        };
+        const res = await supabase.from('messages').update({ metadata }).eq('id', row.id);
+        if (res.error) error = res.error;
+      }
 
       if (error) {
         console.error('Error guardando reacción:', error);

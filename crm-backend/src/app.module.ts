@@ -1,6 +1,7 @@
 import { Module, Controller, Get } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
+import { RbacModule } from './rbac/rbac.module';
 import { AuthModule } from './auth/auth.module';
 import { DataModule } from './data/data.module';
 import { RealtimeModule } from './realtime/realtime.module';
@@ -18,6 +19,7 @@ class HealthController {
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    RbacModule,
     AuthModule,
     DataModule,
     RealtimeModule,
