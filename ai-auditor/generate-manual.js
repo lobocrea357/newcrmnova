@@ -91,7 +91,7 @@ async function generateSalesManual() {
 
         let query = supabase
             .from('conversation_evaluations')
-            .select('ai_feedback, chats(contact_name, contact_number, is_group)');
+            .select('ai_feedback, analysis_version, venta_confirmada, percentage, resultado_comercial, errores_criticos, exitos_asesor, siguiente_accion, ofrecio_scalapay, cierre_intencion, chats(contact_name, contact_number, is_group)');
 
         if (lastManual && !process.argv.includes('--force-all')) {
             console.log(`📅 Actualización incremental. Buscando evaluaciones desde: ${lastManual.created_at}`);
@@ -119,20 +119,16 @@ async function generateSalesManual() {
 
         console.log(`🔍 Consolidando ${evaluations.length} evaluaciones de clientes para la IA...`);
         
-        // Extraer los feedbacks JSON
-        const rawFeedbacks = evaluations.map(ev => {
-            try {
-                return JSON.parse(ev.ai_feedback);
-            } catch (e) {
-                return null;
+        // v2: columnas estructuradas. v1 (legado): JSON en ai_feedback.
+        const contextString = evaluations.map((ev, i) => {
+            if (ev.analysis_version === 'v2') {
+                const r = ev.resultado_comercial || {};
+                return `Evaluación ${i + 1}:\n- Resultado: ${r.estado || 'desconocido'}${r.motivo_perdida ? ` (motivo: ${r.motivo_perdida})` : ''}\n- Puntaje: ${ev.percentage}%\n- Resumen: ${ev.ai_feedback || ''}\n- Aciertos: ${(ev.exitos_asesor || []).join('; ')}\n- Errores críticos: ${(ev.errores_criticos || []).join('; ')}\n- Ofreció Scalapay: ${ev.ofrecio_scalapay}, intentó cierre: ${ev.cierre_intencion}`;
             }
-        }).filter(Boolean);
-
-        // Limitar la cantidad para no exceder tokens (Gemini 1.5/3.5 tiene mucho contexto, pero es mejor ser eficientes)
-        // Agrupamos en bloques de texto
-        const contextString = rawFeedbacks.map((f, i) => 
-            `Evaluación ${i+1}:\n- Venta concretada: ${f.sale_completed}\n- Razón de fallo: ${f.failure_reason}\n- Rendimiento del asesor: ${f.advisor_performance}\n- Puntos clave: ${(f.key_moments||[]).join(', ')}\n- KPIs: Ofreció Scalapay(${f.kpis?.offered_scalapay}), Intento cierre(${f.kpis?.closing_attempt})`
-        ).join('\n\n');
+            let f = null;
+            try { f = JSON.parse(ev.ai_feedback); } catch (e) { return null; }
+            return `Evaluación ${i + 1}:\n- Venta concretada: ${f.sale_completed}\n- Razón de fallo: ${f.failure_reason}\n- Rendimiento del asesor: ${f.advisor_performance}\n- Puntos clave: ${(f.key_moments || []).join(', ')}\n- KPIs: Ofreció Scalapay(${f.kpis?.offered_scalapay}), Intento cierre(${f.kpis?.closing_attempt})`;
+        }).filter(Boolean).join('\n\n');
 
         const userMessage = `
 Aquí tienes los datos de las conversaciones evaluadas:
