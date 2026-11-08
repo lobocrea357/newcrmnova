@@ -33,7 +33,8 @@ export class FilesController {
   @Post(':bucket')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 } }),
+    // Límite por archivo (MB), configurable con STORAGE_MAX_FILE_MB (default 100).
+    FileInterceptor('file', { limits: { fileSize: (Number(process.env.STORAGE_MAX_FILE_MB) || 100) * 1024 * 1024 } }),
   )
   async upload(
     @Param('bucket') bucket: string,

@@ -4,7 +4,7 @@ services:
   # Permite crear workers y bots de WhatsApp
   # ============================================
   waha:
-    image: devlikeapro/waha-plus:latest
+    image: devlikeapro/waha:noweb
     container_name: waha
     restart: unless-stopped
     ports:
@@ -86,6 +86,12 @@ services:
       
       # Node
       - NODE_ENV=production
+
+      # Backend propio (gateway NestJS) + credenciales de servicio
+      - GATEWAY_URL=${GATEWAY_URL}
+      - SERVICE_EMAIL=${SERVICE_EMAIL}
+      - SERVICE_PASSWORD=${SERVICE_PASSWORD}
+      - STORAGE_PUBLIC_BASE=https://api.viajesnovatour.com/api
     # depends_on: # Removido - usamos WAHA remoto
     #   waha:
     #     condition: service_healthy
@@ -130,6 +136,11 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+
+      # Backend propio (gateway NestJS) para rutas server-side (app/api/*)
+      - GATEWAY_URL=${GATEWAY_URL}
+      - SERVICE_EMAIL=${SERVICE_EMAIL}
+      - SERVICE_PASSWORD=${SERVICE_PASSWORD}
     networks:
       - crm_network
     healthcheck:
@@ -150,8 +161,10 @@ services:
     container_name: crm-ai-auditor
     restart: unless-stopped
     environment:
-      - SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-$SUPABASE_URL}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      # Backend propio (gateway NestJS) — ya no Supabase
+      - GATEWAY_URL=${GATEWAY_URL}
+      - SERVICE_EMAIL=${SERVICE_EMAIL}
+      - SERVICE_PASSWORD=${SERVICE_PASSWORD}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - TZ=America/Caracas
     networks:

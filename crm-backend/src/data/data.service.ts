@@ -25,6 +25,7 @@ import {
  */
 export const ALLOWED_TABLES = new Set<string>([
   'agencias',
+  'ai_sales_manual',
   'anulables',
   'auditoria_cambios_estado',
   'bookings',

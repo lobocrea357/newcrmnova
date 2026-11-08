@@ -1,19 +1,17 @@
 require('dotenv').config();
 const cron = require('node-cron');
-const { createClient } = require('@supabase/supabase-js');
+const { createClient } = require('./gatewayClient'); // backend propio (gateway NestJS), ya no Supabase
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // 1. Inicializar Clientes
-const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const googleKey = process.env.GOOGLE_API_KEY;
 
-if (!supabaseUrl || !supabaseKey || !googleKey) {
-    console.error('❌ Faltan variables de entorno críticas (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_API_KEY).');
+if (!process.env.SERVICE_EMAIL || !process.env.SERVICE_PASSWORD || !googleKey) {
+    console.error('❌ Faltan variables de entorno críticas (SERVICE_EMAIL, SERVICE_PASSWORD, GOOGLE_API_KEY).');
     process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient();
 
 const genAI = new GoogleGenerativeAI(googleKey);
 const model = genAI.getGenerativeModel({

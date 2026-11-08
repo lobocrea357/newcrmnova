@@ -1,0 +1,129 @@
+# ============================================
+# Caddyfile - CRM WhatsApp con WAHA Plus
+# ============================================
+# Configuración de reverse proxy con HTTPS automático
+# ============================================
+
+# WAHA Dashboard
+# Express API
+# Dashboard CRM
+n8n.lobocrea.pro {
+    reverse_proxy localhost:5678
+}
+
+# ============================================
+# Viajes Nova - Sitio Web Corporativo
+# ============================================
+nova.viajes {
+    encode zstd gzip
+    
+    header {
+        Strict-Transport-Security max-age=31536000;
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    }
+    
+    reverse_proxy localhost:5000
+    
+    log {
+        output file /var/log/caddy/nova-viajes.log
+    }
+}
+# Grupotravelba - Agencia de Viajes
+# Grupotravelba - Agencia de Viajes
+grupotravelba.com {
+    encode zstd gzip
+    header {
+        Strict-Transport-Security max-age=31536000;
+        X-Content-Type-Options nosniff;
+        X-Frame-Options DENY;
+        X-XSS-Protection "1; mode=block";
+        Referrer-Policy "strict-origin-when-cross-origin";
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    }
+    reverse_proxy localhost:5001
+    log {
+        output file /var/log/caddy/grupotravelba.log
+        format json
+    }
+}
+
+
+# ============================================
+# Acceso temporal vía lobocrea.pro (mientras se arregla el DNS de novapolointranet.xyz)
+# ============================================
+novacrm.lobocrea.pro {
+    reverse_proxy localhost:3001
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+    log {
+        output file /var/log/caddy/novacrm-lobo.log
+        format json
+    }
+}
+
+capacitacion.lobocrea.pro {
+    reverse_proxy localhost:4100
+    log {
+        output file /var/log/caddy/capacitacion-lobo.log
+        format json
+    }
+}
+
+# Web pública de Viajes Nova (contenedor web-nova, puerto 3100)
+nova.lobocrea.pro {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:3100
+    header {
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}
+
+# ============================================
+# viajesnovatour.com (dominio nuevo)
+# ============================================
+crm.viajesnovatour.com {
+    reverse_proxy localhost:3001
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}
+
+capacitacion.viajesnovatour.com {
+    reverse_proxy localhost:4100
+}
+
+api.viajesnovatour.com {
+    # Gateway NestJS propio (crm-api :4001): auth, data, files, websocket
+    # WAHA entrega webhooks por la red interna (express:4000); desde internet no.
+    @webhooks path /webhooks*
+    handle @webhooks {
+        respond 404
+    }
+    @gateway path /api/auth* /api/data* /api/files* /socket.io*
+    handle @gateway {
+        reverse_proxy localhost:4001
+    }
+    # Resto del API REST histórico (crm-express :4000)
+    handle {
+        reverse_proxy localhost:4000
+    }
+}
+
+waha.viajesnovatour.com {
+    reverse_proxy localhost:3000
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+    }
+}

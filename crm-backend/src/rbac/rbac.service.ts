@@ -88,6 +88,7 @@ const WRITE_PERMS: Record<string, Record<Op, string[]>> = {
   bots: { insert: [], update: [], delete: [] },
   workers: { insert: [], update: [], delete: [] },
   sales_analysis_config: { insert: [], update: [], delete: [] },
+  ai_sales_manual: { insert: [], update: [], delete: [] },
 };
 
 /** Campos de profiles que un usuario no puede cambiarse a sí mismo sin users.edit. */

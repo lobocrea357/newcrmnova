@@ -1,0 +1,1 @@
+15 3 * * * root /usr/local/bin/crm-backup.sh >> /var/log/crm-backup.log 2>&1
