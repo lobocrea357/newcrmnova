@@ -18,6 +18,11 @@ export default function CRMLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // Preferencia del menú contraído (por navegador)
+  useEffect(() => {
+    try { setSidebarCollapsed(localStorage.getItem("nova_sidebar_collapsed") === "1"); } catch {}
+  }, []);
+
   // Redirigir al supervisor si intenta acceder a rutas fuera de /other
   useEffect(() => {
     if (profileLoading || !isAuthenticated || !isSupervisor) return;
@@ -49,11 +54,15 @@ export default function CRMLayout({ children }) {
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onToggleCollapse={() => {
+            const next = !sidebarCollapsed;
+            setSidebarCollapsed(next);
+            try { localStorage.setItem("nova_sidebar_collapsed", next ? "1" : "0"); } catch {}
+          }}
         />
         <div
-          className={`transition-all duration-300 ${
-            sidebarCollapsed ? "lg:ml-20" : "lg:ml-64"
+          className={`transition-[margin] duration-200 ${
+            sidebarCollapsed ? "lg:ml-[72px]" : "lg:ml-[248px]"
           }`}
         >
           <Navbar

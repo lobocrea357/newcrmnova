@@ -3,265 +3,141 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { X, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useUserProfile } from '@/contexts/UserProfileContext'
-import {
-    LayoutDashboard,
-    MessageSquare,
-    Users,
-    Brain,
-    TrendingUp,
-    FileText,
-    BookOpen,
-    AlertTriangle,
-    XCircle,
-    Settings,
-    PlaneTakeoff,
-    Calculator,
-    ClipboardList,
-    X,
-    CheckCircle,
-    Send,
-    UserPlus,
-    Package,
-    CreditCard,
-    BarChart3,
-    Clock,
-    FileSpreadsheet,
-    Users as UsersIcon
-} from 'lucide-react'
+import { visibleGroups, isActivePath } from '@/lib/navigation'
+import { avatarUrl, initials } from '@/lib/avatar'
 
-const BASE_MENU_ITEMS = [
-    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/conversaciones', label: 'Conversaciones', icon: MessageSquare },
-    { href: '/manual-ventas', label: 'Manual de Ventas', icon: BookOpen },
-    { href: '/auditoria-ia', label: 'Auditoría IA', icon: Brain },
-    { href: '/configuracion', label: 'Configuración', icon: Settings },
-    // Dashboard especial para bots con sufijo _other - solo supervisor
-    { href: '/other/conversaciones', label: 'Conversaciones', icon: MessageSquare, supervisorOnly: true },
-    // Rutas Admin - Visible para admin, super_admin y manager
-    { href: '/admin/reportes-personalizados', label: 'Reportes Personalizados', icon: FileSpreadsheet, adminOnly: true },
-    { href: '/admin/team-members', label: 'Team Members', icon: Users, adminOnly: true },
-]
+const ROLE_LABELS = {
+    super_admin: 'Super administrador',
+    admin: 'Administrador',
+    gerente: 'Gerente',
+    lider: 'Líder',
+    asesor: 'Asesor',
+    emisor: 'Emisor',
+    administracion: 'Administración',
+    supervisor: 'Supervisor',
+}
 
+/**
+ * Menú lateral. Los ítems de cada grupo cuelgan de una línea discontinua (una
+ * ruta de vuelo); el ítem activo se marca con un punto sobre esa línea.
+ */
 const Sidebar = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse }) => {
     const pathname = usePathname()
-    const { profile, role, loading: profileLoading, isSuperAdmin, isAdmin, isManager, isSupervisor, isLider } = useUserProfile()
-
-    // Solo hay un loading: el del perfil
-    const loading = profileLoading
-
-    // IMPORTANTE: Solo evaluar permisos cuando el perfil ha cargado completamente
-    const permissionsLoaded = !profileLoading && profile !== null
-    const canManageTeam = permissionsLoaded && (isSuperAdmin || isAdmin || isManager)
-
-    // ROUTES_BY_ROLE — fuente única de verdad para el acceso al Sidebar.
-    // null = sin restricciones (puede ver todo).
-    // array = lista de rutas permitidas (prefijos).
-    const ROUTES_BY_ROLE = {
-        super_admin: null,
-        admin: null,
-        gerente: [
-            '/', '/conversaciones', '/analisis/rendimiento',
-            '/gestion-equipos', '/configuracion', '/auditoria-ia', '/admin/reportes-personalizados'
-        ],
-        asesor: [
-            '/'
-        ],
-        administracion: [
-            '/'
-        ],
-        emisor: ['/'],
-        supervisor: ['/other'],
-        lider: ['/conversaciones'],
-    }
-
-    // Determinar las rutas permitidas para el rol actual
-    let allowedRoutes = null
-    if (role) {
-        const roleConfig = ROUTES_BY_ROLE[role.toLowerCase()]
-        allowedRoutes = roleConfig !== undefined ? roleConfig : ['/']
-    }
-
-    // Función que determina si una ruta está visible para el usuario actual
-    const isRouteVisible = (href, superAdminOnly = false, adminOnly = false, supervisorOnly = false) => {
-        // Si no cargó el perfil aún, no mostrar nada (seguridad)
-        if (!permissionsLoaded) return false
-
-        // Si la ruta es solo para super_admin, verificar rol
-        if (superAdminOnly) {
-            return isSuperAdmin
-        }
-
-        // Si la ruta es solo para admin/super_admin/manager, verificar rol
-        if (adminOnly) {
-            return isSuperAdmin || isAdmin || isManager
-        }
-
-        // Si la ruta es solo para supervisor, verificar rol
-        if (supervisorOnly) {
-            return isSupervisor
-        }
-
-        // Si el usuario es supervisor, solo puede ver rutas bajo /other
-        if (isSupervisor) {
-            return href === '/other' || href.startsWith('/other/')
-        }
-
-        // Si allowedRoutes es null → puede ver todo
-        if (allowedRoutes === null) return true
-
-        // Verificar si la ruta está en las rutas permitidas
-        return allowedRoutes.some(allowed => href === allowed || href.startsWith(allowed + '/'))
-    }
-
-    // Crear array final de menuItems sin mutar el original
-    const finalMenuItems = React.useMemo(() => {
-        const items = [...BASE_MENU_ITEMS]
-        return items
-    }, [canManageTeam])
-
-    const isActive = (href) => {
-        if (href === '/') {
-            return pathname === '/'
-        }
-        return pathname?.startsWith(href)
-    }
+    const { profile, role, loading, hasPermission } = useUserProfile()
+    const ready = !loading && profile !== null
+    const groups = React.useMemo(
+        () => (ready ? visibleGroups({ role: role?.toLowerCase(), hasPermission }) : []),
+        [ready, role, hasPermission]
+    )
+    const name = profile?.full_name || profile?.email?.split('@')[0] || 'Usuario'
+    const photo = avatarUrl(profile?.avatar_url)
 
     return (
         <>
-            {/* Overlay para móvil */}
             {isOpen && (
-                <div
-                    className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-                    onClick={onClose}
-                />
+                <div className="fixed inset-0 bg-tinta/40 z-30 lg:hidden" onClick={onClose} aria-hidden="true" />
             )}
 
-            {/* Sidebar */}
-            <aside className={`
-                fixed left-0 top-0 bg-gray-800 text-white h-screen flex flex-col z-40
-                transition-all duration-300 ease-in-out
-                ${collapsed
-                    ? 'w-20'
-                    : 'w-64'
-                }
-                ${isOpen
-                    ? 'translate-x-0'
-                    : '-translate-x-full lg:translate-x-0'
-                }
-            `}>
-                {/* Header Logo */}
-                <div className="p-5 border-b border-gray-700">
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={onToggleCollapse}
-                            className="hidden lg:flex h-10 w-10 rounded-lg items-center justify-center flex-shrink-0 overflow-hidden hover:bg-gray-700 transition-colors cursor-pointer group"
-                            title={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
-                        >
-                            <img src="/logo-blanco2.png" alt="Logo" className="h-12 w-12 object-contain group-hover:scale-110 transition-transform duration-200" />
-                        </button>
-                        {/* Logo no clickeable en móvil */}
-                        <div className="lg:hidden h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            <img src="/logo-blanco2.png" alt="Logo" className="h-12 w-12 object-contain" />
-                        </div>
-                        {!collapsed && (
-                            <div className="flex-1 min-w-0">
-                                <h2 className="text-lg font-bold text-white truncate">Viajes Nova</h2>
-                                <p className="text-xs text-gray-400 truncate">CRM</p>
-                            </div>
-                        )}
-                        {/* Botón cerrar en móvil */}
-                        <button
-                            onClick={onClose}
-                            className="lg:hidden p-1 hover:bg-gray-700 rounded transition-colors ml-auto"
-                        >
-                            <X className="h-5 w-5" />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto py-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800">
-                    <ul className="space-y-1 px-3">
-                        {loading ? (
-                            // Skeleton loading para menú
-                            Array.from({ length: 8 }).map((_, i) => (
-                                <li key={i} className="px-3 py-2.5">
-                                    <div className="h-5 bg-gray-700 rounded animate-pulse" />
-                                </li>
-                            ))
-                        ) : (
-                                finalMenuItems.map((item) => {
-                                const Icon = item.icon
-                                const active = isActive(item.href)
-
-                                    // Filtrar rutas según ROUTES_BY_ROLE, superAdminOnly, adminOnly y supervisorOnly
-                                    if (!isRouteVisible(item.href, item.superAdminOnly, item.adminOnly, item.supervisorOnly)) {
-                                    return null
-                                }
-
-                                return (
-                                    <li key={item.href}>
-                                        <Link
-                                            href={item.href}
-                                            className={`
-                                                flex items-center gap-3 rounded-lg
-                                                transition-colors duration-200
-                                                ${collapsed ? 'px-3 py-2.5 justify-center' : 'px-3 py-2.5'}
-                                                ${active
-                                                    ? 'bg-blue-600 text-white'
-                                                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                                                }
-                                            `}
-                                            title={collapsed ? item.label : ''}
-                                        >
-                                            <Icon className="w-5 h-5 flex-shrink-0" />
-                                            {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
-                                        </Link>
-                                    </li>
-                                )
-                            })
-                        )}
-                    </ul>
-                </nav>
-
-                {/* Footer Usuario */}
-                <div className="p-4 border-t border-gray-700 bg-gray-900">
-                    {loading ? (
-                        <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
-                            <div className="h-10 w-10 rounded-full bg-gray-700 animate-pulse" />
-                            {!collapsed && (
-                                <div className="flex-1 space-y-2">
-                                    <div className="h-4 bg-gray-700 rounded animate-pulse" />
-                                    <div className="h-3 bg-gray-700 rounded w-2/3 animate-pulse" />
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
-                            {profile?.avatar_url ? (
-                                <img
-                                    src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${profile.avatar_url}`}
-                                    alt="Avatar"
-                                    className="h-10 w-10 rounded-full object-cover flex-shrink-0"
-                                />
-                            ) : (
-                                <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                                    <span className="text-sm font-semibold text-white">
-                                        {(profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase()}
-                                    </span>
-                                </div>
-                            )}
-                            {!collapsed && (
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-white truncate">
-                                        {profile?.full_name || profile?.email?.split('@')[0] || 'Usuario'}
-                                    </p>
-                                    <p className="text-xs text-gray-400">{role || 'Usuario'}</p>
-                                </div>
-                            )}
+            <aside
+                className={`fixed left-0 top-0 h-screen z-40 flex flex-col bg-tinta text-white
+                    transition-[width,transform] duration-200 ease-out
+                    ${collapsed ? 'w-[72px]' : 'w-[248px]'}
+                    ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+                aria-label="Menú principal"
+            >
+                {/* Marca */}
+                <div className={`flex items-center h-16 shrink-0 ${collapsed ? 'justify-center px-2' : 'px-5 gap-3'}`}>
+                    <img src="/logo-blanco2.png" alt="" className="h-8 w-8 object-contain shrink-0" />
+                    {!collapsed && (
+                        <div className="min-w-0 flex-1 leading-tight">
+                            <p className="text-[15px] font-semibold tracking-tight">Viajes Nova</p>
+                            <p className="text-xs text-white/50">CRM</p>
                         </div>
                     )}
+                    <button onClick={onClose} className="lg:hidden p-1.5 rounded-md hover:bg-white/10" aria-label="Cerrar menú">
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+
+                {/* Navegación */}
+                <nav className="flex-1 overflow-y-auto px-3 pb-4 [scrollbar-width:thin]">
+                    {!ready ? (
+                        <div className="space-y-2 pt-2">
+                            {Array.from({ length: 7 }).map((_, i) => (
+                                <div key={i} className="h-8 rounded-md bg-white/5 animate-pulse" />
+                            ))}
+                        </div>
+                    ) : (
+                        groups.map((group) => (
+                            <div key={group.id} className="mt-5 first:mt-1">
+                                {group.label && !collapsed && (
+                                    <p className="px-3 mb-1.5 text-xs font-medium text-white/40">{group.label}</p>
+                                )}
+                                {group.label && collapsed && <div className="mx-auto mb-2 h-px w-6 bg-white/10" />}
+                                <ul className={`relative ${collapsed ? '' : 'ml-3 border-l border-dashed border-white/15'}`}>
+                                    {group.items.map((item) => {
+                                        const Icon = item.icon
+                                        const active = isActivePath(pathname, item)
+                                        return (
+                                            <li key={item.href} className="relative">
+                                                {!collapsed && active && (
+                                                    <span
+                                                        className="absolute -left-[5px] top-1/2 -translate-y-1/2 h-[9px] w-[9px] rounded-full bg-nova-400 ring-4 ring-tinta"
+                                                        aria-hidden="true"
+                                                    />
+                                                )}
+                                                <Link
+                                                    href={item.href}
+                                                    onClick={onClose}
+                                                    title={collapsed ? item.label : undefined}
+                                                    aria-current={active ? 'page' : undefined}
+                                                    className={`flex items-center gap-3 rounded-md text-sm transition-colors
+                                                        ${collapsed ? 'justify-center h-10 w-10 mx-auto my-0.5' : 'ml-3 px-2.5 py-2'}
+                                                        ${active
+                                                            ? 'bg-white/10 text-white font-medium'
+                                                            : 'text-white/65 hover:text-white hover:bg-white/5'}`}
+                                                >
+                                                    <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-nova-300' : ''}`} strokeWidth={1.8} />
+                                                    {!collapsed && <span className="truncate">{item.label}</span>}
+                                                </Link>
+                                            </li>
+                                        )
+                                    })}
+                                </ul>
+                            </div>
+                        ))
+                    )}
+                </nav>
+
+                {/* Usuario + colapsar */}
+                <div className="shrink-0 border-t border-white/10 p-3">
+                    <div className={`flex items-center gap-3 ${collapsed ? 'flex-col' : ''}`}>
+                        <Link href="/perfil" className={`flex items-center gap-3 min-w-0 rounded-md p-1.5 hover:bg-white/5 ${collapsed ? '' : 'flex-1'}`} title="Mi perfil">
+                            {photo ? (
+                                <img src={photo} alt="" className="h-8 w-8 rounded-full object-cover shrink-0" />
+                            ) : (
+                                <span className="h-8 w-8 rounded-full bg-nova-600 grid place-items-center text-xs font-semibold shrink-0">
+                                    {initials(name)}
+                                </span>
+                            )}
+                            {!collapsed && (
+                                <span className="min-w-0 leading-tight">
+                                    <span className="block text-sm font-medium truncate">{name}</span>
+                                    <span className="block text-xs text-white/50 truncate">{ROLE_LABELS[role?.toLowerCase()] || role || ''}</span>
+                                </span>
+                            )}
+                        </Link>
+                        <button
+                            onClick={onToggleCollapse}
+                            className="hidden lg:grid place-items-center h-8 w-8 rounded-md text-white/50 hover:text-white hover:bg-white/10 shrink-0"
+                            aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}
+                            title={collapsed ? 'Expandir menú' : 'Contraer menú'}
+                        >
+                            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+                        </button>
+                    </div>
                 </div>
             </aside>
         </>

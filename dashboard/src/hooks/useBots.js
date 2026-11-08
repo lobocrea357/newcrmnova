@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getBotsForUser, getOtherBots } from "@/lib/supabase";
+import { getBotsForUser, getOtherBots, getAllBots } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 
@@ -7,7 +7,7 @@ import { useUserProfile } from "@/contexts/UserProfileContext";
  * Hook para obtener la lista de bots del dashboard principal.
  * - Supervisor: solo bots _other.
  * - Lider: bots según su bot_session_suffix.
- * - Admin/Super Admin: todos los bots excepto _other.
+ * - Super Admin: todos los bots (incluyendo _other).
  * - Otros: bots excepto _other.
  */
 export function useBots() {
@@ -33,7 +33,9 @@ export function useBots() {
         console.log('DEBUG useBots:', { isSuperAdmin, isAdmin, isSupervisor, isLider, suffix, profileId: profile?.id, email: profile?.email });
 
         let data;
-        if (isSupervisor) {
+        if (isSuperAdmin) {
+          data = await getAllBots();
+        } else if (isSupervisor) {
           data = await getOtherBots();
         } else if (suffix) {
           data = await getBotsForUser(suffix);

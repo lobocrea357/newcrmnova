@@ -1,184 +1,110 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
+import { Menu, LogOut, UserRound, ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import NotificacionesCampana from "@/components/ui/NotificacionesCampana";
 import BarraProgresoCompacta from "@/components/ranking/BarraProgresoCompacta";
-import {
-  Search,
-  Bell,
-  User,
-  LogOut,
-  ChevronDown,
-  Menu,
-  UserCircle,
-} from "lucide-react";
+import { pageTitle } from "@/lib/navigation";
+import { avatarUrl, initials } from "@/lib/avatar";
 
-const Navbar = ({
-  onMenuClick,
-}) => {
+/** Barra superior: título de la sección, notificaciones, progreso y cuenta. */
+const Navbar = ({ onMenuClick }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, signOut, loading } = useAuth();
-  const { profile, role } = useUserProfile();
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const { user, signOut } = useAuth();
+  const { profile } = useUserProfile();
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  const name = profile?.full_name || user?.email?.split("@")[0] || "Usuario";
+  const photo = avatarUrl(profile?.avatar_url);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => menuRef.current && !menuRef.current.contains(e.target) && setOpen(false);
+    const onKey = (e) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   const handleLogout = async () => {
+    setOpen(false);
     await signOut();
-  };
-
-  const getPageTitle = () => {
-    const routes = {
-      "/": "Dashboard",
-      "/conversaciones": "Conversaciones",
-      "/inteligencia-artificial": "Inteligencia Artificial",
-      "/rendimiento": "Rendimiento",
-      "/reportes": "Reportes",
-      "/manual-ventas": "Manual de Ventas",
-      "/rutas-riesgo": "Rutas en Riesgo",
-      "/anulables": "Anulables",
-      "/vuelos": "Vuelos",
-      "/cotizador": "Calculadora de Cotizaciones",
-      "/configuracion": "Configuración",
-    };
-    return routes[pathname] || "Dashboard";
-  };
-
-  const getPageSubtitle = () => {
-    const subtitles = {
-      "/": "Vista general del negocio",
-      "/conversaciones": "Gestión de conversaciones con clientes",
-      "/inteligencia-artificial": "Análisis y insights con IA",
-      "/rendimiento": "Métricas y rendimiento del equipo",
-      "/reportes": "Reportes y análisis de datos",
-      "/manual-ventas": "Guías y recursos de ventas",
-      "/rutas-riesgo": "Rutas y clientes en riesgo",
-      "/anulables": "Gestión de anulaciones",
-      "/vuelos": "Gestión de vuelos",
-      "/cotizador": "Calcula tus cotizaciones de forma rápida y precisa",
-      "/configuracion": "Configuración del sistema",
-    };
-    return subtitles[pathname] || "Bienvenido al CRM";
+    router.push("/login");
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-      <div className="px-4 sm:px-6 py-3 sm:py-4">
-        <div className="flex items-center justify-between gap-2">
-          {/* Sección izquierda: Botones */}
-          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-            {/* Botón hamburguesa solo visible en móvil */}
+    <header className="sticky top-0 z-30 h-16 bg-papel/85 backdrop-blur border-b border-linea">
+      <div className="h-full px-4 sm:px-6 lg:px-8 flex items-center gap-3">
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden -ml-1 p-2 rounded-md text-gray-600 hover:bg-gray-100"
+          aria-label="Abrir menú"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+
+        <p className="text-[15px] font-semibold text-tinta truncate flex-1 min-w-0">{pageTitle(pathname)}</p>
+
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          {user && (
+            <div className="hidden md:block">
+              <BarraProgresoCompacta userId={user.id} />
+            </div>
+          )}
+          <NotificacionesCampana />
+
+          <div className="relative" ref={menuRef}>
             <button
-              onClick={onMenuClick}
-              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-              aria-label="Abrir menú"
+              onClick={() => setOpen((v) => !v)}
+              className="flex items-center gap-2 rounded-full sm:rounded-md p-0.5 sm:pr-2 hover:bg-gray-100"
+              aria-haspopup="menu"
+              aria-expanded={open}
             >
-              <Menu className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600" />
+              {photo ? (
+                <img src={photo} alt="" className="h-8 w-8 rounded-full object-cover" />
+              ) : (
+                <span className="h-8 w-8 rounded-full bg-nova-600 text-white grid place-items-center text-xs font-semibold">
+                  {initials(name)}
+                </span>
+              )}
+              <ChevronDown className="h-4 w-4 text-gray-500 hidden sm:block" />
             </button>
 
-            {/* Título de página */}
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 truncate">
-                {getPageTitle()}
-              </h1>
-              <p className="text-xs sm:text-sm text-gray-500 mt-0.5 truncate hidden sm:block">
-                {getPageSubtitle()}
-              </p>
-            </div>
-          </div>
-
-          {/* Sección derecha: Acciones */}
-          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-            {/* Búsqueda - Oculta en móvil */}
-           {/*  <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar conversaciones, cliente..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 w-64 lg:w-80 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div> */}
-
-            {/* Campana de notificaciones */}
-            <NotificacionesCampana />
-
-            {/* Barra de progreso compacta */}
-            {user && <BarraProgresoCompacta userId={user.id} />}
-
-            {/* Usuario */}
-            <div className="relative">
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            {open && (
+              <div
+                role="menu"
+                className="absolute right-0 mt-2 w-60 rounded-lg border border-linea bg-white shadow-lg py-1.5 z-40"
               >
-                {profile?.avatar_url ? (
-                  <img
-                    src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${profile.avatar_url}`}
-                    alt="Avatar"
-                    className="h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover flex-shrink-0"
-                  />
-                ) : (
-                    <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                      <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-                    </div>
-                )}
-                {loading ? (
-                  <div className="text-left hidden lg:block">
-                    <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mb-1" />
-                    <div className="h-3 w-16 bg-gray-200 rounded animate-pulse" />
-                  </div>
-                ) : (
-                  <div className="text-left hidden lg:block">
-                    <p className="text-sm font-medium text-gray-900">
-                        {profile?.full_name || user?.email?.split('@')[0] || "Usuario"}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                        {role || "Usuario"}
-                    </p>
-                  </div>
-                )}
-                <ChevronDown className="h-4 w-4 text-gray-500 hidden sm:block" />
-              </button>
-
-              {/* Dropdown menu */}
-              {showUserMenu && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setShowUserMenu(false)}
-                  ></div>
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
-                    <div className="px-4 py-3 border-b border-gray-200">
-                      <p className="text-sm font-medium text-gray-900">
-                        {profile?.full_name || user?.email?.split('@')[0] || "Usuario"}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">
-                        {user?.email}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => { setShowUserMenu(false); router.push('/perfil') }}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      <UserCircle className="h-4 w-4" />
-                      Ver mi perfil
-                    </button>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      Cerrar Sesión
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+                <div className="px-3.5 py-2.5 border-b border-linea">
+                  <p className="text-sm font-medium text-tinta truncate">{name}</p>
+                  <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                </div>
+                <Link
+                  href="/perfil"
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2.5 px-3.5 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <UserRound className="h-4 w-4 text-gray-500" /> Mi perfil
+                </Link>
+                <button
+                  role="menuitem"
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-red-700 hover:bg-red-50"
+                >
+                  <LogOut className="h-4 w-4" /> Cerrar sesión
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
