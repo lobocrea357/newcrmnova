@@ -104,9 +104,27 @@ function installAuthFetch() {
 }
 installAuthFetch();
 
+// En servidor, las rutas app/api/* registran aquí cómo leer el token del usuario
+// de la petición en curso (ver lib/supabaseServer.js). Si hay petición, se usa
+// SIEMPRE ese token: así el gateway aplica el RBAC del usuario y no el del servicio.
+let serverTokenResolver = null;
+export function setServerTokenResolver(fn) {
+  serverTokenResolver = fn;
+}
+async function requestToken() {
+  if (isBrowser() || !serverTokenResolver) return null;
+  try {
+    return (await serverTokenResolver()) || null;
+  } catch {
+    return null;
+  }
+}
+
 // Resuelve el token de forma asíncrona; en servidor hace login de servicio si falta.
 async function resolveToken() {
   if (isBrowser()) return getToken();
+  const fromRequest = await requestToken();
+  if (fromRequest) return fromRequest;
   if (serviceToken) return serviceToken;
   if (typeof process !== 'undefined' && process.env && process.env.CRM_SERVICE_TOKEN) {
     return process.env.CRM_SERVICE_TOKEN;
@@ -158,10 +176,11 @@ async function apiFetch(path, { method = 'GET', body } = {}) {
     });
   };
 
-  let token = await resolveToken();
+  const userToken = await requestToken();
+  let token = userToken || (await resolveToken());
   let res = await doFetch(token);
-  // en servidor, reintenta una vez re-logueando si el token caducó
-  if (res.status === 401 && !isBrowser()) {
+  // en servidor y sin usuario, reintenta una vez re-logueando el servicio si caducó
+  if (res.status === 401 && !isBrowser() && !userToken) {
     serviceToken = null;
     token = await serviceLogin();
     if (token) res = await doFetch(token);
@@ -594,9 +613,9 @@ function createStorage() {
             form.append('path', path);
             form.append('file', file);
             const headers = {};
-            const token = getToken();
+            const token = isBrowser() ? getToken() : await resolveToken();
             if (token) headers.Authorization = `Bearer ${token}`;
-            const res = await fetch(`${API_URL}/api/files/${bucket}`, {
+            const res = await fetch(`${isBrowser() ? API_URL : serverBase()}/api/files/${bucket}`, {
               method: 'POST',
               headers, // sin Content-Type: el navegador pone el boundary
               body: form,

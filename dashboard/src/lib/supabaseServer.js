@@ -1,14 +1,19 @@
 /**
- * Shim de `createClient` para las rutas server-side (app/api/*) que antes creaban
- * su propio cliente de Supabase con SERVICE_ROLE_KEY. Devuelve el cliente propio
- * (apiClient) respaldado por el gateway NestJS, que server-side usa login de
- * servicio (SERVICE_EMAIL / SERVICE_PASSWORD). Se ignoran url y key.
+ * Cliente para las rutas server-side (app/api/*). Devuelve el mismo apiClient del
+ * navegador, respaldado por el gateway NestJS, pero autenticado con el token del
+ * usuario que hizo la petición (cabecera Authorization). Así el gateway aplica el
+ * RBAC de ese usuario. El proxy (src/proxy.js) ya rechaza peticiones sin sesión.
  *
- * Así cada ruta solo cambia el origen del import:
- *   - import { createClient } from '@supabase/supabase-js'
- *   + import { createClient } from '@/lib/supabaseServer'
+ * Solo si no hay petición en curso se usa la cuenta de servicio.
  */
-import { createApiClient } from './apiClient';
+import { headers } from 'next/headers';
+import { createApiClient, setServerTokenResolver } from './apiClient';
+
+setServerTokenResolver(async () => {
+  const h = await headers();
+  const auth = h.get('authorization') || '';
+  return auth.toLowerCase().startsWith('bearer ') ? auth.slice(7) : null;
+});
 
 export function createClient(/* url, key, opts */) {
   return createApiClient();
