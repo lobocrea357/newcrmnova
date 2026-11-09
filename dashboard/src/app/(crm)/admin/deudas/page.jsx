@@ -7,6 +7,7 @@ import { DEUDAS_API } from '@/config/apiConfig'
 import { toastSuccess, toastError } from '@/helpers/toasts'
 import UploadComprobante from '@/components/deudas/UploadComprobante'
 // NavigationBreadcrumb eliminado - tabs son suficientes para navegación
+import { PageHeader } from '@/components/ui/kit'
 import AdminFinanceNav from '@/components/admin/AdminFinanceNav'
 
 export default function DeudasPage() {
@@ -173,26 +174,14 @@ export default function DeudasPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Cargando deudas...</p>
-        </div>
-      </div>
+      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8" role="status" aria-label="Cargando deudas..."><div className="mb-6 h-9 w-64 animate-pulse rounded-md bg-gray-100" /><div className="h-96 animate-pulse rounded-xl bg-gray-100" /></div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <CreditCard className="w-8 h-8 text-indigo-600" />
-            <h1 className="text-2xl font-semibold text-tinta">Gestión de Deudas</h1>
-          </div>
-          <p className="text-gray-600">Control de deudas con proveedores y registro de pagos</p>
-        </div>
+    <div>
+      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <PageHeader title="Deudas con proveedores" description="Lo que se debe a cada proveedor y los pagos registrados." />
 
 
         {/* Navegación Horizontal */}

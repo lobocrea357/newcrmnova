@@ -5,6 +5,7 @@ import { useRouteGuard } from '@/hooks/useRouteGuard'
 import { Package, Filter } from 'lucide-react'
 import { toastSuccess, toastError } from '@/helpers/toasts'
 import { EMISIONES_API } from '@/config/apiConfig'
+import { PageHeader } from '@/components/ui/kit'
 import AdminFinanceNav from '@/components/admin/AdminFinanceNav'
 import EmisionVueloCard from '@/components/admin/EmisionVueloCard'
 import VueloDetail from '@/components/vuelos/VueloDetail'
@@ -100,46 +101,27 @@ export default function ControlEmisionesPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Cargando vuelos pendientes...</p>
-        </div>
-      </div>
+      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8" role="status" aria-label="Cargando vuelos pendientes..."><div className="mb-6 h-9 w-64 animate-pulse rounded-md bg-gray-100" /><div className="h-96 animate-pulse rounded-xl bg-gray-100" /></div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <Package className="w-8 h-8 text-indigo-600" />
-                <h1 className="text-2xl font-semibold text-tinta">Control de Emisiones</h1>
-              </div>
-              <p className="text-gray-600">
-                {datos?.total_general || 0} vuelos pendientes de autorización
-              </p>
-            </div>
-
-            {/* Filtro Forma Emisión */}
-            <div className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-gray-400" />
-              <select
-                value={filtroFormaEmision}
-                onChange={(e) => setFiltroFormaEmision(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              >
-                <option value="TODOS">Todas las formas</option>
-                <option value="CONTADO">Solo CONTADO</option>
-                <option value="CREDITO">Solo CREDITO</option>
+    <div>
+      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <PageHeader
+          title="Control de emisiones"
+          description={`${datos?.total_general || 0} vuelos esperan autorización.`}
+          actions={
+            <label className="flex items-center gap-2 text-sm text-gray-500">
+              Forma de emisión
+              <select value={filtroFormaEmision} onChange={(e) => setFiltroFormaEmision(e.target.value)} className="h-9 rounded-lg border border-linea bg-white px-3 text-sm focus:border-nova-500 focus:outline-none focus:ring-2 focus:ring-nova-500/20">
+                <option value="TODOS">Todas</option>
+                <option value="CONTADO">Contado</option>
+                <option value="CREDITO">Crédito</option>
               </select>
-            </div>
-          </div>
-        </div>
+            </label>
+          }
+        />
 
         {/* Navegación */}
         <AdminFinanceNav />

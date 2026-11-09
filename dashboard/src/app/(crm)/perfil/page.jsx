@@ -6,7 +6,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useUserProfile } from '@/contexts/UserProfileContext'
 import { toastSuccess, toastError, toastInfo } from '@/helpers/toasts'
-import Breadcrumb from '@/components/ui/Breadcrumb'
+import { Page, PageHeader, Panel, Badge, Button, Skeleton } from '@/components/ui/kit'
+import { initials } from '@/lib/avatar'
 
 // Event para notificar cambios de avatar
 const AVATAR_UPDATED_EVENT = 'avatar-updated'
@@ -216,200 +217,120 @@ export default function PerfilPage() {
 
   if (profileLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Cargando perfil...</p>
-        </div>
-      </div>
+      <Page className="max-w-3xl">
+        <Skeleton className="mb-6 h-9 w-48" />
+        <Skeleton className="h-96" />
+      </Page>
     )
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-6 max-w-4xl mx-auto">
-        <Breadcrumb
-          items={[
-            { label: 'Dashboard', href: '/' },
-            { label: 'Mi Perfil', href: '/perfil' }
-          ]}
-        />
+  const avatar = avatarPreview || currentAvatar
+  const field = 'h-10 w-full rounded-lg border border-linea bg-white px-3 text-sm text-tinta focus:border-nova-500 focus:outline-none focus:ring-2 focus:ring-nova-500/20'
+  const readonly = 'h-10 w-full rounded-lg border border-linea bg-gray-50 px-3 text-sm text-gray-500'
 
-        <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          {/* Header */}
-          <div className="bg-blue-600 p-8 text-white">
-            <div className="flex items-center gap-6">
-              <div className="relative">
-                <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center overflow-hidden border-4 border-white/30">
-                  {avatarPreview || currentAvatar ? (
-                    <img
-                      src={avatarPreview || currentAvatar}
-                      alt="Avatar"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User className="w-12 h-12 text-white" />
-                  )}
-                </div>
-                {uploadingAvatar && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
-                    <Loader2 className="w-8 h-8 animate-spin text-white" />
-                  </div>
+  return (
+    <Page className="max-w-3xl">
+      <PageHeader title="Mi perfil" description="Tu nombre y tu foto se muestran al equipo en chats y reportes." />
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Panel title="Foto">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+            <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border border-linea bg-nova-50">
+              {avatar ? (
+                <img src={avatar} alt="Tu foto de perfil" className="h-full w-full object-cover" />
+              ) : (
+                <span className="grid h-full w-full place-items-center text-2xl font-semibold text-nova-700">
+                  {initials(profile?.full_name) || <User className="h-10 w-10" />}
+                </span>
+              )}
+              {uploadingAvatar && (
+                <span className="absolute inset-0 grid place-items-center bg-black/40">
+                  <Loader2 className="h-6 w-6 animate-spin text-white" />
+                </span>
+              )}
+            </div>
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-linea bg-white px-4 text-sm font-medium text-gray-800 hover:bg-gray-50 focus-within:ring-2 focus-within:ring-nova-500/30">
+                  <Camera className="h-4 w-4" />
+                  {avatar ? 'Cambiar foto' : 'Subir foto'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                    onChange={handleFileChange}
+                    className="sr-only"
+                  />
+                </label>
+                {avatar && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={handleDeleteAvatar}
+                    disabled={uploadingAvatar}
+                    className="text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Quitar foto
+                  </Button>
                 )}
               </div>
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold mb-2">{profile?.full_name || 'Usuario'}</h1>
-                <p className="text-blue-100 flex items-center gap-2">
-                  <Shield className="w-4 h-4" />
-                  {role || 'Usuario'}
-                </p>
-              </div>
+              <p className="text-xs text-gray-500">
+                {avatarFile ? `Seleccionada: ${avatarFile.name}. Se guarda al pulsar Guardar cambios.` : 'JPG, PNG o WebP, hasta 10 MB.'}
+              </p>
             </div>
           </div>
+        </Panel>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-8 space-y-8">
-            {/* Avatar Upload */}
-            <div className="space-y-4">
-              <label className="block text-sm font-bold text-gray-700">
-                Foto de Perfil
-              </label>
-              <div className="flex items-center gap-6">
-                <div className="relative">
-                  <div className="w-32 h-32 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-4 border-gray-200">
-                    {avatarPreview || currentAvatar ? (
-                      <img
-                        src={avatarPreview || currentAvatar}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User className="w-16 h-16 text-gray-400" />
-                    )}
-                  </div>
-                  <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors shadow-lg">
-                    <Camera className="w-5 h-5" />
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/jpg,image/png,image/webp"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-600 mb-2">
-                    Formatos permitidos: JPG, PNG, WebP
-                  </p>
-                  <p className="text-sm text-gray-600 mb-3">
-                    Tamaño máximo: 10MB
-                  </p>
-                  {avatarFile && (
-                    <p className="text-sm text-green-600 mt-2 font-medium">
-                      ✓ {avatarFile.name} seleccionado
-                    </p>
-                  )}
-                  {(currentAvatar || avatarPreview) && (
-                    <button
-                      type="button"
-                      onClick={handleDeleteAvatar}
-                      disabled={uploadingAvatar}
-                      className="mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Eliminar foto de perfil
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Nombre Completo */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                Nombre Completo *
-              </label>
+        <Panel title="Datos">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label htmlFor="full_name" className="mb-1.5 block text-sm font-medium text-gray-700">Nombre completo</label>
               <input
+                id="full_name"
                 type="text"
                 value={formData.full_name}
                 onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Ej: Juan Pérez"
+                className={field}
                 required
+                autoComplete="name"
               />
             </div>
-
-            {/* Email (readonly) */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                Correo Electrónico
-              </label>
+              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Correo</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  value={formData.email}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
-                  disabled
-                />
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input id="email" type="email" value={formData.email} className={`${readonly} pl-9`} disabled />
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                El correo no puede ser modificado
-              </p>
+              <p className="mt-1 text-xs text-gray-500">Solo un administrador puede cambiarlo.</p>
             </div>
-
-            {/* Fecha de creación */}
-            {profile?.created_at && (
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Miembro desde
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={new Date(profile.created_at).toLocaleDateString('es-ES', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric'
-                    })}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
-                    disabled
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Botones */}
-            <div className="flex gap-4 pt-4">
-              <button
-                type="submit"
-                disabled={saving || uploadingAvatar}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Guardando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-5 h-5" />
-                    Guardar Cambios
-                  </>
+            <div>
+              <p className="mb-1.5 block text-sm font-medium text-gray-700">Rol</p>
+              <div className="flex h-10 items-center gap-2">
+                <Badge tone="nova">
+                  <Shield className="h-3.5 w-3.5" />
+                  {role || 'Sin rol'}
+                </Badge>
+                {profile?.created_at && (
+                  <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <Calendar className="h-3.5 w-3.5" />
+                    Desde {new Date(profile.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
                 )}
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push('/')}
-                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-              >
-                Cancelar
-              </button>
+              </div>
             </div>
-          </form>
+          </div>
+        </Panel>
+
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={() => router.back()}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" disabled={saving || uploadingAvatar}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {saving ? 'Guardando…' : 'Guardar cambios'}
+          </Button>
         </div>
-      </div>
-    </div>
+      </form>
+    </Page>
   )
 }

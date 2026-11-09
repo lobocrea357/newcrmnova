@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Users, UserPlus, RefreshCw, Shield, Key, UserCheck, ShieldCheck, UsersRound, AlertTriangle, Building2, MapPin } from "lucide-react";
-import Breadcrumb from "@/components/ui/Breadcrumb";
+import { Users, UserPlus, RefreshCw, Shield, Key, UserCheck, ShieldCheck, UsersRound, Building2, MapPin } from "lucide-react";
+import { Page, PageHeader, Panel, Button, EmptyState, Skeleton } from "@/components/ui/kit";
 import UserList from "@/components/users/UserList";
 import UserFormModal from "@/components/users/UserFormModal";
 import RolesManager from "@/components/permissions/RolesManager";
@@ -40,29 +40,6 @@ export default function UsuariosPage() {
     { id: 'agencias', label: 'Agencias', icon: Building2, show: true },
     { id: 'sedes', label: 'Sedes', icon: MapPin, show: true }
   ].filter(tab => tab.show);
-
-  // Estados y refs para el drag-to-scroll (arrastre con mouse)
-  const [isDragging, setIsDragging] = useState(false);
-  const startX = useRef(0);
-  const scrollLeftBase = useRef(0);
-
-  const handleMouseDown = (e) => {
-    if (!tabsRef.current) return;
-    setIsDragging(true);
-    startX.current = e.pageX - tabsRef.current.offsetLeft;
-    scrollLeftBase.current = tabsRef.current.scrollLeft;
-  };
-
-  const handleMouseLeave = () => setIsDragging(false);
-  const handleMouseUp = () => setIsDragging(false);
-
-  const handleMouseMove = (e) => {
-    if (!isDragging || !tabsRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - tabsRef.current.offsetLeft;
-    const walk = (x - startX.current) * 1.5; // Multiplicador de velocidad
-    tabsRef.current.scrollLeft = scrollLeftBase.current - walk;
-  };
 
   useEffect(() => {
     const handleWheel = (e) => {
@@ -182,175 +159,97 @@ export default function UsuariosPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Verificando permisos...</p>
-        </div>
-      </div>
+      <Page>
+        <Skeleton className="mb-6 h-9 w-72" />
+        <Skeleton className="h-96" />
+      </Page>
     );
   }
 
   if (!isSuperAdmin && !isAdmin) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full mx-4">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Shield className="h-8 w-8 text-red-600" />
-            </div>
-            <h1 className="text-2xl font-semibold text-tinta mb-2">
-              Acceso Restringido
-            </h1>
-            <p className="text-gray-600 mb-6">
-              Solo los administradores pueden acceder a la gestión de usuarios del sistema.
-            </p>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div className="text-left">
-                  <p className="text-sm text-amber-800">
-                    <strong>Rol actual:</strong> {profile?.role?.name || 'desconocido'}
-                  </p>
-                  <p className="text-sm text-amber-700 mt-1">
-                    Si necesitas acceso, contacta con un administrador.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => router.push("/")}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Volver al Dashboard
-            </button>
-          </div>
-        </div>
-      </div>
+      <Page>
+        <Panel className="mx-auto mt-10 max-w-lg">
+          <EmptyState
+            icon={Shield}
+            title="Solo los administradores gestionan usuarios"
+            description={`Tu rol (${profile?.role?.name || "sin rol"}) no incluye esta pantalla. Si la necesitas, pide el permiso a un administrador.`}
+            action={<Button variant="primary" href="/">Ir al inicio</Button>}
+          />
+        </Panel>
+      </Page>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <Breadcrumb
-            items={[
-              { label: "Dashboard", href: "/" },
-              { label: "Configuración", href: "/configuracion" },
-              { label: "Usuarios", href: "/configuracion/usuarios" },
-            ]}
+    <Page wide>
+      <PageHeader
+        title="Usuarios y permisos"
+        description="Altas, roles, permisos, equipos, agencias y sedes."
+        actions={
+          activeTab === "usuarios" && (
+            <>
+              <Button onClick={loadData} disabled={loadingData}>
+                <RefreshCw className={`h-4 w-4 ${loadingData ? "animate-spin" : ""}`} />
+                Actualizar
+              </Button>
+              <Button variant="primary" onClick={handleAddUser}>
+                <UserPlus className="h-4 w-4" />
+                Agregar usuario
+              </Button>
+            </>
+          )
+        }
+      />
+
+      <nav
+        ref={tabsRef}
+        role="tablist"
+        aria-label="Secciones de usuarios"
+        className="mb-6 flex gap-1 overflow-x-auto border-b border-linea [scrollbar-width:none]"
+      >
+        {visibleTabs.map((tab) => {
+          const on = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={on}
+              onClick={() => setActiveTab(tab.id)}
+              className={`-mb-px flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition-colors ${
+                on ? "border-nova-600 font-medium text-tinta" : "border-transparent text-gray-500 hover:text-tinta"
+              }`}
+            >
+              <tab.icon className="h-4 w-4" strokeWidth={1.8} />
+              {tab.label}
+              {tab.id === "usuarios" && users.length > 0 && (
+                <span className={`rounded px-1.5 text-xs tabular ${on ? "bg-nova-50 text-nova-700" : "bg-gray-100 text-gray-600"}`}>
+                  {users.length}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      <div role="tabpanel">
+        {activeTab === "usuarios" && (
+          <UserList
+            users={users}
+            roles={roles}
+            onEdit={handleEditUser}
+            onToggleStatus={handleToggleStatus}
+            loading={loadingData}
+            currentUserRole={profile?.role?.name}
           />
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
-              <div className="flex-1">
-                <h1 className="text-2xl font-semibold text-tinta flex items-center gap-3">
-                  <Shield className="h-7 w-7 sm:h-8 sm:w-8 text-blue-600 flex-shrink-0" />
-                  <span className="leading-tight">Gestión de Usuarios y Permisos</span>
-                </h1>
-                <p className="text-sm sm:text-base text-gray-500 mt-2 max-w-2xl">
-                  Administra usuarios, roles, permisos y asignaciones del sistema.
-                </p>
-              </div>
-
-              {activeTab === 'usuarios' && (
-                <div className="flex flex-wrap items-center gap-3 sm:shrink-0">
-                  <button
-                    onClick={loadData}
-                    disabled={loadingData}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 text-sm sm:text-base"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${loadingData ? "animate-spin" : ""}`} />
-                    Actualizar
-                  </button>
-                  <button
-                    onClick={handleAddUser}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    <span className="whitespace-nowrap">Agregar Usuario</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Tabs Navigation - Carousel behavior for all screens */}
-            <div className="relative mb-6">
-              <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white to-transparent pointer-events-none z-10 block" />
-              <div className="border-b border-gray-200">
-                <nav 
-                  ref={tabsRef}
-                  onMouseDown={handleMouseDown}
-                  onMouseLeave={handleMouseLeave}
-                  onMouseUp={handleMouseUp}
-                  onMouseMove={handleMouseMove}
-                  className={`-mb-px flex gap-4 overflow-x-auto scrollbar-hide select-none touch-pan-x ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-                  style={{ 
-                    scrollbarWidth: 'none', 
-                    msOverflowStyle: 'none',
-                    WebkitOverflowScrolling: 'touch',
-                    scrollBehavior: isDragging ? 'auto' : 'smooth'
-                  }}
-                >
-                  {visibleTabs.map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
-                        activeTab === tab.id
-                          ? 'border-blue-600 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <tab.icon className="w-4 h-4" />
-                      {tab.label}
-                    </button>
-                  ))}
-              </nav>
-            </div>
-          </div>
-              <style jsx>{`
-                nav::-webkit-scrollbar {
-                  display: none;
-                }
-              `}</style>
-
-            {/* Tab Content */}
-            <div className="mt-6">
-              {activeTab === 'usuarios' && (
-                <div>
-                  <div className="mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Lista de Usuarios</h3>
-                    <p className="text-sm text-gray-500 mt-1">Total: {users.length} usuarios</p>
-                  </div>
-                  <UserList
-                    users={users}
-                    roles={roles}
-                    onEdit={handleEditUser}
-                    onToggleStatus={handleToggleStatus}
-                    loading={loadingData}
-                    currentUserRole={profile?.role?.name}
-                  />
-                </div>
-              )}
-
-              {activeTab === 'roles' && <RolesManager />}
-              
-              {activeTab === 'permisos' && <PermissionsManager />}
-              
-              {activeTab === 'permisos-roles' && <RolePermissionsManager />}
-              
-              {activeTab === 'permisos-usuarios' && <UserPermissionsManager />}
-              
-              {activeTab === 'equipos' && <EquiposTab allUsers={users} roles={roles} onDataChange={loadData} user={user} />}
-
-              {activeTab === 'agencias' && <AgenciasManager />}
-
-              {activeTab === 'sedes' && <SedesManager />}
-            </div>
-          </div>
-        </div>
+        )}
+        {activeTab === "roles" && <RolesManager />}
+        {activeTab === "permisos" && <PermissionsManager />}
+        {activeTab === "permisos-roles" && <RolePermissionsManager />}
+        {activeTab === "permisos-usuarios" && <UserPermissionsManager />}
+        {activeTab === "equipos" && <EquiposTab allUsers={users} roles={roles} onDataChange={loadData} user={user} />}
+        {activeTab === "agencias" && <AgenciasManager />}
+        {activeTab === "sedes" && <SedesManager />}
       </div>
 
       {showModal && (
@@ -362,6 +261,6 @@ export default function UsuariosPage() {
           onSave={handleUserSaved}
         />
       )}
-    </div>
+    </Page>
   );
 }

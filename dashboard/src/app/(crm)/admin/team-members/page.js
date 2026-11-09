@@ -133,8 +133,8 @@ export default function TeamMembersPage() {
   if (authLoading || !hasAccess || !profile) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-5xl mx-auto">
+    <div>
+      <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <PageHeader
           title="Números del equipo"
           description="Teléfonos corporativos (asesores, pagos, emisiones). Sus chats no cuentan como clientes en la auditoría IA ni en los seguimientos."
@@ -147,8 +147,8 @@ export default function TeamMembersPage() {
 
         {/* Formulario Agregar */}
         {showAddForm && (
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border-l-4 border-indigo-500">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Agregar Nuevo Team Member</h2>
+          <div className="bg-white rounded-xl border border-linea p-5 mb-6">
+            <h2 className="text-[15px] font-semibold text-tinta mb-4">Agregar número del equipo</h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -208,7 +208,7 @@ export default function TeamMembersPage() {
         </div>
 
         {/* Lista de Team Members */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-white rounded-xl border border-linea overflow-hidden">
           <div className="p-6 border-b bg-slate-50">
             <h2 className="text-2xl font-bold text-gray-900">
               Team Members ({teamMembers.length})

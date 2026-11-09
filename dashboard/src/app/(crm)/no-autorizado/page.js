@@ -1,91 +1,34 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { ShieldAlert, ArrowLeft, Home } from "lucide-react";
-import Breadcrumb from "@/components/ui/Breadcrumb";
-import { useUserProfile } from "@/hooks/useUserProfile";
+import { ShieldAlert } from "lucide-react";
+import { useUserProfile } from "@/contexts/UserProfileContext";
+import { homeFor } from "@/lib/navigation";
+import { Page, Panel, EmptyState, Button } from "@/components/ui/kit";
 
 export default function NoAutorizadoPage() {
-  const router = useRouter();
-  const { role, loading } = useUserProfile();
-
-  const roleDisplay = loading ? 'Cargando...' : (role || 'Usuario');
+  const { role, loading, hasPermission } = useUserProfile();
+  const home = loading ? "/" : homeFor({ role: role?.toLowerCase(), hasPermission });
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-6">
-        <div className="max-w-7xl mx-auto">
-          <Breadcrumb
-            items={[
-              { label: "Dashboard", href: "/" },
-              { label: "Acceso Denegado" },
-            ]}
-          />
-
-          {/* Contenedor principal */}
-          <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
-            <div className="max-w-2xl w-full">
-              {/* Card principal */}
-              <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12 text-center">
-                {/* Icono */}
-                <div className="flex justify-center mb-6">
-                  <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center">
-                    <ShieldAlert className="w-12 h-12 text-red-600" />
-                  </div>
-                </div>
-
-                {/* Título */}
-                <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-                  403
-                </h1>
-                <h2 className="text-2xl md:text-3xl font-bold text-red-600 mb-4">
-                  Acceso No Autorizado
-                </h2>
-
-                {/* Descripción */}
-                <p className="text-lg text-gray-600 mb-2">
-                  Lo sentimos, no tienes permisos para acceder a este módulo.
-                </p>
-                <p className="text-sm text-gray-500 mb-8">
-                  Tu rol actual <span className="font-semibold text-orange-600">{roleDisplay}</span> no incluye acceso a esta sección del sistema.
-                </p>
-
-                {/* Mensaje informativo */}
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-8">
-                  <p className="text-sm text-orange-800">
-                    <strong>¿Necesitas acceso?</strong> Contacta al administrador del sistema para solicitar los permisos necesarios.
-                  </p>
-                </div>
-
-                {/* Botones de acción */}
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <button
-                    onClick={() => router.push("/configuracion")}
-                    className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors shadow-md"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                    Volver a Configuración
-                  </button>
-                  <button
-                    onClick={() => router.push("/")}
-                    className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md"
-                  >
-                    <Home className="w-5 h-5" />
-                    Ir al Dashboard
-                  </button>
-                </div>
-              </div>
-
-              {/* Footer info */}
-              <div className="text-center mt-6">
-                <p className="text-sm text-gray-500">
-                  Si crees que esto es un error, contacta con el equipo de soporte.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <Page>
+      <Panel className="mx-auto mt-10 max-w-lg">
+        <EmptyState
+          icon={ShieldAlert}
+          title="No tienes acceso a esta sección"
+          description={
+            loading
+              ? "Comprobando tus permisos…"
+              : `Tu rol (${role || "sin rol"}) no incluye esta pantalla. Si la necesitas, pide el permiso a un administrador.`
+          }
+          action={
+            home !== "/no-autorizado" && (
+              <Button variant="primary" href={home}>
+                Ir a mi inicio
+              </Button>
+            )
+          }
+        />
+      </Panel>
+    </Page>
   );
 }

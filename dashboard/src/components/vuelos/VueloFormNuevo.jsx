@@ -1385,10 +1385,10 @@ export default function VueloFormNuevo({
                         type="button"
                         onClick={() => handlePasajeroChange(index, 'tipo_documento', tipo.value)}
                         className={`
-                          relative p-4 rounded-xl border-2 transition-all duration-200
+                          relative p-4 rounded-xl border-2 transition-colors duration-150
                           ${pasajero.tipo_documento === tipo.value
-                            ? `border-${tipo.color}-500 bg-${tipo.color}-50 shadow-lg scale-[1.02]`
-                            : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
+                            ? 'border-nova-500 bg-nova-50'
+                            : 'border-gray-200 bg-white hover:border-gray-300'
                           }
                         `}
                       >
@@ -1396,7 +1396,7 @@ export default function VueloFormNuevo({
                           <span className="text-2xl">{tipo.icon}</span>
                           <div className="text-center">
                             <div className={`font-medium text-sm ${pasajero.tipo_documento === tipo.value
-                              ? `text-${tipo.color}-700`
+                              ? 'text-nova-700'
                               : 'text-gray-900'
                               }`}>
                               {tipo.label}
@@ -1407,7 +1407,7 @@ export default function VueloFormNuevo({
                           </div>
                         </div>
                         {pasajero.tipo_documento === tipo.value && (
-                          <div className={`absolute top-2 right-2 w-6 h-6 bg-${tipo.color}-500 rounded-full flex items-center justify-center`}>
+                          <div className={`absolute top-2 right-2 w-6 h-6 bg-nova-600 text-white rounded-full flex items-center justify-center`}>
                             <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                             </svg>
@@ -1553,8 +1553,8 @@ export default function VueloFormNuevo({
                           onClick={() => extractDocumentData(index)}
                           disabled={extractingPassport[index]}
                           className={`w-full flex items-center justify-center gap-2 px-4 py-3 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm ${pasajero.tipo_documento === 'CEDULA'
-                            ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
-                            : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
+                            ? 'bg-green-700 hover:bg-green-800'
+                            : 'bg-nova-600 hover:bg-nova-700'
                             }`}
                         >
                           {extractingPassport[index] ? (

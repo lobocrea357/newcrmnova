@@ -12,6 +12,7 @@ import { useRouteGuard } from '@/hooks/useRouteGuard'
 import MetricasHeader from '@/components/admin/MetricasHeader'
 import PagoCard from '@/components/admin/PagoCard'
 // NavigationBreadcrumb eliminado - tabs son suficientes para navegación
+import { PageHeader } from '@/components/ui/kit'
 import AdminFinanceNav from '@/components/admin/AdminFinanceNav'
 
 export default function ConfirmarPagosPage() {
@@ -189,15 +190,9 @@ export default function ConfirmarPagosPage() {
   const comprobantes = selectedVuelo?.adjuntos?.filter(a => a.tipo_adjunto === 'COMPROBANTE_PAGO') || []
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-tinta">Confirmación de Pagos</h1>
-          <p className="text-gray-600 mt-2">
-            Revisa y aprueba los pagos de vuelos pendientes
-          </p>
-        </div>
+    <div>
+      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <PageHeader title="Confirmar pagos" description="Revisa los comprobantes y aprueba o rechaza cada pago." />
 
 
         {/* Navegación Horizontal */}

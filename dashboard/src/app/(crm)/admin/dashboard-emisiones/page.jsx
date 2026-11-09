@@ -12,6 +12,7 @@ import {
 import { toastSuccess, toastError } from '@/helpers/toasts'
 import { METRICAS_API } from '@/config/apiConfig'
 // NavigationBreadcrumb eliminado - tabs son suficientes para navegación
+import { PageHeader } from '@/components/ui/kit'
 import AdminFinanceNav from '@/components/admin/AdminFinanceNav'
 
 export default function DashboardEmisiones() {
@@ -49,40 +50,27 @@ export default function DashboardEmisiones() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Cargando métricas...</p>
-        </div>
-      </div>
+      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8" role="status" aria-label="Cargando métricas..."><div className="mb-6 h-9 w-64 animate-pulse rounded-md bg-gray-100" /><div className="h-96 animate-pulse rounded-xl bg-gray-100" /></div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <BarChart3 className="w-8 h-8 text-indigo-600" />
-                <h1 className="text-2xl font-semibold text-tinta">Dashboard de Emisiones</h1>
-              </div>
-              <p className="text-gray-600">Métricas y estadísticas del módulo de emisiones</p>
-            </div>
-
-            <select
-              value={periodo}
-              onChange={(e) => setPeriodo(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            >
-              <option value="hoy">Hoy</option>
-              <option value="semana">Esta Semana</option>
-              <option value="mes">Este Mes</option>
-            </select>
-          </div>
-        </div>
+    <div>
+      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <PageHeader
+          title="Métricas de emisiones"
+          description="Autorizaciones, emisiones y deudas del periodo."
+          actions={
+            <label className="flex items-center gap-2 text-sm text-gray-500">
+              Periodo
+              <select value={periodo} onChange={(e) => setPeriodo(e.target.value)} className="h-9 rounded-lg border border-linea bg-white px-3 text-sm focus:border-nova-500 focus:outline-none focus:ring-2 focus:ring-nova-500/20">
+                <option value="hoy">Hoy</option>
+                <option value="semana">Esta semana</option>
+                <option value="mes">Este mes</option>
+              </select>
+            </label>
+          }
+        />
 
 
         {/* Navegación Horizontal */}
@@ -93,24 +81,24 @@ export default function DashboardEmisiones() {
           <MetricCard
             title="Vuelos Autorizados"
             value={metricas?.autorizados?.total || 0}
-            icon={<CheckCircle className="w-8 h-8" />}
-            color="from-green-500 to-green-600"
+            icon={<CheckCircle className="h-5 w-5" strokeWidth={1.8} />}
+            tone="success"
             description="Autorizados para emisión"
           />
 
           <MetricCard
             title="Vuelos Emitidos"
             value={metricas?.emitidos?.total || 0}
-            icon={<Plane className="w-8 h-8" />}
-            color="from-blue-500 to-blue-600"
+            icon={<Plane className="h-5 w-5" strokeWidth={1.8} />}
+            tone="info"
             description="Boletos confirmados"
           />
 
           <MetricCard
             title="Pendientes de Autorización"
             value={metricas?.pendientes?.total || 0}
-            icon={<Clock className="w-8 h-8" />}
-            color="from-amber-500 to-amber-600"
+            icon={<Clock className="h-5 w-5" strokeWidth={1.8} />}
+            tone="warning"
             description="Esperando aprobación"
           />
         </div>
@@ -167,17 +155,16 @@ export default function DashboardEmisiones() {
   )
 }
 
-function MetricCard({ title, value, icon, color, description }) {
+function MetricCard({ title, value, icon, tone, description }) {
+  const ring = { success: 'bg-green-50 text-green-700', info: 'bg-teal-50 text-teal-700', warning: 'bg-amber-50 text-amber-700' }[tone] || 'bg-nova-50 text-nova-700'
   return (
-    <div className={`bg-gradient-to-br ${color} rounded-xl shadow-sm p-6 text-white`}>
-      <div className="flex items-center justify-between mb-4">
-        <div className="p-3 bg-white/20 rounded-lg">
-          {icon}
-        </div>
-        <span className="text-sm font-medium opacity-80">{description}</span>
+    <div className="rounded-xl border border-linea bg-white p-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-gray-500">{title}</p>
+        <span className={`grid h-9 w-9 place-items-center rounded-lg ${ring}`}>{icon}</span>
       </div>
-      <p className="text-4xl font-bold">{value}</p>
-      <p className="text-sm opacity-80 mt-1">{title}</p>
+      <p className="mt-2 text-3xl font-semibold leading-none tabular text-tinta">{value}</p>
+      <p className="mt-2 text-xs text-gray-500">{description}</p>
     </div>
   )
 }

@@ -5,8 +5,9 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useUserProfile } from '@/contexts/UserProfileContext'
 import { supabase } from '@/lib/supabase'
 import { EQUIPOS_API } from '@/config/apiConfig'
-import { Users, UserPlus, UserMinus, Shield, Search, RefreshCw, ChevronRight } from 'lucide-react'
-import Breadcrumb from '@/components/ui/Breadcrumb'
+import { Users, UserPlus, UserMinus, Shield, Search, RefreshCw } from 'lucide-react'
+import { Page, PageHeader, Panel, Badge, Button, EmptyState, Skeleton } from '@/components/ui/kit'
+import { initials } from '@/lib/avatar'
 
 export default function MiEquipoPage() {
   const { user } = useAuth()
@@ -134,159 +135,121 @@ export default function MiEquipoPage() {
 
   if (loadingProfile || (loadingData && !equipo)) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin" />
-      </div>
+      <Page>
+        <Skeleton className="mb-6 h-9 w-64" />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Skeleton className="h-72" />
+          <Skeleton className="h-72" />
+        </div>
+      </Page>
     )
   }
 
   if (!equipo && isManager) {
     return (
-      <div className="p-8 text-center max-w-2xl mx-auto">
-        <Shield className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-        <h1 className="text-2xl font-semibold text-tinta">No tienes un equipo asignado</h1>
-        <p className="text-gray-600 mt-2">Como gerente, necesitas estar asignado a un equipo para gestionarlo. Contacta con un administrador.</p>
-        <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-          <p className="text-sm text-amber-800">
-            <strong>Nota para administradores:</strong> Si ya creaste equipos pero los gerentes no pueden verlos, 
-            verifica que cada gerente tenga un equipo creado donde <code>gerente_id</code> sea el ID del gerente.
-          </p>
-        </div>
-      </div>
+      <Page>
+        <Panel className="mx-auto mt-10 max-w-lg">
+          <EmptyState
+            icon={Shield}
+            title="Aún no tienes un equipo asignado"
+            description="Un administrador debe crear tu equipo y marcarte como su gerente. Cuando lo haga, aquí verás a tus asesores."
+          />
+        </Panel>
+      </Page>
     )
   }
 
+  const Avatar = ({ name }) => (
+    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-nova-50 text-sm font-semibold text-nova-700">
+      {initials(name)}
+    </span>
+  )
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <Breadcrumb
-          items={[
-            { label: 'Dashboard', href: '/' },
-            { label: 'Configuración', href: '/configuracion' },
-            { label: 'Mi Equipo', href: '/configuracion/mi-equipo' },
-          ]}
-        />
+    <Page>
+      <PageHeader
+        title={equipo?.nombre || 'Mi equipo'}
+        description="Suma asesores libres a tu equipo o quita a quien ya no esté contigo."
+        actions={
+          <Button onClick={loadData} disabled={loadingData}>
+            <RefreshCw className={`h-4 w-4 ${loadingData ? 'animate-spin' : ''}`} />
+            Actualizar
+          </Button>
+        }
+      />
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div 
-                className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg"
-                style={{ backgroundColor: equipo?.color || '#6366f1' }}
-              >
-                <Users className="w-8 h-8" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-tinta">{equipo?.nombre || 'Gestión de Equipo'}</h1>
-                <p className="text-gray-500 text-sm">Administra los miembros de tu equipo de ventas</p>
-              </div>
-            </div>
-            <button 
-              onClick={loadData}
-              className="p-2 text-gray-400 hover:text-indigo-600 rounded-full hover:bg-gray-100 transition-colors"
-            >
-              <RefreshCw className={`w-5 h-5 ${loadingData ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Miembros del Equipo */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <Users className="w-5 h-5 text-indigo-600" />
-              Miembros actuales ({miembros.length})
-            </h2>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-              {miembros.length === 0 ? (
-                <div className="p-12 text-center text-gray-400">
-                  <p>No hay miembros en este equipo todavía.</p>
-                </div>
-              ) : (
-                <ul className="divide-y divide-gray-100">
-                  {miembros.map((m) => (
-                    <li key={m.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
-                          {m.full_name?.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{m.full_name}</p>
-                          <p className="text-xs text-gray-500">{m.email}</p>
-                        </div>
-                      </div>
-                      {/* Solo permitir remover si no es el gerente mismo */}
-                      {m.id !== user?.id && (
-                        <button
-                          onClick={() => handleRemover(m.id)}
-                          disabled={isProcessing}
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors group"
-                          title="Remover del equipo"
-                        >
-                          <UserMinus className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-
-          {/* Asesores Disponibles */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <UserPlus className="w-5 h-5 text-green-600" />
-              Agregar Asesores
-            </h2>
-            <div className="space-y-4">
-              {/* Buscador */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar asesores sin equipo..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                />
-              </div>
-
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden max-h-[500px] overflow-y-auto">
-                {filteredSinEquipo.length === 0 ? (
-                  <div className="p-12 text-center text-gray-400">
-                    <p>{searchQuery ? 'No se encontraron asesores' : 'No hay asesores disponibles sin equipo'}</p>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title="En el equipo" actions={<Badge>{miembros.length}</Badge>} padded={false}>
+          {miembros.length === 0 ? (
+            <EmptyState icon={Users} title="Todavía no hay asesores" description="Agrégalos desde la lista de asesores libres." />
+          ) : (
+            <ul className="divide-y divide-linea">
+              {miembros.map((m) => (
+                <li key={m.id} className="flex items-center gap-3 px-5 py-3">
+                  <Avatar name={m.full_name} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-tinta">{m.full_name}</p>
+                    <p className="truncate text-xs text-gray-500">{m.email}</p>
                   </div>
-                ) : (
-                  <ul className="divide-y divide-gray-100">
-                    {filteredSinEquipo.map((m) => (
-                      <li key={m.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold">
-                            {m.full_name?.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">{m.full_name}</p>
-                            <p className="text-xs text-gray-500">{m.email}</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleAsignar(m.id)}
-                          disabled={isProcessing}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition-colors shadow-sm active:scale-95"
-                        >
-                          <UserPlus className="w-3.5 h-3.5" />
-                          Agregar
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
+                  {m.id !== user?.id && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleRemover(m.id)}
+                      disabled={isProcessing}
+                      aria-label={`Quitar a ${m.full_name} del equipo`}
+                      title="Quitar del equipo"
+                      className="text-gray-500 hover:bg-red-50 hover:text-red-700"
+                    >
+                      <UserMinus className="h-4 w-4" />
+                      Quitar
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel title="Asesores libres" description="Sin equipo asignado" padded={false}>
+          <div className="border-b border-linea p-3">
+            <label className="relative block">
+              <span className="sr-only">Buscar asesores libres</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="search"
+                placeholder="Nombre o correo"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 w-full rounded-lg border border-linea bg-white pl-9 pr-3 text-sm focus:border-nova-500 focus:outline-none focus:ring-2 focus:ring-nova-500/20"
+              />
+            </label>
           </div>
-        </div>
+          {filteredSinEquipo.length === 0 ? (
+            <EmptyState
+              icon={UserPlus}
+              title={searchQuery ? 'Nadie coincide con la búsqueda' : 'No hay asesores libres'}
+              description={searchQuery ? 'Prueba con otro nombre o correo.' : 'Todos los asesores ya pertenecen a un equipo.'}
+            />
+          ) : (
+            <ul className="max-h-[480px] divide-y divide-linea overflow-y-auto">
+              {filteredSinEquipo.map((m) => (
+                <li key={m.id} className="flex items-center gap-3 px-5 py-3">
+                  <Avatar name={m.full_name} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-tinta">{m.full_name}</p>
+                    <p className="truncate text-xs text-gray-500">{m.email}</p>
+                  </div>
+                  <Button size="sm" variant="primary" onClick={() => handleAsignar(m.id)} disabled={isProcessing}>
+                    <UserPlus className="h-4 w-4" />
+                    Agregar
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
       </div>
-    </div>
+    </Page>
   )
 }
