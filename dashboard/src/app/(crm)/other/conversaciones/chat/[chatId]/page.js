@@ -8,7 +8,7 @@ import HighlightText from '@/components/HighlightText'
 import { globalSearchChats } from '@/lib/supabase'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { Search, X, RefreshCw, Phone, Bot, CheckCheck, Sparkles } from 'lucide-react'
-import ChatAnalysis from '@/components/ChatAnalysis'
+import ChatIAPanel from '@/components/inteligencia/ChatIAPanel'
 import MessageInsightsPanel from '@/components/MessageInsightsPanel'
 
 function OtherChatPageContent() {
@@ -95,7 +95,7 @@ function OtherChatPageContent() {
   };
 
   return (
-    <div className="h-dvh sm:h-auto sm:min-h-dvh bg-gradient-to-br from-blue-50 to-indigo-100 sm:p-4 p-0 overflow-hidden text-slate-900">
+    <div className="h-dvh sm:h-auto sm:min-h-dvh bg-papel sm:p-4 p-0 overflow-hidden text-slate-900">
       <div className="max-w-[1800px] mx-auto h-[calc(100dvh-64px)] sm:h-[calc(100dvh-120px)]">
         {/* Contenedor con overflow-x para mobile */}
         <div className="flex sm:gap-4 gap-0 h-full overflow-x-auto">
@@ -251,8 +251,8 @@ function OtherChatPageContent() {
               onClose={handleClose}
               onMessagesLoaded={setMessages}
             />
-            {/* El botón de Análisis IA ahora es absoluto dentro de este contenedor */}
-            <ChatAnalysis messages={messages} chatId={chatId} />
+            {/* Evaluación IA (auditoría continua + evaluar ahora) */}
+            <ChatIAPanel chatId={chatId} />
           </div>
         </div>
       </div>
@@ -263,7 +263,7 @@ function OtherChatPageContent() {
 export default function OtherChatPage() {
   return (
     <Suspense fallback={
-      <div className="h-dvh flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="h-dvh flex items-center justify-center bg-papel">
         <div className="text-center">
           <RefreshCw className="h-10 w-10 text-indigo-600 animate-spin mx-auto mb-3" />
           <p className="text-slate-600">Cargando conversación...</p>

@@ -23,7 +23,6 @@ import {
   UsersRound,
   ShieldCheck,
   Settings,
-  Clock,
 } from 'lucide-react';
 
 const ADMINS = ['super_admin', 'admin'];
@@ -58,7 +57,7 @@ export const NAV_GROUPS = [
       { href: '/admin/confirmar-pagos', label: 'Confirmar pagos', icon: CreditCard, roles: ADMINS, permissions: ['vuelos.confirm_payment'] },
       { href: '/admin/control-emisiones', label: 'Control de emisiones', icon: Ticket, roles: ADMINS, permissions: ['vuelos.emit', 'vuelos.mark_issued'] },
       { href: '/admin/dashboard-emisiones', label: 'Resumen de emisiones', icon: PlaneTakeoff, roles: ADMINS, permissions: ['vuelos.emit', 'vuelos.mark_issued'] },
-      { href: '/admin/deudas', label: 'Deudas con proveedores', icon: Wallet, roles: ADMINS },
+      { href: '/admin/deudas', label: 'Deudas', icon: Wallet, roles: ADMINS },
     ],
   },
   {
@@ -75,7 +74,6 @@ export const NAV_GROUPS = [
     label: 'Sistema',
     items: [
       { href: '/configuracion', label: 'Configuración', icon: Settings, exact: true, roles: [...ADMINS, 'gerente'] },
-      { href: '/admin', label: 'Tareas programadas', icon: Clock, exact: true, roles: ADMINS },
     ],
   },
 ];

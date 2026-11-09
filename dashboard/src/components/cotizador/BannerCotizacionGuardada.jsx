@@ -23,7 +23,7 @@ export default function BannerCotizacionGuardada({
   }
 
   return (
-    <div className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-5 shadow-lg animate-fade-in">
+    <div className="mb-6 bg-green-50 border-2 border-green-300 rounded-xl p-5 shadow-lg animate-fade-in">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4 flex-1">
           <div className="flex items-center justify-center w-12 h-12 bg-green-500 rounded-xl flex-shrink-0 shadow-md">

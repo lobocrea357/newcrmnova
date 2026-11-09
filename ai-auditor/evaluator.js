@@ -154,7 +154,8 @@ async function evaluateChat(model, messages) {
     lead_respondio: !!ai.lead_respondio,
     venta_confirmada: !!ai.venta_confirmada,
     lead_caliente: !!ai.lead_caliente,
-    interest_level: ai.nivel_interes || null,
+    // La columna solo admite alto/medio/bajo (CHECK); 'nulo' se guarda vacío.
+    interest_level: ['alto', 'medio', 'bajo'].includes(ai.nivel_interes) ? ai.nivel_interes : null,
     score,
     max_score: MAX_SCORE,
     percentage,

@@ -1,41 +1,37 @@
 'use client'
 
 import { useRanking } from '@/contexts/RankingContext'
+import { useUserProfile } from '@/contexts/UserProfileContext'
 import RankingGlobal from '@/components/ranking/RankingGlobal'
 import TopAsesorCard from '@/components/ranking/TopAsesorCard'
-import { LayoutDashboard } from 'lucide-react'
+import { Page, PageHeader } from '@/components/ui/kit'
+
+function saludo() {
+  const h = new Date().getHours()
+  return h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches'
+}
 
 export default function DashboardPage() {
   const { rankingData } = useRanking()
+  const { profile } = useUserProfile()
+  const nombre = profile?.full_name?.split(' ')[0]
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+    <Page>
+      <PageHeader
+        title={nombre ? `${saludo()}, ${nombre}` : saludo()}
+        description="Así va el equipo hoy: quién lidera el ranking de ventas y cómo se reparten las metas."
+      />
 
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-2">
-          <LayoutDashboard className="w-8 h-8 text-purple-600" />
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-gray-500 text-sm">Rendimiento global del equipo en tiempo real</p>
-          </div>
-        </div>
-
-        {/* Top performers */}
+      <div className="space-y-6">
         {(rankingData?.topAsesor || rankingData?.topGerente) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {rankingData.topAsesor && (
-              <TopAsesorCard asesor={rankingData.topAsesor} tipo="Asesor" />
-            )}
-            {rankingData.topGerente && (
-              <TopAsesorCard asesor={rankingData.topGerente} tipo="Gerente" />
-            )}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {rankingData.topAsesor && <TopAsesorCard asesor={rankingData.topAsesor} tipo="Asesor" />}
+            {rankingData.topGerente && <TopAsesorCard asesor={rankingData.topGerente} tipo="Gerente" />}
           </div>
         )}
-
-        {/* Ranking global */}
         <RankingGlobal />
       </div>
-    </div>
+    </Page>
   )
 }

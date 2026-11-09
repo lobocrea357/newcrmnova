@@ -55,7 +55,7 @@ export default function VueloDetail({ vuelo }) {
   return (
     <div className="space-y-6">
       {/* Header Card */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg shadow-lg p-6 text-white">
+      <div className="bg-purple-600 rounded-lg shadow-lg p-6 text-white">
         <div className="flex items-start justify-between mb-4">
           <div>
             <h2 className="text-2xl font-bold mb-2">{vuelo.pax_nombre}</h2>

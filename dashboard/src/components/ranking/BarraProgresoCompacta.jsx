@@ -259,7 +259,7 @@ export default function BarraProgresoCompacta({ userId }) {
             </div>
 
             {/* Mensaje motivacional */}
-            <div className="text-center p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg">
+            <div className="text-center p-3 bg-indigo-50 rounded-lg">
               <p className="text-sm font-medium text-gray-700 italic">
                 "{obtenerMensajeMotivacional(progreso, diasRestantes)}"
               </p>

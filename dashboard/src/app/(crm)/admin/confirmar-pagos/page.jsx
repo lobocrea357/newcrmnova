@@ -390,7 +390,7 @@ export default function ConfirmarPagosPage() {
                 </button>
                 <button
                   onClick={() => abrirModalObservacion(selectedVuelo)}
-                  className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg font-medium hover:from-amber-600 hover:to-orange-600 transition-all flex items-center gap-2"
+                  className="px-6 py-3 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition-all flex items-center gap-2"
                 >
                   <AlertTriangle className="w-5 h-5" />
                   Reportar Observación

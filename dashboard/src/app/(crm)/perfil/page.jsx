@@ -216,7 +216,7 @@ export default function PerfilPage() {
 
   if (profileLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
           <p className="text-gray-600">Cargando perfil...</p>
@@ -226,7 +226,7 @@ export default function PerfilPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gray-50">
       <div className="p-6 max-w-4xl mx-auto">
         <Breadcrumb
           items={[
@@ -237,7 +237,7 @@ export default function PerfilPage() {
 
         <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-white">
+          <div className="bg-blue-600 p-8 text-white">
             <div className="flex items-center gap-6">
               <div className="relative">
                 <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center overflow-hidden border-4 border-white/30">

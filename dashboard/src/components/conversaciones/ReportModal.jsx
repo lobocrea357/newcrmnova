@@ -243,7 +243,7 @@ export default function ReportModal({
             <button
               onClick={onGenerate}
               disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-60"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-60"
             >
               {loading ? (
                 <>

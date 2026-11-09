@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { getCronStatus } from '@/lib/cronJobs';
 
 export async function GET() {
   const startTime = Date.now();
@@ -38,29 +37,7 @@ export async function GET() {
       healthStatus.errors.push('Database connection failed');
     }
 
-    // 2. Verificar sistema de cron
-    try {
-      const cronStatus = getCronStatus();
-
-      healthStatus.services.cron_system = {
-        status: cronStatus.is_initialized ? 'healthy' : 'warning',
-        is_initialized: cronStatus.is_initialized,
-        is_running: cronStatus.is_running,
-        is_analysis_running: cronStatus.is_analysis_running,
-        last_check: new Date().toISOString()
-      };
-
-      if (!cronStatus.is_initialized) {
-        healthStatus.errors.push('Cron system not initialized');
-      }
-    } catch (error) {
-      healthStatus.services.cron_system = {
-        status: 'unhealthy',
-        error: error.message,
-        last_check: new Date().toISOString()
-      };
-      healthStatus.errors.push('Cron system check failed');
-    }
+    // (El cron interno de análisis se retiró: la auditoría IA corre en el servicio ai-auditor.)
 
     // 3. Verificar OpenAI API
     try {

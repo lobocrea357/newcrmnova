@@ -66,7 +66,7 @@ export default function AnulableDetail({ anulable }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-orange-600 to-orange-700 rounded-lg shadow-lg p-6 text-white">
+      <div className="bg-orange-600 rounded-lg shadow-lg p-6 text-white">
         <div className="flex items-start justify-between mb-4">
           <div>
             <h2 className="text-2xl font-bold mb-2">{anulable.pax_nombre}</h2>

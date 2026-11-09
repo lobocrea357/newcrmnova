@@ -407,7 +407,7 @@ export default function VueloFormEditar({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Banner de edición */}
-      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
         <div className="flex items-center gap-3">
           <Edit3 className="w-6 h-6 text-amber-600" />
           <div>

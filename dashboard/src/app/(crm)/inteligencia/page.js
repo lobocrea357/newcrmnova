@@ -10,7 +10,7 @@ import { resumen, cumplimiento, topFrases, ventasReales, fmtPct, fmtUsd } from '
 function Loading() {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[104px] rounded-xl" />)}
       </div>
       <Skeleton className="h-80 rounded-xl" />
@@ -54,7 +54,7 @@ export default function ResumenIA() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Stat
           label="Conversaciones de venta"
           value={r.total}

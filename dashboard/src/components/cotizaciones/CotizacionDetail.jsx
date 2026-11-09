@@ -278,7 +278,7 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
       </div>
 
       {/* Información del Vuelo */}
-      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-100">
+      <div className="bg-indigo-50 rounded-xl p-6 border border-indigo-100">
         <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
           <Plane className="w-5 h-5 text-indigo-600" />
           Información del Vuelo
@@ -432,7 +432,7 @@ export default function CotizacionDetail({ cotizacion, onUpdate }) {
             </div>
           )}
 
-          <div className="bg-gradient-to-br from-indigo-600 to-purple-700 text-white p-4 rounded-lg mt-4">
+          <div className="bg-indigo-600 text-white p-4 rounded-lg mt-4">
             <div className="flex justify-between items-center">
               <span className="text-sm font-medium opacity-90">Total a Pagar</span>
               <div className="text-right">

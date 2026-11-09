@@ -26,7 +26,7 @@ export default function CotizadorTutorial() {
   ]
 
   return (
-    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-6 mb-6">
+    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-6 mb-6">
       <div className="flex items-center gap-2 mb-4">
         <Lightbulb className="w-5 h-5 text-indigo-600" />
         <h3 className="text-lg font-semibold text-indigo-900">Guía Rápida de Uso</h3>

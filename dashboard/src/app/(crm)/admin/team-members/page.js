@@ -132,10 +132,10 @@ export default function TeamMembersPage() {
   if (authLoading || !hasAccess || !profile) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
+    <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-8 mb-8 text-white shadow-xl">
+        <div className="bg-indigo-600 rounded-2xl p-8 mb-8 text-white shadow-xl">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-3 mb-2">
@@ -222,7 +222,7 @@ export default function TeamMembersPage() {
 
         {/* Lista de Team Members */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="p-6 border-b bg-gradient-to-r from-slate-50 to-white">
+          <div className="p-6 border-b bg-slate-50">
             <h2 className="text-2xl font-bold text-gray-900">
               Team Members ({teamMembers.length})
             </h2>
@@ -250,7 +250,7 @@ export default function TeamMembersPage() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 flex-1">
-                      <div className="h-12 w-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+                      <div className="h-12 w-12 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-lg">
                         {member.full_name.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1">

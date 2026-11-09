@@ -278,7 +278,7 @@ export default function PasajerosManager({
     >
       <div className="space-y-4">
         {/* Resumen general */}
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-200">
+        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div>
               <p className="text-sm text-gray-600">Total Pasajeros</p>

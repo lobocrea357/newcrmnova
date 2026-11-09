@@ -13,7 +13,7 @@ export default function TopAsesorCard({ asesor, tipo = 'Asesor' }) {
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0)
 
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-amber-400 via-yellow-500 to-orange-500 rounded-2xl p-6 text-white shadow-xl">
+    <div className="relative overflow-hidden bg-amber-400 rounded-2xl p-6 text-white shadow-xl">
       {/* Fondo decorativo */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -translate-y-8 translate-x-8" />
       <div className="absolute bottom-0 left-0 w-20 h-20 bg-white opacity-10 rounded-full translate-y-6 -translate-x-6" />

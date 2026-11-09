@@ -6,14 +6,6 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { Toaster } from "react-hot-toast";
 import ToastNotifications from "@/components/notifications/ToastNotifications";
 
-// Auto-inicializar sistema de cron solo en servidor
-if (typeof window === "undefined") {
-  // Importar dinámicamente para evitar problemas en el cliente
-  import("../lib/cronInitializer").then(({ autoInitialize }) => {
-    autoInitialize().catch(console.error);
-  });
-}
-
 // Fuente autoalojada (el build en Docker no puede descargar Google Fonts).
 import "@fontsource-variable/onest";
 

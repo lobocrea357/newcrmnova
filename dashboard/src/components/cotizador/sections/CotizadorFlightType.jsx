@@ -59,7 +59,7 @@ export default function CotizadorFlightType({
           Tipo de Vuelo
         </label>
       </div>
-      <div className="grid grid-cols-3 gap-3 p-1.5 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border-2 border-slate-200 shadow-inner">
+      <div className="grid grid-cols-3 gap-3 p-1.5 bg-slate-50 rounded-xl border-2 border-slate-200 shadow-inner">
         <button
           type="button"
           onClick={() => handleTipoVueloChange('idaVuelta')}

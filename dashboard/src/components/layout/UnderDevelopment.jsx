@@ -47,7 +47,7 @@ const UnderDevelopment = ({
         )}
 
         {/* Características próximamente */}
-       {/*  <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-6 shadow-sm border border-gray-200 mb-8">
+       {/*  <div className="bg-gray-50 rounded-xl p-6 shadow-sm border border-gray-200 mb-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             ¿Qué estamos preparando?
           </h3>

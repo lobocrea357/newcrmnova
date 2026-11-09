@@ -367,7 +367,7 @@ export default function ChatView({ chatId, onClose, onMessagesLoaded, readOnly =
   return (
     <div className="relative flex flex-col h-full">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-3 sm:px-6 py-3 sm:py-4 shadow-md">
+      <div className="bg-blue-600 px-3 sm:px-6 py-3 sm:py-4 shadow-md">
         <div className="flex items-center justify-between gap-2 sm:gap-4">
           {/* Botón volver + Avatar + Info */}
           <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">

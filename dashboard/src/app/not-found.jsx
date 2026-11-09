@@ -31,7 +31,7 @@ const NotFound = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center px-4">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
             <div className="max-w-2xl w-full text-center">
                 {/* Icono animado */}
                 <div className="mb-8 flex justify-center">

@@ -22,7 +22,7 @@ export default function BannerEdicion({ cotizacion, onCancel }) {
   };
 
   return (
-    <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4 shadow-md animate-fade-in">
+    <div className="mb-6 bg-amber-50 border-2 border-amber-300 rounded-xl p-4 shadow-md animate-fade-in">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3 flex-1">
           <div className="flex items-center justify-center w-10 h-10 bg-amber-500 rounded-lg flex-shrink-0">

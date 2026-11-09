@@ -187,6 +187,6 @@ export function porAsesor(evals) {
 
 export const fmtPct = (v) => (v == null ? '—' : `${Math.round(v)}%`);
 export const fmtUsd = (v) =>
-  v ? new Intl.NumberFormat('es', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v) : '—';
+  v ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v) : '—';
 export const fmtFecha = (d) =>
   d ? new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(d)) : '';

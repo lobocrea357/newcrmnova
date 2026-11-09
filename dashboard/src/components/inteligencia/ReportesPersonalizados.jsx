@@ -6,7 +6,6 @@ import { useUserProfile } from '@/contexts/UserProfileContext'
 import { getBotsForUser } from '@/lib/supabase'
 import { isOtherBot, parseBotSessionName } from '@/lib/botNameParser'
 import { generateCustomPdfReport } from '@/lib/conversaciones/generateCustomPdfReport'
-import Breadcrumb from '@/components/ui/Breadcrumb'
 import {
   FileSpreadsheet,
   Brain,
@@ -76,7 +75,7 @@ const SAMPLE_OPTIONS = [
   { value: 25, label: '25 chats por asesor (Exhaustivo)' },
 ]
 
-export default function CustomReportsPage() {
+export default function ReportesPersonalizados() {
   const { session } = useAuth()
   const { isSuperAdmin, isAdmin, isManager } = useUserProfile()
 
@@ -231,33 +230,16 @@ _Generado automáticamente por el CRM Viajes Nova_`
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/60 py-8 text-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        
-        {/* Breadcrumb */}
-        <Breadcrumb items={[
-          { label: 'Dashboard', href: '/' },
-          { label: 'Reportes Personalizados', href: '/admin/reportes-personalizados' }
-        ]} />
+    <div className="space-y-6 text-gray-900">
+      <div className="space-y-6">
 
         {/* Header */}
-        <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-200/80 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md flex-shrink-0">
-              <FileSpreadsheet className="w-7 h-7" />
-            </div>
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60 mb-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                Auditoría IA Avanzada
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
-                Reportes Personalizados
-              </h1>
-              <p className="text-sm text-gray-500 mt-1 max-w-2xl">
-                Selecciona las sesiones de WAHA a auditar (sin incluir others), define tus requerimientos y genera tu reporte corporativo en PDF con análisis directo de las conversaciones.
-              </p>
-            </div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-tinta">Reporte a medida</h2>
+            <p className="mt-1 max-w-2xl text-sm text-gray-500">
+              Elige los asesores, escribe qué quieres saber y la IA revisa sus conversaciones y arma un informe en PDF.
+            </p>
           </div>
 
           <div className="flex items-center gap-3 self-end md:self-auto">
@@ -518,7 +500,7 @@ _Generado automáticamente por el CRM Viajes Nova_`
                 <button
                   onClick={handleGenerateReport}
                   disabled={generating || selectedBotIds.length === 0 || !userPrompt.trim()}
-                  className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3.5 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
                 >
                   {generating ? (
                     <>
@@ -817,7 +799,7 @@ _Generado automáticamente por el CRM Viajes Nova_`
 
             {/* Recomendaciones Estratégicas */}
             {reportResult.aiNarrative.strategicRecommendations?.length > 0 && (
-              <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-2xl p-6">
+              <div className="bg-indigo-900 text-white rounded-2xl p-6">
                 <h3 className="text-base font-bold mb-3 flex items-center gap-2 text-amber-400">
                   <Sparkles className="w-4 h-4" />
                   Plan de Acción y Recomendaciones Estratégicas

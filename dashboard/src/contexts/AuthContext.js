@@ -33,7 +33,9 @@ export const AuthProvider = ({ children }) => {
         if (event === 'SIGNED_OUT' || !session) {
           setUser(null)
           setSession(null)
-          if (initialized) {
+          // En desarrollo, el muestrario /dev-kit se ve sin sesión.
+          const devKit = process.env.NODE_ENV !== 'production' && typeof window !== 'undefined' && window.location.pathname.startsWith('/dev-kit')
+          if (initialized && !devKit) {
             router.push('/login')
           }
         } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {

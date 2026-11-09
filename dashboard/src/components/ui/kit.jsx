@@ -74,12 +74,12 @@ export function Badge({ tone = 'neutral', children, className, dot = false }) {
 export function Stat({ label, value, hint, tone, icon: Icon }) {
   const valueTone = { success: 'text-green-700', danger: 'text-red-700', warning: 'text-amber-700', nova: 'text-nova-700' }[tone] || 'text-tinta';
   return (
-    <div className="rounded-xl border border-linea bg-white px-5 py-4">
+    <div className="rounded-xl border border-linea bg-white px-4 py-3.5 sm:px-5 sm:py-4">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-gray-500">{label}</p>
         {Icon && <Icon className="h-4 w-4 text-gray-400" strokeWidth={1.8} />}
       </div>
-      <p className={cx('mt-1.5 text-[28px] font-semibold leading-none tabular', valueTone)}>{value}</p>
+      <p className={cx('mt-1.5 text-2xl sm:text-[28px] font-semibold leading-none tabular', valueTone)}>{value}</p>
       {hint && <p className="mt-2 text-xs text-gray-500">{hint}</p>}
     </div>
   );
@@ -107,7 +107,7 @@ export function Button({ variant = 'secondary', size = 'md', href, className, ch
 /** Pestañas como enlaces (cada una con su URL). */
 export function Tabs({ tabs, active, className }) {
   return (
-    <nav className={cx('flex gap-1 overflow-x-auto border-b border-linea', className)} aria-label="Secciones">
+    <nav className={cx('flex gap-1 overflow-x-auto border-b border-linea [scrollbar-width:none]', className)} aria-label="Secciones">
       {tabs.map((t) => {
         const on = t.id === active;
         return (

@@ -68,7 +68,7 @@ export default function UserList({ users, roles, onEdit, onToggleStatus, loading
           <div key={user.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-all">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold">
+                <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
                   {getInitials(user.full_name)}
                 </div>
                 <div>
@@ -134,7 +134,7 @@ export default function UserList({ users, roles, onEdit, onToggleStatus, loading
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
                     <div className="flex-shrink-0 h-9 w-9">
-                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs font-semibold">
+                      <div className="h-9 w-9 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-semibold">
                         {getInitials(user.full_name)}
                       </div>
                     </div>

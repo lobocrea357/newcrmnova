@@ -1,4 +1,7 @@
 'use client';
 
-// Reportes personalizados (Gemini). Pendiente: quitar su cabecera propia dentro del centro.
-export { default } from '../../admin/reportes-personalizados/page';
+import ReportesPersonalizados from '@/components/inteligencia/ReportesPersonalizados';
+
+export default function ReportesIA() {
+  return <ReportesPersonalizados />;
+}
