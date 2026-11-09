@@ -5,6 +5,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { TEAM_MEMBERS_API } from "@/config/apiConfig";
 import { Users, Plus, Trash2, Edit2, Check, X, Phone, User, AlertCircle } from "lucide-react";
 import Swal from "sweetalert2";
+import { PageHeader, Button } from '@/components/ui/kit'
 
 export default function TeamMembersPage() {
   const { isSuperAdmin, isAdmin, isManager, loading: authLoading, profile } = useUserProfile();
@@ -134,29 +135,15 @@ export default function TeamMembersPage() {
   return (
     <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="bg-indigo-600 rounded-2xl p-8 mb-8 text-white shadow-xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="bg-white/20 p-2 rounded-lg">
-                  <Users className="h-8 w-8" />
-                </div>
-                <h1 className="text-4xl font-bold">Gestión de Team Members</h1>
-              </div>
-              <p className="text-indigo-100 text-lg">
-                Números corporativos excluidos de threads PoC
-              </p>
-            </div>
-            <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="bg-white/20 hover:bg-white/30 px-6 py-3 rounded-lg font-semibold transition-all flex items-center gap-2"
-            >
-              <Plus className="h-5 w-5" />
-              Agregar
-            </button>
-          </div>
-        </div>
+        <PageHeader
+          title="Números del equipo"
+          description="Teléfonos corporativos (asesores, pagos, emisiones). Sus chats no cuentan como clientes en la auditoría IA ni en los seguimientos."
+          actions={
+            <Button variant="primary" onClick={() => setShowAddForm(!showAddForm)}>
+              <Plus className="h-4 w-4" /> Agregar número
+            </Button>
+          }
+        />
 
         {/* Formulario Agregar */}
         {showAddForm && (

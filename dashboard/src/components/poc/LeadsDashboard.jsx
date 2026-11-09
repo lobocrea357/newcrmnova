@@ -294,7 +294,7 @@ export default function LeadsDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard de Leads</h1>
+          <h1 className="text-2xl font-semibold text-tinta">Dashboard de Leads</h1>
           <p className="text-sm text-gray-500 mt-1">Estadísticas y gestión de leads POC</p>
         </div>
         <button

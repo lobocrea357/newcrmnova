@@ -138,7 +138,7 @@ export default function ConfiguracionPage() {
             <div className="flex items-center gap-3">
               <Settings className="h-8 w-8 text-blue-600" />
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">
+                <h1 className="text-2xl font-semibold text-tinta">
                   Configuración
                 </h1>
                 <p className="text-gray-600 mt-1">

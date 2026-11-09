@@ -199,7 +199,7 @@ export default function UsuariosPage() {
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Shield className="h-8 w-8 text-red-600" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            <h1 className="text-2xl font-semibold text-tinta mb-2">
               Acceso Restringido
             </h1>
             <p className="text-gray-600 mb-6">
@@ -245,7 +245,7 @@ export default function UsuariosPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
               <div className="flex-1">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-3">
+                <h1 className="text-2xl font-semibold text-tinta flex items-center gap-3">
                   <Shield className="h-7 w-7 sm:h-8 sm:w-8 text-blue-600 flex-shrink-0" />
                   <span className="leading-tight">Gestión de Usuarios y Permisos</span>
                 </h1>

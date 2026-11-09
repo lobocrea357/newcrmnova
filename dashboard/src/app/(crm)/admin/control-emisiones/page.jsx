@@ -118,7 +118,7 @@ export default function ControlEmisionesPage() {
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <Package className="w-8 h-8 text-indigo-600" />
-                <h1 className="text-3xl font-bold text-gray-900">Control de Emisiones</h1>
+                <h1 className="text-2xl font-semibold text-tinta">Control de Emisiones</h1>
               </div>
               <p className="text-gray-600">
                 {datos?.total_general || 0} vuelos pendientes de autorización

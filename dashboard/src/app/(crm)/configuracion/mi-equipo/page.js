@@ -144,7 +144,7 @@ export default function MiEquipoPage() {
     return (
       <div className="p-8 text-center max-w-2xl mx-auto">
         <Shield className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-        <h1 className="text-2xl font-bold text-gray-900">No tienes un equipo asignado</h1>
+        <h1 className="text-2xl font-semibold text-tinta">No tienes un equipo asignado</h1>
         <p className="text-gray-600 mt-2">Como gerente, necesitas estar asignado a un equipo para gestionarlo. Contacta con un administrador.</p>
         <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
           <p className="text-sm text-amber-800">
@@ -177,7 +177,7 @@ export default function MiEquipoPage() {
                 <Users className="w-8 h-8" />
               </div>
               <div>
-                <h1 className="text-2xl font-black text-gray-900">{equipo?.nombre || 'Gestión de Equipo'}</h1>
+                <h1 className="text-2xl font-semibold text-tinta">{equipo?.nombre || 'Gestión de Equipo'}</h1>
                 <p className="text-gray-500 text-sm">Administra los miembros de tu equipo de ventas</p>
               </div>
             </div>

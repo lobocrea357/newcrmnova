@@ -67,7 +67,7 @@ export default function DashboardEmisiones() {
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <BarChart3 className="w-8 h-8 text-indigo-600" />
-                <h1 className="text-3xl font-bold text-gray-900">Dashboard de Emisiones</h1>
+                <h1 className="text-2xl font-semibold text-tinta">Dashboard de Emisiones</h1>
               </div>
               <p className="text-gray-600">Métricas y estadísticas del módulo de emisiones</p>
             </div>

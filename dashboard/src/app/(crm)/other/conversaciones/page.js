@@ -29,6 +29,7 @@ import ConversationsFiltersPanel from '@/components/conversaciones/Conversations
 import AdvisorsList from '@/components/conversaciones/AdvisorsList'
 import ConversationsList from '@/components/conversaciones/ConversationsList'
 import { RefreshCw } from "lucide-react";
+import { Page, PageHeader, Button } from '@/components/ui/kit'
 
 function OtherDashboardContent() {
   const { user, session } = useAuth();
@@ -533,7 +534,7 @@ function OtherDashboardContent() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div>
       {/* Modal de Ventas */}
       <SalesModal
         isOpen={salesModalOpen}
@@ -552,16 +553,16 @@ function OtherDashboardContent() {
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-end gap-2 mb-4">
-          <button
-            type="button"
-            onClick={() => setCompactMode((prev) => !prev)}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-white text-xs text-gray-700 hover:bg-gray-50"
-          >
-            Vista: {compactMode ? "Compacta" : "Detallada"}
-          </button>
-        </div>
+      <Page wide>
+        <PageHeader
+          title="Bots externos"
+          description="Chats de los bots _other: elige un bot a la izquierda para ver sus conversaciones."
+          actions={
+            <Button size="sm" onClick={() => setCompactMode((prev) => !prev)} aria-pressed={compactMode}>
+              {compactMode ? "Vista detallada" : "Vista compacta"}
+            </Button>
+          }
+        />
 
         {/* Stats */}
         <StatsCards
@@ -635,7 +636,7 @@ function OtherDashboardContent() {
             formatBotStatus={formatBotStatus}
           />
         </div>
-      </main>
+      </Page>
 
       <ReportModal
         isOpen={reportModalOpen}

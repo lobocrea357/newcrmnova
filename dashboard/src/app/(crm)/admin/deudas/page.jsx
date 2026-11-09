@@ -189,7 +189,7 @@ export default function DeudasPage() {
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <CreditCard className="w-8 h-8 text-indigo-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Gestión de Deudas</h1>
+            <h1 className="text-2xl font-semibold text-tinta">Gestión de Deudas</h1>
           </div>
           <p className="text-gray-600">Control de deudas con proveedores y registro de pagos</p>
         </div>
